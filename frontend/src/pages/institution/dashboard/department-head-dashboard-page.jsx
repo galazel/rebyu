@@ -10,20 +10,33 @@ import {
   Download,
   GraduationCap,
   Layers,
+  MailIcon,
+  Plus,
   TargetIcon,
   UserCheck,
   UsersRoundIcon,
 } from "@/components/icons"
-import { DepartmentOverviewStrip } from "@/components/institution/department-overview-strip.jsx"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
-import { getDepartments } from "@/services/institutionService.js"
+import {
+  getDepartments,
+  getGroupLearnerRoster,
+  getGroupSections,
+} from "@/services/institutionService.js"
+import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
@@ -44,16 +57,6 @@ import {
   readinessColor,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
-import { CohortMasteryHeatmap } from "@/components/institution/cohort-mastery-heatmap.jsx"
-import { DEV_CERTIFICATIONS } from "@/constants/dev-department-data.js"
-
-/* The programme columns the heatmap is divided by. In production this comes
-   from the certifications the department actually runs; the dev fixture is the
-   single source that also drives the programme tiles. */
-const DEV_PROGRAMME_COLUMNS = DEV_CERTIFICATIONS.map((cert) => ({
-  key: String(cert.certificationId),
-  name: cert.title.replace(/^BS /, ""),
-}))
 
 /* The trend tile's icon. Declared here rather than added to the shared icon
    barrel: it is used on this page only. */
@@ -309,6 +312,41 @@ export default function DepartmentHeadDashboardPage() {
      department (its access window), and the certification it studies. Both
      come from data the page already fetches -- no new endpoint. */
   const overviewGroup = groups[0] ?? null
+  const primaryDeptId = overviewGroup?.departmentId ?? overviewGroup?.id
+  const [createSectionOpen, setCreateSectionOpen] = useState(false)
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
+
+  const sectionsQuery = useQuery({
+    queryKey: ["department-sections", primaryDeptId],
+    queryFn: () => getGroupSections(primaryDeptId),
+    enabled: primaryDeptId != null,
+  })
+  const sections = useMemo(
+    () => (Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []),
+    [sectionsQuery.data]
+  )
+
+  const rosterQuery = useQuery({
+    queryKey: ["department-learner-roster", primaryDeptId],
+    queryFn: () => getGroupLearnerRoster(primaryDeptId),
+    enabled: primaryDeptId != null,
+  })
+  const sectionByLearnerId = useMemo(() => {
+    const map = new Map()
+    if (Array.isArray(rosterQuery.data)) {
+      for (const row of rosterQuery.data) {
+        if (row.learnerId != null) {
+          map.set(row.learnerId, {
+            sectionId: row.sectionId,
+            sectionName: row.sectionName,
+            departmentLearnerId: row.departmentLearnerId,
+          })
+        }
+      }
+    }
+    return map
+  }, [rosterQuery.data])
+
   const overviewCert = overviewGroup
     ? instData.certificationById.get(
         instData.institutionCertById.get(overviewGroup.institutionCertId)?.certificationId
@@ -351,10 +389,14 @@ export default function DepartmentHeadDashboardPage() {
     return allMembers
       .map((m) => {
         const dept = deptLookup.get(m.learnerId)
+        const sectionInfo = sectionByLearnerId.get(m.learnerId)
         return {
           ...m,
           departmentId: dept?.departmentId,
           departmentName: dept?.departmentName,
+          sectionId: sectionInfo?.sectionId ?? null,
+          sectionName: sectionInfo?.sectionName ?? null,
+          departmentLearnerId: sectionInfo?.departmentLearnerId ?? null,
           flag: flagFor(m),
         }
       })
@@ -363,12 +405,19 @@ export default function DepartmentHeadDashboardPage() {
         if (Boolean(a.flag) !== Boolean(b.flag)) return a.flag ? -1 : 1
         return Number(a.averageProgress ?? 0) - Number(b.averageProgress ?? 0)
       })
-  }, [allMembers, instData.assignments, instData.groupByInstitutionCertLearnerId, assignedDeptIds, groups, flagFor])
+  }, [allMembers, instData.assignments, instData.groupByInstitutionCertLearnerId, assignedDeptIds, groups, flagFor, sectionByLearnerId])
 
   const flaggedCount = useMemo(
     () => deptLearners.filter((learner) => learner.flag).length,
     [deptLearners]
   )
+
+  const filteredLearners = useMemo(() => {
+    if (selectedSectionFilter === "all") return deptLearners
+    if (selectedSectionFilter === "none") return deptLearners.filter((l) => l.sectionId == null)
+    const targetSectionId = Number(selectedSectionFilter)
+    return deptLearners.filter((l) => l.sectionId === targetSectionId)
+  }, [deptLearners, selectedSectionFilter])
 
   /* Each learner's weakest lesson against the cohort average for that same
      lesson and the benchmark -- the "is this one learner or the whole class"
@@ -896,7 +945,7 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // Sections, with the headcount the old bar chart threw away.
+      // Section management & cohort breakdown
       {
         id: "dept-section-breakdown",
         col: 6,
@@ -907,42 +956,122 @@ export default function DepartmentHeadDashboardPage() {
           <BentoTile col={6} row={1} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <DashboardCardHeader
-                icon={Building2}
-                kicker="Internal Benchmark"
-                title="Sections you are responsible for"
-                hint="Headcount, finishers and average completion against the 60% benchmark."
+                icon={Layers}
+                kicker="Section Management"
+                title="Sections & Cohorts"
+                hint="Active classes, learner headcount, pending invitations, and benchmark progress."
+                action={
+                  primaryDeptId ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => setCreateSectionOpen(true)}
+                      >
+                        <Plus className="size-3.5" aria-hidden="true" />
+                        New section
+                      </Button>
+                      <Button asChild size="sm" variant="ghost" className="h-7 text-xs gap-1">
+                        <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
+                          <Layers className="size-3.5" aria-hidden="true" />
+                          Manage in workspace
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : null
+                }
               />
-              {departmentStatsQuery.isError ? (
+              {sectionsQuery.isLoading ? (
+                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                  <p>Loading sections...</p>
+                </div>
+              ) : sectionsQuery.isError ? (
                 <p className="text-sm text-muted-foreground">Section stats could not be loaded.</p>
-              ) : groupStats.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No sections assigned to you yet.</p>
+              ) : sections.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-sm text-muted-foreground">
+                  <Layers className="mb-2 size-8 text-muted-foreground/40" />
+                  <p>No sections created yet in this department.</p>
+                  <p className="text-xs text-muted-foreground/70 mb-3">
+                    Create classes or cohorts to organize learners into groups.
+                  </p>
+                  {primaryDeptId ? (
+                    <Button
+                      size="sm"
+                      onClick={() => setCreateSectionOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                      Create first section
+                    </Button>
+                  ) : null}
+                </div>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2">
-                  {groupStats.map((group) => {
-                    const progress = Math.round(Number(group.averageProgress ?? 0))
+                <div className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {sections.map((section) => {
+                    const sectionLearners = deptLearners.filter(
+                      (l) => l.sectionId === section.sectionId
+                    )
+                    const totalInSection =
+                      section.learnerCount != null
+                        ? Number(section.learnerCount)
+                        : sectionLearners.length
+                    const progress = sectionLearners.length
+                      ? Math.round(
+                          sectionLearners.reduce(
+                            (sum, l) => sum + Number(l.averageProgress ?? 0),
+                            0
+                          ) / sectionLearners.length
+                        )
+                      : 0
+                    const pendingCount = Number(section.pendingInvitationCount ?? 0)
+
                     return (
                       <div
-                        key={group.departmentId}
-                        className="flex flex-wrap items-center gap-x-4 gap-y-1"
+                        key={section.sectionId}
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
                       >
-                        <span className="w-40 shrink-0 truncate text-xs font-bold text-foreground">
-                          {group.departmentName}
-                        </span>
-                        <Progress value={progress} className="h-2 min-w-[120px] flex-1" />
-                        <span className="w-10 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
-                          {progress}%
-                        </span>
-                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                          {count(group.learners)} learner{group.learners === 1 ? "" : "s"} ·{" "}
-                          {count(group.completedLearners)} finished
-                        </span>
-                        <span
-                          className={`shrink-0 text-[11px] font-semibold ${
-                            progress >= 60 ? "text-rb-leaf" : "text-muted-foreground"
-                          }`}
-                        >
-                          {progress >= 60 ? "on benchmark" : `${60 - progress} pts below`}
-                        </span>
+                        <div className="min-w-0 flex-1 sm:min-w-[180px]">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/institution/departments/${primaryDeptId}?tab=learners`}
+                              className="font-bold text-xs text-foreground hover:underline truncate"
+                            >
+                              {section.sectionName}
+                            </Link>
+                            {pendingCount > 0 ? (
+                              <Badge
+                                variant="secondary"
+                                className="gap-1 border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                              >
+                                <MailIcon className="size-3" aria-hidden="true" />
+                                {pendingCount} pending
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {section.programName ? `${section.programName} · ` : ""}
+                            {section.certificationTitle || "General"}
+                            {section.description ? ` · ${section.description}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 w-32">
+                            <Progress value={progress} className="h-1.5 flex-1" />
+                            <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
+                              {progress}%
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {count(totalInSection)} {totalInSection === 1 ? "student" : "students"}
+                          </Badge>
+                          <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                            <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
+                              Open
+                            </Link>
+                          </Button>
+                        </div>
                       </div>
                     )
                   })}
@@ -966,6 +1095,34 @@ export default function DepartmentHeadDashboardPage() {
                 kicker="Department Roster"
                 title="Student roster & who needs a conversation"
                 hint="Anyone flagged sits at the top, with the reason beside their name."
+                action={
+                  sections.length > 0 ? (
+                    <div className="w-48">
+                      <Select
+                        value={selectedSectionFilter}
+                        onValueChange={setSelectedSectionFilter}
+                      >
+                        <SelectTrigger className="h-7 text-xs bg-background">
+                          <SelectValue placeholder="All sections" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All sections ({deptLearners.length})</SelectItem>
+                          {sections.map((s) => {
+                            const c = deptLearners.filter((l) => l.sectionId === s.sectionId).length
+                            return (
+                              <SelectItem key={s.sectionId} value={String(s.sectionId)}>
+                                {s.sectionName} ({c})
+                              </SelectItem>
+                            )
+                          })}
+                          <SelectItem value="none">
+                            Unassigned ({deptLearners.filter((l) => l.sectionId == null).length})
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null
+                }
                 chip={
                   <>
                     {flaggedCount > 0 ? (
@@ -999,18 +1156,20 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               ) : (
                 <div className="min-h-0 flex-1 overflow-x-auto">
-                  <table className="w-full text-sm" style={{ minWidth: 640 }}>
+                  <table className="w-full text-sm" style={{ minWidth: 680 }}>
                     <colgroup>
                       <col style={{ width: "22%" }} />
-                      <col style={{ width: "26%" }} />
-                      <col style={{ width: "22%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "10%" }} />
-                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "8%" }} />
                     </colgroup>
                     <thead className="sticky top-0 bg-background z-10">
                       <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
                         <th className="py-2.5 pl-2 pr-3 text-left">Student Name</th>
+                        <th className="py-2.5 px-3 text-left">Section</th>
                         <th className="py-2.5 px-3 text-left">Needs attention</th>
                         <th className="py-2.5 px-3 text-left">Progress</th>
                         <th className="py-2.5 px-2 text-center">Lessons</th>
@@ -1019,51 +1178,68 @@ export default function DepartmentHeadDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {deptLearners.map((learner) => (
-                        <tr
-                          key={learner.learnerId}
-                          className="border-b border-border/40 hover:bg-muted/40 transition-colors"
-                        >
-                          <td className="py-2.5 pl-2 pr-3">
-                            <Link
-                              to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
-                              className="font-bold text-foreground hover:underline text-xs"
-                            >
-                              {learner.name || `Learner #${learner.learnerId}`}
-                            </Link>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {learner.flag ? (
-                              <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
-                                <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-                                <span className="truncate">{learner.flag}</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-2 max-w-[140px]">
-                              <Progress
-                                value={Number(learner.averageProgress ?? 0)}
-                                className="h-2 flex-1 rounded-full"
-                              />
-                              <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
-                                {percent(learner.averageProgress)}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                            {count(learner.lessonsCompleted)}
-                          </td>
-                          <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                            {count(learner.gradedAttempts)}
-                          </td>
-                          <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
-                            {percent(learner.averageScore)}
+                      {filteredLearners.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-xs text-muted-foreground">
+                            No students in this section.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredLearners.map((learner) => (
+                          <tr
+                            key={learner.learnerId}
+                            className="border-b border-border/40 hover:bg-muted/40 transition-colors"
+                          >
+                            <td className="py-2.5 pl-2 pr-3">
+                              <Link
+                                to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
+                                className="font-bold text-foreground hover:underline text-xs"
+                              >
+                                {learner.name || `Learner #${learner.learnerId}`}
+                              </Link>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {learner.sectionName ? (
+                                <Badge variant="outline" className="text-[11px] font-medium border-border/80">
+                                  {learner.sectionName}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/60 italic">Unassigned</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {learner.flag ? (
+                                <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
+                                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                                  <span className="truncate">{learner.flag}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2 max-w-[140px]">
+                                <Progress
+                                  value={Number(learner.averageProgress ?? 0)}
+                                  className="h-2 flex-1 rounded-full"
+                                />
+                                <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
+                                  {percent(learner.averageProgress)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                              {count(learner.lessonsCompleted)}
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                              {count(learner.gradedAttempts)}
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
+                              {percent(learner.averageScore)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1092,6 +1268,12 @@ export default function DepartmentHeadDashboardPage() {
     flaggedCount,
     groupStats,
     deptLearners,
+    filteredLearners,
+    selectedSectionFilter,
+    sections,
+    sectionsQuery.isLoading,
+    sectionsQuery.isError,
+    primaryDeptId,
     groups,
     statsQuery.isError,
     statsQuery.data,
@@ -1136,6 +1318,16 @@ export default function DepartmentHeadDashboardPage() {
         editing={layout.rearranging}
         onLayoutChange={layout.handleLayoutChange}
       />
+
+      {createSectionOpen && primaryDeptId ? (
+        <SectionDialog
+          open={createSectionOpen}
+          onOpenChange={setCreateSectionOpen}
+          departmentId={primaryDeptId}
+          institutionCertId={overviewGroup?.institutionCertId ?? null}
+          certifications={overviewGroup?.certifications ?? []}
+        />
+      ) : null}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { BookOpenIcon, GraduationCapIcon, PencilIcon, PlusIcon, Trash2Icon, UsersRoundIcon } from "@/components/icons"
+import { BookOpenIcon, GraduationCapIcon, Layers, PencilIcon, PlusIcon, Trash2Icon, UsersRoundIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -116,12 +116,20 @@ export default function DepartmentHeadProgramsPage() {
             <section key={deptId} className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-rb-display text-lg font-bold text-foreground">{deptName}</h2>
-                <Button size="sm" onClick={() =>
-                    setAddingTo({ deptId, deptName, certifications, existingCodes })
-                  }>
-                  <PlusIcon className="size-4" />
-                  Add program
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/institution/departments/${deptId}?tab=learners`}>
+                      <Layers className="size-4" />
+                      Manage sections
+                    </Link>
+                  </Button>
+                  <Button size="sm" onClick={() =>
+                      setAddingTo({ deptId, deptName, certifications, existingCodes })
+                    }>
+                    <PlusIcon className="size-4" />
+                    Add program
+                  </Button>
+                </div>
               </div>
 
               {query?.isLoading ? (
