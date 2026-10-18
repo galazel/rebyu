@@ -31,7 +31,16 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.tutor.tutor_agent import STREAMING_SYSTEM_PROMPT
 from app.ai import tasks
 from app.ai.streaming import astream_with_fallback
-from app.ai.tutor_widgets import MAX_WIDGETS, TOOL_RULES, TOOLS, normalize, requested_tool
+from app.ai.tutor_widgets import (
+    MAX_QUIZ_QUESTIONS,
+    MIN_QUIZ_QUESTIONS,
+    MAX_WIDGETS,
+    TOOL_RULES,
+    TOOLS,
+    normalize,
+    requested_quiz_count,
+    requested_tool,
+)
 from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.graphs.tutor.nodes import _earlier_turns, build_tutor_messages, with_quote
 from app.graphs.tutor.workflow import get_tutor_graph
@@ -148,6 +157,13 @@ BREVITY = (
 )
 
 
+def quiz_count_reply() -> str:
+    return (
+        f"I can make a quiz with {MIN_QUIZ_QUESTIONS} to {MAX_QUIZ_QUESTIONS} questions. "
+        "Choose a number in that range (for example, 10), and I'll create it from this lesson."
+    )
+
+
 def _resource_query(request: str, earlier: list, quote: str | None = None) -> str | None:
     """What to search for, or None for no search.
 
@@ -199,6 +215,13 @@ async def stream_tutor_answer(
             {"type": "image_url", "image_url": {"url": image}},
         ])
     profile = [SystemMessage(content=learner_profile)] if learner_profile else []
+    quiz_count = requested_quiz_count(request)
+    quiz_size_instruction = (
+        [SystemMessage(content=(
+            f"The learner explicitly requested {quiz_count} quiz questions. Call show_quiz with exactly "
+            f"{quiz_count} valid questions; never pad with duplicates."))]
+        if quiz_count is not None and MIN_QUIZ_QUESTIONS <= quiz_count <= MAX_QUIZ_QUESTIONS else []
+    )
     messages = [
         SystemMessage(content=STREAMING_SYSTEM_PROMPT + TOOL_RULES),
         *turn[:-1],
@@ -208,11 +231,22 @@ async def stream_tutor_answer(
         *profile,
         SystemMessage(content=scope_check(lesson_name)),
         SystemMessage(content=BREVITY),
+        *quiz_size_instruction,
         question,
     ]
 
     if lesson_context and not image and not quote and not asks_for_resources(request)             and not await _in_lesson_scope(request, lesson_name, lesson_context, earlier):
         reply = out_of_scope_reply(lesson_name)
+        yield {"type": "delta", "text": reply}
+        await append_messages(session_id, [
+            {"role": "user", "content": request},
+            {"role": "assistant", "content": reply},
+        ])
+        yield {"type": "done"}
+        return
+
+    if quiz_count is not None and not MIN_QUIZ_QUESTIONS <= quiz_count <= MAX_QUIZ_QUESTIONS:
+        reply = quiz_count_reply()
         yield {"type": "delta", "text": reply}
         await append_messages(session_id, [
             {"role": "user", "content": request},
@@ -261,6 +295,7 @@ async def stream_tutor_answer(
                 *profile,
                 SystemMessage(content=scope_check(lesson_name)),
                 SystemMessage(content=BREVITY),
+                *quiz_size_instruction,
                 HumanMessage(content=asked),
             ]
             async for piece in astream_with_fallback(text_only, task=tasks.TUTOR, tools=TOOLS):

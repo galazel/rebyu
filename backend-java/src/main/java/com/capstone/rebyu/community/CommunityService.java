@@ -19,6 +19,7 @@ import com.capstone.rebyu.community.repository.CommunityPostRow;
 import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
+import com.capstone.rebyu.gamification.repository.NotificationPreferenceRepository;
 import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
 import com.capstone.rebyu.learningtools.repository.LearnerLibraryItemRepository;
 import com.capstone.rebyu.user.entity.Learner;
@@ -57,6 +58,7 @@ public class CommunityService {
     private final CommunityPostViewRepository postViewRepository;
     private final CommunityPostReportRepository reportRepository;
     private final LearnerCommunityNotificationRepository notificationRepository;
+    private final NotificationPreferenceRepository notificationPreferenceRepository;
     private final LearnerLibraryItemRepository libraryItemRepository;
     private final LearnerRepository learnerRepository;
     private final S3StorageService s3StorageService;
@@ -437,6 +439,13 @@ public class CommunityService {
     private void notifyAuthor(CommunityPost post, Long actorLearnerId, String title, String body, boolean deduplicate) {
         Long authorId = post.getAuthor().getLearnerId();
         if (authorId.equals(actorLearnerId)) {
+            return;
+        }
+        boolean wantsCommunityNotifications = notificationPreferenceRepository
+                .findByLearner_LearnerId(authorId)
+                .map(preference -> !Boolean.FALSE.equals(preference.getSocialNotifications()))
+                .orElse(true);
+        if (!wantsCommunityNotifications) {
             return;
         }
         if (deduplicate && notificationRepository.existsByLearner_LearnerIdAndTitleAndBody(authorId, title, body)) {

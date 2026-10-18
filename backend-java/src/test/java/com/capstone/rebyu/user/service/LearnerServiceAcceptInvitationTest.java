@@ -3,6 +3,7 @@ package com.capstone.rebyu.user.service;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.common.InvitationAcceptanceException;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
@@ -37,6 +38,7 @@ class LearnerServiceAcceptInvitationTest {
     private LearnerRepository learnerRepository;
     private LearnerInvitationRepository invitationRepository;
     private InstitutionCertificationLearnerRepository enrollmentRepository;
+    private LearnerCertificationRepository learnerCertificationRepository;
     private InstitutionCertificateRepository institutionCertRepository;
     private LearnerService service;
 
@@ -48,11 +50,12 @@ class LearnerServiceAcceptInvitationTest {
         learnerRepository = mock(LearnerRepository.class);
         invitationRepository = mock(LearnerInvitationRepository.class);
         enrollmentRepository = mock(InstitutionCertificationLearnerRepository.class);
+        learnerCertificationRepository = mock(LearnerCertificationRepository.class);
         institutionCertRepository = mock(InstitutionCertificateRepository.class);
         service = new LearnerService(
                 learnerRepository, mock(LearnerMapper.class), invitationRepository,
                 enrollmentRepository, institutionCertRepository,
-                mock(LearnerCertificationRepository.class),
+                learnerCertificationRepository,
                 new InvitationTokenService(),
                 mock(DepartmentLearnerRepository.class),
                 mock(AccountDeletionService.class),
@@ -104,6 +107,9 @@ class LearnerServiceAcceptInvitationTest {
                     e.setInstitutionCertLearnerId(100L);
                     return e;
                 });
+        when(learnerCertificationRepository
+                .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+                        9L, 7L, LearnerCertification.Status.active)).thenReturn(Optional.empty());
 
         AcceptInvitationResponse response =
                 service.acceptInvitation(9L, INVITED_EMAIL, RAW_TOKEN);
@@ -113,6 +119,11 @@ class LearnerServiceAcceptInvitationTest {
         assertEquals(100L, response.enrollmentId());
         assertEquals(LearnerInvitation.Status.ACCEPTED, inv.getStatus());
         assertEquals(9L, inv.getLearner().getLearnerId());
+        verify(learnerCertificationRepository).save(org.mockito.ArgumentMatchers.argThat(enrollment ->
+                enrollment.getOrderDetail() == null
+                        && enrollment.getLearner().getLearnerId().equals(9L)
+                        && enrollment.getCertification().getCertificationId().equals(7L)
+                        && enrollment.getStatus() == LearnerCertification.Status.active));
         verify(institutionCertRepository, never()).save(any());
     }
 

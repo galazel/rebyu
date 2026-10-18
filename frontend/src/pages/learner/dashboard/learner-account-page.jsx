@@ -322,6 +322,7 @@ export default function LearnerAccountPage() {
     },
     onSuccess: (saved) => {
       queryClient.setQueryData([NOTIFICATION_PREFERENCE_KEY, "me"], saved)
+      toast.success("Notification preference saved")
     },
   })
 
@@ -625,6 +626,7 @@ export default function LearnerAccountPage() {
                   type="time"
                   className="w-36"
                   value={preferences.dailyReminderTime ?? "09:00"}
+                  disabled={preferenceMutation.isPending}
                   onChange={(event) =>
                       updatePreference("dailyReminderTime", event.target.value)
                   }
