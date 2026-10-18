@@ -12,8 +12,10 @@ import {
   Layers,
   MailIcon,
   Plus,
+  ShieldCheck,
   TargetIcon,
   UserCheck,
+  UserPlus,
   UsersRoundIcon,
 } from "@/components/icons"
 
@@ -32,11 +34,14 @@ import {
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
 import {
+  getDepartmentHeadAssignments,
+  getDepartmentHeadCodeInvitations,
   getDepartments,
   getGroupLearnerRoster,
   getGroupSections,
 } from "@/services/institutionService.js"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
+import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
@@ -314,7 +319,33 @@ export default function DepartmentHeadDashboardPage() {
   const overviewGroup = groups[0] ?? null
   const primaryDeptId = overviewGroup?.departmentId ?? overviewGroup?.id
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
+  const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
+
+  const headCodesQuery = useQuery({
+    queryKey: ["department-head-codes", primaryDeptId],
+    queryFn: () => getDepartmentHeadCodeInvitations(primaryDeptId),
+    enabled: primaryDeptId != null,
+    retry: 1,
+  })
+  const headAssignmentsQuery = useQuery({
+    queryKey: ["department-head-assignments", primaryDeptId],
+    queryFn: () => getDepartmentHeadAssignments({ departmentId: primaryDeptId }),
+    enabled: primaryDeptId != null,
+    retry: 1,
+  })
+  const pendingHeadInvitations = useMemo(
+    () => (Array.isArray(headCodesQuery.data) ? headCodesQuery.data : []).filter(
+      (inv) => (inv?.status ?? "").toUpperCase() === "PENDING"
+    ),
+    [headCodesQuery.data]
+  )
+  const activeHeadAssignments = useMemo(
+    () => (Array.isArray(headAssignmentsQuery.data) ? headAssignmentsQuery.data : []).filter(
+      (a) => (a?.status ?? "active") === "active"
+    ),
+    [headAssignmentsQuery.data]
+  )
 
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", primaryDeptId],
@@ -1082,6 +1113,81 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
+        id: "dept-co-authorities",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 10,
+        element: (
+          <BentoTile tone="plain" col={6} row={2}>
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={ShieldCheck}
+                kicker="Delegation & Faculty Leadership"
+                title="Co-Authorities & Pending Invitations"
+                hint={`${activeHeadAssignments.length} active authority${activeHeadAssignments.length === 1 ? "" : "ies"} · ${pendingHeadInvitations.length} pending code invitation${pendingHeadInvitations.length === 1 ? "" : "s"}`}
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCoAuthoritiesOpen(true)}
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                  >
+                    <UserPlus className="size-3.5" aria-hidden="true" />
+                    Manage Co-Authorities
+                  </Button>
+                }
+              />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <StatBox
+                  label="Active Authorities"
+                  value={count(activeHeadAssignments.length)}
+                  icon={ShieldCheck}
+                  iconClass="text-emerald-600 dark:text-emerald-400"
+                />
+                <StatBox
+                  label="Pending Invitations"
+                  value={count(pendingHeadInvitations.length)}
+                  icon={MailIcon}
+                  iconClass={
+                    pendingHeadInvitations.length > 0
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-muted-foreground"
+                  }
+                />
+                <StatBox
+                  label="Assigned Department"
+                  value={overviewGroup?.departmentName || overviewGroup?.name || "Department"}
+                  icon={Building2}
+                  iconClass="text-sky-600 dark:text-sky-400"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3.5 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                  <span className="font-medium text-foreground">
+                    {pendingHeadInvitations.length > 0
+                      ? `${pendingHeadInvitations.length} invitation code${pendingHeadInvitations.length === 1 ? "" : "s"} waiting to be claimed by faculty`
+                      : "Faculty and assistant deans can co-manage curricula, cohorts, and assessments."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCoAuthoritiesOpen(true)}
+                    className="h-7 text-xs font-semibold text-primary hover:text-primary"
+                  >
+                    Open Delegation Flow
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
         id: "dept-learner-table",
         col: 6,
         row: 2,
@@ -1278,6 +1384,9 @@ export default function DepartmentHeadDashboardPage() {
     statsQuery.isError,
     statsQuery.data,
     departmentStatsQuery.isError,
+    activeHeadAssignments,
+    pendingHeadInvitations,
+    overviewGroup,
   ])
 
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
@@ -1293,6 +1402,24 @@ export default function DepartmentHeadDashboardPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setCoAuthoritiesOpen(true)}
+            className="gap-2"
+            id="dept-header-co-authorities-btn"
+          >
+            <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span>Co-Authorities</span>
+            {pendingHeadInvitations.length > 0 ? (
+              <Badge
+                variant="secondary"
+                className="ml-1 h-5 px-1.5 text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold"
+              >
+                {pendingHeadInvitations.length}
+              </Badge>
+            ) : null}
+          </Button>
+
           <Button
             variant="outline"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
@@ -1326,6 +1453,15 @@ export default function DepartmentHeadDashboardPage() {
           departmentId={primaryDeptId}
           institutionCertId={overviewGroup?.institutionCertId ?? null}
           certifications={overviewGroup?.certifications ?? []}
+        />
+      ) : null}
+
+      {coAuthoritiesOpen && primaryDeptId ? (
+        <CoAuthoritiesDialog
+          open={coAuthoritiesOpen}
+          onOpenChange={setCoAuthoritiesOpen}
+          departmentId={primaryDeptId}
+          departmentName={overviewGroup?.departmentName || overviewGroup?.name}
         />
       ) : null}
     </div>

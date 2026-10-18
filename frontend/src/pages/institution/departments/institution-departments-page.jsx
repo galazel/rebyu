@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Mail, Plus, Trash2, UserCog, UserPlus, Users2, UsersRound } from "@/components/icons"
+import { Loader2, Mail, Plus, ShieldCheck, Trash2, UserCog, UserPlus, Users2, UsersRound } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +39,7 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
+import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import {
   getLearnerDisplayName,
@@ -83,6 +84,7 @@ export function ManageGroupDialog({
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const departmentId = group?.departmentId
+  const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [authorityUserId, setAuthorityUserId] = useState("")
   const [institutionCertLearnerId, setInstitutionCertLearnerId] = useState("")
   const [showInviteForm, setShowInviteForm] = useState(false)
@@ -314,11 +316,23 @@ export function ManageGroupDialog({
           </section>
 
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
-              <h3 className="text-sm font-medium">
-                Authorities ({activeAuthorities.length})
-              </h3>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
+                <h3 className="text-sm font-medium">
+                  Authorities ({activeAuthorities.length})
+                </h3>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-semibold gap-1.5"
+                onClick={() => setCoAuthoritiesOpen(true)}
+              >
+                <ShieldCheck className="size-3.5" aria-hidden="true" />
+                Manage / Invite
+              </Button>
             </div>
 
             {isOwner ? (
@@ -664,6 +678,14 @@ export function ManageGroupDialog({
         </div>
       </DialogContent>
 
+      {coAuthoritiesOpen && departmentId ? (
+        <CoAuthoritiesDialog
+          open={coAuthoritiesOpen}
+          onOpenChange={setCoAuthoritiesOpen}
+          departmentId={departmentId}
+          departmentName={group?.departmentName || group?.name}
+        />
+      ) : null}
     </Dialog>
   )
 }

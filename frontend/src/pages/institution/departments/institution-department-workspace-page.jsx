@@ -60,6 +60,7 @@ import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications
 import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
 import { getCertificationSummary } from "@/services/certificationService.js"
 import { SectionsTab } from "@/components/institution/sections-tab.jsx"
+import { CoAuthoritiesPanel } from "@/components/institution/co-authorities-dialog.jsx"
 import {
   archiveDepartmentAnnouncement,
   updateDepartmentAnnouncement,
@@ -381,6 +382,7 @@ const VALID_TABS = [
   "question-bank",
   "assessments",
   "learners",
+  "authorities",
   "announcements",
 ]
 
@@ -705,6 +707,13 @@ export default function InstitutionDepartmentWorkspacePage() {
           />
         </TabsContent>
 
+        <TabsContent value="authorities" className="mt-0">
+          <CoAuthoritiesPanel
+            departmentId={id}
+            departmentName={group?.departmentName}
+          />
+        </TabsContent>
+
         <TabsContent value="question-bank" className="mt-0 space-y-4">
           <p className="text-sm text-muted-foreground">
             Questions you add here belong to {group?.departmentName || "this department"}:
@@ -768,6 +777,7 @@ export default function InstitutionDepartmentWorkspacePage() {
 
 const WORKSPACE_PAGES = [
   { tab: "learners", label: "Sections & learners" },
+  { tab: "authorities", label: "Co-authorities" },
   { tab: "announcements", label: "Announcements" },
   { tab: "curriculum", label: "Curriculum" },
   { tab: "question-bank", label: "Question Bank" },
