@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -39,9 +39,15 @@ import {
   getDepartments,
   getGroupLearnerRoster,
   getGroupSections,
+  getMyInstitutionInvoices,
 } from "@/services/institutionService.js"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
+import {
+  DepartmentAlertStrip,
+  useDepartmentAlerts,
+} from "@/components/institution/department-alert-strip.jsx"
+import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
@@ -200,6 +206,8 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
 }
 
 export default function DepartmentHeadDashboardPage() {
+  const { user } = useAuth()
+  const isOwner = isInstitutionOwner(user)
   const chartTheme = useChartTheme()
   const layout = useDashboardLayout("department-head")
   const [range, setRange] = useState(null)
@@ -321,6 +329,7 @@ export default function DepartmentHeadDashboardPage() {
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
+  const [rosterStatusFilter, setRosterStatusFilter] = useState("all")
 
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
@@ -443,12 +452,82 @@ export default function DepartmentHeadDashboardPage() {
     [deptLearners]
   )
 
+  const certAllocation = overviewGroup?.institutionCertId
+    ? instData.institutionCertById?.get(overviewGroup.institutionCertId)
+    : null
+
+  const invoicesQuery = useQuery({
+    queryKey: ["institution-invoices"],
+    queryFn: getMyInstitutionInvoices,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+  const invoices = useMemo(
+    () => (Array.isArray(invoicesQuery.data) ? invoicesQuery.data : []),
+    [invoicesQuery.data]
+  )
+
+  const handleInspectFlaggedRoster = useCallback(() => {
+    setRosterStatusFilter("flagged")
+    const el = document.getElementById("dept-learner-table")
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [])
+
+  const handleInspectDormantRoster = useCallback(() => {
+    setRosterStatusFilter("dormant")
+    const el = document.getElementById("dept-learner-table")
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [])
+
+  const alerts = useDepartmentAlerts({
+    allocation: certAllocation,
+    summary,
+    overviewGroup,
+    deptLearners,
+    flaggedCount,
+    invoices,
+    pendingHeadInvitations,
+    isOwner,
+    onOpenCoAuthorities: () => setCoAuthoritiesOpen(true),
+    onInspectFlaggedRoster: handleInspectFlaggedRoster,
+    onInspectDormantRoster: handleInspectDormantRoster,
+  })
+
+  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
+  const dormantCount = useMemo(() => {
+    const now = Date.now()
+    return deptLearners.filter((l) => {
+      if (!l.lastActivityAt) return true
+      const time = new Date(l.lastActivityAt).getTime()
+      return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
+    }).length
+  }, [deptLearners])
+
   const filteredLearners = useMemo(() => {
-    if (selectedSectionFilter === "all") return deptLearners
-    if (selectedSectionFilter === "none") return deptLearners.filter((l) => l.sectionId == null)
-    const targetSectionId = Number(selectedSectionFilter)
-    return deptLearners.filter((l) => l.sectionId === targetSectionId)
-  }, [deptLearners, selectedSectionFilter])
+    let list = deptLearners
+    if (selectedSectionFilter === "none") {
+      list = list.filter((l) => l.sectionId == null)
+    } else if (selectedSectionFilter !== "all") {
+      const targetSectionId = Number(selectedSectionFilter)
+      list = list.filter((l) => l.sectionId === targetSectionId)
+    }
+
+    if (rosterStatusFilter === "flagged") {
+      list = list.filter((l) => Boolean(l.flag))
+    } else if (rosterStatusFilter === "dormant") {
+      const now = Date.now()
+      list = list.filter((l) => {
+        if (!l.lastActivityAt) return true
+        const time = new Date(l.lastActivityAt).getTime()
+        return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
+      })
+    }
+    return list
+  }, [deptLearners, selectedSectionFilter, rosterStatusFilter])
 
   /* Each learner's weakest lesson against the cohort average for that same
      lesson and the benchmark -- the "is this one learner or the whole class"
@@ -1230,24 +1309,60 @@ export default function DepartmentHeadDashboardPage() {
                   ) : null
                 }
                 chip={
-                  <>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRosterStatusFilter("all")}
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                        rosterStatusFilter === "all"
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      All ({deptLearners.length})
+                    </button>
                     {flaggedCount > 0 ? (
-                      <Badge
-                        variant="secondary"
-                        className="border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRosterStatusFilter(rosterStatusFilter === "flagged" ? "all" : "flagged")
+                        }
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                          rosterStatusFilter === "flagged"
+                            ? "border border-amber-500/50 bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/40"
+                            : "border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-500/20"
+                        }`}
                       >
-                        {flaggedCount} need attention
-                      </Badge>
+                        <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                        <span>{flaggedCount} flagged</span>
+                      </button>
                     ) : null}
-                    {deptLearners.length > 0 ? (
-                      <Badge
-                        variant="secondary"
-                        className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    {dormantCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRosterStatusFilter(rosterStatusFilter === "dormant" ? "all" : "dormant")
+                        }
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                          rosterStatusFilter === "dormant"
+                            ? "border border-sky-500/50 bg-sky-500/20 text-sky-800 dark:text-sky-300 ring-1 ring-sky-500/40"
+                            : "border border-sky-500/20 bg-sky-500/10 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-500/20"
+                        }`}
                       >
-                        {deptLearners.length} {deptLearners.length === 1 ? "student" : "students"}
-                      </Badge>
+                        <UsersRoundIcon className="size-3 shrink-0" aria-hidden="true" />
+                        <span>{dormantCount} dormant</span>
+                      </button>
                     ) : null}
-                  </>
+                    {rosterStatusFilter !== "all" ? (
+                      <button
+                        type="button"
+                        onClick={() => setRosterStatusFilter("all")}
+                        className="text-[11px] text-muted-foreground underline hover:text-foreground ml-1"
+                      >
+                        Reset filter
+                      </button>
+                    ) : null}
+                  </div>
                 }
               />
 
@@ -1287,7 +1402,33 @@ export default function DepartmentHeadDashboardPage() {
                       {filteredLearners.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="py-6 text-center text-xs text-muted-foreground">
-                            No students in this section.
+                            {rosterStatusFilter === "flagged" ? (
+                              <div className="space-y-1">
+                                <p>No flagged learners found in this view.</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-primary"
+                                  onClick={() => setRosterStatusFilter("all")}
+                                >
+                                  View all students
+                                </Button>
+                              </div>
+                            ) : rosterStatusFilter === "dormant" ? (
+                              <div className="space-y-1">
+                                <p>No dormant learners found in this view.</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-primary"
+                                  onClick={() => setRosterStatusFilter("all")}
+                                >
+                                  View all students
+                                </Button>
+                              </div>
+                            ) : (
+                              "No students in this section."
+                            )}
                           </td>
                         </tr>
                       ) : (
@@ -1372,6 +1513,8 @@ export default function DepartmentHeadDashboardPage() {
     readinessTarget,
     benchmarks,
     flaggedCount,
+    dormantCount,
+    rosterStatusFilter,
     groupStats,
     deptLearners,
     filteredLearners,
@@ -1420,6 +1563,24 @@ export default function DepartmentHeadDashboardPage() {
             ) : null}
           </Button>
 
+          {alerts.length > 0 ? (
+            <Badge
+              variant="outline"
+              className={
+                alerts.some((a) => a.severity === "critical")
+                  ? "h-9 border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-rose-500/20 transition-colors"
+                  : "h-9 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-amber-500/20 transition-colors"
+              }
+              onClick={() => {
+                const el = document.getElementById("dept-alert-strip")
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+              }}
+            >
+              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>{alerts.length} Alert{alerts.length === 1 ? "" : "s"}</span>
+            </Badge>
+          ) : null}
+
           <Button
             variant="outline"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
@@ -1438,6 +1599,9 @@ export default function DepartmentHeadDashboardPage() {
           />
         </div>
       </div>
+
+      {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
+      <DepartmentAlertStrip alerts={alerts} />
 
       <DashboardBoard
         tiles={tiles}
