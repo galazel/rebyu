@@ -14,6 +14,7 @@ import {
   UserCheck,
   UsersRoundIcon,
 } from "@/components/icons"
+import { DepartmentOverviewStrip } from "@/components/institution/department-overview-strip.jsx"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,8 +38,63 @@ import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
 import {
   BarBreakdownChart,
   BeadedRadialGauge,
+  RadialGauge,
   StackedBarChart,
+  TrendLineChart,
+  readinessColor,
+  useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
+import { CohortMasteryHeatmap } from "@/components/institution/cohort-mastery-heatmap.jsx"
+import { DEV_CERTIFICATIONS } from "@/constants/dev-department-data.js"
+
+/* The programme columns the heatmap is divided by. In production this comes
+   from the certifications the department actually runs; the dev fixture is the
+   single source that also drives the programme tiles. */
+const DEV_PROGRAMME_COLUMNS = DEV_CERTIFICATIONS.map((cert) => ({
+  key: String(cert.certificationId),
+  name: cert.title.replace(/^BS /, ""),
+}))
+
+/* The trend tile's icon. Declared here rather than added to the shared icon
+   barrel: it is used on this page only. */
+const TrendingUpIconSafe = ({ className = "", "aria-hidden": ariaHidden }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden={ariaHidden}
+  >
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </svg>
+)
+
+/* #3 Readiness & Mastery Analytics: the four readiness bands, in the order the
+   backend names them, with the labels a head reads them by. */
+const READINESS_TIERS = [
+  { band: "needs_review", label: "Needs review" },
+  { band: "developing", label: "Developing" },
+  { band: "nearly_ready", label: "Nearly ready" },
+  { band: "exam_ready", label: "Exam ready" },
+]
+
+const MASTERY_LABELS = {
+  WEAK: "Weak",
+  DEVELOPING: "Developing",
+  GOOD: "Good",
+  MASTERED: "Mastered",
+}
+
+const PREDICTED_BANDS = {
+  unlikely: "unlikely",
+  borderline: "borderline",
+  likely: "likely",
+  very_likely: "very likely",
+}
 
 const PROGRESS_TIERS = [
   { label: "Not started", min: 0, max: 0 },
@@ -136,6 +192,7 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
 }
 
 export default function DepartmentHeadDashboardPage() {
+  const chartTheme = useChartTheme()
   const layout = useDashboardLayout("department-head")
   const [range, setRange] = useState(null)
   const from = isoDate(range?.from)
@@ -156,6 +213,43 @@ export default function DepartmentHeadDashboardPage() {
 
   const hardestTopics = statsQuery.data?.hardestTopics ?? []
   const hardestAssessments = statsQuery.data?.hardestAssessments ?? []
+
+  /* #3 Readiness & Mastery Analytics. Every one of these is a cohort-scoped
+     reading the backend does not aggregate yet (see Gaps in the checklist):
+     the fixtures carry them under `institution/me/learning-stats` so the
+     widgets have something to draw, and a real endpoint would return the same
+     shapes. */
+  const cohortMastery = useMemo(
+    () => (Array.isArray(statsQuery.data?.cohortMastery) ? statsQuery.data.cohortMastery : []),
+    [statsQuery.data]
+  )
+  const weakAreas = useMemo(
+    () => (Array.isArray(statsQuery.data?.weakAreas) ? statsQuery.data.weakAreas : []),
+    [statsQuery.data]
+  )
+  const predictedPass = useMemo(
+    () => (Array.isArray(statsQuery.data?.predictedPass) ? statsQuery.data.predictedPass : []),
+    [statsQuery.data]
+  )
+  const cohortPredictedPass = statsQuery.data?.cohortPredictedPass ?? 0
+  const masteryTrend = useMemo(
+    () => (Array.isArray(statsQuery.data?.masteryTrend) ? statsQuery.data.masteryTrend : []),
+    [statsQuery.data]
+  )
+  const benchmarks = useMemo(
+    () => (Array.isArray(statsQuery.data?.benchmarks) ? statsQuery.data.benchmarks : []),
+    [statsQuery.data]
+  )
+
+  const readinessDistribution = useMemo(() => {
+    const counts = statsQuery.data?.readinessDistribution ?? {}
+    return READINESS_TIERS.map((tier) => ({
+      tier: tier.label,
+      learners: Number(counts[tier.band] ?? 0),
+    }))
+  }, [statsQuery.data])
+
+  const readinessTarget = benchmarks[0]?.readinessTarget ?? 70
 
   const programmes = useMemo(
     () => (statsQuery.data?.certifications ?? []).filter((row) => row.enrolled > 0),
@@ -211,6 +305,16 @@ export default function DepartmentHeadDashboardPage() {
 
   const instData = useInstitutionData(deptList[0]?.institutionId)
 
+  /* The overview strip's own facts: the allocation behind the first active
+     department (its access window), and the certification it studies. Both
+     come from data the page already fetches -- no new endpoint. */
+  const overviewGroup = groups[0] ?? null
+  const overviewCert = overviewGroup
+    ? instData.certificationById.get(
+        instData.institutionCertById.get(overviewGroup.institutionCertId)?.certificationId
+      )
+    : null
+
   const summary = statsQuery.data?.summary ?? {}
   const allMembers = useMemo(
     () => (Array.isArray(statsQuery.data?.members) ? statsQuery.data.members : []),
@@ -265,6 +369,32 @@ export default function DepartmentHeadDashboardPage() {
     () => deptLearners.filter((learner) => learner.flag).length,
     [deptLearners]
   )
+
+  /* Each learner's weakest lesson against the cohort average for that same
+     lesson and the benchmark -- the "is this one learner or the whole class"
+     question the checklist asks for, in one row per learner. Declared here,
+     after `deptLearners`, because it reads it: a useMemo dependency is
+     evaluated during render, and a `const` read before its declaration throws
+     `ReferenceError: Cannot access 'deptLearners' before initialization`. */
+  const benchmarkRows = useMemo(() => {
+    if (!predictedPass.length || !cohortMastery.length) return []
+    const cohortByLesson = new Map(cohortMastery.map((row) => [row.lessonTitle, row.cohortMastery]))
+    return predictedPass
+      .map((learner) => {
+        const member = deptLearners.find((row) => row.learnerId === learner.learnerId)
+        const weakest = member?.weakLesson ?? null
+        return {
+          learnerId: learner.learnerId,
+          name: learner.name,
+          weakLesson: weakest,
+          learnerMastery: weakest != null ? cohortByLesson.get(weakest) ?? null : null,
+          departmentAverage: member?.averageScore ?? null,
+          readinessScore: learner.readinessScore,
+          predictedPassProbability: learner.predictedPassProbability,
+        }
+      })
+      .slice(0, 8)
+  }, [predictedPass, cohortMastery, deptLearners])
 
   const spread = useMemo(
     () =>
@@ -349,6 +479,38 @@ export default function DepartmentHeadDashboardPage() {
             exam.averageScore, exam.passingScore,
           ])
         ),
+      },
+      {
+        title: "Cohort mastery by lesson",
+        columns: ["Lesson", "Category", "Cohort mastery (%)", "Band", "Learners assessed"],
+        rows: cohortMastery.map((row) => [
+          row.lessonTitle, row.categoryTitle, row.cohortMastery, row.band, row.learnersAssessed,
+        ]),
+      },
+      {
+        title: "Weak areas",
+        columns: ["Lesson", "Accuracy (%)", "Correct", "Incorrect", "Answered", "Severity", "Learners"],
+        rows: weakAreas.map((row) => [
+          row.lessonTitle, row.accuracyRate, row.correctCount, row.incorrectCount,
+          row.answeredCount, row.severity, row.learners,
+        ]),
+      },
+      {
+        title: "Readiness distribution",
+        columns: ["Band", "Students"],
+        rows: readinessDistribution.map((row) => [row.tier, row.learners]),
+      },
+      {
+        title: "Predicted pass",
+        columns: ["Learner", "Readiness (%)", "Predicted pass (%)", "Band"],
+        rows: predictedPass.map((row) => [
+          row.name, row.readinessScore, row.predictedPassProbability, row.band,
+        ]),
+      },
+      {
+        title: "Mastery trend",
+        columns: ["Week", "Cohort mastery (%)", "Benchmark (%)"],
+        rows: masteryTrend.map((row) => [row.week, row.cohortMastery, row.benchmark]),
       },
       {
         title: "Sections",
@@ -734,12 +896,13 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
+      // Sections, with the headcount the old bar chart threw away.
       {
         id: "dept-section-breakdown",
         col: 6,
         row: 1,
         x: 0,
-        y: 6,
+        y: 14,
         element: (
           <BentoTile col={6} row={1} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -794,7 +957,7 @@ export default function DepartmentHeadDashboardPage() {
         col: 6,
         row: 2,
         x: 0,
-        y: 7,
+        y: 15,
         element: (
           <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -917,11 +1080,21 @@ export default function DepartmentHeadDashboardPage() {
     programmes,
     hardestTopics,
     hardestAssessments,
+    cohortMastery,
+    weakAreas,
+    readinessDistribution,
+    predictedPass,
+    cohortPredictedPass,
+    masteryTrend,
+    benchmarkRows,
+    readinessTarget,
+    benchmarks,
     flaggedCount,
     groupStats,
     deptLearners,
     groups,
     statsQuery.isError,
+    statsQuery.data,
     departmentStatsQuery.isError,
   ])
 
@@ -931,6 +1104,7 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Controls & Header Navigation (2A) */}
       <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
         <div className="w-full md:w-[calc(50%-10px)]">
           <DateRangeNavigator className="w-full" onRangeChange={setRange} />
