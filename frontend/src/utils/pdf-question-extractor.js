@@ -800,8 +800,67 @@ function pmAnswersFrom(texts) {
     return count >= 10 ? { answers, count } : null
 }
 
-function answersFrom(texts, fileName) {
+async function pmAnswersFromPdf(pdf) {
+    // Afternoon FE keys are commonly printed as a table with the question
+    // number, optional subquestion number, choice letter and answer in four
+    // separate columns. Reading that table as a plain text stream joins the
+    // columns (for example "21 a"), so reconstruct it from PDF coordinates.
+    const answers = {}
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber)
+        const content = await page.getTextContent()
+        const words = content.items
+            .map((item) => ({ text: String(item.str || "").trim(), x: item.transform?.[4], y: item.transform?.[5] }))
+            .filter((item) => item.text && Number.isFinite(item.x) && Number.isFinite(item.y))
+        if (!words.some((item) => /subquestion/i.test(item.text))) continue
+
+        const header = (pattern) => words.find((item) => pattern.test(item.text))
+        const questionHeader = header(/^question$/i)
+        const subHeader = header(/^subquestion$/i)
+        const answerHeader = header(/^(correct|answer)$/i)
+        if (!questionHeader || !subHeader || !answerHeader) continue
+
+        // The headers are left-aligned, whereas the values are centred in
+        // their columns.  These boundaries intentionally favour the wide
+        // spaces between the printed values instead of the header starts.
+        const questionEdge = subHeader.x - 5
+        const choiceEdge = subHeader.x + (answerHeader.x - subHeader.x) * 0.45
+        const answerEdge = answerHeader.x - 8
+        const rows = []
+        for (const word of words.sort((a, b) => Math.abs(a.y - b.y) < 4 ? a.x - b.x : b.y - a.y)) {
+            const row = rows.find((candidate) => Math.abs(candidate.y - word.y) < 4)
+            if (row) row.words.push(word)
+            else rows.push({ y: word.y, words: [word] })
+        }
+
+        let question = null
+        let subquestion = null
+        for (const row of rows) {
+            const valueAt = (from, to) => row.words.find((word) => word.x >= from && word.x < to)?.text || null
+            const questionValue = valueAt(0, questionEdge)
+            const subValue = valueAt(questionEdge, choiceEdge)
+            const choice = valueAt(choiceEdge, answerEdge)
+            const answer = valueAt(answerEdge, Number.POSITIVE_INFINITY)
+            if (/^\d{1,3}$/.test(questionValue || "")) {
+                question = Number(questionValue)
+                subquestion = null
+            }
+            if (/^\d{1,3}$/.test(subValue || "")) subquestion = Number(subValue)
+            const cleanAnswer = /^[a-h](?:\/[a-h])?$/i.test(answer || "") ? answer[0].toLowerCase() : null
+            const cleanChoice = /^[A-H]$/.test(choice || "") ? choice : null
+            if (!question || !cleanAnswer) continue
+            const id = [question, subquestion, cleanChoice].filter((part) => part !== null).join("-")
+            if (id) answers[id] = cleanAnswer
+        }
+    }
+    const count = Object.keys(answers).length
+    return count >= 10 ? { answers, count } : null
+}
+
+async function answersFrom(texts, fileName, pdf) {
     texts = texts.map((text) => text.normalize("NFKC"))
+    const positionedPm = pdf ? await pmAnswersFromPdf(pdf) : null
+    if (positionedPm) return positionedPm
     const pm = pmAnswersFrom(texts)
     if (pm) return pm
     const all = texts.join("\n")
@@ -906,16 +965,18 @@ async function readWithAi(pages, readPage, onProgress) {
             return figure ? crop(pg.canvas, figure.x0, figure.a, figure.x1 - figure.x0, figure.b - figure.a) : null
         }
         for (const item of result.questions || []) {
-            const options = item.options.map((option) => ({
+            const id = String(item?.id || "").trim()
+            if (!id) continue
+            const options = (item.options || []).map((option) => ({
                 key: option.key,
                 text: option.text,
                 image: option.figureId ? figureCanvas(option.figureId) : null,
                 fromTable: false,
             }))
-            const own = item.figureIds.map(figureCanvas).filter(Boolean)
-            const earlier = byId.get(item.id)
+            const own = (item.figureIds || []).map(figureCanvas).filter(Boolean)
+            const earlier = byId.get(id)
             if (earlier && (item.continuesFromPreviousPage || !earlier.options.length)) {
-                if (item.stem && !earlier.stem.includes(item.stem)) {
+                if (item.stem && !String(earlier.stem || "").includes(item.stem)) {
                     earlier.stem = [earlier.stem, item.stem].filter(Boolean).join("\n")
                 }
                 if (!earlier.options.length && options.length) {
@@ -929,9 +990,9 @@ async function readWithAi(pages, readPage, onProgress) {
                 continue
             }
             const entry = {
-                num: item.id,
-                parent: item.id.includes("-") ? item.id.split("-")[0] : null,
-                stem: item.stem,
+                num: id,
+                parent: id.includes("-") ? id.split("-")[0] : null,
+                stem: String(item.stem || "").trim(),
                 options,
                 figures: own,
                 snaps: [],
@@ -941,7 +1002,7 @@ async function readWithAi(pages, readPage, onProgress) {
                 visualOptions: options.some((o) => !o.text),
                 aiRead: true,
             }
-            byId.set(item.id, entry)
+            byId.set(id, entry)
             questions.push(entry)
         }
         if (questions.length) previousId = questions[questions.length - 1].num
@@ -1029,7 +1090,29 @@ function fromLayout(layout, pages) {
     })
 }
 
-export async function readExamPdf(file, onProgress, readLayout) {
+function layoutNeedsAiRecovery(layout, questions) {
+    if (!questions.length) return true
+    const complete = questions.filter((question) => question.stem && question.options.length >= 2 && !question.unclear).length
+    if (layout.total && layout.complete < layout.total) return true
+    if (complete < Math.max(2, Math.ceil(questions.length * 0.75))) return true
+
+    // The layout parser intentionally returns normal text. If an otherwise
+    // complete mathematical item has lost every operator, use the rendered
+    // page to recover it rather than asking an editor to transcribe it.
+    return questions.some((question) => {
+        const text = [question.stem, ...question.options.map((option) => option.text)].join(" ")
+        const describesSetNotation = /\b(union|intersection|relative complement|mutually exclusive)\b/i.test(text)
+        return describesSetNotation && !/[∪∩⊕−≤≥≠]/.test(text)
+    })
+}
+
+function usableAiQuestions(questions, localQuestions) {
+    const complete = questions.filter((question) => question.stem && question.options.length >= 2).length
+    const localComplete = localQuestions.filter((question) => question.stem && question.options.length >= 2 && !question.unclear).length
+    return complete >= Math.max(1, localComplete) && questions.length >= localQuestions.length
+}
+
+export async function readExamPdf(file, onProgress, readLayout, readPage) {
     const pdfjs = await loadPdfJs()
     const data = new Uint8Array(await file.arrayBuffer())
     const task = pdfjs.getDocument({ data, isEvalSupported: false })
@@ -1037,7 +1120,7 @@ export async function readExamPdf(file, onProgress, readLayout) {
     try {
         const texts = await pageTexts(pdf)
         const info = examInfo(texts[0] || "", file.name)
-        const key = answersFrom(texts, file.name)
+        const key = await answersFrom(texts, file.name, pdf)
         if (key) return { kind: "key", name: file.name, info, ...key }
 
         const pages = await readPages(pdf, pdfjs, onProgress)
@@ -1062,14 +1145,39 @@ export async function readExamPdf(file, onProgress, readLayout) {
                 // partial scan should flag individual items, not discard an
                 // entire upload or force it through an external AI provider.
                 if (layout.total >= 1) {
+                    const localQuestions = fromLayout(layout, pages)
+                    if (readPage && layoutNeedsAiRecovery(layout, localQuestions)) {
+                        if (onProgress) {
+                            await onProgress(0, pages.length, "ai", {
+                                reason: "The local layout was incomplete or lost notation, so it is being verified from the page image",
+                            })
+                        }
+                        try {
+                            const ai = await readWithAi(pages, readPage, onProgress)
+                            if (usableAiQuestions(ai.questions, localQuestions)) {
+                                return {
+                                    kind: "paper",
+                                    name: file.name,
+                                    info,
+                                    questions: ai.questions,
+                                    readBy: "ai-fallback",
+                                    profile: layout.profile,
+                                }
+                            }
+                            layoutProblem = "the AI recovery did not return enough complete questions; the local review is shown instead"
+                        } catch (error) {
+                            layoutProblem = `AI recovery could not finish (${error?.response?.data?.message || error?.message || "unknown error"}); the local review is shown instead`
+                        }
+                    }
                     return {
                         kind: "paper",
                         name: file.name,
                         info,
-                        questions: fromLayout(layout, pages),
+                        questions: localQuestions,
                         readBy: "layout",
                         profile: layout.profile,
                         partial: layout.complete < layout.total,
+                        recoveryWarning: layoutProblem,
                     }
                 }
                 if (!layout.total && Object.keys(layout.answers || {}).length >= 1) {

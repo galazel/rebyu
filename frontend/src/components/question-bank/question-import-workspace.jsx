@@ -53,7 +53,7 @@ import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, startTagJob } from "@/services/pdfImportService.js"
+import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
 import {
     activeJobFor,
     addActiveJob,
@@ -1089,7 +1089,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30, stage: "pages", startedAt: Date.now() })
         try {
-            const read = await readExamPdf(await asPdf(file), null, readDocumentLayout)
+            const read = await readExamPdf(await asPdf(file), null, readDocumentLayout, readDocumentPage)
             const answers = read.kind === "key"
                 ? read.answers
                 : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1140,7 +1140,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             const reportProgress = (file) => async (page, total, phase, detail = {}) => {
                 setProgress({
                     label: phase === "ai"
-                        ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
+                        ? `${detail.reason || `Reading ${file.name}${label} with AI`}${detail.reason ? ` — page ${page} of ${total}` : `, page ${page} of ${total}`}`
                         : phase === "layout"
                           ? `Analyzing the layout of ${file.name}${label} (${total} pages). This continues until every page has been inspected.`
                           : `Opening ${file.name}${label}, page ${page} of ${total}`,
@@ -1158,7 +1158,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             let result
             setProgress({ label: `Preparing ${pair.paper.name}${label}`, percent: 2, stage: "preparing", startedAt })
             try {
-                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentLayout)
+                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentLayout, readDocumentPage)
                 setProgress({ label: `Organizing questions, choices and figures from ${pair.paper.name}${label}`, percent: 85, stage: "organizing", startedAt })
                 if (result.kind === "key") {
                     throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
@@ -1176,7 +1176,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             if (pair.key) {
                 setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90, stage: "pages", startedAt })
                 try {
-                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout)
+                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout, readDocumentPage)
                     const keyAnswers = key.kind === "key"
                         ? key.answers
                         : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1226,6 +1226,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 readBy: result.readBy,
                 profile: result.profile,
                 partial: Boolean(result.partial),
+                recoveryWarning: result.recoveryWarning || null,
                 answers,
                 keyName,
                 tags: {},
@@ -1854,7 +1855,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                                             `${item.questions.filter((q) => q.figureSrcs.length).length} with figures`,
                                                             item.readBy === "rules" && "local text and image extraction",
                                                             item.readBy === "layout" && `local layout: ${item.profile ?? "detected"}`,
+                                                            item.readBy === "ai-fallback" && "AI recovery from the original page image",
                                                             item.partial && "review incomplete items before saving",
+                                                            item.recoveryWarning && "AI recovery was unavailable; local review retained",
                                                             `${marked} answers marked${item.keyName ? ` from ${item.keyName}` : ""}`,
                                                         ].filter(Boolean).join(" · ")}
                                                     </p>
