@@ -10,6 +10,13 @@ import java.util.Optional;
 
 public interface LearnerPracticeAttemptRepository extends JpaRepository<LearnerPracticeAttempt, Long> {
 
+    @Query("""
+            SELECT COALESCE(SUM(a.xpEarned), 0) FROM LearnerPracticeAttempt a
+            WHERE a.learner.learnerId = :learnerId AND a.certification.certificationId = :certificationId
+              AND a.status = 'COMPLETED'
+            """)
+    long reviewXpForCertification(@Param("learnerId") Long learnerId, @Param("certificationId") Long certificationId);
+
     Optional<LearnerPracticeAttempt> findFirstByLearner_LearnerIdAndSourceTypeAndSourceIdAndStatusOrderByStartedAtDesc(
             Long learnerId, String sourceType, Long sourceId, String status);
 

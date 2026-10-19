@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { AiUsageBreakdown, AiUsageSummary } from "@/components/learner/ai-usage.jsx"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { toast } from "sonner"
 import { isSoundEnabled, setSoundEnabled, playAchievementChime } from "@/lib/sound.js"
@@ -32,6 +32,8 @@ import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { deleteMyAvatar, getMyAwards, updateMyProfile, uploadMyAvatar } from "@/services/learnerService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { apiMessage } from "@/services/base"
+import { base } from "@/services/base"
+import { AuthedImage } from "@/lib/authed-media.jsx"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
@@ -115,6 +117,31 @@ function CertificationBadgeMark({ award }) {
       {earnedAt ? <p className="mt-0.5 text-[11px] text-muted-foreground">{new Date(earnedAt).toLocaleDateString()}</p> : null}
       {award.certificateNumber ? <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{award.certificateNumber}</p> : null}
     </div>
+  )
+}
+
+function CertificationReviewRanks({ certifications }) {
+  const items = Array.isArray(certifications) ? certifications : []
+  const results = useQueries({
+    queries: items.map((certification) => ({
+      queryKey: ["certification-review-level", certification.certificationId],
+      queryFn: () => base(`learners/me/certifications/${certification.certificationId}/review-level`),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  })
+  if (!items.length) return null
+  return (
+    <section className="mt-5 border-b border-border/70 pb-5 sm:mt-6 sm:pb-6">
+      <div className="flex items-start justify-between gap-3"><div><h3 className="text-[15px] font-semibold sm:text-base">Certification review ranks</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Your shared rank system is tracked separately for each certification review.</p></div><span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{items.length} enrolled</span></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((certification, index) => {
+          const level = results[index]?.data
+          const progress = level?.nextRequiredXp ? Math.min(100, Math.round(((level.xp - level.requiredXp) / (level.nextRequiredXp - level.requiredXp)) * 100)) : 100
+          return <div key={certification.certificationId} className="rounded-xl border bg-muted/20 p-3"><div className="flex items-center gap-3"><div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-rb-bee-wash">{level?.imageKey ? <AuthedImage imageKey={level.imageKey} className="h-full w-full object-cover" placeholderClassName="h-full w-full" /> : <Award className="size-5 text-rb-bee" />}</div><div className="min-w-0"><p className="truncate text-sm font-semibold">{certification.title}</p><p className="text-xs text-muted-foreground">{level ? `Level ${level.levelNumber} · ${level.title}` : "Loading review rank…"}</p></div></div>{level ? <><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div><p className="mt-1.5 text-xs text-muted-foreground">{level.xp.toLocaleString()} XP{level.nextRequiredXp ? ` · ${level.nextRequiredXp.toLocaleString()} to next level` : " · highest rank"}</p></> : null}</div>
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -266,6 +293,7 @@ export default function LearnerAccountPage() {
   const certificationBadges = (Array.isArray(awardsQuery.data) ? awardsQuery.data : [])
     .filter((award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null)
     .sort((a, b) => new Date(b.badgeAwardedAt ?? b.certificateAwardedAt) - new Date(a.badgeAwardedAt ?? a.certificateAwardedAt))
+  const enrolledCertifications = Array.isArray(data?.enrolledCertifications) ? data.enrolledCertifications : []
   const earnedAchievements = achievements.filter((achievement) => achievement.earned)
   const orderedAchievements = [
     ...earnedAchievements,
@@ -409,6 +437,7 @@ export default function LearnerAccountPage() {
                 <div className="mt-5 flex items-center gap-3 py-3 text-sm text-muted-foreground"><span className="flex size-10 items-center justify-center rounded-full bg-rb-bee-wash"><Award className="size-5 text-rb-bee" /></span>Pass a certification&apos;s mock exam to earn its badge and certificate.</div>
               )}
             </section>
+            <CertificationReviewRanks certifications={enrolledCertifications} />
             <section className="mt-5 border-b border-border/70 pb-5 sm:mt-6 sm:pb-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Achievements</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Milestones earned through lessons, assessments, and learning streaks.</p></div>

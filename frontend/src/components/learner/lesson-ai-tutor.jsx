@@ -16,6 +16,8 @@ import {
   Loader2,
   History,
   MessageCircle,
+  Pause,
+  Play,
   PlayCircle,
   Plus,
   SendHorizontal,
@@ -77,6 +79,7 @@ function trackRequest(sessionId, entry) {
 }
 
 class StreamUnavailable extends Error {}
+class StreamCancelled extends Error {}
 
 async function streamTutorAnswer(body, entry) {
   const token = await currentAccessToken()
@@ -90,8 +93,10 @@ async function streamTutorAnswer(body, entry) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
+      signal: entry.controller?.signal,
     })
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw new StreamCancelled()
     throw new StreamUnavailable()
   }
   if (response.status >= 400 && response.status < 500 && response.status !== 404) {
@@ -148,7 +153,14 @@ async function streamTutorAnswer(body, entry) {
   }
 
   for (;;) {
-    const { value, done } = await reader.read()
+    let chunk
+    try {
+      chunk = await reader.read()
+    } catch (error) {
+      if (error?.name === "AbortError") throw new StreamCancelled()
+      throw error
+    }
+    const { value, done } = chunk
     if (done) break
     buffered += decoder.decode(value, { stream: true })
     let match
@@ -629,11 +641,15 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                   className={
                     isLearner
                       ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-rb-eel !shadow-none"
+                      : "!w-full !rounded-2xl !rounded-tl-md !border !border-rb-swan !bg-white !px-4 !py-3.5 !text-rb-eel !shadow-[0_2px_10px_rgba(17,55,43,0.06)]"
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
-                {message.text ? <div className="text-[15px] font-medium leading-7 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
+                {message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
+                  isLearner
+                    ? "font-medium text-white"
+                    : "font-normal text-rb-eel [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink"
+                } [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {message.text}
                   </ReactMarkdown>
@@ -680,6 +696,7 @@ export function LessonAiTutor({
   const [streamText, setStreamText] = useState("")
   const [shownLength, setShownLength] = useState(0)
   const [finishedReply, setFinishedReply] = useState(null)
+  const [streamPaused, setStreamPaused] = useState(false)
   const [attachment, setAttachment] = useState(null)
   const [dialogueOpen, setDialogueOpen] = useState(false)
   const [chatVersion, setChatVersion] = useState(0)
@@ -751,10 +768,12 @@ export function LessonAiTutor({
       setStreamText("")
       setShownLength(0)
       setFinishedReply(null)
+      setStreamPaused(false)
     }
   }, [lessonId, learnerId, tutorLocked, chatVersion])
 
   useEffect(() => {
+    if (streamPaused) return undefined
     if (shownLength >= streamText.length) {
       if (finishedReply) showReply(finishedReply)
       return undefined
@@ -775,6 +794,7 @@ export function LessonAiTutor({
     setStreamText("")
     setShownLength(0)
     setFinishedReply(null)
+    setStreamPaused(false)
   }
 
   useEffect(() => {
@@ -790,6 +810,7 @@ export function LessonAiTutor({
     setWaitingSince(entry.startedAt)
     setStreamText(entry.text ?? "")
     setShownLength((entry.text ?? "").length)
+    setStreamPaused(false)
     entry.onDelta = (text) => setStreamText(text)
     entry.listener = (message) => {
       if (entry.text) {
@@ -831,7 +852,10 @@ export function LessonAiTutor({
       ...(snippet?.quote ? { quote: snippet.quote } : {}),
       ...(snippet?.image ? { image: snippet.image } : {}),
     }
-    const entry = { kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "" }
+    const entry = {
+      kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "",
+      controller: new AbortController(),
+    }
 
     const askOnce = () =>
         base(AI_TUTOR_ENDPOINT, { method: "POST", data: body }).then((response) => {
@@ -853,14 +877,24 @@ export function LessonAiTutor({
           widgets: widgets?.length ? widgets : undefined,
           createdAt: Date.now(),
         }))
-        .catch((error) => ({
-          id: createTutorMessageId("error"),
-          role: "assistant",
-          text: entry.text.trim()
-              ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
-              : getTutorErrorMessage(error),
-          createdAt: Date.now(),
-        }))
+        .catch((error) => {
+          if (error instanceof StreamCancelled) {
+            return {
+              id: createTutorMessageId("assistant"),
+              role: "assistant",
+              text: entry.text.trim() || "Reply stopped.",
+              createdAt: Date.now(),
+            }
+          }
+          return {
+            id: createTutorMessageId("error"),
+            role: "assistant",
+            text: entry.text.trim()
+                ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
+                : getTutorErrorMessage(error),
+            createdAt: Date.now(),
+          }
+        })
 
     // Each reply counts against the tutor limits: refresh usage once it lands.
     entry.promise.finally(() => aiUsage.refresh())
@@ -870,6 +904,13 @@ export function LessonAiTutor({
   function handleSubmit(event) {
     event.preventDefault()
     sendTutorMessage(draft)
+  }
+
+  function stopTutorResponse() {
+    const entry = inFlight.get(sessionId)
+    if (!entry || entry.kind !== "chat") return
+    entry.controller?.abort()
+    toast.message(entry.text.trim() ? "Tutor reply stopped." : "Tutor request cancelled.")
   }
 
 
@@ -1268,7 +1309,34 @@ export function LessonAiTutor({
                 rows={1}
                 className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
             />
-            <MicButton value={draft} onChange={setDraft} disabled={pending || Boolean(generating)} />
+            {pending ? (
+              <>
+                <TactileButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rb-btn-icon shrink-0"
+                    onClick={() => setStreamPaused((current) => !current)}
+                    aria-label={streamPaused ? "Resume displaying tutor reply" : "Pause displaying tutor reply"}
+                    title={streamPaused ? "Resume reply" : "Pause reply"}
+                >
+                  {streamPaused ? <Play className="size-3.5" aria-hidden="true" /> : <Pause className="size-3.5" aria-hidden="true" />}
+                </TactileButton>
+                <TactileButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rb-btn-icon shrink-0 !text-red-700 hover:!bg-red-50"
+                    onClick={stopTutorResponse}
+                    aria-label="Stop tutor reply"
+                    title="Stop reply"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </TactileButton>
+              </>
+            ) : (
+              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} />
+            )}
             <TactileButton
                 type="submit"
                 variant="feather"
