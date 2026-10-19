@@ -53,7 +53,7 @@ import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
+import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, startTagJob } from "@/services/pdfImportService.js"
 import {
     activeJobFor,
     addActiveJob,
@@ -1029,7 +1029,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
         try {
-            const read = await readExamPdf(await asPdf(file), null, readDocumentPage, readDocumentLayout)
+            const read = await readExamPdf(await asPdf(file), null, readDocumentLayout)
             const answers = read.kind === "key"
                 ? read.answers
                 : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1091,7 +1091,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             let result
             setProgress({ label: `Opening ${pair.paper.name}${label}`, percent: 2 })
             try {
-                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentPage, readDocumentLayout)
+                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentLayout)
                 if (result.kind === "key") {
                     throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
                 }
@@ -1108,7 +1108,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             if (pair.key) {
                 setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
                 try {
-                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentPage, readDocumentLayout)
+                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout)
                     const keyAnswers = key.kind === "key"
                         ? key.answers
                         : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1157,6 +1157,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 questions: displayed,
                 readBy: result.readBy,
                 profile: result.profile,
+                partial: Boolean(result.partial),
                 answers,
                 keyName,
                 tags: {},
@@ -1793,8 +1794,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                                             describeExam(item.info),
                                                             `${item.questions.length} questions`,
                                                             `${item.questions.filter((q) => q.figureSrcs.length).length} with figures`,
-                                                            item.readBy === "ai" && "read by AI",
-                                                            item.readBy === "layout" && `layout: ${item.profile ?? "detected"}`,
+                                                            item.readBy === "rules" && "local text and image extraction",
+                                                            item.readBy === "layout" && `local layout: ${item.profile ?? "detected"}`,
+                                                            item.partial && "review incomplete items before saving",
                                                             `${marked} answers marked${item.keyName ? ` from ${item.keyName}` : ""}`,
                                                         ].filter(Boolean).join(" · ")}
                                                     </p>

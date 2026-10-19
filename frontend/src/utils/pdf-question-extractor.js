@@ -15,8 +15,11 @@ function isPageNumber(line, pageHeight) {
     return FOOTER_RE.test(line.text) && (line.bottom < pageHeight * 0.12 || line.top > pageHeight * 0.88)
 }
 
-const QUESTION_RE = /^Q\s?(\d{1,3})\s?[.:)]\s*/
-const BARE_QUESTION_RE = /^Q\s?(\d{1,3})(?=\s|$)\s*/
+// Common numbering used by past papers, reviewers, worksheets and exported
+// quizzes. The local layout reader has additional profiles; these patterns
+// make the fast in-browser pass useful for more ordinary documents too.
+const QUESTION_RE = /^(?:Q(?:uestion)?|Item|No\.?)\s?(\d{1,3})\s*[.:)]\s*/i
+const BARE_QUESTION_RE = /^(?:(?:Q(?:uestion)?|Item|No\.?)\s?)?(\d{1,3})(?=\s|$)\s*/i
 
 const BANNER_RE = /^Answer (?:the )?questions? (?:Q?\d+|[A-Z]) through (?:Q?\d+|[A-Z])\b/i
 
@@ -1021,7 +1024,7 @@ function fromLayout(layout, pages) {
     })
 }
 
-export async function readExamPdf(file, onProgress, readPage, readLayout) {
+export async function readExamPdf(file, onProgress, readLayout) {
     const pdfjs = await loadPdfJs()
     const data = new Uint8Array(await file.arrayBuffer())
     const task = pdfjs.getDocument({ data, isEvalSupported: false })
@@ -1033,18 +1036,27 @@ export async function readExamPdf(file, onProgress, readPage, readLayout) {
         if (key) return { kind: "key", name: file.name, info, ...key }
 
         const pages = await readPages(pdf, pdfjs, onProgress)
-        const ruled = info.session === "pm" ? [] : locateQuestions(pages).map(buildQuestion)
+        // Every paper starts with local extraction. PM papers used to skip this
+        // entirely and were sent straight to the hosted vision model, making a
+        // normal PDF import depend on AI credits and provider availability.
+        // The rule reader catches familiar numbered papers; the local layout
+        // reader below handles less regular pages, choices, answer sections,
+        // and figure coordinates.
+        const ruled = locateQuestions(pages).map(buildQuestion)
         const fourChoice = ruled.filter((q) => q.options.length === 4).length
         if (ruled.length >= 5 && fourChoice >= ruled.length * 0.8) {
             return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules" }
         }
 
         let layoutProblem = null
-        if (readLayout && info.session !== "pm") {
+        if (readLayout) {
             if (onProgress) await onProgress(0, pages.length, "layout")
             try {
                 const layout = await readLayout(file)
-                if (layout.total >= 3 && layout.complete >= layout.total * 0.6) {
+                // Preserve every locally detected question for review. A
+                // partial scan should flag individual items, not discard an
+                // entire upload or force it through an external AI provider.
+                if (layout.total >= 1) {
                     return {
                         kind: "paper",
                         name: file.name,
@@ -1052,9 +1064,10 @@ export async function readExamPdf(file, onProgress, readPage, readLayout) {
                         questions: fromLayout(layout, pages),
                         readBy: "layout",
                         profile: layout.profile,
+                        partial: layout.complete < layout.total,
                     }
                 }
-                if (!layout.total && Object.keys(layout.answers || {}).length >= 10) {
+                if (!layout.total && Object.keys(layout.answers || {}).length >= 1) {
                     const answers = layout.answers
                     return { kind: "key", name: file.name, info, answers, count: Object.keys(answers).length }
                 }
@@ -1066,16 +1079,14 @@ export async function readExamPdf(file, onProgress, readPage, readLayout) {
             }
         }
 
-        if (!readPage) {
-            throw new Error(layoutProblem || "its layout is not one the built-in reader knows")
+        // A paper that is only partly recognized should remain reviewable in
+        // the workspace rather than failing the whole upload or silently
+        // sending its contents to an AI provider. The reviewer can correct
+        // the highlighted incomplete items before saving.
+        if (ruled.length) {
+            return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules", partial: true }
         }
-        const read = await readWithAi(pages, readPage, onProgress)
-        const answerCount = Object.keys(read.answers).length
-        if (!read.questions.length && answerCount) {
-            return { kind: "key", name: file.name, info, answers: read.answers, count: answerCount }
-        }
-        if (!read.questions.length) throw new Error(layoutProblem ? `${layoutProblem}, and the AI found none either` : "no questions were found in it")
-        return { kind: "paper", name: file.name, info, questions: read.questions, readBy: "ai" }
+        throw new Error(layoutProblem || "no questions could be read by the local extractors")
     } finally {
         task.destroy()
     }
