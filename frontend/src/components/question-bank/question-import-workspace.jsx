@@ -378,11 +378,11 @@ function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
         <section className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
-            <div className="grid gap-5 bg-gradient-to-br from-primary/[0.10] via-primary/[0.035] to-background px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
+            <div className="grid gap-4 bg-gradient-to-br from-primary/[0.10] via-primary/[0.035] to-background px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
                 <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · guided import</p>
-                    <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Turn past papers into a review-ready question bank.</h1>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Upload a paper and its answer key. We preserve text, choices and figures locally, then you decide what is saved.</p>
+                    <h1 className="mt-1.5 font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Turn past papers into a review-ready question bank.</h1>
+                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Upload a paper and its answer key. We preserve text, choices and figures locally, then you decide what is saved.</p>
                 </div>
                 <div className="grid grid-cols-3 divide-x rounded-xl border border-primary/15 bg-background/80 px-2 py-3 text-center shadow-sm">
                     {[["1", "Upload"], ["2", "Review"], ["3", "Save"]].map(([number, label]) => (
@@ -393,13 +393,13 @@ function ImportGuide() {
                     ))}
                 </div>
             </div>
-            <div className="grid gap-2 border-t bg-background px-5 py-3 sm:grid-cols-3 sm:px-6">
+            <div className="grid gap-2 border-t bg-background px-5 py-2 sm:grid-cols-3 sm:px-6">
                 {[
                     ["Pair automatically", "Matching titles connect papers and answer keys. AM/PM is optional."],
                     ["Keep control", "Check extracted questions, answers and figures before anything is saved."],
                     ["Organize faster", "Tag items by lesson and difficulty once the import is ready."],
                 ].map(([title, body]) => (
-                    <div key={title} className="min-w-0 rounded-lg px-1 py-1.5">
+                    <div key={title} className="min-w-0 rounded-lg px-1 py-0.5">
                         <p className="text-xs font-semibold text-foreground">{title}</p>
                         <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{body}</p>
                     </div>
@@ -447,7 +447,7 @@ function ExtractionProgress({ progress }) {
     return (
         <div className="rounded-xl border bg-background p-3" aria-live="polite">
             <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-foreground">Importing locally</p>
+                <div className="flex items-center gap-2.5"><span className="rb-document-scan" aria-hidden="true"><span /></span><p className="text-sm font-semibold text-foreground">Importing locally</p></div>
                 <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">Processing…</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -1592,9 +1592,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                         <Loader2 className="h-4 w-4 animate-spin" /> Loading your import…
                     </p>
                 ) : !papers.length ? (
-                    <section className="mx-auto mt-[6vh] max-w-3xl px-5">
+                    <section className="mx-auto w-full max-w-4xl px-5 py-5 sm:py-7">
                         <ImportGuide />
-                        <div className="rounded-2xl border bg-background p-5 shadow-sm">
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm sm:p-5">
                             <PdfUploadStep onNext={addFiles} disabled={busy} nextLabel="Next: read the files" />
                         </div>
                         {busy ? (

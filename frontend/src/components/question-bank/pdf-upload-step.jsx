@@ -171,7 +171,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
     const withoutKey = pairs.filter((pair) => !pair.key).length
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-3">
             <div>
                 <h3 className="text-sm font-semibold text-foreground">Exam papers and answer keys</h3>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -184,7 +184,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
 
             <div
                 className={cn(
-                    "relative flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed p-4 transition-colors has-[input:focus]:ring-2",
+                    "relative flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-3 transition-colors has-[input:focus]:ring-2",
                     problem
                         ? "border-destructive bg-destructive/5 has-[input:focus]:ring-destructive/30"
                         : "border-border has-[input:focus]:border-primary has-[input:focus]:ring-ring/30",
@@ -198,15 +198,15 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
             >
                 <input {...getInputProps()} aria-label="Upload exam papers and answer keys" className="sr-only" />
 
-                <div className="flex flex-col items-center px-4 py-3 text-center">
-                    <div className="mb-3 flex size-12 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                <div className="flex flex-col items-center px-4 py-2 text-center">
+                    <div className="mb-2 flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
                         <FileText className="size-5" />
                     </div>
                     <p className="text-sm font-medium text-foreground">Drop your exam papers and answer keys here</p>
-                    <p className="mt-1.5 max-w-sm text-xs leading-5 text-muted-foreground">
+                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
                         PDF or Word (.docx, .doc). Up to {MAX_FILES} files, {MAX_SIZE_MB} MB each.
                     </p>
-                    <Button type="button" variant="outline" className="mt-4" disabled={disabled} onClick={openFileDialog}>
+                    <Button type="button" variant="outline" className="mt-3" disabled={disabled} onClick={openFileDialog}>
                         <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
                         Select files
                     </Button>
