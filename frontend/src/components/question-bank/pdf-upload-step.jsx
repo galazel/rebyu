@@ -17,7 +17,24 @@ const ACCEPT = [
 ].join(",")
 const DOCUMENT_EXTENSION_RE = /\.(pdf|docx?|odt|rtf)$/i
 
-const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*paper|questions?)$/i
+const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*papers?|questions?)$/i
+
+// AM/PM is useful metadata when a provider publishes two sittings, but it is
+// never part of the identity required to import a paper.  Many providers use
+// one paper per date, or omit a session label altogether.
+const optionalSession = (title) =>
+    String(title || "")
+        .toLowerCase()
+        .replace(/\b(am|pm|morning|afternoon)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
+const declaredSession = (title) => {
+    const value = String(title || "").toLowerCase()
+    if (/\b(am|morning)\b/.test(value)) return "am"
+    if (/\b(pm|afternoon)\b/.test(value)) return "pm"
+    return null
+}
 
 export function parseFileName(name) {
     const base = name.replace(DOCUMENT_EXTENSION_RE, "").trim()
@@ -53,9 +70,6 @@ export function pairFiles(items) {
         byTitle.set(parsed.titleKey, group)
     }
 
-    const loose = (titleKey) => titleKey.replace(/\b(am|pm|morning|afternoon)\b/g, " ").replace(/\s+/g, " ").trim()
-    const session = (titleKey) =>
-        /\b(am|morning)\b/.test(titleKey) ? "am" : /\b(pm|afternoon)\b/.test(titleKey) ? "pm" : null
     for (const [titleKey, group] of byTitle) {
         if (group.papers.length || !group.keys.length) continue
         const matches = [...byTitle.values()].filter(
@@ -63,8 +77,11 @@ export function pairFiles(items) {
                 other !== group &&
                 other.papers.length &&
                 !other.keys.length &&
-                loose(other.title.toLowerCase()) === loose(titleKey) &&
-                (!session(other.title.toLowerCase()) || session(other.title.toLowerCase()) === session(titleKey)),
+                optionalSession(other.title) === optionalSession(titleKey) &&
+                // Never cross-pair two files that explicitly name different
+                // sittings.  If either file omits AM/PM, the shared title is
+                // enough to pair it.
+                (!declaredSession(other.title) || !declaredSession(titleKey) || declaredSession(other.title) === declaredSession(titleKey)),
         )
         if (matches.length === 1) {
             matches[0].keys.push(...group.keys)
@@ -160,8 +177,8 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     Name each file after its exam, ending in <b>Questions</b> or <b>Answer Key</b> --{" "}
                     <span className="font-mono">Midterm Exam Questions.pdf</span> and{" "}
-                    <span className="font-mono">Midterm Exam Answer Key.pdf</span>. Files with the same title are paired; you
-                    check the pairs before anything is read. Any layout works.
+                    <span className="font-mono">Midterm Exam Answer Key.pdf</span>. Files with the same title are paired; AM/PM
+                    labels are optional. You check the pairs before anything is read. Any layout works.
                 </p>
             </div>
 
@@ -266,7 +283,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                                     {pair.title}
                                     {pair.looseKey ? (
                                         <span className="text-xs font-normal text-muted-foreground">
-                                            -- paired although only the key's name says AM/PM
+                                            -- paired by the shared exam title; a session label is optional
                                         </span>
                                     ) : null}
                                 </p>

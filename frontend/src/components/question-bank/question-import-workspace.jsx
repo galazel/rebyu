@@ -381,8 +381,8 @@ function ImportGuide() {
             <h2 className="text-sm font-bold">How importing works</h2>
             <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
                 {[
-                    ["Upload PDFs", "Name them Title Questions.pdf and Title Answer Key.pdf."],
-                    ["Check pairs", "Files with the same title are paired automatically."],
+                    ["Upload PDFs", "Name them Title Questions.pdf and Title Answer Key.pdf; AM/PM is optional."],
+                    ["Check pairs", "Files with the shared exam title are paired automatically, even when one omits AM/PM."],
                     ["Review questions", "Compare with Show original. Click a choice to fix the answer."],
                     ["Crop images", "Drag on the original or a figure to crop and assign to a choice."],
                     ["Tag with AI", "AI sets each question’s lesson and difficulty. Duplicates are dropped."],
@@ -399,13 +399,13 @@ function ImportGuide() {
             {showNaming ? (
                 <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
                     <p className="text-xs text-muted-foreground">
-                        <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter.
+                        <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter. AM/PM, morning and afternoon are optional labels, not required parts of the title.
                     </p>
                     <div className="mt-1.5 overflow-x-auto">
                         <table className="w-full text-left text-xs">
                             <thead className="text-muted-foreground"><tr><th className="py-0.5 pr-4 font-semibold">Questions</th><th className="py-0.5 font-semibold">Answer key</th></tr></thead>
                             <tbody className="font-mono">
-                                {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"]].map(([p, k]) => (
+                                {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"], ["October FE Questions.pdf", "October FE PM Answer Key.pdf"]].map(([p, k]) => (
                                     <tr key={p} className="border-t"><td className="py-0.5 pr-4">{p}</td><td className="py-0.5">{k}</td></tr>
                                 ))}
                             </tbody>
