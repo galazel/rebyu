@@ -548,6 +548,31 @@ def diagnostic_exam_count_for(state: CertificationState) -> int:
     return len(_diagnostic_lessons(state)) or DIAGNOSTIC_EXAM_ITEMS
 
 
+def _diagnostic_lesson_key(name: str | None) -> str:
+    """Compare lesson labels tolerantly without allowing a wrong lesson through.
+
+    `lesson_ref` is generated text, so harmless differences in casing or repeated
+    whitespace should not cause an otherwise valid diagnostic item to be discarded.
+    The key deliberately keeps the words themselves intact: a question for a
+    similarly named lesson must not satisfy another lesson's coverage requirement.
+    """
+    return " ".join((name or "").casefold().split())
+
+
+def _diagnostic_items_by_lesson(questions: list, lessons: list[tuple[str, dict | None]]) -> tuple[list, list[str]]:
+    """Keep exactly one valid item per lesson and report lessons still uncovered."""
+    expected = {_diagnostic_lesson_key(name): name for name, _lesson in lessons}
+    items_by_key: dict[str, object] = {}
+    for question in questions:
+        key = _diagnostic_lesson_key(getattr(question, "lesson_ref", None))
+        if key in expected and key not in items_by_key:
+            items_by_key[key] = question
+
+    missing = [name for name, _lesson in lessons if _diagnostic_lesson_key(name) not in items_by_key]
+    selected = [items_by_key[_diagnostic_lesson_key(name)] for name, _lesson in lessons if _diagnostic_lesson_key(name) in items_by_key]
+    return selected, missing
+
+
 async def generate_diagnostic_exam_node(state: CertificationState):
     """One question for EVERY lesson, so every lesson starts with mastery
     evidence -- a priority tag in the learner's outline -- rather than the
@@ -565,7 +590,7 @@ async def generate_diagnostic_exam_node(state: CertificationState):
     lessons = _diagnostic_lessons(state)
     size = max(1, get_settings().question_batch_size)
     prior = written_stems(state)
-    questions: list = []
+    generated_questions: list = []
 
     for start in range(0, len(lessons), size):
         group = lessons[start:start + size]
@@ -589,15 +614,47 @@ async def generate_diagnostic_exam_node(state: CertificationState):
                 + difficulty_quota_rule(len(group)),
             ),
             count=len(group),
-            existing_stems=prior + [q.question for q in questions],
+            existing_stems=prior + [q.question for q in generated_questions],
         )
-        questions.extend(batch.questions)
+        generated_questions.extend(batch.questions)
 
-    if len(questions) < len(lessons):
-        logger.warning(
-            "Diagnostic for '%s' has %d question(s) for %d lesson(s)",
-            state["certification_name"], len(questions), len(lessons),
+    # A correct count alone is not coverage: an LLM can return two items for
+    # one lesson and none for another. Keep one item for each exact requested
+    # lesson and make focused retries for any labels it missed.
+    questions, missing = _diagnostic_items_by_lesson(generated_questions, lessons)
+    for attempt in range(2):
+        if not missing:
+            break
+        retry_lessons = [(name, lesson) for name, lesson in lessons if name in missing]
+        retry_names = "\n".join(f"- {name}" for name, _lesson in retry_lessons)
+        retry_context = _content_for_lessons(
+            state, [lesson for _name, lesson in retry_lessons if lesson]
+        ) or _curriculum_outline(curriculum)
+        retry_context = _with_exam_structure(_with_existing_curriculum(retry_context, state), state)
+        batch = await invoke_question_agent(
+            scope,
+            retry_context,
+            _with_improvement(
+                state,
+                f"Generate exactly {len(retry_lessons)} replacement diagnostic questions, ONE for each "
+                "lesson below. Do not generate a question for any other lesson. "
+                f"Set lesson_ref to each lesson's exact name.\n{retry_names}\n"
+                f"Use the real exam's question types and layout: {types}."
+                f"{blank_format_rule(state)}{mcq_style_rule(state)}{SUB_QUESTION_RULE} "
+                + difficulty_quota_rule(len(retry_lessons)),
+            ),
+            count=len(retry_lessons),
+            existing_stems=prior + [q.question for q in generated_questions],
         )
+        generated_questions.extend(batch.questions)
+        questions, missing = _diagnostic_items_by_lesson(generated_questions, lessons)
+
+    if missing:
+        raise RuntimeError(
+            "Diagnostic generation did not cover every lesson after targeted retries: "
+            + ", ".join(missing)
+        )
+
     return {
         "diagnostic_exam": {
             "questions": questions_as_dicts(QuestionBatch(scope=scope, questions=questions))
