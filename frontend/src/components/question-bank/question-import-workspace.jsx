@@ -435,15 +435,6 @@ function ImportGuide() {
 }
 
 function ExtractionProgress({ progress }) {
-    const [now, setNow] = useState(Date.now())
-    useEffect(() => {
-        if (!progress) return undefined
-        setNow(Date.now())
-        const timer = window.setInterval(() => setNow(Date.now()), 1000)
-        return () => window.clearInterval(timer)
-    }, [progress])
-
-    const elapsed = progress?.startedAt ? Math.max(0, Math.floor((now - progress.startedAt) / 1000)) : 0
     const stage = progress?.stage ?? "preparing"
     const steps = [
         ["preparing", "Prepare file", "Open the PDF and read its text"],
@@ -457,7 +448,7 @@ function ExtractionProgress({ progress }) {
         <div className="rounded-xl border bg-background p-3" aria-live="polite">
             <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-foreground">Importing locally</p>
-                {progress?.startedAt ? <span className="text-xs tabular-nums text-muted-foreground">{elapsed}s elapsed</span> : null}
+                <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">Processing…</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                 <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
