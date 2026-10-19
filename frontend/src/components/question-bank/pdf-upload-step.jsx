@@ -182,6 +182,32 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                 </p>
             </div>
 
+            <div className="grid gap-2 sm:grid-cols-2" aria-label="Accepted document layouts">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                        <FileText className="size-4 text-primary" /> Accepted question papers
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
+                        <li><b className="text-foreground">Numbered MCQ:</b> Q1 with a–d choices, across one or many pages.</li>
+                        <li><b className="text-foreground">Multi-part papers:</b> Q1-A, Q1-2, blanks, answer groups and PM-style sections.</li>
+                        <li><b className="text-foreground">Visual papers:</b> tables, diagrams, figures, scans and image-only pages.</li>
+                    </ul>
+                </div>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                        <KeyRound className="size-4 text-amber-700 dark:text-amber-400" /> Accepted answer keys
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
+                        <li><b className="text-foreground">Answer lists:</b> 1 a, 2 c, or Question 1 — B.</li>
+                        <li><b className="text-foreground">Answer tables:</b> Question · Subquestion · Choice · Correct answer.</li>
+                        <li><b className="text-foreground">Matching IDs:</b> 1-A, 2-2-A and similar subquestion labels are supported.</li>
+                    </ul>
+                </div>
+                <p className="sm:col-span-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
+                    The local reader is used first. If a layout is incomplete or loses notation, Rebyu verifies it from the original page image with AI and tells you in the review header. You always approve the result before saving.
+                </p>
+            </div>
+
             <div
                 className={cn(
                     "relative flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-3 transition-colors has-[input:focus]:ring-2",
