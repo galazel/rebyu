@@ -6,10 +6,10 @@ import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
 const STORIES = {
   login: {
-    caption: "class is in session",
-    line: "Welcome back to class!",
-    note: "your seat is saved",
-    banner: "Welcome back to class!",
+    caption: "your learning space is ready",
+    line: "Ready to learn?",
+    note: "sign in to continue your journey",
+    banner: "Ready to learn?",
   },
   register: {
     caption: "first day of class",
