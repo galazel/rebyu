@@ -377,27 +377,42 @@ const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
 function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
-        <div className="mb-4 rounded-2xl border bg-background p-4 shadow-sm">
-            <h2 className="text-sm font-bold">How importing works</h2>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+        <section className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
+            <div className="grid gap-5 bg-gradient-to-br from-primary/[0.10] via-primary/[0.035] to-background px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · guided import</p>
+                    <h1 className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Turn past papers into a review-ready question bank.</h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Upload a paper and its answer key. We preserve text, choices and figures locally, then you decide what is saved.</p>
+                </div>
+                <div className="grid grid-cols-3 divide-x rounded-xl border border-primary/15 bg-background/80 px-2 py-3 text-center shadow-sm">
+                    {[["1", "Upload"], ["2", "Review"], ["3", "Save"]].map(([number, label]) => (
+                        <div key={number} className="px-2">
+                            <span className="mx-auto grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{number}</span>
+                            <p className="mt-1.5 text-xs font-semibold text-foreground">{label}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="grid gap-2 border-t bg-background px-5 py-3 sm:grid-cols-3 sm:px-6">
                 {[
-                    ["Upload PDFs", "Name them Title Questions.pdf and Title Answer Key.pdf; AM/PM is optional."],
-                    ["Check pairs", "Files with the shared exam title are paired automatically, even when one omits AM/PM."],
-                    ["Review questions", "Compare with Show original. Click a choice to fix the answer."],
-                    ["Crop images", "Drag on the original or a figure to crop and assign to a choice."],
-                    ["Tag with AI", "AI sets each question’s lesson and difficulty. Duplicates are dropped."],
-                    ["Preview & save", "Nothing is saved until you confirm the preview."],
+                    ["Pair automatically", "Matching titles connect papers and answer keys. AM/PM is optional."],
+                    ["Keep control", "Check extracted questions, answers and figures before anything is saved."],
+                    ["Organize faster", "Tag items by lesson and difficulty once the import is ready."],
                 ].map(([title, body]) => (
-                    <p key={title} className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{title}:</span> {body}
-                    </p>
+                    <div key={title} className="min-w-0 rounded-lg px-1 py-1.5">
+                        <p className="text-xs font-semibold text-foreground">{title}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{body}</p>
+                    </div>
                 ))}
             </div>
-            <button type="button" onClick={() => setShowNaming((o) => !o)} className="mt-2 text-xs font-semibold text-primary underline-offset-2 hover:underline">
-                {showNaming ? "Hide file naming guide" : "File naming guide"}
-            </button>
+            <div className="border-t bg-muted/30 px-5 py-2.5 sm:px-6">
+                <button type="button" onClick={() => setShowNaming((o) => !o)} className="text-xs font-semibold text-primary underline-offset-2 hover:underline">
+                    {showNaming ? "Hide file naming guide" : "See file naming examples"}
+                </button>
+            </div>
             {showNaming ? (
-                <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <div className="border-t bg-primary/[0.035] px-5 py-4 sm:px-6">
+                    <div className="rounded-xl border border-primary/20 bg-background p-3">
                     <p className="text-xs text-muted-foreground">
                         <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter. AM/PM, morning and afternoon are optional labels, not required parts of the title.
                     </p>
@@ -412,9 +427,10 @@ function ImportGuide() {
                         </table>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">A file with no key is allowed when answers are printed inside it.</p>
+                    </div>
                 </div>
             ) : null}
-        </div>
+        </section>
     )
 }
 
@@ -459,6 +475,13 @@ function ExtractionProgress({ progress }) {
                 })}
             </ol>
             <p className="mt-3 text-sm text-muted-foreground">{progress.label}</p>
+            {progress?.page ? (
+                <div className="mt-2 rounded-lg border bg-muted/30 px-3 py-2">
+                    <p className="text-xs font-semibold text-foreground">Live page scan · page {progress.page} of {progress.total}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{progress.lines ?? 0} text lines read from this page.</p>
+                    {progress.preview ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{progress.preview}</p> : null}
+                </div>
+            ) : null}
             {stage === "layout" ? <p className="mt-1 text-xs text-muted-foreground">Large or scanned papers can take a few minutes on the first local run. Keep this tab open; no hosted AI request is being used.</p> : null}
         </div>
     )
@@ -1123,7 +1146,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
         for (const [index, pair] of pairs.entries()) {
             const label = pairs.length > 1 ? ` (${index + 1} of ${pairs.length})` : ""
             const startedAt = Date.now()
-            const reportProgress = (file) => async (page, total, phase) => {
+            const reportProgress = (file) => async (page, total, phase, detail = {}) => {
                 setProgress({
                     label: phase === "ai"
                         ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
@@ -1133,6 +1156,10 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                     percent: phase === "layout" ? 55 : Math.min(45, Math.round((page / total) * 45)),
                     stage: phase === "layout" ? "layout" : "pages",
                     startedAt,
+                    page: phase === "layout" ? null : page,
+                    total: phase === "layout" ? null : total,
+                    lines: detail.lines,
+                    preview: detail.preview,
                 })
                 await new Promise((resolve) => setTimeout(resolve, 0))
             }

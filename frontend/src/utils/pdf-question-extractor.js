@@ -160,7 +160,12 @@ async function readPages(pdf, pdfjs, onProgress) {
         }
         pages.push(pageInfo)
         page.cleanup()
-        if (onProgress) await onProgress(number, pdf.numPages)
+        if (onProgress) {
+            await onProgress(number, pdf.numPages, "pages", {
+                lines: body.length,
+                preview: body.slice(0, 3).map((line) => line.text).join(" ").slice(0, 280),
+            })
+        }
     }
     return withoutRunningLines(pages)
 }
