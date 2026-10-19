@@ -347,34 +347,29 @@ function ImageTools({ onReplace, onRemove, label }) {
 
 const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
     return (
-        <div className="mb-3">
+        <div className="mb-4">
             {showName ? (
-                <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{paper.name.replace(/\.pdf$/i, "")}</p>
+                <p className="mb-2 truncate text-xs font-semibold text-foreground">{paper.name.replace(/\.pdf$/i, "")}</p>
             ) : null}
-            {answered(paper).map((question) => {
-                const answer = paper.answers[question.num]
-                return (
-                    <button
-                        key={question.num}
-                        type="button"
-                        onClick={() => onJump(paper.id, question.num)}
-                        className="flex w-full flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
-                    >
-                        <b className="w-12 shrink-0 pr-1 text-right text-xs text-primary">{question.num}</b>
-                        {(question.options.length > 4 ? question.options.map((o) => o.key) : KEYS).map((key) => (
-                            <span
-                                key={key}
-                                className={cn(
-                                    "grid size-5 place-items-center rounded-full border text-[10px]",
-                                    answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
-                                )}
-                            >
-                                {key}
+            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 lg:grid-cols-4">
+                {answered(paper).map((question) => {
+                    const answer = paper.answers[question.num]
+                    return (
+                        <button
+                            key={question.num}
+                            type="button"
+                            onClick={() => onJump(paper.id, question.num)}
+                            className="group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-background text-primary transition hover:-translate-y-0.5 hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            title={`Question ${question.num}: answer ${answer}`}
+                        >
+                            <b className="text-xs leading-none">{question.num}</b>
+                            <span className="mt-1 grid size-4 place-items-center rounded-full bg-emerald-600 text-[9px] font-bold leading-none text-white">
+                                {answer}
                             </span>
-                        ))}
-                    </button>
-                )
-            })}
+                        </button>
+                    )
+                })}
+            </div>
         </div>
     )
 })
@@ -560,47 +555,53 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
         <article
             ref={cardRef}
             className={cn(
-                "rounded-2xl border bg-background p-5 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto]",
+                "rounded-2xl border border-border/80 bg-background p-4 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto] sm:p-5",
                 !included && "opacity-60",
             )}
         >
-            <div className="mb-2 flex flex-wrap items-baseline gap-3">
-                <span className="text-2xl font-bold text-primary">Q{question.num}</span>
-                <span className="text-xs text-muted-foreground">
-                    page {question.pages.join("–")}
-                    {question.figureSrcs.length ? `, ${question.figureSrcs.length} figure${question.figureSrcs.length > 1 ? "s" : ""}` : ""}
-                </span>
-                {saved ? (
-                    <Badge variant="secondary" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Saved
-                    </Badge>
-                ) : null}
-                <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
-                <span className="flex-1" />
-                {draft ? null : (
-                    <Button type="button" size="xs" variant="outline" onClick={startEdit} aria-label={`Edit question ${question.num}`}>
-                        <Pencil className="h-3 w-3" /> Edit
+            <div className="mb-4 flex flex-col gap-3 border-b border-border/70 pb-3 sm:flex-row sm:items-start">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">{question.num}</span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold">Question {question.num}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            Page {question.pages.join("–")}
+                            {question.figureSrcs.length ? ` · ${question.figureSrcs.length} figure${question.figureSrcs.length > 1 ? "s" : ""}` : ""}
+                        </p>
+                    </div>
+                    {saved ? (
+                        <Badge variant="secondary" className="mt-0.5 gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Saved
+                        </Badge>
+                    ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
+                    {draft ? null : (
+                        <Button type="button" size="xs" variant="outline" onClick={startEdit} aria-label={`Edit question ${question.num}`}>
+                            <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                    )}
+                    <button
+                        type="button"
+                        className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        aria-expanded={showOriginal}
+                        onClick={() => setShowOriginal((open) => !open)}
+                    >
+                        {showOriginal ? "Hide original" : "Show original"}
+                    </button>
+                    <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        aria-label={`Delete question ${question.num}`}
+                        title="Delete this question from the import"
+                        onClick={() => onDelete(question.num)}
+                    >
+                        <Trash2 className="h-4 w-4" />
                     </Button>
-                )}
-                <button
-                    type="button"
-                    className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                    aria-expanded={showOriginal}
-                    onClick={() => setShowOriginal((open) => !open)}
-                >
-                    {showOriginal ? "Hide original" : "Show original"}
-                </button>
-                <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    aria-label={`Delete question ${question.num}`}
-                    title="Delete this question from the import"
-                    onClick={() => onDelete(question.num)}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                </div>
             </div>
 
             {answer && question.options.length && !question.options.some((option) => option.key === answer) ? (
@@ -1497,21 +1498,22 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     const missingTagCount = papers.reduce((sum, p) => sum + answered(p).filter((q) => needsTag(p, q)).length, 0)
 
     return (
-        <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
-            <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
+        <div className="flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-b from-primary/[0.035] via-muted/20 to-muted/30">
+            <header className="flex shrink-0 items-center gap-3 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-bold text-primary">QB</div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Import from PDF</p>
-                    <p className="truncate text-sm font-semibold">{certification?.title ?? "Question bank"}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Question bank · import workspace</p>
+                    <p className="truncate text-sm font-semibold sm:text-base">{certification?.title ?? "Question bank"}</p>
                 </div>
                 {papers.length ? (
-                    <>
-                        <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy || tagging} onClick={() => setStartOverOpen(true)}>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Button type="button" size="sm" variant="ghost" className="hidden text-destructive sm:inline-flex" disabled={busy || tagging} onClick={() => setStartOverOpen(true)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Start over
                         </Button>
                         <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
                             <UploadIcon className="mr-2 h-4 w-4" /> Add files
                         </Button>
-                    </>
+                    </div>
                 ) : null}
             </header>
 
@@ -1541,24 +1543,42 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                         ))}
                     </section>
                 ) : (
-                    <div className="grid w-full gap-6 px-4 py-5 lg:px-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-                        <aside className="hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto rounded-2xl border bg-background p-3 lg:sticky lg:top-0 lg:block">
-                            <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
-                            <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it. Questions without an answer are left off and will not be saved.</p>
+                    <div className="mx-auto grid w-full max-w-[1800px] gap-5 px-4 py-5 xl:grid-cols-[18rem_minmax(0,1fr)] xl:px-6">
+                        <aside className="hidden max-h-[calc(100dvh-6.75rem)] self-start overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-sm xl:sticky xl:top-0 xl:block">
+                            <div className="mb-4 border-b border-border pb-3">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Navigate the import</p>
+                                <h2 className="mt-1 text-base font-bold">Answer map</h2>
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Jump straight to a question. The letter below each number is the saved answer.</p>
+                            </div>
+                            <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/60 p-2.5 text-center">
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">{answeredCount}</p>
+                                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">answered</p>
+                                </div>
+                                <div className="border-l border-border">
+                                    <p className="text-lg font-bold text-foreground">{totalQuestions - answeredCount}</p>
+                                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">to check</p>
+                                </div>
+                            </div>
                             {currentPaper && answered(currentPaper).length ? (
                                 <SheetPaper paper={currentPaper} showName={papers.length > 1} onJump={cardActions.jump} />
-                            ) : null}
+                            ) : <p className="text-xs text-muted-foreground">Add or mark an answer key to populate the map.</p>}
                         </aside>
 
                         <main className="min-w-0">
-                            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3">
-                                <p className="flex-1 text-sm text-muted-foreground">
-                                    <strong className="text-foreground">
-                                        {totalQuestions} questions{papers.length > 1 ? ` in ${papers.length} papers` : ""}
-                                    </strong>
-                                    {answeredCount < totalQuestions ? `, ${answeredCount} with their answer` : ""}
-                                    {taggedCount ? `, ${taggedCount} tagged` : ""}.
-                                </p>
+                            <div className="mb-4 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
+                                <div className="flex flex-col gap-4 bg-primary/[0.045] px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Step 2 of 3 · review & organize</p>
+                                        <h1 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">
+                                            {totalQuestions} imported question{totalQuestions === 1 ? "" : "s"}
+                                            {papers.length > 1 ? ` across ${papers.length} papers` : ""}
+                                        </h1>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {answeredCount} answer{answeredCount === 1 ? "" : "s"} marked · {taggedCount} ready for a lesson
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
                                 {duplicateList.length ? (
                                     <Button
                                         type="button"
@@ -1594,14 +1614,28 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                 <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
                                     <Eye className="mr-2 h-4 w-4" /> Preview & save
                                 </Button>
+                                    </div>
+                                </div>
+                                <div className="grid border-t border-border/70 sm:grid-cols-3">
+                                    {[
+                                        ["1", "Import files", `${papers.length} paper${papers.length === 1 ? "" : "s"} loaded`],
+                                        ["2", "Review answers", `${answeredCount} of ${totalQuestions} marked`],
+                                        ["3", "Tag & save", taggedCount ? `${taggedCount} organized` : "Tag with AI when ready"],
+                                    ].map(([step, title, detail]) => (
+                                        <div key={step} className="flex items-center gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+                                            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">{step}</span>
+                                            <div className="min-w-0"><p className="text-xs font-semibold">{title}</p><p className="truncate text-xs text-muted-foreground">{detail}</p></div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/80 bg-background/95 p-2.5 shadow-sm backdrop-blur">
                                 <div className="relative min-w-[220px] flex-1">
                                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search question text" className="rounded-full pl-9" />
+                                    <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search questions, concepts, or wording" className="border-transparent bg-muted/60 pl-9 shadow-none focus-visible:bg-background" />
                                 </div>
-                                <div className="inline-flex overflow-hidden rounded-full border bg-background" role="group" aria-label="Filter">
+                                <div className="inline-flex overflow-hidden rounded-lg border bg-background" role="group" aria-label="Filter">
                                     {[["all", "All"], ["fig", "With figures"]].map(([value, label]) => (
                                         <button
                                             key={value}
