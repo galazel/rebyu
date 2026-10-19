@@ -26,6 +26,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
@@ -42,7 +43,7 @@ import {
   updateMyNotificationPreferences,
 } from "@/services/notificationPreferenceService.js"
 import { changePassword, signOutEverywhere } from "@/services/authService.js"
-import { cancelSubscription, getLearnerSubscription } from "@/services/subscriptionService.js"
+import { cancelSubscription, getCertificationReviewLevels, getLearnerSubscription } from "@/services/subscriptionService.js"
 
 const ACCOUNT_TABS = [
   { id: "profile", label: "Profile", icon: UserRound },
@@ -122,12 +123,13 @@ function CertificationBadgeMark({ award }) {
 
 function CertificationReviewRank() {
   const rankQuery = useQuery({ queryKey: ["learner-review-level"], queryFn: () => base("learners/me/review-level"), staleTime: 60_000, retry: false })
+  const levelsQuery = useQuery({ queryKey: ["certification-review-levels"], queryFn: getCertificationReviewLevels, staleTime: 60_000, retry: false })
   const level = rankQuery.data
   if (rankQuery.isError) return null
   const progress = level?.nextRequiredXp ? Math.min(100, Math.round(((level.xp - level.requiredXp) / (level.nextRequiredXp - level.requiredXp)) * 100)) : 100
   return (
     <section className="mt-5 border-b border-border/70 pb-5 sm:mt-6 sm:pb-6">
-      <div className="flex items-start justify-between gap-3"><div><h3 className="text-[15px] font-semibold sm:text-base">Certification review rank</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">One shared XP rank, shown throughout certification review.</p></div></div>
+      <div className="flex items-start justify-between gap-3"><div><h3 className="text-[15px] font-semibold sm:text-base">Certification review rank</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">One shared XP rank, shown throughout certification review.</p></div><Dialog><DialogTrigger asChild><Button variant="outline" size="sm">View all levels</Button></DialogTrigger><DialogContent className="max-w-2xl"><DialogHeader><DialogTitle>Certification review levels</DialogTitle><DialogDescription>Your global XP rank across REBYU. Your current rank is highlighted.</DialogDescription></DialogHeader><div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">{(levelsQuery.data ?? []).map((item) => { const current = item.levelNumber === level?.levelNumber; const unlocked = item.requiredXp <= (level?.xp ?? 0); return <div key={item.levelNumber} className={`flex items-center gap-3 rounded-lg border p-3 ${current ? "border-primary bg-primary/10" : unlocked ? "bg-muted/30" : "opacity-65"}`}><div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-rb-bee-wash">{item.imageKey ? <AuthedImage imageKey={item.imageKey} className="h-full w-full object-cover" placeholderClassName="h-full w-full" /> : <Award className="size-5 text-rb-bee" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-semibold">Level {item.levelNumber} · {item.title}</p><p className="text-xs text-muted-foreground">{Number(item.requiredXp).toLocaleString()} XP required{item.description ? ` · ${item.description}` : ""}</p></div>{current ? <span className="rounded-full bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">Current</span> : unlocked ? <span className="text-xs font-medium text-primary">Unlocked</span> : null}</div> })}</div></DialogContent></Dialog></div>
       <div className="mt-4 flex items-center gap-3 rounded-xl border bg-muted/20 p-3"><div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-rb-bee-wash">{level?.imageKey ? <AuthedImage imageKey={level.imageKey} className="h-full w-full object-cover" placeholderClassName="h-full w-full" /> : <Award className="size-6 text-rb-bee" />}</div><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{level ? `Level ${level.levelNumber} · ${level.title}` : "Loading review rank…"}</p>{level ? <><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div><p className="mt-1.5 text-xs text-muted-foreground">{level.xp.toLocaleString()} XP{level.nextRequiredXp ? ` · ${level.nextRequiredXp.toLocaleString()} to next level` : " · highest rank"}</p></> : null}</div></div>
     </section>
   )
