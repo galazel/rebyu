@@ -705,7 +705,7 @@ export default function LearnerProgressPage() {
       y: 0,
       col: 6,
       row: 1,
-      element: <PlayerCardTile portalData={data} certificationId={selectedCertificationId || null} />,
+      element: <PlayerCardTile portalData={data} />,
     },
     {
       id: "next-up",

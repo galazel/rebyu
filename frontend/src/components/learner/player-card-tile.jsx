@@ -65,7 +65,7 @@ function Stat({ value, label, ink = "white" }) {
   )
 }
 
-export function PlayerCardTile({ portalData, certificationId }) {
+export function PlayerCardTile({ portalData }) {
   const streakQuery = useQuery({
     queryKey: ["learner-streak"],
     queryFn: () => base("streaks/me"),
@@ -73,9 +73,8 @@ export function PlayerCardTile({ portalData, certificationId }) {
     retry: false,
   })
   const levelQuery = useQuery({
-    queryKey: ["certification-review-level", certificationId],
-    queryFn: () => base(`learners/me/certifications/${certificationId}/review-level`),
-    enabled: certificationId != null,
+    queryKey: ["learner-review-level"],
+    queryFn: () => base("learners/me/review-level"),
     staleTime: 60_000,
   })
 
