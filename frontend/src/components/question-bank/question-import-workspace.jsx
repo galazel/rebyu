@@ -418,6 +418,52 @@ function ImportGuide() {
     )
 }
 
+function ExtractionProgress({ progress }) {
+    const [now, setNow] = useState(Date.now())
+    useEffect(() => {
+        if (!progress) return undefined
+        setNow(Date.now())
+        const timer = window.setInterval(() => setNow(Date.now()), 1000)
+        return () => window.clearInterval(timer)
+    }, [progress])
+
+    const elapsed = progress?.startedAt ? Math.max(0, Math.floor((now - progress.startedAt) / 1000)) : 0
+    const stage = progress?.stage ?? "preparing"
+    const steps = [
+        ["preparing", "Prepare file", "Open the PDF and read its text"],
+        ["pages", "Read pages", "Collect page text and images"],
+        ["layout", "Analyze layout", "Find questions, choices, answers and figures locally"],
+        ["organizing", "Build review", "Organize the extracted items for review"],
+    ]
+    const index = Math.max(0, steps.findIndex(([id]) => id === stage))
+
+    return (
+        <div className="rounded-xl border bg-background p-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">Importing locally</p>
+                {progress?.startedAt ? <span className="text-xs tabular-nums text-muted-foreground">{elapsed}s elapsed</span> : null}
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
+            </div>
+            <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+                {steps.map(([id, title, detail], stepIndex) => {
+                    const complete = stepIndex < index
+                    const active = stepIndex === index
+                    return (
+                        <li key={id} className={cn("flex items-start gap-2 text-xs", complete ? "text-emerald-700" : active ? "text-foreground" : "text-muted-foreground")}>
+                            {complete ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : active ? <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" /> : <span className="mt-0.5 grid size-3.5 shrink-0 place-items-center rounded-full border text-[8px]">{stepIndex + 1}</span>}
+                            <span><b>{title}</b><span className="block text-muted-foreground">{detail}</span></span>
+                        </li>
+                    )
+                })}
+            </ol>
+            <p className="mt-3 text-sm text-muted-foreground">{progress.label}</p>
+            {stage === "layout" ? <p className="mt-1 text-xs text-muted-foreground">Large or scanned papers can take a few minutes on the first local run. Keep this tab open; no hosted AI request is being used.</p> : null}
+        </div>
+    )
+}
+
 function CropableImage({ src, alt, questionNum, choiceKeys, onCrop }) {
     const containerRef = useRef(null)
     const imgRef = useRef(null)
@@ -1027,7 +1073,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     }
 
     async function addKeyForPaper(file, target) {
-        setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
+        setProgress({ label: `Reading answer key ${file.name}`, percent: 30, stage: "pages", startedAt: Date.now() })
         try {
             const read = await readExamPdf(await asPdf(file), null, readDocumentLayout)
             const answers = read.kind === "key"
@@ -1076,22 +1122,26 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
 
         for (const [index, pair] of pairs.entries()) {
             const label = pairs.length > 1 ? ` (${index + 1} of ${pairs.length})` : ""
+            const startedAt = Date.now()
             const reportProgress = (file) => async (page, total, phase) => {
                 setProgress({
                     label: phase === "ai"
                         ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
                         : phase === "layout"
-                          ? `Reading the layout of ${file.name}${label} (${total} pages, about ${Math.max(10, total * 2)} seconds)`
+                          ? `Analyzing the layout of ${file.name}${label} (${total} pages). This continues until every page has been inspected.`
                           : `Opening ${file.name}${label}, page ${page} of ${total}`,
-                    percent: phase === "layout" ? 60 : Math.round((page / total) * 100),
+                    percent: phase === "layout" ? 55 : Math.min(45, Math.round((page / total) * 45)),
+                    stage: phase === "layout" ? "layout" : "pages",
+                    startedAt,
                 })
                 await new Promise((resolve) => setTimeout(resolve, 0))
             }
 
             let result
-            setProgress({ label: `Opening ${pair.paper.name}${label}`, percent: 2 })
+            setProgress({ label: `Preparing ${pair.paper.name}${label}`, percent: 2, stage: "preparing", startedAt })
             try {
                 result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentLayout)
+                setProgress({ label: `Organizing questions, choices and figures from ${pair.paper.name}${label}`, percent: 85, stage: "organizing", startedAt })
                 if (result.kind === "key") {
                     throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
                 }
@@ -1106,7 +1156,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             const fileId = `${pair.paper.name}:${pair.paper.size}`
             const id = `${fileId}:${Date.now()}`
             if (pair.key) {
-                setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
+                setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90, stage: "pages", startedAt })
                 try {
                     const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout)
                     const keyAnswers = key.kind === "key"
@@ -1530,12 +1580,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                             <PdfUploadStep onNext={addFiles} disabled={busy} nextLabel="Next: read the files" />
                         </div>
                         {busy ? (
-                            <div className="mt-4 rounded-xl border bg-background p-3" aria-live="polite">
-                                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                                    <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
-                                </div>
-                                <p className="mt-2 text-sm text-muted-foreground">{progress.label}</p>
-                            </div>
+                            <div className="mt-4"><ExtractionProgress progress={progress} /></div>
                         ) : null}
                         {failures.map((failure, index) => (
                             <p key={index} className="mt-2 flex items-start gap-2 text-sm text-destructive">
@@ -1668,12 +1713,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                 </div>
                             ) : null}
                             {busy ? (
-                                <div className="mb-3 rounded-xl border bg-background p-3 text-sm text-muted-foreground" aria-live="polite">
-                                    <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                                        <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
-                                    </div>
-                                    {progress.label}
-                                </div>
+                                <div className="mb-3"><ExtractionProgress progress={progress} /></div>
                             ) : null}
 
                             {notice ? (
