@@ -12,10 +12,10 @@ const STORIES = {
     banner: "Ready to learn?",
   },
   register: {
-    caption: "first day of class",
-    line: "Welcome to your new classroom.",
-    note: "grab a seat, let's begin",
-    banner: "Welcome to your new classroom.",
+    caption: "a new journey begins",
+    line: "Create your REBYU space.",
+    note: "choose how you want to learn and lead",
+    banner: "Create your REBYU space.",
   },
   recovery: {
     caption: "office hours",
