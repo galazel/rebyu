@@ -1855,6 +1855,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                                             `${item.questions.filter((q) => q.figureSrcs.length).length} with figures`,
                                                             item.readBy === "rules" && "local text and image extraction",
                                                             item.readBy === "layout" && `local layout: ${item.profile ?? "detected"}`,
+                                                            item.readBy === "ai" && "AI vision extraction from the original page image",
                                                             item.readBy === "ai-fallback" && "AI recovery from the original page image",
                                                             item.partial && "review incomplete items before saving",
                                                             item.recoveryWarning && "AI recovery was unavailable; local review retained",

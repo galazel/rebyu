@@ -204,7 +204,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                     </ul>
                 </div>
                 <p className="sm:col-span-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
-                    The local reader is used first. If a layout is incomplete or loses notation, Rebyu verifies it from the original page image with AI and tells you in the review header. You always approve the result before saving.
+                    AI vision reads the original page image first. If it is unavailable, Rebyu falls back to local extraction and tells you in the review header. You always approve the result before saving.
                 </p>
             </div>
 

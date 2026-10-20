@@ -1124,19 +1124,52 @@ export async function readExamPdf(file, onProgress, readLayout, readPage) {
         if (key) return { kind: "key", name: file.name, info, ...key }
 
         const pages = await readPages(pdf, pdfjs, onProgress)
-        // Every paper starts with local extraction. PM papers used to skip this
-        // entirely and were sent straight to the hosted vision model, making a
-        // normal PDF import depend on AI credits and provider availability.
-        // The rule reader catches familiar numbered papers; the local layout
-        // reader below handles less regular pages, choices, answer sections,
-        // and figure coordinates.
+        let aiProblem = null
+        let aiAttempted = false
+
+        // Vision is the primary reader for imports.  It sees the rendered
+        // source page, so it can retain diagrams, tables, scanned text,
+        // mathematical notation and multi-part PM question IDs that a PDF
+        // text stream cannot represent reliably.
+        if (readPage) {
+            aiAttempted = true
+            if (onProgress) {
+                await onProgress(0, pages.length, "ai", {
+                    reason: "Reading the original pages with AI vision",
+                })
+            }
+            try {
+                const ai = await readWithAi(pages, readPage, onProgress)
+                const complete = ai.questions.filter((question) => question.stem && question.options.length >= 2).length
+                if (complete >= 1) {
+                    return {
+                        kind: "paper",
+                        name: file.name,
+                        info,
+                        questions: ai.questions,
+                        readBy: "ai",
+                        partial: complete < ai.questions.length,
+                    }
+                }
+                if (Object.keys(ai.answers || {}).length >= 1) {
+                    return { kind: "key", name: file.name, info, answers: ai.answers, count: Object.keys(ai.answers).length, readBy: "ai" }
+                }
+                aiProblem = "AI vision did not find reviewable questions or answers"
+            } catch (error) {
+                aiProblem = error?.response?.data?.message || error?.message || "AI vision could not read this file"
+            }
+        }
+
+        // If vision is unavailable, retain a local path for simple numbered
+        // papers, answer sections and figure coordinates rather than failing
+        // the whole import.
         const ruled = locateQuestions(pages).map(buildQuestion)
         const fourChoice = ruled.filter((q) => q.options.length === 4).length
         if (ruled.length >= 5 && fourChoice >= ruled.length * 0.8) {
             return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules" }
         }
 
-        let layoutProblem = null
+        let layoutProblem = aiProblem
         if (readLayout) {
             if (onProgress) await onProgress(0, pages.length, "layout")
             try {
@@ -1146,7 +1179,7 @@ export async function readExamPdf(file, onProgress, readLayout, readPage) {
                 // entire upload or force it through an external AI provider.
                 if (layout.total >= 1) {
                     const localQuestions = fromLayout(layout, pages)
-                    if (readPage && layoutNeedsAiRecovery(layout, localQuestions)) {
+                    if (readPage && !aiAttempted && layoutNeedsAiRecovery(layout, localQuestions)) {
                         if (onProgress) {
                             await onProgress(0, pages.length, "ai", {
                                 reason: "The local layout was incomplete or lost notation, so it is being verified from the page image",
@@ -1177,7 +1210,7 @@ export async function readExamPdf(file, onProgress, readLayout, readPage) {
                         readBy: "layout",
                         profile: layout.profile,
                         partial: layout.complete < layout.total,
-                        recoveryWarning: layoutProblem,
+                        recoveryWarning: aiProblem || layoutProblem,
                     }
                 }
                 if (!layout.total && Object.keys(layout.answers || {}).length >= 1) {
