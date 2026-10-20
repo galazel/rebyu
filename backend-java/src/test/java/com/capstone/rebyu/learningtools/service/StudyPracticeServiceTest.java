@@ -4,12 +4,14 @@ import com.capstone.rebyu.learningtools.service.PracticeMasteryEvidenceService;
 
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
 import com.capstone.rebyu.assessment.repository.ExamRepository;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.learningtools.entity.GeneratedStudySet;
 import com.capstone.rebyu.learningtools.entity.GeneratedStudyItem;
 import com.capstone.rebyu.learningtools.repository.GeneratedStudyItemRepository;
@@ -55,6 +57,7 @@ class StudyPracticeServiceTest {
     private LearnerPracticeAnswerRepository answers;
     private LessonRepository lessons;
     private LearnerCertificationRepository enrollments;
+    private InstitutionCertificationLearnerRepository institutionEnrollments;
     private ExamRepository exams;
     private ExamQuestionRepository examQuestions;
     private RewardService rewards;
@@ -69,11 +72,12 @@ class StudyPracticeServiceTest {
         answers = mock(LearnerPracticeAnswerRepository.class);
         lessons = mock(LessonRepository.class);
         enrollments = mock(LearnerCertificationRepository.class);
+        institutionEnrollments = mock(InstitutionCertificationLearnerRepository.class);
         exams = mock(ExamRepository.class);
         examQuestions = mock(ExamQuestionRepository.class);
         rewards = mock(RewardService.class);
         masteryEvidence = mock(PracticeMasteryEvidenceService.class);
-        service = new StudyPracticeService(studySets, studyItems, attempts, answers, lessons, enrollments,
+        service = new StudyPracticeService(studySets, studyItems, attempts, answers, lessons, enrollments, institutionEnrollments,
                 exams, examQuestions, new ObjectMapper(), rewards, masteryEvidence);
     }
 
@@ -248,5 +252,28 @@ class StudyPracticeServiceTest {
                 LEARNER_ID, 7L, LearnerCertification.Status.active)).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> service.startAttempt(LEARNER_ID, STUDY_SET_ID));
+    }
+
+    @Test
+    void startAttempt_institutionEnrollment_allowsGeneratedFlashcards() {
+        when(studySets.findByStudySetIdAndLearnerIdWithItems(STUDY_SET_ID, LEARNER_ID))
+                .thenReturn(Optional.of(studySetEntity("TUTOR_AI", "FLASHCARD")));
+        when(enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+                LEARNER_ID, 7L, LearnerCertification.Status.active)).thenReturn(false);
+        when(institutionEnrollments
+                .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                        LEARNER_ID, 7L, InstitutionCertificationLearner.Status.active)).thenReturn(true);
+        when(attempts.findFirstByLearner_LearnerIdAndSourceTypeAndSourceIdAndStatusOrderByStartedAtDesc(
+                LEARNER_ID, "FLASHCARD_RECALL", STUDY_SET_ID, "IN_PROGRESS")).thenReturn(Optional.empty());
+        when(attempts.save(any(LearnerPracticeAttempt.class))).thenAnswer(invocation -> {
+            LearnerPracticeAttempt saved = invocation.getArgument(0);
+            saved.setAttemptId(ATTEMPT_ID);
+            return saved;
+        });
+
+        StudyPracticeService.Attempt attempt = service.startAttempt(LEARNER_ID, STUDY_SET_ID);
+
+        assertEquals(ATTEMPT_ID, attempt.id());
+        verify(attempts).save(argThat(saved -> "FLASHCARD_RECALL".equals(saved.getSourceType())));
     }
 }

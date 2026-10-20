@@ -17,7 +17,24 @@ const ACCEPT = [
 ].join(",")
 const DOCUMENT_EXTENSION_RE = /\.(pdf|docx?|odt|rtf)$/i
 
-const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*paper|questions?)$/i
+const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*papers?|questions?)$/i
+
+// AM/PM is useful metadata when a provider publishes two sittings, but it is
+// never part of the identity required to import a paper.  Many providers use
+// one paper per date, or omit a session label altogether.
+const optionalSession = (title) =>
+    String(title || "")
+        .toLowerCase()
+        .replace(/\b(am|pm|morning|afternoon)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+
+const declaredSession = (title) => {
+    const value = String(title || "").toLowerCase()
+    if (/\b(am|morning)\b/.test(value)) return "am"
+    if (/\b(pm|afternoon)\b/.test(value)) return "pm"
+    return null
+}
 
 export function parseFileName(name) {
     const base = name.replace(DOCUMENT_EXTENSION_RE, "").trim()
@@ -53,9 +70,6 @@ export function pairFiles(items) {
         byTitle.set(parsed.titleKey, group)
     }
 
-    const loose = (titleKey) => titleKey.replace(/\b(am|pm|morning|afternoon)\b/g, " ").replace(/\s+/g, " ").trim()
-    const session = (titleKey) =>
-        /\b(am|morning)\b/.test(titleKey) ? "am" : /\b(pm|afternoon)\b/.test(titleKey) ? "pm" : null
     for (const [titleKey, group] of byTitle) {
         if (group.papers.length || !group.keys.length) continue
         const matches = [...byTitle.values()].filter(
@@ -63,8 +77,11 @@ export function pairFiles(items) {
                 other !== group &&
                 other.papers.length &&
                 !other.keys.length &&
-                loose(other.title.toLowerCase()) === loose(titleKey) &&
-                (!session(other.title.toLowerCase()) || session(other.title.toLowerCase()) === session(titleKey)),
+                optionalSession(other.title) === optionalSession(titleKey) &&
+                // Never cross-pair two files that explicitly name different
+                // sittings.  If either file omits AM/PM, the shared title is
+                // enough to pair it.
+                (!declaredSession(other.title) || !declaredSession(titleKey) || declaredSession(other.title) === declaredSession(titleKey)),
         )
         if (matches.length === 1) {
             matches[0].keys.push(...group.keys)
@@ -154,20 +171,46 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
     const withoutKey = pairs.filter((pair) => !pair.key).length
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-3">
             <div>
                 <h3 className="text-sm font-semibold text-foreground">Exam papers and answer keys</h3>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     Name each file after its exam, ending in <b>Questions</b> or <b>Answer Key</b> --{" "}
                     <span className="font-mono">Midterm Exam Questions.pdf</span> and{" "}
-                    <span className="font-mono">Midterm Exam Answer Key.pdf</span>. Files with the same title are paired; you
-                    check the pairs before anything is read. Any layout works.
+                    <span className="font-mono">Midterm Exam Answer Key.pdf</span>. Files with the same title are paired; AM/PM
+                    labels are optional. You check the pairs before anything is read. Any layout works.
+                </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2" aria-label="Accepted document layouts">
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                        <FileText className="size-4 text-primary" /> Accepted question papers
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
+                        <li><b className="text-foreground">Numbered MCQ:</b> Q1 with a–d choices, across one or many pages.</li>
+                        <li><b className="text-foreground">Multi-part papers:</b> Q1-A, Q1-2, blanks, answer groups and PM-style sections.</li>
+                        <li><b className="text-foreground">Visual papers:</b> tables, diagrams, figures, scans and image-only pages.</li>
+                    </ul>
+                </div>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                        <KeyRound className="size-4 text-amber-700 dark:text-amber-400" /> Accepted answer keys
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
+                        <li><b className="text-foreground">Answer lists:</b> 1 a, 2 c, or Question 1 — B.</li>
+                        <li><b className="text-foreground">Answer tables:</b> Question · Subquestion · Choice · Correct answer.</li>
+                        <li><b className="text-foreground">Matching IDs:</b> 1-A, 2-2-A and similar subquestion labels are supported.</li>
+                    </ul>
+                </div>
+                <p className="sm:col-span-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
+                    AI vision reads the original page image first. If it is unavailable, Rebyu falls back to local extraction and tells you in the review header. You always approve the result before saving.
                 </p>
             </div>
 
             <div
                 className={cn(
-                    "relative flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed p-4 transition-colors has-[input:focus]:ring-2",
+                    "relative flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-3 transition-colors has-[input:focus]:ring-2",
                     problem
                         ? "border-destructive bg-destructive/5 has-[input:focus]:ring-destructive/30"
                         : "border-border has-[input:focus]:border-primary has-[input:focus]:ring-ring/30",
@@ -181,15 +224,15 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
             >
                 <input {...getInputProps()} aria-label="Upload exam papers and answer keys" className="sr-only" />
 
-                <div className="flex flex-col items-center px-4 py-3 text-center">
-                    <div className="mb-3 flex size-12 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                <div className="flex flex-col items-center px-4 py-2 text-center">
+                    <div className="mb-2 flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
                         <FileText className="size-5" />
                     </div>
                     <p className="text-sm font-medium text-foreground">Drop your exam papers and answer keys here</p>
-                    <p className="mt-1.5 max-w-sm text-xs leading-5 text-muted-foreground">
+                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
                         PDF or Word (.docx, .doc). Up to {MAX_FILES} files, {MAX_SIZE_MB} MB each.
                     </p>
-                    <Button type="button" variant="outline" className="mt-4" disabled={disabled} onClick={openFileDialog}>
+                    <Button type="button" variant="outline" className="mt-3" disabled={disabled} onClick={openFileDialog}>
                         <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
                         Select files
                     </Button>
@@ -266,7 +309,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                                     {pair.title}
                                     {pair.looseKey ? (
                                         <span className="text-xs font-normal text-muted-foreground">
-                                            -- paired although only the key's name says AM/PM
+                                            -- paired by the shared exam title; a session label is optional
                                         </span>
                                     ) : null}
                                 </p>

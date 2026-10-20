@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { Layers3, Trophy } from "@/components/icons"
+import { CircleAlert, Layers3, RefreshCw, Trophy } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import {
 } from "@/services/practiceService"
 
 const RECALL_SECONDS = 25
+const ENROLLMENT_ACCESS_MESSAGE = "active certification enrollment is required"
 
 function faceType(text) {
   const length = String(text ?? "").length
@@ -47,23 +48,45 @@ export default function LearnerFlashcardAttemptPage() {
   const [rating, setRating] = useState(null)
   const [saving, setSaving] = useState(false)
   const [completion, setCompletion] = useState(null)
+  const [openingError, setOpeningError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let live = true
-    Promise.all([getStudySet(studySetId), startPracticeAttempt(studySetId)])
-      .then(([set, nextAttempt]) => {
-        if (live) {
-          setStudySet(set)
-          setAttempt(nextAttempt)
+
+    async function openFlashcards() {
+      setOpeningError(null)
+      setStudySet(null)
+      setAttempt(null)
+
+      try {
+        const nextStudySet = await getStudySet(studySetId)
+        if (!live) return
+
+        setStudySet(nextStudySet)
+
+        if (!Array.isArray(nextStudySet?.items) || nextStudySet.items.length === 0) {
+          setOpeningError("This flashcard set does not contain any cards yet.")
+          return
         }
-      })
-      .catch((error) =>
-        toast.error(apiMessage(error, "This flashcard set could not be opened."))
-      )
+
+        const nextAttempt = await startPracticeAttempt(studySetId)
+        if (live) setAttempt(nextAttempt)
+      } catch (error) {
+        if (!live) return
+
+        const message = apiMessage(error, "This flashcard set could not be opened.")
+        setOpeningError(message)
+        toast.error(message)
+      }
+    }
+
+    openFlashcards()
+
     return () => {
       live = false
     }
-  }, [studySetId])
+  }, [studySetId, reloadKey])
 
   const reveal = useCallback(() => setFlipped(true), [])
 
@@ -73,6 +96,44 @@ export default function LearnerFlashcardAttemptPage() {
     running: Boolean(studySet) && !flipped && !completion,
     onExpire: reveal,
   })
+
+  if (openingError) {
+    const enrollmentWasRejected = openingError.toLowerCase().includes(ENROLLMENT_ACCESS_MESSAGE)
+
+    return (
+      <ArenaShell>
+        <section className="m-auto w-full max-w-xl rounded-3xl bg-white/10 p-8 text-center backdrop-blur">
+          <CircleAlert className="mx-auto size-14 text-rb-fox" />
+
+          <p className="mt-5 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/70">
+            {enrollmentWasRejected ? "Enrollment verification issue" : "Flashcards unavailable"}
+          </p>
+
+          <h1 className="mt-2 font-rb-display text-3xl font-extrabold text-white">
+            {enrollmentWasRejected
+              ? "We couldn't verify your active enrollment."
+              : "This flashcard set couldn't be opened."}
+          </h1>
+
+          <p className="mt-4 text-sm leading-6 text-white/80">
+            {enrollmentWasRejected
+              ? "Your account is shown as enrolled, but the study service did not recognize the active enrollment it expects. This can happen for institution-assigned access and needs service-side verification before it can record this flashcard attempt."
+              : openingError}
+          </p>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button variant="secondary" onClick={() => setReloadKey((key) => key + 1)}>
+              <RefreshCw className="mr-2 size-4" />
+              Try again
+            </Button>
+            <Button variant="outline" className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:text-white" onClick={() => navigate("/learner/library")}>
+              Back to library
+            </Button>
+          </div>
+        </section>
+      </ArenaShell>
+    )
+  }
 
   if (!studySet || !attempt) {
     return (

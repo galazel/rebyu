@@ -142,6 +142,27 @@ export default function LearnerFilesPage() {
       ? certificationsQuery.data
       : []
 
+  const certificationOptions = useMemo(() => {
+    const titlesById = new Map(
+        certifications.map((certification) => [
+          String(certification.certificationId),
+          certification.title || "Untitled certification",
+        ])
+    )
+
+    for (const item of items) {
+      if (item.certificationId == null) continue
+      const id = String(item.certificationId)
+      if (!titlesById.has(id)) {
+        titlesById.set(id, item.certificationTitle || `Certification ${id}`)
+      }
+    }
+
+    return Array.from(titlesById, ([id, title]) => ({ id, title })).sort((a, b) =>
+        a.title.localeCompare(b.title)
+    )
+  }, [certifications, items])
+
   const isLoading = libraryQuery.isLoading
 
   useEffect(() => {
@@ -256,8 +277,8 @@ export default function LearnerFilesPage() {
             <SelectTrigger className="w-full"><SelectValue placeholder="All certifications" /></SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_VALUE}>All certifications</SelectItem>
-              {certifications.map((certification) => (
-                <SelectItem key={String(certification.certificationId)} value={String(certification.certificationId)}>{certification.title}</SelectItem>
+              {certificationOptions.map((certification) => (
+                <SelectItem key={certification.id} value={certification.id}>{certification.title}</SelectItem>
               ))}
             </SelectContent>
           </Select>

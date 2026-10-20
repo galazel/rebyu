@@ -15,6 +15,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByUser_UserIdAndReadAtIsNull(Long userId);
 
+    boolean existsByUser_UserIdAndTitleAndCreatedAtGreaterThanEqual(
+            Long userId, String title, OffsetDateTime createdAt);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Notification n SET n.readAt = :readAt "
             + "WHERE n.user.userId = :userId AND n.readAt IS NULL")

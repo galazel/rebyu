@@ -347,34 +347,29 @@ function ImageTools({ onReplace, onRemove, label }) {
 
 const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
     return (
-        <div className="mb-3">
+        <div className="mb-4">
             {showName ? (
-                <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{paper.name.replace(/\.pdf$/i, "")}</p>
+                <p className="mb-2 truncate text-xs font-semibold text-foreground">{paper.name.replace(/\.pdf$/i, "")}</p>
             ) : null}
-            {answered(paper).map((question) => {
-                const answer = paper.answers[question.num]
-                return (
-                    <button
-                        key={question.num}
-                        type="button"
-                        onClick={() => onJump(paper.id, question.num)}
-                        className="flex w-full flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
-                    >
-                        <b className="w-12 shrink-0 pr-1 text-right text-xs text-primary">{question.num}</b>
-                        {(question.options.length > 4 ? question.options.map((o) => o.key) : KEYS).map((key) => (
-                            <span
-                                key={key}
-                                className={cn(
-                                    "grid size-5 place-items-center rounded-full border text-[10px]",
-                                    answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
-                                )}
-                            >
-                                {key}
+            <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 lg:grid-cols-4">
+                {answered(paper).map((question) => {
+                    const answer = paper.answers[question.num]
+                    return (
+                        <button
+                            key={question.num}
+                            type="button"
+                            onClick={() => onJump(paper.id, question.num)}
+                            className="group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-background text-primary transition hover:-translate-y-0.5 hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            title={`Question ${question.num}: answer ${answer}`}
+                        >
+                            <b className="text-xs leading-none">{question.num}</b>
+                            <span className="mt-1 grid size-4 place-items-center rounded-full bg-emerald-600 text-[9px] font-bold leading-none text-white">
+                                {answer}
                             </span>
-                        ))}
-                    </button>
-                )
-            })}
+                        </button>
+                    )
+                })}
+            </div>
         </div>
     )
 })
@@ -382,43 +377,103 @@ const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
 function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
-        <div className="mb-4 rounded-2xl border bg-background p-4 shadow-sm">
-            <h2 className="text-sm font-bold">How importing works</h2>
-            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+        <section className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
+            <div className="grid gap-4 border-b bg-muted/20 px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · import administration</p>
+                    <h1 className="mt-1.5 font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Question bank import</h1>
+                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Submit examination papers and answer keys for extraction, validation and controlled publication to this certification&apos;s question bank.</p>
+                </div>
+                <div className="grid grid-cols-3 divide-x rounded-xl border bg-background px-2 py-3 text-center">
+                    {[["1", "Submit"], ["2", "Validate"], ["3", "Publish"]].map(([number, label]) => (
+                        <div key={number} className="px-2">
+                            <span className="mx-auto grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{number}</span>
+                            <p className="mt-1.5 text-xs font-semibold text-foreground">{label}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="grid gap-2 bg-background px-5 py-3 sm:grid-cols-3 sm:px-6">
                 {[
-                    ["Upload PDFs", "Name them Title Questions.pdf and Title Answer Key.pdf."],
-                    ["Check pairs", "Files with the same title are paired automatically."],
-                    ["Review questions", "Compare with Show original. Click a choice to fix the answer."],
-                    ["Crop images", "Drag on the original or a figure to crop and assign to a choice."],
-                    ["Tag with AI", "AI sets each question’s lesson and difficulty. Duplicates are dropped."],
-                    ["Preview & save", "Nothing is saved until you confirm the preview."],
+                    ["File matching", "Files sharing an examination title are paired. AM/PM labels are optional."],
+                    ["Review requirement", "Verify extracted questions, answer mappings and figures before publication."],
+                    ["Classification", "Assign lesson and difficulty metadata after validation is complete."],
                 ].map(([title, body]) => (
-                    <p key={title} className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{title}:</span> {body}
-                    </p>
+                    <div key={title} className="min-w-0 rounded-lg px-1 py-0.5">
+                        <p className="text-xs font-semibold text-foreground">{title}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{body}</p>
+                    </div>
                 ))}
             </div>
-            <button type="button" onClick={() => setShowNaming((o) => !o)} className="mt-2 text-xs font-semibold text-primary underline-offset-2 hover:underline">
-                {showNaming ? "Hide file naming guide" : "File naming guide"}
-            </button>
+            <div className="border-t bg-muted/30 px-5 py-2.5 sm:px-6">
+                <button type="button" onClick={() => setShowNaming((o) => !o)} className="text-xs font-semibold text-primary underline-offset-2 hover:underline">
+                    {showNaming ? "Hide file-naming requirements" : "View file-naming requirements"}
+                </button>
+            </div>
             {showNaming ? (
-                <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <div className="border-t bg-primary/[0.035] px-5 py-4 sm:px-6">
+                    <div className="rounded-xl border border-primary/20 bg-background p-3">
                     <p className="text-xs text-muted-foreground">
-                        <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter.
+                        <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter. AM/PM, morning and afternoon are optional labels, not required parts of the title.
                     </p>
                     <div className="mt-1.5 overflow-x-auto">
                         <table className="w-full text-left text-xs">
                             <thead className="text-muted-foreground"><tr><th className="py-0.5 pr-4 font-semibold">Questions</th><th className="py-0.5 font-semibold">Answer key</th></tr></thead>
                             <tbody className="font-mono">
-                                {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"]].map(([p, k]) => (
+                                {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"], ["October FE Questions.pdf", "October FE PM Answer Key.pdf"]].map(([p, k]) => (
                                     <tr key={p} className="border-t"><td className="py-0.5 pr-4">{p}</td><td className="py-0.5">{k}</td></tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">A file with no key is allowed when answers are printed inside it.</p>
+                    </div>
                 </div>
             ) : null}
+        </section>
+    )
+}
+
+function ExtractionProgress({ progress }) {
+    const stage = progress?.stage ?? "preparing"
+    const steps = [
+        ["preparing", "Prepare file", "Open the PDF and read its text"],
+        ["pages", "Read pages", "Collect page text and images"],
+        ["layout", "Analyze layout", "Find questions, choices, answers and figures locally"],
+        ["organizing", "Build review", "Organize the extracted items for review"],
+    ]
+    const index = Math.max(0, steps.findIndex(([id]) => id === stage))
+
+    return (
+        <div className="rounded-xl border bg-background p-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5"><span className="rb-document-scan" aria-hidden="true"><span /></span><p className="text-sm font-semibold text-foreground">Importing locally</p></div>
+                <span className="w-24 shrink-0 text-right text-xs text-muted-foreground">Processing…</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
+            </div>
+            <ol className="mt-3 grid gap-2 sm:grid-cols-2">
+                {steps.map(([id, title, detail], stepIndex) => {
+                    const complete = stepIndex < index
+                    const active = stepIndex === index
+                    return (
+                        <li key={id} className={cn("flex items-start gap-2 text-xs", complete ? "text-emerald-700" : active ? "text-foreground" : "text-muted-foreground")}>
+                            {complete ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : active ? <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" /> : <span className="mt-0.5 grid size-3.5 shrink-0 place-items-center rounded-full border text-[8px]">{stepIndex + 1}</span>}
+                            <span><b>{title}</b><span className="block text-muted-foreground">{detail}</span></span>
+                        </li>
+                    )
+                })}
+            </ol>
+            <p className="mt-3 text-sm text-muted-foreground">{progress.label}</p>
+            {progress?.page ? (
+                <div className="mt-2 rounded-lg border bg-muted/30 px-3 py-2">
+                    <p className="text-xs font-semibold text-foreground">Live page scan · page {progress.page} of {progress.total}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{progress.lines ?? 0} text lines read from this page.</p>
+                    {progress.preview ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{progress.preview}</p> : null}
+                </div>
+            ) : null}
+            {stage === "layout" ? <p className="mt-1 text-xs text-muted-foreground">Large or scanned papers can take a few minutes on the first local run. Keep this tab open; no hosted AI request is being used.</p> : null}
         </div>
     )
 }
@@ -560,47 +615,53 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
         <article
             ref={cardRef}
             className={cn(
-                "rounded-2xl border bg-background p-5 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto]",
+                "rounded-2xl border border-border/80 bg-background p-4 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto] sm:p-5",
                 !included && "opacity-60",
             )}
         >
-            <div className="mb-2 flex flex-wrap items-baseline gap-3">
-                <span className="text-2xl font-bold text-primary">Q{question.num}</span>
-                <span className="text-xs text-muted-foreground">
-                    page {question.pages.join("–")}
-                    {question.figureSrcs.length ? `, ${question.figureSrcs.length} figure${question.figureSrcs.length > 1 ? "s" : ""}` : ""}
-                </span>
-                {saved ? (
-                    <Badge variant="secondary" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Saved
-                    </Badge>
-                ) : null}
-                <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
-                <span className="flex-1" />
-                {draft ? null : (
-                    <Button type="button" size="xs" variant="outline" onClick={startEdit} aria-label={`Edit question ${question.num}`}>
-                        <Pencil className="h-3 w-3" /> Edit
+            <div className="mb-4 flex flex-col gap-3 border-b border-border/70 pb-3 sm:flex-row sm:items-start">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">{question.num}</span>
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold">Question {question.num}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            Page {question.pages.join("–")}
+                            {question.figureSrcs.length ? ` · ${question.figureSrcs.length} figure${question.figureSrcs.length > 1 ? "s" : ""}` : ""}
+                        </p>
+                    </div>
+                    {saved ? (
+                        <Badge variant="secondary" className="mt-0.5 gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Saved
+                        </Badge>
+                    ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                    <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
+                    {draft ? null : (
+                        <Button type="button" size="xs" variant="outline" onClick={startEdit} aria-label={`Edit question ${question.num}`}>
+                            <Pencil className="h-3 w-3" /> Edit
+                        </Button>
+                    )}
+                    <button
+                        type="button"
+                        className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                        aria-expanded={showOriginal}
+                        onClick={() => setShowOriginal((open) => !open)}
+                    >
+                        {showOriginal ? "Hide original" : "Show original"}
+                    </button>
+                    <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        aria-label={`Delete question ${question.num}`}
+                        title="Delete this question from the import"
+                        onClick={() => onDelete(question.num)}
+                    >
+                        <Trash2 className="h-4 w-4" />
                     </Button>
-                )}
-                <button
-                    type="button"
-                    className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                    aria-expanded={showOriginal}
-                    onClick={() => setShowOriginal((open) => !open)}
-                >
-                    {showOriginal ? "Hide original" : "Show original"}
-                </button>
-                <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="text-destructive"
-                    aria-label={`Delete question ${question.num}`}
-                    title="Delete this question from the import"
-                    onClick={() => onDelete(question.num)}
-                >
-                    <Trash2 className="h-4 w-4" />
-                </Button>
+                </div>
             </div>
 
             {answer && question.options.length && !question.options.some((option) => option.key === answer) ? (
@@ -1026,9 +1087,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     }
 
     async function addKeyForPaper(file, target) {
-        setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
+        setProgress({ label: `Reading answer key ${file.name}`, percent: 30, stage: "pages", startedAt: Date.now() })
         try {
-            const read = await readExamPdf(await asPdf(file), null, readDocumentPage, readDocumentLayout)
+            const read = await readExamPdf(await asPdf(file), null, readDocumentLayout, readDocumentPage)
             const answers = read.kind === "key"
                 ? read.answers
                 : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1075,22 +1136,30 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
 
         for (const [index, pair] of pairs.entries()) {
             const label = pairs.length > 1 ? ` (${index + 1} of ${pairs.length})` : ""
-            const reportProgress = (file) => async (page, total, phase) => {
+            const startedAt = Date.now()
+            const reportProgress = (file) => async (page, total, phase, detail = {}) => {
                 setProgress({
                     label: phase === "ai"
-                        ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
+                        ? `${detail.reason || `Reading ${file.name}${label} with AI`}${detail.reason ? ` — page ${page} of ${total}` : `, page ${page} of ${total}`}`
                         : phase === "layout"
-                          ? `Reading the layout of ${file.name}${label} (${total} pages, about ${Math.max(10, total * 2)} seconds)`
+                          ? `Analyzing the layout of ${file.name}${label} (${total} pages). This continues until every page has been inspected.`
                           : `Opening ${file.name}${label}, page ${page} of ${total}`,
-                    percent: phase === "layout" ? 60 : Math.round((page / total) * 100),
+                    percent: phase === "layout" ? 55 : Math.min(45, Math.round((page / total) * 45)),
+                    stage: phase === "layout" ? "layout" : "pages",
+                    startedAt,
+                    page: phase === "layout" ? null : page,
+                    total: phase === "layout" ? null : total,
+                    lines: detail.lines,
+                    preview: detail.preview,
                 })
                 await new Promise((resolve) => setTimeout(resolve, 0))
             }
 
             let result
-            setProgress({ label: `Opening ${pair.paper.name}${label}`, percent: 2 })
+            setProgress({ label: `Preparing ${pair.paper.name}${label}`, percent: 2, stage: "preparing", startedAt })
             try {
-                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentPage, readDocumentLayout)
+                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentLayout, readDocumentPage)
+                setProgress({ label: `Organizing questions, choices and figures from ${pair.paper.name}${label}`, percent: 85, stage: "organizing", startedAt })
                 if (result.kind === "key") {
                     throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
                 }
@@ -1105,9 +1174,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             const fileId = `${pair.paper.name}:${pair.paper.size}`
             const id = `${fileId}:${Date.now()}`
             if (pair.key) {
-                setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
+                setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90, stage: "pages", startedAt })
                 try {
-                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentPage, readDocumentLayout)
+                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout, readDocumentPage)
                     const keyAnswers = key.kind === "key"
                         ? key.answers
                         : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1156,6 +1225,8 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 questions: displayed,
                 readBy: result.readBy,
                 profile: result.profile,
+                partial: Boolean(result.partial),
+                recoveryWarning: result.recoveryWarning || null,
                 answers,
                 keyName,
                 tags: {},
@@ -1497,21 +1568,22 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     const missingTagCount = papers.reduce((sum, p) => sum + answered(p).filter((q) => needsTag(p, q)).length, 0)
 
     return (
-        <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
-            <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
+        <div className="flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-b from-primary/[0.035] via-muted/20 to-muted/30">
+            <header className="flex shrink-0 items-center gap-3 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-bold text-primary">QB</div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Import from PDF</p>
-                    <p className="truncate text-sm font-semibold">{certification?.title ?? "Question bank"}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Question bank · import workspace</p>
+                    <p className="truncate text-sm font-semibold sm:text-base">{certification?.title ?? "Question bank"}</p>
                 </div>
                 {papers.length ? (
-                    <>
-                        <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy || tagging} onClick={() => setStartOverOpen(true)}>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Button type="button" size="sm" variant="ghost" className="hidden text-destructive sm:inline-flex" disabled={busy || tagging} onClick={() => setStartOverOpen(true)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Start over
                         </Button>
                         <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
                             <UploadIcon className="mr-2 h-4 w-4" /> Add files
                         </Button>
-                    </>
+                    </div>
                 ) : null}
             </header>
 
@@ -1521,18 +1593,13 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                         <Loader2 className="h-4 w-4 animate-spin" /> Loading your import…
                     </p>
                 ) : !papers.length ? (
-                    <section className="mx-auto mt-[6vh] max-w-3xl px-5">
+                    <section className="mx-auto w-full max-w-4xl px-5 py-5 sm:py-7">
                         <ImportGuide />
-                        <div className="rounded-2xl border bg-background p-5 shadow-sm">
+                        <div className="rounded-2xl border bg-background p-4 shadow-sm sm:p-5">
                             <PdfUploadStep onNext={addFiles} disabled={busy} nextLabel="Next: read the files" />
                         </div>
                         {busy ? (
-                            <div className="mt-4 rounded-xl border bg-background p-3" aria-live="polite">
-                                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                                    <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
-                                </div>
-                                <p className="mt-2 text-sm text-muted-foreground">{progress.label}</p>
-                            </div>
+                            <div className="mt-4"><ExtractionProgress progress={progress} /></div>
                         ) : null}
                         {failures.map((failure, index) => (
                             <p key={index} className="mt-2 flex items-start gap-2 text-sm text-destructive">
@@ -1541,24 +1608,42 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                         ))}
                     </section>
                 ) : (
-                    <div className="grid w-full gap-6 px-4 py-5 lg:px-6 lg:grid-cols-[250px_minmax(0,1fr)]">
-                        <aside className="hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto rounded-2xl border bg-background p-3 lg:sticky lg:top-0 lg:block">
-                            <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
-                            <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it. Questions without an answer are left off and will not be saved.</p>
+                    <div className="mx-auto grid w-full max-w-[1800px] gap-5 px-4 py-5 xl:grid-cols-[18rem_minmax(0,1fr)] xl:px-6">
+                        <aside className="hidden max-h-[calc(100dvh-6.75rem)] self-start overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-sm xl:sticky xl:top-0 xl:block">
+                            <div className="mb-4 border-b border-border pb-3">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Navigate the import</p>
+                                <h2 className="mt-1 text-base font-bold">Answer map</h2>
+                                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Jump straight to a question. The letter below each number is the saved answer.</p>
+                            </div>
+                            <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/60 p-2.5 text-center">
+                                <div>
+                                    <p className="text-lg font-bold text-foreground">{answeredCount}</p>
+                                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">answered</p>
+                                </div>
+                                <div className="border-l border-border">
+                                    <p className="text-lg font-bold text-foreground">{totalQuestions - answeredCount}</p>
+                                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">to check</p>
+                                </div>
+                            </div>
                             {currentPaper && answered(currentPaper).length ? (
                                 <SheetPaper paper={currentPaper} showName={papers.length > 1} onJump={cardActions.jump} />
-                            ) : null}
+                            ) : <p className="text-xs text-muted-foreground">Add or mark an answer key to populate the map.</p>}
                         </aside>
 
                         <main className="min-w-0">
-                            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3">
-                                <p className="flex-1 text-sm text-muted-foreground">
-                                    <strong className="text-foreground">
-                                        {totalQuestions} questions{papers.length > 1 ? ` in ${papers.length} papers` : ""}
-                                    </strong>
-                                    {answeredCount < totalQuestions ? `, ${answeredCount} with their answer` : ""}
-                                    {taggedCount ? `, ${taggedCount} tagged` : ""}.
-                                </p>
+                            <div className="mb-4 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
+                                <div className="flex flex-col gap-4 bg-primary/[0.045] px-4 py-4 sm:px-5 lg:flex-row lg:items-center">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Step 2 of 3 · review & organize</p>
+                                        <h1 className="mt-1 text-lg font-bold tracking-tight sm:text-xl">
+                                            {totalQuestions} imported question{totalQuestions === 1 ? "" : "s"}
+                                            {papers.length > 1 ? ` across ${papers.length} papers` : ""}
+                                        </h1>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {answeredCount} answer{answeredCount === 1 ? "" : "s"} marked · {taggedCount} ready for a lesson
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
                                 {duplicateList.length ? (
                                     <Button
                                         type="button"
@@ -1594,14 +1679,28 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                 <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
                                     <Eye className="mr-2 h-4 w-4" /> Preview & save
                                 </Button>
+                                    </div>
+                                </div>
+                                <div className="grid border-t border-border/70 sm:grid-cols-3">
+                                    {[
+                                        ["1", "Import files", `${papers.length} paper${papers.length === 1 ? "" : "s"} loaded`],
+                                        ["2", "Review answers", `${answeredCount} of ${totalQuestions} marked`],
+                                        ["3", "Tag & save", taggedCount ? `${taggedCount} organized` : "Tag with AI when ready"],
+                                    ].map(([step, title, detail]) => (
+                                        <div key={step} className="flex items-center gap-3 border-b border-border/70 px-4 py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+                                            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary">{step}</span>
+                                            <div className="min-w-0"><p className="text-xs font-semibold">{title}</p><p className="truncate text-xs text-muted-foreground">{detail}</p></div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/80 bg-background/95 p-2.5 shadow-sm backdrop-blur">
                                 <div className="relative min-w-[220px] flex-1">
                                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search question text" className="rounded-full pl-9" />
+                                    <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search questions, concepts, or wording" className="border-transparent bg-muted/60 pl-9 shadow-none focus-visible:bg-background" />
                                 </div>
-                                <div className="inline-flex overflow-hidden rounded-full border bg-background" role="group" aria-label="Filter">
+                                <div className="inline-flex overflow-hidden rounded-lg border bg-background" role="group" aria-label="Filter">
                                     {[["all", "All"], ["fig", "With figures"]].map(([value, label]) => (
                                         <button
                                             key={value}
@@ -1633,12 +1732,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                 </div>
                             ) : null}
                             {busy ? (
-                                <div className="mb-3 rounded-xl border bg-background p-3 text-sm text-muted-foreground" aria-live="polite">
-                                    <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                                        <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
-                                    </div>
-                                    {progress.label}
-                                </div>
+                                <div className="mb-3"><ExtractionProgress progress={progress} /></div>
                             ) : null}
 
                             {notice ? (
@@ -1759,8 +1853,12 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                                             describeExam(item.info),
                                                             `${item.questions.length} questions`,
                                                             `${item.questions.filter((q) => q.figureSrcs.length).length} with figures`,
-                                                            item.readBy === "ai" && "read by AI",
-                                                            item.readBy === "layout" && `layout: ${item.profile ?? "detected"}`,
+                                                            item.readBy === "rules" && "local text and image extraction",
+                                                            item.readBy === "layout" && `local layout: ${item.profile ?? "detected"}`,
+                                                            item.readBy === "ai" && "AI vision extraction from the original page image",
+                                                            item.readBy === "ai-fallback" && "AI recovery from the original page image",
+                                                            item.partial && "review incomplete items before saving",
+                                                            item.recoveryWarning && "AI recovery was unavailable; local review retained",
                                                             `${marked} answers marked${item.keyName ? ` from ${item.keyName}` : ""}`,
                                                         ].filter(Boolean).join(" · ")}
                                                     </p>

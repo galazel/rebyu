@@ -13,13 +13,14 @@ import {
   Swords,
   Target,
   Trophy,
+  Upload,
 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiMessage } from "@/services/base.js"
-import { getAdminRewards, updateAdminRewards } from "@/services/subscriptionService.js"
+import { getAdminRewards, getCertificationReviewLevels, updateAdminRewards, updateCertificationReviewLevels, uploadCertificationReviewLevelImage } from "@/services/subscriptionService.js"
 
 const REWARD_CATEGORIES = [
   {
@@ -134,15 +135,41 @@ function CategoryCard({ category, values, onChange }) {
   )
 }
 
+function ReviewLevelEditor({ levels, onChange, onUpload, uploading }) {
+  return (
+    <section className="rounded-xl border bg-card">
+      <div className="flex items-start gap-3 p-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Trophy className="h-5 w-5" /></div>
+        <div><h2 className="text-base font-semibold">Certification review levels</h2><p className="mt-0.5 text-sm text-muted-foreground">The shared 20-level system used for every learner’s certification review progress. Uploading a badge is optional; learners see the default trophy when none is set.</p></div>
+      </div>
+      <div className="border-t divide-y">
+        {levels.map((level, index) => (
+          <div key={level.levelNumber} className="grid gap-3 p-3 sm:grid-cols-[5rem_minmax(10rem,1fr)_8rem_10rem] sm:items-center">
+            <div className="text-sm font-semibold text-primary">Level {level.levelNumber}</div>
+            <Input aria-label={`Level ${level.levelNumber} title`} value={level.title} onChange={(event) => onChange(index, "title", event.target.value)} />
+            <Input aria-label={`Level ${level.levelNumber} XP`} type="number" min={index === 0 ? 0 : levels[index - 1].requiredXp + 1} value={level.requiredXp} onChange={(event) => onChange(index, "requiredXp", Number(event.target.value || 0))} />
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium hover:bg-muted">
+              <Upload className="size-3.5" /> {uploading === level.levelNumber ? "Uploading…" : level.imageKey ? "Replace badge" : "Add badge"}
+              <input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={uploading != null} onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(level.levelNumber, file); event.target.value = "" }} />
+            </label>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function RewardsManagementPage() {
   const queryClient = useQueryClient()
   const [edits, setEdits] = useState(null)
+  const [levelEdits, setLevelEdits] = useState(null)
 
   const query = useQuery({
     queryKey: ["admin-rewards"],
     queryFn: getAdminRewards,
     staleTime: 30_000,
   })
+  const levelsQuery = useQuery({ queryKey: ["certification-review-levels"], queryFn: getCertificationReviewLevels, staleTime: 30_000 })
 
   const mutation = useMutation({
     mutationFn: (data) => updateAdminRewards(data),
@@ -153,11 +180,24 @@ export default function RewardsManagementPage() {
     },
     onError: (err) => toast.error(apiMessage(err, "Could not update rewards")),
   })
+  const levelsMutation = useMutation({
+    mutationFn: updateCertificationReviewLevels,
+    onSuccess: (result) => { queryClient.setQueryData(["certification-review-levels"], result); setLevelEdits(null); toast.success("Certification review levels updated") },
+    onError: (err) => toast.error(apiMessage(err, "Could not update review levels")),
+  })
+  const imageMutation = useMutation({
+    mutationFn: ({ levelNumber, file }) => uploadCertificationReviewLevelImage(levelNumber, file),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["certification-review-levels"] }); toast.success("Level badge uploaded") },
+    onError: (err) => toast.error(apiMessage(err, "Could not upload level badge")),
+  })
 
   const serverValues = query.data ?? {}
   const currentValues = edits ?? serverValues
 
   const hasChanges = edits != null && Object.keys(edits).some((k) => edits[k] !== serverValues[k])
+  const serverLevels = levelsQuery.data ?? []
+  const currentLevels = levelEdits ?? serverLevels
+  const levelsChanged = levelEdits != null && JSON.stringify(levelEdits) !== JSON.stringify(serverLevels)
 
   function handleChange(key, value) {
     setEdits((prev) => ({ ...(prev ?? serverValues), [key]: value }))
@@ -175,6 +215,12 @@ export default function RewardsManagementPage() {
     }
     if (Object.keys(changed).length === 0) return
     mutation.mutate(changed)
+  }
+
+  function changeLevel(index, key, value) { setLevelEdits((previous) => (previous ?? serverLevels).map((level, itemIndex) => itemIndex === index ? { ...level, [key]: value } : level)) }
+  function saveLevels() {
+    if (currentLevels.length !== 20 || currentLevels.some((level, index) => !String(level.title).trim() || Number(level.requiredXp) < (index === 0 ? 0 : Number(currentLevels[index - 1].requiredXp)))) { toast.error("Keep all 20 levels named and their XP thresholds increasing."); return }
+    levelsMutation.mutate(currentLevels.map(({ id, levelNumber, title, requiredXp, description, imageKey }) => ({ id, levelNumber, title, requiredXp: Number(requiredXp), description, imageKey })))
   }
 
   return (
@@ -223,6 +269,10 @@ export default function RewardsManagementPage() {
           ))}
         </div>
       )}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Shared certification-review ranks</h2><p className="text-sm text-muted-foreground">Applied per certification, not as a scholarship or global account rank.</p></div>{levelsChanged ? <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setLevelEdits(null)}>Discard</Button><Button size="sm" onClick={saveLevels} disabled={levelsMutation.isPending}>{levelsMutation.isPending ? "Saving…" : "Save review levels"}</Button></div> : null}</div>
+        {levelsQuery.isLoading ? <Skeleton className="h-96 w-full" /> : levelsQuery.error ? <p className="text-sm text-destructive">{apiMessage(levelsQuery.error, "Could not load review levels.")}</p> : <ReviewLevelEditor levels={currentLevels} onChange={changeLevel} onUpload={(levelNumber, file) => imageMutation.mutate({ levelNumber, file })} uploading={imageMutation.isPending ? imageMutation.variables?.levelNumber : null} />}
+      </div>
     </div>
   )
 }

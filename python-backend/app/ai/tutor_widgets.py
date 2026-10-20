@@ -21,6 +21,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 MAX_WIDGETS = 3
+MIN_QUIZ_QUESTIONS = 5
+MAX_QUIZ_QUESTIONS = 20
 
 
 class QuizQuestion(BaseModel):
@@ -36,7 +38,7 @@ class show_quiz(BaseModel):
     test themselves. Each question gets instant right/wrong feedback."""
 
     title: str = Field(description="Short quiz title, e.g. 'IPv4 Address Classes'.")
-    questions: list[QuizQuestion] = Field(description="3-10 questions.")
+    questions: list[QuizQuestion] = Field(description="5-20 questions. Honour the learner's requested number exactly when it is in this range.")
     hint: str = Field(default="", description="Optional hint the learner can reveal, e.g. a range table in markdown.")
 
 
@@ -234,7 +236,10 @@ TOOL_RULES = """
     request matches a row below, you MUST call that tool (and not write the same
     content as text, markdown lists or markdown tables):
     - practice, a quiz, quiz me, test me, practice problems .. show_quiz
-      (make it a full quiz of 5-10 questions when they ask to generate one)
+      (a generated quiz has 5-20 questions. Honour an in-range requested count
+      exactly. If the learner asks for fewer than 5 or more than 20, do not call
+      a tool: briefly say the minimum is 5 and the maximum is 20, then ask them
+      to choose a number in that range.)
       (asked again? vary: show_true_false for misconceptions, show_matching for
       pairs, show_ordering for sequences, show_fill_blank for key terms)
     - memorise, remember, flashcards, drill me ............... show_flashcards
@@ -252,6 +257,11 @@ TOOL_RULES = """
       X affect Y, any relationship between numbers ........... show_explorer
       (give the learner a slider for X and the live formula for Y -- far
       better than describing the trend in words)
+    Quality gate before calling a tool: use only facts supported by the lesson,
+    make every prompt distinct, give exactly one defensible correct answer where
+    applicable, and make wrong choices plausible without being trick questions.
+    Do not use a widget merely to decorate an answer. If the learner's request is
+    ambiguous, ask one short clarifying question in plain text instead of guessing.
     A plain conceptual question ("what is X?", "why...?") gets plain text, no tool.
     Pick the ONE best tool (at most three for a request that clearly needs
     several). Write one or two sentences of text with the tool -- never repeat
@@ -287,6 +297,7 @@ _REQUESTS = [
      r"\bquiz\b", "show_quiz"),
 ]
 _COMPILED_REQUESTS = [(re.compile(pattern, re.IGNORECASE), tool) for pattern, tool in _REQUESTS]
+_QUIZ_ITEM_COUNT = re.compile(r"\b(\d{1,3})\s*(?:quiz\s*)?(?:questions?|items?)\b", re.IGNORECASE)
 
 
 def requested_tool(message: str) -> str | None:
@@ -295,6 +306,14 @@ def requested_tool(message: str) -> str | None:
         if pattern.search(message or ""):
             return tool
     return None
+
+
+def requested_quiz_count(message: str) -> int | None:
+    """The requested quiz size when the learner clearly asked for a quiz."""
+    if requested_tool(message) != "show_quiz":
+        return None
+    match = _QUIZ_ITEM_COUNT.search(message or "")
+    return int(match.group(1)) if match else None
 
 
 def _text(value: Any, limit: int) -> str:
@@ -313,34 +332,64 @@ def _number(value: Any, default: float | None = None) -> float | None:
     return number if number == number and abs(number) < 1e12 else default
 
 
+def _key(value: str) -> str:
+    """A forgiving identity key used to reject repetitive model output."""
+    return re.sub(r"\s+", " ", value).strip().casefold()
+
+
+def _unique(items: list[dict], field: str) -> list[dict]:
+    """Keep the first useful occurrence, preserving the model's intended order."""
+    seen: set[str] = set()
+    result = []
+    for item in items:
+        identity = _key(str(item.get(field, "")))
+        if identity and identity not in seen:
+            seen.add(identity)
+            result.append(item)
+    return result
+
+
 def _quiz(args: dict) -> dict | None:
     questions = []
-    for raw in _list(args, "questions", 10):
+    for raw in _list(args, "questions", MAX_QUIZ_QUESTIONS):
         options = [o for o in (_text(o, 200) for o in (raw.get("options") or [])[:6]) if o]
         try:
             correct = int(raw.get("correct_index", raw.get("correctIndex", -1)))
         except (TypeError, ValueError):
             continue
         stem = _text(raw.get("question"), 500)
-        if not stem or len(options) < 2 or not 0 <= correct < len(options):
+        option_keys = [_key(option) for option in options]
+        if (not stem or len(options) < 2 or len(set(option_keys)) != len(options)
+                or not 0 <= correct < len(options)):
             continue
         questions.append({"question": stem, "options": options, "correctIndex": correct,
                           "explanation": _text(raw.get("explanation"), 500)})
-    if not questions:
+    questions = _unique(questions, "question")
+    if len(questions) < MIN_QUIZ_QUESTIONS:
         return None
     return {"type": "quiz", "title": _text(args.get("title"), 120) or "Practice",
             "questions": questions, "hint": _text(args.get("hint"), 2000)}
 
 
 def _table(args: dict) -> dict | None:
-    columns = [_text(c, 80) for c in (args.get("columns") or [])][:6]
-    if len(columns) < 2:
+    columns = [column for column in (_text(c, 80) for c in (args.get("columns") or [])[:6]) if column]
+    if len(columns) < 2 or len({_key(column) for column in columns}) != len(columns):
         return None
     rows = []
     for raw in (args.get("rows") or [])[:12]:
         if isinstance(raw, list):
             cells = [_text(c, 200) for c in raw][:len(columns)]
-            rows.append(cells + [""] * (len(columns) - len(cells)))
+            row = cells + [""] * (len(columns) - len(cells))
+            if any(row):
+                rows.append(row)
+    unique_rows: list[list[str]] = []
+    seen_rows: set[tuple[str, ...]] = set()
+    for row in rows:
+        identity = tuple(_key(cell) for cell in row)
+        if identity not in seen_rows:
+            seen_rows.add(identity)
+            unique_rows.append(row)
+    rows = unique_rows
     if not rows:
         return None
     return {"type": "table", "columns": columns, "rows": rows, "caption": _text(args.get("caption"), 300)}
@@ -349,21 +398,21 @@ def _table(args: dict) -> dict | None:
 def _cards(args: dict) -> dict | None:
     cards = [{key: _text(r.get(key), 200) for key in ("title", "detail", "highlight", "icon")}
              for r in _list(args, "cards", 6)]
-    cards = [c for c in cards if c["title"]]
-    return {"type": "cards", "title": _text(args.get("title"), 120), "cards": cards} if cards else None
+    cards = _unique([c for c in cards if c["title"]], "title")
+    return {"type": "cards", "title": _text(args.get("title"), 120), "cards": cards} if len(cards) >= 2 else None
 
 
 def _flashcards(args: dict) -> dict | None:
     cards = [{"front": _text(r.get("front"), 200), "back": _text(r.get("back"), 500)}
              for r in _list(args, "cards", 12)]
-    cards = [c for c in cards if c["front"] and c["back"]]
-    return {"type": "flashcards", "title": _text(args.get("title"), 120), "cards": cards} if cards else None
+    cards = _unique([c for c in cards if c["front"] and c["back"]], "front")
+    return {"type": "flashcards", "title": _text(args.get("title"), 120), "cards": cards} if len(cards) >= 3 else None
 
 
 def _steps(args: dict) -> dict | None:
     steps = [{"title": _text(r.get("title"), 120), "detail": _text(r.get("detail"), 800)}
              for r in _list(args, "steps", 8)]
-    steps = [st for st in steps if st["title"] or st["detail"]]
+    steps = _unique([st for st in steps if st["title"] or st["detail"]], "title")
     problem = _text(args.get("problem"), 500)
     if not problem or len(steps) < 2:
         return None
@@ -373,15 +422,15 @@ def _steps(args: dict) -> dict | None:
 def _matching(args: dict) -> dict | None:
     pairs = [{"term": _text(r.get("term"), 120), "match": _text(r.get("match"), 200)}
              for r in _list(args, "pairs", 6)]
-    pairs = [p for p in pairs if p["term"] and p["match"]]
-    if len(pairs) < 2 or len({p["match"] for p in pairs}) < len(pairs):
+    pairs = _unique([p for p in pairs if p["term"] and p["match"]], "term")
+    if (len(pairs) < 3 or len({_key(p["match"]) for p in pairs}) < len(pairs)):
         return None
     return {"type": "matching", "title": _text(args.get("title"), 160), "pairs": pairs}
 
 
 def _ordering(args: dict) -> dict | None:
     items = [i for i in (_text(i, 200) for i in (args.get("items") or [])[:7]) if i]
-    if len(items) < 3 or len(set(items)) < len(items):
+    if len(items) < 3 or len({_key(item) for item in items}) < len(items):
         return None
     return {"type": "ordering", "title": _text(args.get("title"), 160) or "Put these in order",
             "items": items, "explanation": _text(args.get("explanation"), 400)}
@@ -394,7 +443,8 @@ def _fill_blank(args: dict) -> dict | None:
         if sentence and answer and "___" in sentence:
             alts = [a for a in (_text(a, 80) for a in (r.get("alternatives") or [])) if a][:5]
             blanks.append({"sentence": sentence, "answer": answer, "alternatives": alts})
-    return {"type": "fill_blank", "title": _text(args.get("title"), 120), "blanks": blanks} if blanks else None
+    blanks = _unique(blanks, "sentence")
+    return {"type": "fill_blank", "title": _text(args.get("title"), 120), "blanks": blanks} if len(blanks) >= 2 else None
 
 
 def _true_false(args: dict) -> dict | None:
@@ -405,7 +455,8 @@ def _true_false(args: dict) -> dict | None:
         if statement and isinstance(value, bool):
             claims.append({"statement": statement, "isTrue": value,
                            "explanation": _text(r.get("explanation"), 400)})
-    if not claims:
+    claims = _unique(claims, "statement")
+    if len(claims) < 3:
         return None
     return {"type": "true_false", "title": _text(args.get("title"), 120) or "Myth or fact?", "claims": claims}
 
@@ -421,14 +472,18 @@ def _code(args: dict) -> dict | None:
 def _math(args: dict) -> dict | None:
     steps = [{"latex": _text(r.get("latex"), 600).strip("$ "), "note": _text(r.get("note"), 200)}
              for r in _list(args, "steps", 8)]
-    steps = [st for st in steps if st["latex"]]
+    steps = _unique([st for st in steps if st["latex"]], "latex")
     return {"type": "math", "title": _text(args.get("title"), 120), "steps": steps} if steps else None
 
 
 def _diagram(args: dict) -> dict | None:
     source = re.sub(r"^```(?:mermaid)?\s*|\s*```$", "", str(args.get("mermaid") or "").strip())[:4000]
     # No click handlers or init directives: the source is model-written.
-    if not source or re.search(r"\bclick\b|%%\{", source):
+    allowed = ("flowchart", "graph", "sequencediagram", "classdiagram", "statediagram",
+               "erdiagram", "journey", "gantt", "timeline", "mindmap")
+    first = next((line.strip().casefold() for line in source.splitlines() if line.strip()), "")
+    if (not source or re.search(r"\bclick\b|%%\{", source)
+            or not any(first.startswith(kind) for kind in allowed)):
         return None
     return {"type": "diagram", "title": _text(args.get("title"), 120), "mermaid": source}
 
@@ -443,12 +498,15 @@ def _explorer(args: dict) -> dict | None:
         if not _NAME.match(name) or low is None or high is None or high <= low:
             continue
         value = min(max(_number(r.get("value"), low), low), high)
+        step = abs(_number(r.get("step"), 1) or 1)
         variables.append({"name": name, "label": _text(r.get("label"), 80) or name, "min": low, "max": high,
-                          "step": abs(_number(r.get("step"), 1) or 1), "value": value})
+                          "step": min(step, high - low), "value": value})
     outputs = [{"label": _text(r.get("label"), 80), "formula": _text(r.get("formula"), 300),
                 "format": r.get("format") if r.get("format") in ("number", "percent", "binary") else "number"}
                for r in _list(args, "outputs", 5)]
     outputs = [o for o in outputs if o["label"] and o["formula"]]
+    variables = _unique(variables, "name")
+    outputs = _unique(outputs, "label")
     if not variables or not outputs:
         return None
     return {"type": "explorer", "title": _text(args.get("title"), 120), "variables": variables,
@@ -464,8 +522,9 @@ def _mindmap(args: dict) -> dict | None:
         label = _text(r.get("label"), 60)
         if label:
             branches.append({"label": label, "note": _text(r.get("note"), 300),
-                             "children": [c for c in children if c["label"]]})
-    if not center or len(branches) < 2:
+                             "children": _unique([c for c in children if c["label"]], "label")})
+    branches = _unique(branches, "label")
+    if not center or len(branches) < 3:
         return None
     return {"type": "mindmap", "center": center, "branches": branches}
 

@@ -130,3 +130,17 @@ export function getAdminRewards() {
 export function updateAdminRewards(data) {
   return base("admin/rewards", { method: "PUT", data })
 }
+
+export function getCertificationReviewLevels() {
+  return base("certification-review-levels")
+}
+
+export function updateCertificationReviewLevels(levels) {
+  return base("admin/certification-review-levels", { method: "PUT", data: levels })
+}
+
+export function uploadCertificationReviewLevelImage(levelNumber, file) {
+  const data = new FormData()
+  data.append("file", file)
+  return base(`admin/certification-review-levels/${levelNumber}/image`, { method: "POST", data })
+}
