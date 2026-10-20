@@ -378,14 +378,14 @@ function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
         <section className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
-            <div className="grid gap-4 bg-gradient-to-br from-primary/[0.10] via-primary/[0.035] to-background px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
+            <div className="grid gap-4 border-b bg-muted/20 px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · guided import</p>
-                    <h1 className="mt-1.5 font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Turn past papers into a review-ready question bank.</h1>
-                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Upload a paper and its answer key. We preserve text, choices and figures locally, then you decide what is saved.</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · import administration</p>
+                    <h1 className="mt-1.5 font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Question bank import</h1>
+                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Submit examination papers and answer keys for extraction, validation and controlled publication to this certification&apos;s question bank.</p>
                 </div>
-                <div className="grid grid-cols-3 divide-x rounded-xl border border-primary/15 bg-background/80 px-2 py-3 text-center shadow-sm">
-                    {[["1", "Upload"], ["2", "Review"], ["3", "Save"]].map(([number, label]) => (
+                <div className="grid grid-cols-3 divide-x rounded-xl border bg-background px-2 py-3 text-center">
+                    {[["1", "Submit"], ["2", "Validate"], ["3", "Publish"]].map(([number, label]) => (
                         <div key={number} className="px-2">
                             <span className="mx-auto grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{number}</span>
                             <p className="mt-1.5 text-xs font-semibold text-foreground">{label}</p>
@@ -393,11 +393,11 @@ function ImportGuide() {
                     ))}
                 </div>
             </div>
-            <div className="grid gap-2 border-t bg-background px-5 py-2 sm:grid-cols-3 sm:px-6">
+            <div className="grid gap-2 bg-background px-5 py-3 sm:grid-cols-3 sm:px-6">
                 {[
-                    ["Pair automatically", "Matching titles connect papers and answer keys. AM/PM is optional."],
-                    ["Keep control", "Check extracted questions, answers and figures before anything is saved."],
-                    ["Organize faster", "Tag items by lesson and difficulty once the import is ready."],
+                    ["File matching", "Files sharing an examination title are paired. AM/PM labels are optional."],
+                    ["Review requirement", "Verify extracted questions, answer mappings and figures before publication."],
+                    ["Classification", "Assign lesson and difficulty metadata after validation is complete."],
                 ].map(([title, body]) => (
                     <div key={title} className="min-w-0 rounded-lg px-1 py-0.5">
                         <p className="text-xs font-semibold text-foreground">{title}</p>
@@ -407,7 +407,7 @@ function ImportGuide() {
             </div>
             <div className="border-t bg-muted/30 px-5 py-2.5 sm:px-6">
                 <button type="button" onClick={() => setShowNaming((o) => !o)} className="text-xs font-semibold text-primary underline-offset-2 hover:underline">
-                    {showNaming ? "Hide file naming guide" : "See file naming examples"}
+                    {showNaming ? "Hide file-naming requirements" : "View file-naming requirements"}
                 </button>
             </div>
             {showNaming ? (
