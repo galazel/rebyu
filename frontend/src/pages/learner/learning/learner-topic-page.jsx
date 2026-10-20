@@ -1170,6 +1170,47 @@ export default function LearnerTopicPage() {
     [data?.lessons],
   )
 
+  const requestedLessonId = searchParams.get("lesson")
+  const requestedLesson = requestedLessonId ? lessonById.get(String(requestedLessonId)) : null
+
+  useEffect(() => {
+    if (!requestedLesson) return
+
+    const actualCertificationId = requestedLesson.certificationId
+    const actualMiddleCategoryId = requestedLesson.middleCategoryId
+    const isEnrolledInActualCertification = (data?.enrolledCertifications ?? []).some(
+      (item) => String(item.certificationId) === String(actualCertificationId),
+    )
+
+    // Repair links saved before an overall plan retained the event's own
+    // certification. Do not redirect to content the learner cannot access.
+    if (
+      !isEnrolledInActualCertification ||
+      actualCertificationId == null ||
+      actualMiddleCategoryId == null ||
+      (String(actualCertificationId) === String(certificationId) &&
+        String(actualMiddleCategoryId) === String(middleCategoryId))
+    ) {
+      return
+    }
+
+    navigate(
+      `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`,
+      { replace: true },
+    )
+  }, [
+    certificationId,
+    data?.enrolledCertifications,
+    middleCategoryId,
+    navigate,
+    requestedLesson,
+    requestedLessonId,
+  ])
+
+  useEffect(() => {
+    setActiveId(null)
+  }, [certificationId, middleCategoryId, requestedLessonId])
+
   const takenExamIds = useMemo(
     () =>
       new Set(

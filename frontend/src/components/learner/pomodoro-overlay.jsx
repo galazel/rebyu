@@ -266,6 +266,9 @@ export function PomodoroStart({ task, onStarted, onDismiss }) {
   const navigate = useNavigate()
   const { focusMinutes, breakMinutes, cycles } = POMODORO_DEFAULTS
   const event = task?.event ?? {}
+  // Overall study plans can include events from several certifications. Prefer
+  // the event's scope so its lesson and topic are always opened together.
+  const eventCertificationId = event.certificationId ?? task?.certificationId ?? null
 
   return (
     <div className="space-y-4 py-2">
@@ -287,9 +290,9 @@ export function PomodoroStart({ task, onStarted, onDismiss }) {
               eventId: event.id ?? null,
             })
             onStarted?.()
-            if (event.lessonId && event.middleCategoryId && task?.certificationId) {
+            if (event.lessonId && event.middleCategoryId && eventCertificationId) {
               navigate(
-                `/learner/learning/${task.certificationId}/topics/${event.middleCategoryId}?lesson=${event.lessonId}`
+                `/learner/learning/${eventCertificationId}/topics/${event.middleCategoryId}?lesson=${event.lessonId}`
               )
             }
           }}
