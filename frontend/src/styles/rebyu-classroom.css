@@ -3482,7 +3482,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
   border: 1px solid var(--border);
   border-radius: 0.85rem;
   overflow: hidden;
-  background: #0d0d0d;
+  background: var(--muted);
 }
 .rb-post-gallery-frame {
   display: flex;
@@ -3495,7 +3495,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
   flex: 0 0 100%;
   scroll-snap-align: center;
   display: block;
-  aspect-ratio: 4 / 3;
+  height: clamp(220px, 28vw, 380px);
   padding: 0;
   border: 0;
   background: transparent;

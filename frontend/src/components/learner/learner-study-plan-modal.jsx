@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
 
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { STUDY_PLAN_QUERY_KEY, getMyStudyPlans } from "@/services/studyPlanService.js"
 import { describeEvent } from "@/lib/study-plan-events.js"
 import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
+import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -40,6 +40,7 @@ function formatDayLabel(value) {
 }
 
 export default function LearnerStudyPlanCalendarPage() {
+  const { openOverallStudyPlan, studyPlanDialog } = useStudyPlanGate()
   const [viewDate, setViewDate] = useState(new Date())
   const [movedToPlan, setMovedToPlan] = useState(false)
   const isDone = useStudyPlanDone()
@@ -154,11 +155,9 @@ export default function LearnerStudyPlanCalendarPage() {
               <Button variant="ghost" size="sm" className="min-w-14" onClick={() => setViewDate(new Date())}>Today</Button>
               <Button variant="ghost" size="icon-sm" onClick={() => changeMonth(1)} aria-label="Next month"><ChevronRight /></Button>
             </div>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/learner/analytics?plan=1">
-                <Sparkles className="size-4" />
-                {activePlans.length ? "Update plan" : "Create a plan"}
-              </Link>
+            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => openOverallStudyPlan()}>
+              <Sparkles className="size-4" />
+              {activePlans.length ? "Update plan" : "Create a plan"}
             </Button>
           </div>
         </div>
@@ -219,13 +218,13 @@ export default function LearnerStudyPlanCalendarPage() {
             <div>
               <p className="text-sm font-medium">No scheduled study tasks</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Create a study plan from Analytics — it needs your diagnostic result
-                to decide what to schedule first.
+                Create a study plan to schedule your lessons and reviews here.
               </p>
             </div>
           </div>
         ) : null}
       </section>
+      {studyPlanDialog}
     </div>
   )
 }

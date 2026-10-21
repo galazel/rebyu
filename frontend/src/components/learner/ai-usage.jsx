@@ -27,11 +27,13 @@ export function useAiUsage() {
   const buckets = Array.isArray(query.data) ? query.data : []
   return {
     isLoading: query.isLoading,
+    isError: query.isError,
     buckets,
     bucket: (key) => buckets.find((bucket) => bucket.key === key) ?? null,
     refresh: () => queryClient.invalidateQueries({ queryKey: AI_USAGE_QUERY_KEY }),
   }
 }
+
 
 function ratio(window) {
   return window && window.limit > 0 ? Math.min(window.used / window.limit, 1) : 0
@@ -101,13 +103,13 @@ export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
  *  tutor menu): one meter, because every AI task -- tutor chat, guided
  *  dialogue, and the quizzes, flashcards and mind maps the tutor makes -- is a
  *  tutor message. */
-export function AiUsageSummary({ className = "" }) {
+export function AiUsageSummary({ className = "", showHeading = true }) {
   const { bucket, isLoading } = useAiUsage()
   if (isLoading) {
     // Same footprint as the loaded card, so the page does not jump when it arrives.
     return (
       <div className={`rounded-md border bg-muted/20 p-4 ${className}`} aria-busy="true">
-        <p className="text-sm font-semibold text-foreground">AI usage</p>
+        {showHeading ? <p className="text-sm font-semibold text-foreground">AI usage</p> : null}
         <div className="mt-3 space-y-4">
           {[0, 1].map((i) => (
             <div key={i} className="space-y-2">
@@ -123,10 +125,10 @@ export function AiUsageSummary({ className = "" }) {
   if (!bucket("tutor")) return null
   return (
     <div className={`rounded-md border bg-muted/20 p-4 ${className}`}>
-      <p className="text-sm font-semibold text-foreground">AI usage</p>
+      {showHeading ? <><p className="text-sm font-semibold text-foreground">AI usage</p>
       <p className="mb-3 text-xs text-muted-foreground">
         Tutor chat, guided dialogue, and the quizzes, flashcards and mind maps the tutor makes.
-      </p>
+      </p></> : null}
       <AiUsageBars bucketKey="tutor" showLabel={false} />
     </div>
   )

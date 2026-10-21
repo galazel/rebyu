@@ -1227,9 +1227,9 @@ export default function Community() {
     const savedCount = posts.filter((post) => post.saved).length
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
 
-            <div className="sticky top-16 z-20 -mx-4 border-b-2 border-border bg-background/95 px-4 pb-4 pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
+            <div className="sticky top-16 z-20 -mx-3 border-b border-border bg-background/95 px-3 pb-3 pt-2 backdrop-blur sm:-mx-5 sm:px-5 md:top-0 xl:hidden">
                 <div className="mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {FEED_TABS.map((tab, index) => {
                                     const Icon = index === 0
@@ -1284,10 +1284,195 @@ export default function Community() {
                 </div>
             </div>
 
-            <div className="mx-auto grid w-full max-w-[1400px] items-start gap-6 lg:grid-cols-[232px_minmax(0,1fr)] xl:grid-cols-[232px_minmax(0,1fr)_300px]">
+            <div className="mx-auto grid w-full max-w-[800px] items-start gap-5 xl:max-w-[1104px] xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6">
 
-                <aside className="sticky top-24 hidden lg:block">
-                    <nav className="space-y-1">
+
+                <main className="min-w-0 space-y-5">
+                    {activeCircle ? (
+                        <CircleHeader
+                            circle={activeCircle}
+                            onToggleJoin={toggleJoinCircle}
+                            onDelete={() => setConfirmDeleteCircleId(activeCircle.circleId)}
+                            onBack={() => setActiveCircleId(null)}
+                        />
+                    ) : null}
+
+                    {composerOpen ? null : (
+                    <PanelCard className="p-4 sm:p-5">
+                        <button type="button" className="flex w-full items-center gap-3" onClick={() => openComposer("discussion")}>
+                            <CommunityAvatar initials="GG" />
+                            <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border-2 border-border bg-muted/40 px-4 text-left text-sm font-semibold text-muted-foreground transition-colors hover:border-rb-macaw/60 hover:bg-muted">
+                                <span className="truncate">Start a discussion or share a review resource...</span>
+                            </div>
+                        </button>
+                        <div className="mt-3 flex items-center gap-2 border-t-2 border-border pt-3">
+                            <div className="grid w-full min-w-0 grid-cols-4 gap-1 [&>button]:min-w-0 [&>button]:px-2 [&>button>span]:min-w-0 [&>button>span]:truncate">
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4 text-rb-feather-lip sm:mr-2" /><span className="hidden sm:inline">Quiz</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Sparkles className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
+                            </div>
+
+                        </div>
+                    </PanelCard>
+                    )}
+
+                    {composerOpen ? (
+                        <section className="rounded-rb-card border-2 border-rb-macaw bg-card p-4 sm:p-5">
+                            <div className="flex items-center justify-between gap-3 border-b-2 border-border pb-4">
+                                <div>
+                                    <h2 className="font-rb-display text-sm font-extrabold lowercase">Create a post</h2>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">Ask a question, or share a generated quiz, flashcard set, or PDF/Word reviewer.</p>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => { setComposerOpen(false); setAttachedFile(null) }} aria-label="Close post editor"><X /></Button>
+                            </div>
+
+                            <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
+                                {[
+                                    { value: "discussion", label: "Discussion", icon: MessageCircle },
+                                    { value: "quiz", label: "Quiz", icon: BookOpen },
+                                    { value: "flashcard", label: "Flashcards", icon: Sparkles },
+                                    { value: "reviewer", label: "Reviewer", icon: FileText },
+                                ].map((type) => {
+                                    const Icon = type.icon
+                                    return <Button key={type.value} type="button" variant={shareType === type.value ? "secondary" : "ghost"} size="sm" className="shrink-0" onClick={() => { setShareType(type.value); setAttachedFile(null) }}><Icon className="mr-1.5 size-4" />{type.label}</Button>
+                                })}
+                            </div>
+
+                            <div className="mt-4 grid gap-3">
+                                {joinedCircles.length > 0 ? (
+                                    <Select value={shareCommunity} onValueChange={setShareCommunity}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={OPEN_FEED}>Community — everyone</SelectItem>
+                                            {joinedCircles.map((circle) => (
+                                                <SelectItem key={circle.circleId} value={String(circle.circleId)}>
+                                                    {circle.name}
+                                                    {circle.isPrivate ? " (private)" : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : null}
+                                {["quiz", "flashcard"].includes(shareType) ? (
+                                    <Select value={selectedStudyItemId} onValueChange={setSelectedStudyItemId}>
+                                        <SelectTrigger><SelectValue placeholder={`Choose generated ${shareType === "quiz" ? "quiz" : "flashcards"}`} /></SelectTrigger>
+                                        <SelectContent>{studyItems.filter((item) => item.kind === shareType).map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.title}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                ) : <><Input value={shareTitle} onChange={(event) => setShareTitle(event.target.value)} placeholder="An interesting title" /><Textarea value={shareDescription} onChange={(event) => setShareDescription(event.target.value)} placeholder="What do you want to discuss?" className="min-h-32 resize-y" /></>}
+
+                                {shareType === "reviewer" ? (
+                                    <div>
+                                        <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} multiple className="hidden" onChange={handleAttachmentSelected} />
+                                        <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-rb-tile border-2 border-dashed border-border px-4 py-3 text-left hover:border-rb-macaw disabled:opacity-60">
+                                            {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-primary" />}
+                                            <span className="min-w-0 flex-1 truncate text-sm">
+                                                {attachedFile?.files?.length > 1
+                                                    ? `${attachedFile.files.length} images — add more, up to ${MAX_REVIEWER_IMAGES}`
+                                                    : attachedFile?.name ?? "Add a PDF, Word or text file, or several images"}
+                                            </span>
+                                            {attachedFile ? <span className="shrink-0 text-xs font-medium text-primary">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
+                                        </button>
+                                    </div>
+                                ) : null}
+                            </div>
+
+                            <div className="mt-4 flex justify-end gap-2 border-t-2 border-border pt-4">
+                                <Button type="button" variant="ghost"  onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</Button>
+                                <Button type="button"  onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (["quiz", "flashcard"].includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="mr-2 size-4" />Post</Button>
+                            </div>
+                        </section>
+                    ) : null}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                        <h2 className="font-rb-display text-base font-extrabold lowercase">
+                            {activeCircle
+                                ? `posts in ${activeCircle.name}`
+                                : showSavedOnly
+                                    ? "Saved posts"
+                                    : activeTab === "for-you"
+                                        ? "Community news feed"
+                                        : FEED_TABS.find((tab) => tab.value === activeTab)?.label ?? "Community news feed"}
+                        </h2>
+
+                        <div className="flex w-full items-center gap-2 sm:w-auto">
+                            <div className="relative min-w-0 flex-1">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={searchValue}
+                                    onChange={(event) => setSearchValue(event.target.value)}
+                                    placeholder="Search posts, authors, circles..."
+                                    aria-label="Search community posts"
+                                    className="h-10 w-full rounded-full pl-9 sm:w-72"
+                                />
+                            </div>
+
+                            {showSavedOnly ? (
+                                <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setShowSavedOnly(false)}>
+                                    <X className="mr-2 h-4 w-4" />
+                                    Back to feed
+                                </Button>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center rounded-rb-card border-2 border-dashed border-border py-16 text-center">
+                            <span className="grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+                                <Loader2 className="size-6 animate-spin" aria-hidden="true" />
+                            </span>
+                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
+                                loading the feed
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Fetching posts, circles and your study items.
+                            </p>
+                        </div>
+                    ) : visiblePosts.length > 0 ? (
+                        <div className="space-y-3">
+                            {visiblePosts.map((post) => (
+                                <CommunityPost
+                                    key={post.postId}
+                                    post={post}
+                                    authorAvatarUrl={authorAvatarUrls[post.authorAvatarKey]}
+                                    circles={circles}
+                                    onToggleUpvote={toggleUpvote}
+                                    onToggleSave={toggleSave}
+                                    onJoinCircle={toggleJoinCircle}
+                                    onToggleComments={toggleComments}
+                                    onDelete={removePost}
+                                    onStartPractice={startPractice}
+                                    onReport={setReportPostId}
+                                    onOpenAttachment={openAttachment}
+                                    onOpenCircle={setActiveCircleId}
+                                    threadOpen={openThreads.includes(post.postId)}
+                                    threadComments={commentsByPost[post.postId]}
+                                    draft={commentDrafts[post.postId]}
+                                    onDraftChange={setDraft}
+                                    onSubmitComment={submitComment}
+                                    onDeleteComment={removeComment}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-rb-card border-2 border-dashed border-border py-16 text-center">
+                            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+                                <MessageCircle className="size-6" />
+                            </span>
+                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
+                                {showSavedOnly ? "No saved posts yet" : "No community posts found"}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {showSavedOnly
+                                    ? "Save a post from the feed to find it here later."
+                                    : "Try changing the feed tab or search."}
+                            </p>
+                        </div>
+                    )}
+                </main>
+
+                <aside aria-label="Community navigation and reminders" className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] space-y-5 overflow-y-auto overscroll-contain xl:block">
+                    <nav aria-label="Community feed" className="space-y-1">
                         <p className="px-3 pb-1 font-rb-display text-xs font-extrabold lowercase text-muted-foreground">
                             feed
                         </p>
@@ -1417,193 +1602,7 @@ export default function Community() {
                             ) : null}
                         </div>
                     </div>
-                </aside>
 
-                <main className="min-w-0 space-y-4">
-                    {activeCircle ? (
-                        <CircleHeader
-                            circle={activeCircle}
-                            onToggleJoin={toggleJoinCircle}
-                            onDelete={() => setConfirmDeleteCircleId(activeCircle.circleId)}
-                            onBack={() => setActiveCircleId(null)}
-                        />
-                    ) : null}
-
-                    {composerOpen ? null : (
-                    <PanelCard className="p-4">
-                        <button type="button" className="flex w-full items-center gap-3" onClick={() => openComposer("discussion")}>
-                            <CommunityAvatar initials="GG" />
-                            <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border-2 border-border bg-muted/40 px-4 text-left text-sm font-semibold text-muted-foreground transition-colors hover:border-rb-macaw/60 hover:bg-muted">
-                                Start a discussion or share a review resource...
-                            </div>
-                        </button>
-                        <div className="mt-3 flex items-center gap-2 border-t-2 border-border pt-3">
-                            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4 text-rb-feather-lip sm:mr-2" /><span className="hidden sm:inline">Quiz</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Sparkles className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
-                            </div>
-
-                        </div>
-                    </PanelCard>
-                    )}
-
-                    {composerOpen ? (
-                        <section className="rounded-rb-card border-2 border-rb-macaw bg-card p-4 sm:p-5">
-                            <div className="flex items-center justify-between gap-3 border-b-2 border-border pb-4">
-                                <div>
-                                    <h2 className="font-rb-display text-sm font-extrabold lowercase">Create a post</h2>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">Ask a question, or share a generated quiz, flashcard set, or PDF/Word reviewer.</p>
-                                </div>
-                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => { setComposerOpen(false); setAttachedFile(null) }} aria-label="Close post editor"><X /></Button>
-                            </div>
-
-                            <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
-                                {[
-                                    { value: "discussion", label: "Discussion", icon: MessageCircle },
-                                    { value: "quiz", label: "Quiz", icon: BookOpen },
-                                    { value: "flashcard", label: "Flashcards", icon: Sparkles },
-                                    { value: "reviewer", label: "Reviewer", icon: FileText },
-                                ].map((type) => {
-                                    const Icon = type.icon
-                                    return <Button key={type.value} type="button" variant={shareType === type.value ? "secondary" : "ghost"} size="sm" className="shrink-0" onClick={() => { setShareType(type.value); setAttachedFile(null) }}><Icon className="mr-1.5 size-4" />{type.label}</Button>
-                                })}
-                            </div>
-
-                            <div className="mt-4 grid gap-3">
-                                {joinedCircles.length > 0 ? (
-                                    <Select value={shareCommunity} onValueChange={setShareCommunity}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={OPEN_FEED}>Community — everyone</SelectItem>
-                                            {joinedCircles.map((circle) => (
-                                                <SelectItem key={circle.circleId} value={String(circle.circleId)}>
-                                                    {circle.name}
-                                                    {circle.isPrivate ? " (private)" : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : null}
-                                {["quiz", "flashcard"].includes(shareType) ? (
-                                    <Select value={selectedStudyItemId} onValueChange={setSelectedStudyItemId}>
-                                        <SelectTrigger><SelectValue placeholder={`Choose generated ${shareType === "quiz" ? "quiz" : "flashcards"}`} /></SelectTrigger>
-                                        <SelectContent>{studyItems.filter((item) => item.kind === shareType).map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.title}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                ) : <><Input value={shareTitle} onChange={(event) => setShareTitle(event.target.value)} placeholder="An interesting title" /><Textarea value={shareDescription} onChange={(event) => setShareDescription(event.target.value)} placeholder="What do you want to discuss?" className="min-h-32 resize-y" /></>}
-
-                                {shareType === "reviewer" ? (
-                                    <div>
-                                        <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} multiple className="hidden" onChange={handleAttachmentSelected} />
-                                        <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-rb-tile border-2 border-dashed border-border px-4 py-3 text-left hover:border-rb-macaw disabled:opacity-60">
-                                            {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-primary" />}
-                                            <span className="min-w-0 flex-1 truncate text-sm">
-                                                {attachedFile?.files?.length > 1
-                                                    ? `${attachedFile.files.length} images — add more, up to ${MAX_REVIEWER_IMAGES}`
-                                                    : attachedFile?.name ?? "Add a PDF, Word or text file, or several images"}
-                                            </span>
-                                            {attachedFile ? <span className="shrink-0 text-xs font-medium text-primary">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </div>
-
-                            <div className="mt-4 flex justify-end gap-2 border-t-2 border-border pt-4">
-                                <Button type="button" variant="ghost"  onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</Button>
-                                <Button type="button"  onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (["quiz", "flashcard"].includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="mr-2 size-4" />Post</Button>
-                            </div>
-                        </section>
-                    ) : null}
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
-                        <h2 className="font-rb-display text-sm font-extrabold lowercase">
-                            {activeCircle
-                                ? `posts in ${activeCircle.name}`
-                                : showSavedOnly
-                                    ? "Saved posts"
-                                    : activeTab === "for-you"
-                                        ? "Community news feed"
-                                        : FEED_TABS.find((tab) => tab.value === activeTab)?.label ?? "Community news feed"}
-                        </h2>
-
-                        <div className="flex items-center gap-2">
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    value={searchValue}
-                                    onChange={(event) => setSearchValue(event.target.value)}
-                                    placeholder="Search posts, authors, circles..."
-                                    aria-label="Search community posts"
-                                    className="h-9 w-full rounded-full pl-9 sm:w-64"
-                                />
-                            </div>
-
-                            {showSavedOnly ? (
-                                <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setShowSavedOnly(false)}>
-                                    <X className="mr-2 h-4 w-4" />
-                                    Back to feed
-                                </Button>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    {isLoading ? (
-                        <div className="flex flex-col items-center justify-center rounded-rb-card border-2 border-dashed border-border py-16 text-center">
-                            <span className="grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
-                                <Loader2 className="size-6 animate-spin" aria-hidden="true" />
-                            </span>
-                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
-                                loading the feed
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Fetching posts, circles and your study items.
-                            </p>
-                        </div>
-                    ) : visiblePosts.length > 0 ? (
-                        <div className="space-y-3">
-                            {visiblePosts.map((post) => (
-                                <CommunityPost
-                                    key={post.postId}
-                                    post={post}
-                                    authorAvatarUrl={authorAvatarUrls[post.authorAvatarKey]}
-                                    circles={circles}
-                                    onToggleUpvote={toggleUpvote}
-                                    onToggleSave={toggleSave}
-                                    onJoinCircle={toggleJoinCircle}
-                                    onToggleComments={toggleComments}
-                                    onDelete={removePost}
-                                    onStartPractice={startPractice}
-                                    onReport={setReportPostId}
-                                    onOpenAttachment={openAttachment}
-                                    onOpenCircle={setActiveCircleId}
-                                    threadOpen={openThreads.includes(post.postId)}
-                                    threadComments={commentsByPost[post.postId]}
-                                    draft={commentDrafts[post.postId]}
-                                    onDraftChange={setDraft}
-                                    onSubmitComment={submitComment}
-                                    onDeleteComment={removeComment}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="rounded-rb-card border-2 border-dashed border-border py-16 text-center">
-                            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
-                                <MessageCircle className="size-6" />
-                            </span>
-                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
-                                {showSavedOnly ? "No saved posts yet" : "No community posts found"}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                {showSavedOnly
-                                    ? "Save a post from the feed to find it here later."
-                                    : "Try changing the feed tab or search."}
-                            </p>
-                        </div>
-                    )}
-                </main>
-
-                <aside className="sticky top-24 hidden space-y-4 xl:block">
 
                     <PanelCard className="border-rb-fox/40 bg-rb-fox-wash p-4">
                         <PanelHeading icon={Sparkles} tone="bg-rb-snow text-rb-fox-lip" title="Community reminder" />

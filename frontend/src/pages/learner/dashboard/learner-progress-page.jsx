@@ -1184,7 +1184,6 @@ export default function LearnerProgressPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <div className="mr-auto flex flex-col items-start gap-2">
-            <p className="rb-chalk-label">your progress board</p>
             <h1 className="font-rb-display text-3xl leading-none text-foreground sm:text-4xl">
               how&apos;s your studying going?
             </h1>

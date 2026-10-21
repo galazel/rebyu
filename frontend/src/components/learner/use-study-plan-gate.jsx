@@ -54,7 +54,8 @@ export function useStudyPlanGate() {
         description: "Your schedule is on the study calendar.",
       })
 
-      queryClient.removeQueries({ queryKey: [STUDY_PLAN_QUERY_KEY] })
+      queryClient.removeQueries({ queryKey: [STUDY_PLAN_QUERY_KEY], type: "inactive" })
+      await queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_QUERY_KEY] })
 
       if (next) navigate(next)
     },
