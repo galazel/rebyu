@@ -63,7 +63,7 @@ const LEARNER_TAB_LABELS = {
   "/learner/community": "Circle",
 }
 
-export const adminGroups = [
+const adminGroups = [
   {
     label: "Overview",
     icon: LayoutDashboard,
