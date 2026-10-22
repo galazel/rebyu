@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -36,6 +37,7 @@ import {
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonTool } from "@/components/certifications/lesson-content-renderer.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
+import { LiveTutor } from "@/components/learner/live-tutor.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
@@ -474,6 +476,8 @@ export default function LearnerLessonPage() {
   const [navOpen, setNavOpen] = useState(false)
   const [curriculumOpen, setCurriculumOpen] = useState(true)
   const [coachOpen, setCoachOpen] = useState(false)
+  const [liveTutorOpen, setLiveTutorOpen] = useState(false)
+  const liveLessonRoot = useRef(null)
   const [locallyCompleted, setLocallyCompleted] = useState(false)
   const completionSentRef = useRef(false)
   const completionSentinelRef = useRef(null)
@@ -613,11 +617,11 @@ export default function LearnerLessonPage() {
   const knowledgeCheck = useSkimChallenge({
     learnerId: data?.learnerId,
     lessonId,
-    enabled: Boolean(data?.learnerId) && sections.length > 0,
+    enabled: Boolean(data?.learnerId) && sections.length > 0 && !liveTutorOpen,
   })
   useReadingPaceGuard({
     resetKey: lessonId,
-    enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer,
+    enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer && !liveTutorOpen,
     onRush: () => knowledgeCheck.trigger(),
   })
 
@@ -700,7 +704,7 @@ export default function LearnerLessonPage() {
             </div>
           </aside> : null}
 
-          <main className="min-w-0 bg-white">
+          <main ref={liveLessonRoot} className="min-w-0 bg-white">
             <div className="min-h-[calc(100dvh-8rem)] px-5 py-10 sm:px-10 sm:py-12 xl:px-14">
               <article className="mx-auto w-full max-w-3xl rounded border border-zinc-200 bg-white px-6 py-8 shadow-sm sm:px-10">
                 <div className="flex items-start justify-between gap-4">
@@ -741,6 +745,8 @@ export default function LearnerLessonPage() {
                       {sections.map((section, index) => (
                           <section
                               key={section.id ?? index}
+                              data-live-section-id={String(section.id ?? `section-${index}`)}
+                              data-live-title={section.sectionName ?? section.name ?? `Section ${index + 1}`}
                               className="space-y-5"
                           >
                             {section.sectionName ? (
@@ -754,6 +760,7 @@ export default function LearnerLessonPage() {
                                     <LessonTool
                                         key={tool.id ?? toolIndex}
                                         tool={tool}
+                                        index={toolIndex}
                                     />
                                 )
                             )}
@@ -840,13 +847,14 @@ export default function LearnerLessonPage() {
                       learnerName={learnerName}
                       learnerId={data?.learnerId}
                       onClose={() => setCoachOpen(false)}
+                      onStartLive={() => { setCoachOpen(false); setLiveTutorOpen(true) }}
                   />
                 </div>
               </aside>
           ) : null}
         </div>
 
-        {!coachOpen ? (
+        {!coachOpen && !liveTutorOpen ? (
             <Button
                 type="button"
                 onClick={() => setCoachOpen(true)}
@@ -856,6 +864,11 @@ export default function LearnerLessonPage() {
               <BotIcon className="size-6" aria-hidden="true" />
               <span className="sr-only">Open AI Tutor</span>
             </Button>
+        ) : null}
+
+        {liveTutorOpen ? createPortal(
+          <LiveTutor key={lessonId} lessonId={lessonId} lessonName={currentLesson.name} lessonRootRef={liveLessonRoot} onExit={() => setLiveTutorOpen(false)} />,
+          document.body,
         ) : null}
 
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
@@ -872,7 +885,7 @@ export default function LearnerLessonPage() {
         </Sheet>
 
         <LessonKnowledgeCheck
-            open={Boolean(knowledgeCheck.offer)}
+            open={!liveTutorOpen && Boolean(knowledgeCheck.offer)}
             lessonId={lessonId}
             learnerId={data?.learnerId}
             itemCount={knowledgeCheck.offer?.itemCount}
@@ -899,6 +912,7 @@ export default function LearnerLessonPage() {
                 learnerName={learnerName}
                 learnerId={data?.learnerId}
                 onClose={() => setCoachOpen(false)}
+                onStartLive={() => { setCoachOpen(false); setLiveTutorOpen(true) }}
             />
           </SheetContent>
         </Sheet>

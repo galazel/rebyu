@@ -94,7 +94,7 @@ export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
     <div className={`space-y-3 ${className}`}>
       {showLabel ? <p className="text-sm font-semibold text-foreground">{current.label}</p> : null}
       <UsageBar title="Daily limit" window={current.daily} />
-      <UsageBar title="Weekly" window={current.weekly} weekly />
+      {current.weekly ? <UsageBar title="Weekly" window={current.weekly} weekly /> : null}
     </div>
   )
 }
@@ -130,6 +130,7 @@ export function AiUsageSummary({ className = "", showHeading = true }) {
         Tutor chat, guided dialogue, and the quizzes, flashcards and mind maps the tutor makes.
       </p></> : null}
       <AiUsageBars bucketKey="tutor" showLabel={false} />
+      <AiUsageBars bucketKey="liveTutor" className="mt-4 border-t pt-4" />
     </div>
   )
 }
@@ -336,7 +337,7 @@ export function AiUsageBreakdown({ className = "" }) {
           </div>
         </div>
       ) : null}
-      <p className="text-xs text-muted-foreground">Only messages count toward your limit; tools are shown for reference.</p>
+      <p className="text-xs text-muted-foreground">Chat messages and Live Tutor sessions have separate limits; tools are shown for reference.</p>
     </div>
   )
 }
@@ -361,6 +362,7 @@ function UsageDialog({ open, onOpenChange }) {
             <DialogDescription>Your limits and what your AI use went on.</DialogDescription>
           </DialogHeader>
           <AiUsageBars bucketKey="tutor" showLabel={false} />
+          <AiUsageBars bucketKey="liveTutor" />
           <AiUsageBreakdown className="mt-2 border-t pt-4" />
         </DialogContent>
       </Dialog>

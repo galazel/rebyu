@@ -20,6 +20,7 @@ import {
   Play,
   PlayCircle,
   Plus,
+  Radio,
   SendHorizontal,
   SquarePen,
   Sparkles,
@@ -54,6 +55,7 @@ import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
 import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
 import { MicButton } from "@/components/learner/mic-button.jsx"
+import { LiveTutor, LiveTutorVoiceOrb } from "@/components/learner/live-tutor.jsx"
 
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
@@ -683,6 +685,7 @@ export function LessonAiTutor({
                             learnerName,
                             learnerId,
                             onClose,
+                            onStartLive,
                             pendingSnippet = null,
                             onSnippetTaken,
                             onStartSnip,
@@ -699,6 +702,7 @@ export function LessonAiTutor({
   const [streamPaused, setStreamPaused] = useState(false)
   const [attachment, setAttachment] = useState(null)
   const [dialogueOpen, setDialogueOpen] = useState(false)
+  const [liveTutorOpen, setLiveTutorOpen] = useState(false)
   const [chatVersion, setChatVersion] = useState(0)
   const [chatListOpen, setChatListOpen] = useState(false)
   const draftRef = useRef(null)
@@ -949,7 +953,13 @@ export function LessonAiTutor({
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
         <header className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            {liveTutorOpen ? (
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
+                <LiveTutorVoiceOrb className="size-8" />
+              </span>
+            ) : (
+              <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            )}
             <p className="font-rb-display text-sm font-extrabold text-white">REBYU AI Tutor</p>
           </div>
           <TactileButton
@@ -979,21 +989,40 @@ export function LessonAiTutor({
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
         <header className="relative flex h-16 shrink-0 items-center justify-between overflow-hidden bg-rb-feather px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            {liveTutorOpen ? (
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
+                <LiveTutorVoiceOrb className="size-8" />
+              </span>
+            ) : (
+              <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            )}
 
             <div className="min-w-0">
               <p className="font-rb-display text-sm font-extrabold leading-tight text-white">
-                REBYU AI Tutor
+                {liveTutorOpen ? "REBYU Live Tutor" : "REBYU AI Tutor"}
               </p>
               <p className="flex items-center gap-1.5 truncate text-xs font-bold text-white/80">
-                <span className="size-1.5 shrink-0 rounded-full bg-rb-feather" aria-hidden="true" />
-                {lessonName ?? "This lesson"}
+                <span className={`size-1.5 shrink-0 rounded-full ${liveTutorOpen ? "bg-rb-fox" : "bg-rb-feather"}`} aria-hidden="true" />
+                {liveTutorOpen ? "Live voice & chat" : lessonName ?? "This lesson"}
               </p>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            {!dialogueOpen ? (
+            {liveTutorOpen ? (
+              <TactileButton
+                variant="ghost"
+                size="sm"
+                className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
+                style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+                onClick={() => setLiveTutorOpen(false)}
+                aria-label="Return to tutor chat"
+                title="Return to tutor chat"
+              >
+                <MessageCircle className="size-4" aria-hidden="true" />
+              </TactileButton>
+            ) : null}
+            {!dialogueOpen && !liveTutorOpen ? (
               <TactileButton
                   variant="ghost"
                   size="sm"
@@ -1008,7 +1037,7 @@ export function LessonAiTutor({
                 <History className="size-4" aria-hidden="true" />
               </TactileButton>
             ) : null}
-            {!dialogueOpen ? (
+            {!dialogueOpen && !liveTutorOpen ? (
               <TactileButton
                   variant="ghost"
                   size="sm"
@@ -1039,7 +1068,7 @@ export function LessonAiTutor({
           </div>
         </header>
 
-        {chatListOpen && !dialogueOpen ? (
+        {chatListOpen && !dialogueOpen && !liveTutorOpen ? (
             <ChatList
                 learnerId={learnerId}
                 lessonId={lessonId}
@@ -1055,6 +1084,15 @@ export function LessonAiTutor({
                   setChatListOpen(false)
                   setChatVersion((value) => value + 1)
                 }}
+            />
+        ) : liveTutorOpen ? (
+            <LiveTutor
+              lessonId={lessonId}
+              lessonName={lessonName}
+              messages={messages}
+              pending={pending || Boolean(generating)}
+              onSend={sendTutorMessage}
+              onExit={() => setLiveTutorOpen(false)}
             />
         ) : dialogueOpen ? (
             <TutorDialogue
@@ -1222,7 +1260,7 @@ export function LessonAiTutor({
             </MessageScrollerProvider>
         )}
 
-        {dialogueOpen || chatListOpen ? null : (
+        {dialogueOpen || chatListOpen || liveTutorOpen ? null : (
         <form
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
@@ -1279,22 +1317,64 @@ export function LessonAiTutor({
                   )}
                 </TactileButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="w-64">
+              <DropdownMenuContent
+                align="start"
+                side="top"
+                className="w-72 !rounded-2xl !border-rb-swan !bg-rb-snow !p-2 shadow-[0_14px_32px_rgba(20,30,24,0.18)]"
+              >
+                <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-rb-hare">
+                  Learning tools
+                </p>
                 {onStartSnip ? (
                   <>
-                    <DropdownMenuItem onSelect={() => onStartSnip()}>
-                      <Crop className="mr-2 size-4" />
-                      <span className="flex-1">Snip part of the lesson</span>
+                    <DropdownMenuItem
+                      onSelect={() => onStartSnip()}
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                    >
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip">
+                        <Crop className="size-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-rb-eel">Snip part of the lesson</span>
+                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                          Ask about a specific section
+                        </span>
+                      </span>
                     </DropdownMenuItem>
                     {hasConversation ? <DropdownMenuSeparator /> : null}
                   </>
                 ) : null}
                 {hasConversation ? (
-                  <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
-                    <MessageCircle className="mr-2 size-4" />
-                    <span className="flex-1">Guided dialogue</span>
-                  </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setDialogueOpen(true)}
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                    >
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-fox-wash text-rb-fox">
+                        <MessageCircle className="size-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-rb-eel">Guided dialogue</span>
+                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                          Practise with tutor-led questions
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem
+                  onSelect={() => onStartLive ? onStartLive() : setLiveTutorOpen(true)}
+                  className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5"
+                  aria-label="Open live tutor"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-cardinal/10 text-rb-cardinal">
+                    <Radio className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-rb-eel">Live tutor</span>
+                    <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                      Talk, dictate, and chat with your tutor
+                    </span>
+                  </span>
+                </DropdownMenuItem>
                 {/* AI usage lives on the ring beside the send button, not here too. */}
               </DropdownMenuContent>
             </DropdownMenu>

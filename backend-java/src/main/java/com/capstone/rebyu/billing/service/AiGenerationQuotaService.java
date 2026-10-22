@@ -73,6 +73,7 @@ public class AiGenerationQuotaService {
 
     private final AiGenerationUsageRepository usage;
     private final LearnerEntitlementService entitlements;
+    private final LiveTutorQuotaService liveTutor;
 
     public static LocalDate today() {
         return LocalDate.now(LEARNER_ZONE);
@@ -103,7 +104,7 @@ public class AiGenerationQuotaService {
         }
         // Only the tutor bucket: every learner AI task is a tutor message now, and each
         // bucket costs ~8 database round trips. STUDY_AIDS is still enforced on generate.
-        return List.of(usage(learnerId, Bucket.TUTOR));
+        return List.of(usage(learnerId, Bucket.TUTOR), liveTutor.usage(learnerId));
     }
 
     @Transactional(readOnly = true)

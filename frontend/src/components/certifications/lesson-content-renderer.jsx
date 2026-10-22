@@ -446,7 +446,7 @@ function AccordionBlock({ items = [] }) {
 
           return (
               <AccordionItem key={id} value={id} className={`${RB_CARD} not-last:border-b-2`}>
-                <AccordionTrigger className="items-center gap-3 p-4 hover:no-underline">
+                <AccordionTrigger data-live-accordion={id} className="items-center gap-3 p-4 hover:no-underline">
                   <span className={`${RB_INDEX_CHIP} ${rb.chip}`} aria-hidden="true">
                     {index + 1}
                   </span>
@@ -477,6 +477,7 @@ function TabsBlock({ items = [] }) {
           {items.map((item, index) => {
             return (
                 <TabsTrigger
+                    data-live-tab={String(item.id ?? index)}
                     key={item.id ?? item.label ?? index}
                     value={String(index)}
                     className={`h-auto flex-1 rounded-rb-pill border-2 border-rb-swan bg-rb-snow px-3.5 py-2 text-sm font-bold text-rb-wolf after:hidden ${RB_PILL_ACTIVE}`}
@@ -518,12 +519,14 @@ function TabsBlock({ items = [] }) {
   )
 }
 
-function FlipCard({ frontTitle, backTitle, description, accent = ACCENTS[0] }) {
+function FlipCard({ cardId, frontTitle, backTitle, description, accent = ACCENTS[0] }) {
   const [flipped, setFlipped] = useState(false)
 
   return (
       <button
           type="button"
+          data-live-card={cardId ?? frontTitle ?? backTitle ?? "card"}
+          data-live-card-face={flipped ? "back" : "front"}
           onClick={() => setFlipped((value) => !value)}
           aria-label={`${frontTitle}. Press to ${flipped ? "show front" : "reveal detail"}.`}
           className="group block h-48 w-full text-left [perspective:1200px]"
@@ -777,6 +780,10 @@ function ImageHotspotBlock({ data, accent }) {
 }
 
 function LessonTool({ tool, index = 0 }) {
+  return <div data-tool-id={tool.id ?? `block-${index}`} data-tool-type={tool.type}><LessonToolContent tool={tool} index={index} /></div>
+}
+
+function LessonToolContent({ tool, index = 0 }) {
   const data = tool?.data ?? {}
   const accent = accentFor(index)
 
@@ -926,6 +933,7 @@ function LessonTool({ tool, index = 0 }) {
           {(data.cards ?? []).map((card, cardIndex) => (
               <FlipCard
                   key={card.id ?? card.frontTitle ?? cardIndex}
+                  cardId={String(card.id ?? cardIndex)}
                   frontTitle={card.frontTitle}
                   backTitle={card.backTitle}
                   description={card.description}

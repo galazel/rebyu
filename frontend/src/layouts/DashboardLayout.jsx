@@ -68,7 +68,7 @@ export default function DashboardLayout() {
         }
       />
       <main className={`rebyu-page ${isBleedPage ? "rebyu-page-bleed" : ""}`}>
-        <Suspense fallback={<PortalPageSkeleton />}>
+        <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? null : <PortalPageSkeleton />}>
           <Outlet />
         </Suspense>
       </main>

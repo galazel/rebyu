@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { CertificationSkeletonCard } from "../../components/certifications/certification-skeleton-card"
 import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 
 const CONTENT_FILTERS = [
@@ -95,10 +94,6 @@ function Certifications() {
     })
   }
 
-  if (isLoading) {
-    return <CertificationSkeletonCard size={8} />
-  }
-
   if (isError) {
     return (
         <section className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -128,14 +123,14 @@ function Certifications() {
             </h1>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              {filteredCertifications.length}
+              {isLoading ? "Loading certifications…" : <>{filteredCertifications.length}
               {contentFilter === "content"
                   ? " with content"
                   : contentFilter === "empty"
                       ? " empty"
                       : " total"}
               {chosenDepartment === "all" ? "" : ` in ${chosenDepartment}`}
-              {isFetching ? " · updating…" : ""}
+              {isFetching ? " · updating…" : ""}</>}
             </p>
           </div>
 
