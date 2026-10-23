@@ -1376,6 +1376,7 @@ export default function LearnerTopicPage() {
 
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
+    lessonRootRef: readingRef,
     resetKey: activeLessonId,
     enabled:
       !liveTutorOpen &&

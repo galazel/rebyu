@@ -54,6 +54,7 @@ import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
 import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
+import { tutorActivityScope } from "@/lib/tutor-widget-progress.js"
 import { MicButton } from "@/components/learner/mic-button.jsx"
 import { LiveTutor, LiveTutorVoiceOrb } from "@/components/learner/live-tutor.jsx"
 
@@ -611,7 +612,7 @@ function SnippetPreview({ snippet, onDark = false }) {
   )
 }
 
-function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
+function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup, persistenceScope }) {
   const isLearner = message.role === "user"
 
   const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-tl-md"
@@ -657,7 +658,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                   </ReactMarkdown>
                 </div> : null}
 
-                {!isLearner ? <TutorWidgets widgets={message.widgets} /> : null}
+                {!isLearner ? <TutorWidgets widgets={message.widgets} persistenceScope={persistenceScope} /> : null}
                 {message.action ? <StudyAidActionCard action={message.action} /> : null}
                 {message.resources?.length ? <TutorResources resources={message.resources} /> : null}
               </BubbleContent>
@@ -1212,6 +1213,7 @@ export function LessonAiTutor({
                           >
                             <GeminiTutorMessage
                                 message={message}
+                                persistenceScope={tutorActivityScope(sessionId, messages, index)}
                                 learnerName={learnerName}
                                 isFirstInGroup={isFirstInGroup}
                                 isLastInGroup={isLastInGroup}

@@ -24,6 +24,68 @@ function harness() {
   return { teacher, requests, saved, tick, segment }
 }
 
+test("typing cancels pending continuation until the draft is cleared", () => {
+  const h = harness(); h.segment(); h.tick(1500)
+  h.teacher.typing(true); h.tick(120000)
+  assert.equal(h.requests.length, 0)
+  h.teacher.typing(false); h.tick(1599); assert.equal(h.requests.length, 0)
+  h.tick(1); assert.equal(h.requests.length, 1)
+})
+
+test("typing suspends question timeouts without consuming a silence retry", () => {
+  const h = harness(); h.segment("question", "What does contribution mean?")
+  h.tick(19000); h.teacher.typing(true); h.tick(120000)
+  assert.equal(h.requests.length, 0); assert.equal(h.teacher.state.silenceAttempts, 0)
+  h.teacher.typing(false); h.tick(19999); assert.equal(h.requests.length, 0)
+  h.tick(1); assert.equal(h.requests.length, 1)
+})
+
+test("submitted text is evaluated before teaching resumes", () => {
+  const h = harness(); h.segment("question", "What remains after variable costs?")
+  h.teacher.typing(true); h.tick(60000)
+  h.teacher.typing(false); h.teacher.studentMessage("Contribution")
+  h.tick(20000); assert.equal(h.requests.length, 0); assert.equal(h.teacher.state.phase, "EVALUATING_ANSWER")
+  h.segment("feedback", "Correct, that remainder is contribution."); h.tick(1600)
+  assert.equal(h.requests.length, 1)
+})
+
+test("typing rejects new teaching plans and ignores late playback continuation", () => {
+  const h = harness(); h.segment(); h.teacher.typing(true)
+  assert.equal(h.teacher.structuredStep({ kind: "explain", concept: "next" }).ok, false)
+  h.teacher.dispatch("continue")
+  h.teacher.agentMessage("Late buffered response."); h.teacher.audio(true); h.teacher.audio(false)
+  h.tick(60000); assert.equal(h.requests.length, 0)
+})
+
+test("typing prevents response watchdog errors and survives explicit pause/resume", () => {
+  const h = harness(); h.teacher.structuredStep({ kind: "explain", concept: "costs" })
+  h.teacher.typing(true); h.tick(60000)
+  assert.notEqual(h.teacher.state.phase, "ERROR")
+  h.teacher.pause(); h.teacher.resume(); h.tick(60000)
+  assert.equal(h.requests.length, 0)
+})
+
+test("a stale graph request failure cannot overwrite a newer student turn", async () => {
+  const h = harness()
+  let reject
+  h.teacher.request = () => new Promise((_, fail) => { reject = fail })
+  h.segment(); h.tick(1600)
+  h.teacher.studentMessage("My answer")
+  reject(new Error("late coordination failure"))
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(h.teacher.state.phase, "EVALUATING_ANSWER")
+  assert.equal(h.teacher.active, true)
+})
+
+test("an unavailable graph stops automatic teaching safely", async () => {
+  const h = harness()
+  h.teacher.request = () => Promise.reject(new Error("offline"))
+  h.segment(); h.tick(1600)
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(h.teacher.state.phase, "ERROR")
+  assert.equal(h.teacher.active, false)
+})
+
 test("closing suspends teaching and restores the unfinished concept on reopening", () => {
   const h = harness()
   h.teacher.structuredStep({ kind: "explain", concept: "contribution", sectionId: "section-3", completedConcept: "fixed costs" })

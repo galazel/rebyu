@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { Brain, Maximize, X } from "@/components/icons"
+import { useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
 
 const PALETTE = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#e11d48", "#0d9488", "#ea580c"]
 const FONT = 13
@@ -183,11 +184,12 @@ export function MindMap({ data, header }) {
   const safe = useMemo(() => ({ ...data, branches: data.branches ?? [] }), [data])
   const map = useMemo(() => layout(safe, width >= 640 ? 2 : 1), [safe, width])
   const wide = useMemo(() => layout(safe, 2), [safe])
-  const [folded, setFolded] = useState(() => new Set())
+  const [foldedIds, setFoldedIds] = useTutorWidgetProgress("folded", [])
+  const folded = useMemo(() => new Set(foldedIds), [foldedIds])
   const [focus, setFocus] = useState(null)
   const [selected, setSelected] = useState(null)
   const [full, setFull] = useState(false)
-  const fold = (i) => setFolded((s) => { const next = new Set(s); next.has(i) ? next.delete(i) : next.add(i); return next })
+  const fold = (i) => setFoldedIds((ids) => ids.includes(i) ? ids.filter((id) => id !== i) : [...ids, i])
 
   useEffect(() => {
     if (!full) return
@@ -199,8 +201,8 @@ export function MindMap({ data, header }) {
   const svgProps = { map, folded, onFold: fold, focus, onFocus: setFocus, selected, onSelect: setSelected }
   const toolbar = (
       <div className="flex flex-wrap items-center gap-1.5">
-        <button type="button" onClick={() => setFolded(new Set())} className="rounded-lg px-2 py-1 text-xs font-bold text-rb-hare hover:bg-rb-polar">Expand all</button>
-        <button type="button" onClick={() => setFolded(new Set(map.branches.map((_, i) => i)))} className="rounded-lg px-2 py-1 text-xs font-bold text-rb-hare hover:bg-rb-polar">Collapse all</button>
+        <button type="button" onClick={() => setFoldedIds([])} className="rounded-lg px-2 py-1 text-xs font-bold text-rb-hare hover:bg-rb-polar">Expand all</button>
+        <button type="button" onClick={() => setFoldedIds(map.branches.map((_, i) => i))} className="rounded-lg px-2 py-1 text-xs font-bold text-rb-hare hover:bg-rb-polar">Collapse all</button>
       </div>
   )
   const note = selected ? (

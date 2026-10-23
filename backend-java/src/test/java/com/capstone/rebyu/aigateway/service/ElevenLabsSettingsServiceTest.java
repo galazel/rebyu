@@ -27,6 +27,11 @@ class ElevenLabsSettingsServiceTest {
         var saved = service.update(new ElevenLabsSettingsService.Update(false, 8, 1800, config.getVoiceId(), null, null), "admin@example.test");
         assertEquals(8, saved.getDailySessionLimit()); assertFalse(saved.isEnabled()); assertEquals("admin@example.test", saved.getUpdatedBy());
     }
+    @Test void sharedLimitsClientCanOmitLegacyLiveCap() {
+        var config = new LiveTutorSettings(); when(rows.findById(1L)).thenReturn(Optional.of(config)); when(rows.save(any())).thenAnswer(call -> call.getArgument(0));
+        var saved = service.update(new ElevenLabsSettingsService.Update(true, null, config.getMaxDurationSeconds(), config.getVoiceId(), null, null), "admin");
+        assertEquals(config.getVoiceId(), saved.getVoiceId()); assertTrue(saved.isEnabled());
+    }
     @Test void providerFailureDoesNotSaveVoiceOrLimit() {
         var config = new LiveTutorSettings(); when(rows.findById(1L)).thenReturn(Optional.of(config));
         assertThrows(ResponseStatusException.class, () -> service.update(new ElevenLabsSettingsService.Update(true, 9, 1800, "anotherVoice", null, null), "admin"));

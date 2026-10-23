@@ -8,6 +8,10 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
+from pydantic import model_validator
+from typing import Literal
+from uuid import UUID
+from app.graphs.tutor.live_turns import coordinate_live_turn
 from sqlalchemy.orm import Session
 
 from app.core.security import require_service_key
@@ -34,6 +38,37 @@ router = APIRouter(
 
 
 _MAX_IMAGE_CHARS = 4_000_000
+
+
+class LiveTurnRequest(BaseModel):
+    # Java derives owner/session identity after authentication and ownership checks.
+    ownerId: int = Field(gt=0)
+    sessionId: UUID
+    connectionId: UUID
+    sequence: int = Field(gt=0, le=1_000_000)
+    action: Literal["open", "typing", "submit", "continue", "agent_message", "pause", "resume", "close"]
+    active: bool | None = None
+    message: str | None = Field(default=None, max_length=3000)
+
+    @model_validator(mode="after")
+    def validate_event(self):
+        if self.action == "typing" and self.active is None:
+            raise ValueError("Typing status is required")
+        if self.action in ("submit", "agent_message") and not (self.message or "").strip():
+            raise ValueError("A submitted message is required")
+        if self.action not in ("submit", "agent_message") and self.message is not None:
+            raise ValueError("Unsent draft text must not be supplied")
+        return self
+
+
+@router.post("/live/turn")
+async def live_turn(payload: LiveTurnRequest) -> dict:
+    thread_id = f"live-turn:{payload.ownerId}:{payload.sessionId}:{payload.connectionId}"
+    try:
+        return await coordinate_live_turn(thread_id, payload.model_dump(mode="json"))
+    except Exception as error:
+        logger.exception("Live turn coordination unavailable")
+        raise HTTPException(status_code=503, detail="Live Tutor turn coordination is unavailable. Teaching remains on hold; retry your response.") from error
 
 
 class ChatRequest(BaseModel):

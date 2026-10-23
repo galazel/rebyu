@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
+import { isLessonScrollGesture } from "@/lib/skim-challenge-state.js"
 
 const WINDOW_MS = 1600
 
@@ -17,7 +18,7 @@ const SETTLE_MS = 2500
 
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
-export function useReadingPaceGuard({ enabled, onRush, resetKey }) {
+export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }) {
   const samples = useRef([])
   const lastGesture = useRef(0)
   const pausedUntil = useRef(0)
@@ -79,11 +80,17 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey }) {
       return undefined
     }
 
-    const gesture = () => {
+    const gesture = (event) => {
+      if (event && !isLessonScrollGesture(event, lessonRootRef?.current ?? document.body)) {
+        lastGesture.current = 0
+        samples.current = []
+        lastY.current = window.scrollY
+        return
+      }
       lastGesture.current = performance.now()
     }
     const onKeyDown = (event) => {
-      if (SCROLL_KEYS.has(event.key)) gesture()
+      if (SCROLL_KEYS.has(event.key)) gesture(event)
     }
 
     const onMouseDown = (event) => {
@@ -140,7 +147,7 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey }) {
       window.removeEventListener("blur", endScrollbar)
       window.removeEventListener("scroll", onScroll)
     }
-  }, [enabled, measure])
+  }, [enabled, measure, lessonRootRef])
 
   return { isRushing, pause }
 }

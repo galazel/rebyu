@@ -28,6 +28,12 @@ public class LiveTeachingService {
     private static final Set<String> STATES = Set.of("INITIALIZING", "GREETING", "DIAGNOSTIC", "TEACHING", "DEMONSTRATING", "ASKING_QUESTION", "LISTENING_FOR_ANSWER", "EVALUATING_ANSWER", "EXPLAINING_FEEDBACK", "TRANSITIONING", "ORAL_EXAM", "LISTENING", "ANSWERING_QUESTION", "WAITING_TO_RESUME", "PAUSED", "COMPLETED", "ERROR");
     private static final Set<String> EVENTS = Set.of("lesson_section_changed", "tab_changed", "text_selected", "image_selected", "tool_opened", "checkpoint");
 
+    @Transactional(readOnly = true)
+    public void requireOwner(CurrentUserDto user, UUID id) {
+        var session = sessions.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teaching session not found."));
+        if (!Objects.equals(session.getUserId(), user.userId())) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This teaching session belongs to another learner.");
+    }
+
     public Map<String, Object> initialize(CurrentUserDto user, Long lessonId) {
         if (lessonId == null || lessonId <= 0) throw bad("A valid lesson ID is required.");
         // Transaction-scoped lock makes simultaneous starts for this learner/lesson reuse one session.

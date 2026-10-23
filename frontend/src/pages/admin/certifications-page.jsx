@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import CertificationCard from "../../components/certifications/certification-card"
 import CertificationFormDrawer from "@/components/certifications/certification-form-drawer"
+import { CertificationsPageSkeleton } from "@/components/admin/certifications-page-skeleton.jsx"
 
 import { getAllCertifications } from "../../services/certificationService"
 import { markGenerationQueued, useActiveGenerations } from "@/hooks/use-active-generations"
@@ -114,6 +115,8 @@ function Certifications() {
     )
   }
 
+  if (isLoading) return <CertificationsPageSkeleton />
+
   return (
       <section className="flex flex-col gap-6">
         <header className="rebyu-page-header">
@@ -123,14 +126,14 @@ function Certifications() {
             </h1>
 
             <p className="mt-1 text-sm text-muted-foreground">
-              {isLoading ? "Loading certifications…" : <>{filteredCertifications.length}
+              {filteredCertifications.length}
               {contentFilter === "content"
                   ? " with content"
                   : contentFilter === "empty"
                       ? " empty"
                       : " total"}
               {chosenDepartment === "all" ? "" : ` in ${chosenDepartment}`}
-              {isFetching ? " · updating…" : ""}</>}
+              {isFetching ? " · updating…" : ""}
             </p>
           </div>
 

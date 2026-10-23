@@ -3,7 +3,9 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { LearnerAppSidebar } from "@/components/learner/learner-sidebar"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { PortalTopbar } from "@/components/navigation/portal-topbar.jsx"
+import { buildPortalContentItems } from "@/lib/portal-content-search.js"
 import {
   LearnerErrorState,
   getLearnerDisplayName,
@@ -96,6 +98,7 @@ export default function LearnerLayout() {
     learner: authUser,
   }
   const displayName = getLearnerDisplayName(shellData)
+  const searchItems = useMemo(() => buildPortalContentItems({ role: "learner", ...shellData }), [shellData])
   const avatarUrl = useAvatarUrl(
     shellData?.learner?.avatarKey ?? shellData?.identity?.avatarKey ?? null
   )
@@ -142,10 +145,7 @@ export default function LearnerLayout() {
         ) : null}
         <SidebarInset className="min-w-0">
           {!isTopicPage ? (
-            <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
-              <div className="flex h-16 items-center gap-2 px-3 sm:px-5">
-                {showProfileSidebar ? <SidebarTrigger aria-label="Open learner navigation" /> : null}
-                <div className="ml-auto flex items-center gap-1.5">
+            <PortalTopbar role="learner" items={searchItems} loading={query.isPending} error={query.isError && !query.data} onRetry={() => query.refetch()} notifications={
                 <NotificationBell
                   items={inbox.items}
                   unreadCount={inbox.unreadCount}
@@ -155,9 +155,7 @@ export default function LearnerLayout() {
                   onMarkAllRead={inbox.markAllRead}
                   onDelete={(item) => inbox.remove(item.id)}
                 />
-                </div>
-              </div>
-            </header>
+            } />
           ) : null}
           <main
           className={`rebyu-page ${isTopicPage ? "" : "pb-8"} ${

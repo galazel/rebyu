@@ -14,6 +14,9 @@ function Fixture() {
       <LessonTool tool={{ id: "tabs", type: "tabs", data: { items: [{ id: "definition", label: "Definition", description: "Selling price minus variable cost." }, { id: "example", label: "Worked example", description: "One hundred minus sixty leaves forty." }] } }} />
       <LessonTool tool={{ id: "accordion", type: "accordion", data: { items: [{ id: "fixed", title: "Fixed costs", content: "Rent stays fixed." }, { id: "variable", title: "Variable costs", content: "Materials vary with output." }] } }} />
       <LessonTool tool={{ id: "cards", type: "flip-grid", data: { cards: [{ id: "formula", frontTitle: "Contribution formula", description: "Selling price minus variable cost." }] } }} />
+      <LessonTool tool={{ id: "diagram", type: "image", data: { imageKey: "/__fixture.svg", altText: "Contribution chart" } }} />
+      <LessonTool tool={{ id: "points", type: "image-hotspot", data: { imageKey: "/__fixture.svg", hotspots: [{ id: "revenue", title: "Revenue line", description: "Sales increase along this line.", x: 50, y: 50 }] } }} />
+      <LessonTool tool={{ id: "video", type: "video", data: { videoKey: "/__fixture.mp4" } }} />
     </section>
     <section style={{ marginTop: "100vh" }} data-live-section-id="break-even" data-live-title="Break-even">
       <h2>Break-even</h2><LessonTool tool={{ id: "explanation", type: "description", data: { text: "Fixed costs divided by contribution per unit." } }} />

@@ -151,36 +151,36 @@ body.netacad-overlay-theme {
     border-bottom-color: var(--color-rb-feather-lip);
     color: #ffffff;
 }
-.netacad-portal header.sticky :is(a, button):not([data-slot="dropdown-menu-item"]) {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) :is(a, button):not([data-slot="dropdown-menu-item"]) {
     color: rgb(255 255 255 / 0.85);
 }
-.netacad-portal header.sticky a[aria-label$="home"],
-.netacad-portal header.sticky a[aria-label$="analytics"] {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) a[aria-label$="home"],
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) a[aria-label$="analytics"] {
     background: transparent;
     color: #ffffff;
 }
-.netacad-portal header.sticky nav :is(a, button) {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) nav :is(a, button) {
     border-radius: 10px;
 }
-.netacad-portal header.sticky nav :is(a, button):not(.rb-nav-active):hover {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) nav :is(a, button):not(.rb-nav-active):hover {
     color: #ffffff;
     background: rgb(255 255 255 / 0.14);
 }
-.netacad-portal header.sticky :is(a, button).rb-nav-active,
-.netacad-portal header.sticky :is(a, button).rb-nav-active:hover,
-.netacad-portal header.sticky .rb-nav-active :is(svg, span) {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) :is(a, button).rb-nav-active,
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) :is(a, button).rb-nav-active:hover,
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) .rb-nav-active :is(svg, span) {
     color: var(--color-rb-feather-ink);
     background: #ffffff;
 }
-.netacad-portal header.sticky .text-muted-foreground {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) .text-muted-foreground {
     color: rgb(255 255 255 / 0.7);
 }
-.netacad-portal header.sticky [data-slot="avatar-fallback"] {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) [data-slot="avatar-fallback"] {
     background: #ffffff;
     color: var(--color-rb-feather-ink);
     font-weight: 700;
 }
-.netacad-portal header.sticky [data-slot="tooltip-trigger"]:hover {
+.netacad-portal header.sticky:not([data-slot="portal-topbar"]) [data-slot="tooltip-trigger"]:hover {
     background: rgb(255 255 255 / 0.12);
     color: #ffffff;
 }

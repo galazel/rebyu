@@ -10,6 +10,8 @@ const executablePath = ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.
 if (!executablePath) throw new Error("An installed Chrome/Edge browser is needed for this integration test.")
 const server = await createServer({ root, server: { host: "127.0.0.1", port: 0, hmr: false }, plugins: [{ name: "live-teaching-test-fixture", configureServer(vite) {
   vite.middlewares.use(async (req, res, next) => {
+    if (req.url === "/__fixture.svg") { res.setHeader("Content-Type", "image/svg+xml"); return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="green"/></svg>') }
+    if (req.url === "/__fixture.mp4") { res.setHeader("Content-Type", "video/mp4"); return res.end() }
     if (req.url !== "/__live_teaching_test") return next()
     const html = await vite.transformIndexHtml(req.url, '<!doctype html><html><body><button id="outside">Outside lesson</button><div id="root"></div><script type="module" src="/scripts/tests/live-lesson-fixture.jsx"></script></body></html>')
     res.setHeader("Content-Type", "text/html"); res.end(html)
@@ -38,6 +40,26 @@ try {
   assert.equal((await act("reveal_card", cardId)).state, "back")
   assert.equal((await act("reveal_card", cardId)).changed, false)
   assert.equal((await act("show_card_front", cardId)).state, "front")
+  assert.equal((await act("open_lesson_tool", "tool:contribution:cards")).state, "back", "opening a tool must actually reveal its control")
+  const prepare = (step, allowed = true) => page.evaluate(({ step, allowed }) => window.liveHarness.prepareTeachingStep(step, { canAct: () => allowed }), { step, allowed })
+  let prepared = await prepare({ kind: "explain", sectionId: "contribution", concept: "Variable costs" })
+  assert.equal(prepared.interactions[0]?.state, "true", "teaching must open the discussed accordion before speech")
+  prepared = await prepare({ kind: "demonstrate", sectionId: "contribution", concept: "Worked example" })
+  assert.equal(prepared.interactions[0]?.targetId, idFor("tab", "Worked example"))
+  assert.equal((await prepare({ kind: "explain", sectionId: "contribution", concept: "Contribution formula" }, false)).ok, false)
+  await act("show_card_front", cardId)
+  assert.equal((await prepare({ kind: "question", sectionId: "contribution", concept: "Contribution formula" })).interactions.length, 0)
+  assert.equal(await page.$eval('[data-live-card]', (node) => node.dataset.liveCardFace), "front", "questions must not auto-reveal answers")
+  const imageId = idFor("image", "Contribution chart")
+  assert.equal((await act("select_lesson_image", imageId)).state, "true")
+  assert.equal(await page.$$eval('[role="dialog"][data-live-media-owner]', (nodes) => nodes.length), 1)
+  assert.equal((await act("select_lesson_image", imageId)).changed, false)
+  assert.equal((await act("open_lesson_tool", idFor("hotspot", "Revenue line"))).state, "true")
+  assert.equal(await page.$$eval('[role="dialog"][data-live-media-owner]', (nodes) => nodes.length), 0, "moving to another tool closes only tutor-opened media")
+  assert.match(await page.$eval('[data-tool-id="points"]', (node) => node.innerText), /Sales increase/)
+  assert.equal((await act("open_lesson_tool", idFor("video", "View video"))).state, "true")
+  assert.equal(await page.$eval('[role="dialog"] video', (node) => node.paused && !node.autoplay), true, "viewing must not autoplay")
+  await act("scroll_to_section", "section:contribution")
   assert.equal((await act("execute_javascript", cardId)).ok, false)
   assert.equal((await act("open_tab", "#outside")).ok, false)
   assert.equal((await act("open_tab", "section:break-even")).ok, false)
@@ -46,7 +68,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 1600))
   await page.evaluate(() => { document.getElementById("lesson-fixture").dispatchEvent(new WheelEvent("wheel", { bubbles: true })); })
   assert.equal((await act("scroll_to_section", "section:break-even")).manualExploration, true)
-  console.log("PASS: real lesson tabs, accordions, cards, navigation, action validation, and manual-exploration protection.")
+  console.log("PASS: automatic teaching reveals, real tabs/accordions/cards/images/hotspots/video, no quiz-answer reveals or autoplay, action validation and manual-exploration protection.")
   if (process.argv.includes("--provider")) {
     // Isolated provider integration: fictional fixture curriculum, no permanent key in the browser.
     const env = readFileSync(new URL("../../.env.local", import.meta.url), "utf8")

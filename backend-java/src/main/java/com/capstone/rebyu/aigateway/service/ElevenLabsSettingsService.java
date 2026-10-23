@@ -51,6 +51,22 @@ public class ElevenLabsSettingsService {
     }
     public String agentId() { return agentId; }
 
+    /** Known exhausted accounts fail before a slot is reserved or a connection is issued. */
+    public void requireAvailableCredits() {
+        Map<String, Object> subscription;
+        try { subscription = get("/v1/user/subscription"); }
+        catch (Exception unavailable) { return; } // Keys without balance-read permission can still teach.
+        if (subscription.get("character_limit") instanceof Number limit && subscription.get("character_count") instanceof Number used
+                && used.longValue() >= limit.longValue() && !Boolean.TRUE.equals(subscription.get("can_extend_character_limit"))) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ElevenLabs credits exhausted. This failed connection does not count toward your AI allowance.");
+        }
+    }
+
+    public Map<String, Object> conversation(String conversationId) {
+        if (conversationId == null || !conversationId.matches("[A-Za-z0-9_-]{1,128}")) throw new IllegalArgumentException("Invalid provider conversation ID");
+        return get("/v1/convai/conversations/" + conversationId);
+    }
+
     public Map<String, Object> overview() {
         var result = new LinkedHashMap<String, Object>();
         result.put("settings", config());
@@ -98,12 +114,12 @@ public class ElevenLabsSettingsService {
 
     @Transactional
     public LiveTutorSettings update(Update request, String actor) {
-        if (request == null || request.enabled() == null || request.dailySessionLimit() == null || request.dailySessionLimit() < 1 || request.dailySessionLimit() > 1000
+        if (request == null || request.enabled() == null || (request.dailySessionLimit() != null && (request.dailySessionLimit() < 1 || request.dailySessionLimit() > 1000))
                 || request.maxDurationSeconds() == null || request.maxDurationSeconds() < 60 || request.maxDurationSeconds() > 1800
                 || request.voiceId() == null || !request.voiceId().matches("[A-Za-z0-9_-]{1,100}")
                 || (request.proDailyMessages() != null && (request.proDailyMessages() < 1 || request.proDailyMessages() > 100000))
                 || (request.proWeeklyMessages() != null && (request.proWeeklyMessages() < 1 || request.proWeeklyMessages() > 100000))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a voice, 1–1000 daily sessions and a duration of 60–1800 seconds.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a valid voice, shared Pro usage limits and a duration of 60–1800 seconds.");
         }
         jdbc.query("SELECT pg_advisory_xact_lock(?, ?)", (org.springframework.jdbc.core.RowCallbackHandler) row -> {}, 1279874629, 0);
         var current = config();
@@ -122,7 +138,9 @@ public class ElevenLabsSettingsService {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "ElevenLabs could not apply this voice/duration. Settings were not saved. Check voice access and agent-write permission.");
             }
         }
-        current.setEnabled(request.enabled()); current.setDailySessionLimit(request.dailySessionLimit());
+        current.setEnabled(request.enabled());
+        // Backward-compatible storage only; this field no longer enforces a separate allowance.
+        if (request.dailySessionLimit() != null) current.setDailySessionLimit(request.dailySessionLimit());
         current.setVoiceId(request.voiceId()); current.setMaxDurationSeconds(request.maxDurationSeconds());
         current.setUpdatedAt(Instant.now()); current.setUpdatedBy(actor);
         if (pro.isPresent()) {

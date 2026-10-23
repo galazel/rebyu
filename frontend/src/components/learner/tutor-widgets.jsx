@@ -1,6 +1,6 @@
 // The interactive pieces the AI tutor draws with its tools (see the Python
 // app/ai/tutor_widgets.py for the shapes). Everything here is client-side:
-// answers, flips and slider values are the learner's own and are not saved.
+// practice progress is saved locally, scoped to the learner/conversation/activity.
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import ReactMarkdown from "react-markdown"
@@ -10,6 +10,8 @@ import "katex/dist/katex.min.css"
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
 import { registerCodeLanguages } from "@/components/certifications/code-languages.js"
 import { MindMap } from "@/components/learner/tutor-mindmap.jsx"
+import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
+import { widgetProgressKey } from "@/lib/tutor-widget-progress.js"
 import {
   ArrowDown,
   ArrowUp,
@@ -143,8 +145,8 @@ function Score({ right, total, onReset }) {
 /* ---------- practice ---------- */
 
 function QuizWidget({ data }) {
-  const [answers, setAnswers] = useState({})
-  const [hint, setHint] = useState(false)
+  const [answers, setAnswers] = useTutorWidgetProgress("answers", {})
+  const [hint, setHint] = useTutorWidgetProgress("hint", false)
   const total = data.questions.length
   const answered = Object.keys(answers).length
   const right = data.questions.filter((q, i) => answers[i] === q.correctIndex).length
@@ -212,9 +214,9 @@ function QuizWidget({ data }) {
 }
 
 function FlashcardsWidget({ data }) {
-  const [index, setIndex] = useState(0)
-  const [flipped, setFlipped] = useState(false)
-  const [known, setKnown] = useState({})
+  const [index, setIndex] = useTutorWidgetProgress("index", 0)
+  const [flipped, setFlipped] = useTutorWidgetProgress("flipped", false)
+  const [known, setKnown] = useTutorWidgetProgress("known", {})
   const card = data.cards[index]
   const go = (next) => { setFlipped(false); setIndex((next + data.cards.length) % data.cards.length) }
   const mark = (value) => { setKnown((k) => ({ ...k, [index]: value })); go(index + 1) }
@@ -250,12 +252,11 @@ function FlashcardsWidget({ data }) {
 }
 
 function MatchingWidget({ data }) {
-  const [round, setRound] = useState(0)
-  const matches = useMemo(() => shuffled(data.pairs.map((p) => p.match)), [data, round])
+  const [matches, setMatches] = useTutorWidgetProgress("matches", () => shuffled(data.pairs.map((p) => p.match)))
   const [picked, setPicked] = useState(null)
-  const [done, setDone] = useState({})
+  const [done, setDone] = useTutorWidgetProgress("done", {})
   const [miss, setMiss] = useState(null)
-  const [mistakes, setMistakes] = useState(0)
+  const [mistakes, setMistakes] = useTutorWidgetProgress("mistakes", 0)
   const choose = (match) => {
     if (picked == null || Object.values(done).includes(match)) return
     if (data.pairs[picked].match === match) {
@@ -298,7 +299,7 @@ function MatchingWidget({ data }) {
         </div>
         {finished ? (
             <Score right={data.pairs.length} total={data.pairs.length + mistakes}
-                   onReset={() => { setDone({}); setPicked(null); setMistakes(0); setRound((r) => r + 1) }} />
+                   onReset={() => { setDone({}); setPicked(null); setMistakes(0); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
         ) : null}
       </Frame>
   )
@@ -310,8 +311,8 @@ function OrderingWidget({ data }) {
     for (let tries = 0; tries < 5 && order.every((x, i) => x === data.items[i]); tries++) order = shuffled(data.items)
     return order
   }
-  const [order, setOrder] = useState(fresh)
-  const [checked, setChecked] = useState(false)
+  const [order, setOrder] = useTutorWidgetProgress("order", fresh)
+  const [checked, setChecked] = useTutorWidgetProgress("checked", false)
   const move = (i, delta) => {
     const j = i + delta
     if (j < 0 || j >= order.length) return
@@ -354,8 +355,8 @@ function OrderingWidget({ data }) {
 const normalizeAnswer = (s) => String(s ?? "").trim().toLowerCase().replace(/[\s.,;:!'"`]+/g, " ").trim()
 
 function FillBlankWidget({ data }) {
-  const [values, setValues] = useState({})
-  const [checked, setChecked] = useState(false)
+  const [values, setValues] = useTutorWidgetProgress("values", {})
+  const [checked, setChecked] = useTutorWidgetProgress("checked", false)
   const isRight = (b, i) => [b.answer, ...(b.alternatives ?? [])].some((a) => normalizeAnswer(a) === normalizeAnswer(values[i]))
   const right = data.blanks.filter(isRight).length
   return (
@@ -392,7 +393,7 @@ function FillBlankWidget({ data }) {
 }
 
 function TrueFalseWidget({ data }) {
-  const [answers, setAnswers] = useState({})
+  const [answers, setAnswers] = useTutorWidgetProgress("answers", {})
   const total = data.claims.length
   const answered = Object.keys(answers).length
   const right = data.claims.filter((c, i) => answers[i] === c.isTrue).length
@@ -479,7 +480,7 @@ function CardsWidget({ data }) {
 }
 
 function StepsWidget({ data }) {
-  const [shown, setShown] = useState(1)
+  const [shown, setShown] = useTutorWidgetProgress("shown", 1)
   const all = shown > data.steps.length
   return (
       <Frame kind="Worked example" badge={`step ${Math.min(shown, data.steps.length)}/${data.steps.length}`} icon={ListOrdered}>
@@ -650,7 +651,7 @@ function formatValue(value, format) {
 }
 
 function ExplorerWidget({ data }) {
-  const [scope, setScope] = useState(() => Object.fromEntries(data.variables.map((v) => [v.name, v.value])))
+  const [scope, setScope] = useTutorWidgetProgress("scope", () => Object.fromEntries(data.variables.map((v) => [v.name, v.value])))
   return (
       <Frame kind="Explorer" title={data.title} icon={Zap}>
         <div className="space-y-3">
@@ -695,18 +696,18 @@ const WIDGETS = {
   explorer: ExplorerWidget, mindmap: MindMapWidget,
 }
 
-export function TutorWidget({ widget }) {
+export function TutorWidget({ widget, persistenceKey }) {
   const Widget = WIDGETS[widget?.type]
   if (!Widget) return null
-  return <Widget data={widget} />
+  return <TutorWidgetProgressContext.Provider key={persistenceKey || "temporary"} value={persistenceKey}><Widget data={widget} /></TutorWidgetProgressContext.Provider>
 }
 
-export function TutorWidgets({ widgets }) {
+export function TutorWidgets({ widgets, persistenceScope }) {
   const ref = useRef(null)
   if (!widgets?.length) return null
   return (
       <div ref={ref} className="w-full">
-        {widgets.map((widget, i) => <TutorWidget key={i} widget={widget} />)}
+        {widgets.map((widget, i) => <TutorWidget key={i} widget={widget} persistenceKey={widgetProgressKey(persistenceScope, widget, i)} />)}
       </div>
   )
 }

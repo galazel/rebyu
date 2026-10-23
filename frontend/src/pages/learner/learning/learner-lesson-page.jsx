@@ -620,6 +620,7 @@ export default function LearnerLessonPage() {
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !liveTutorOpen,
   })
   useReadingPaceGuard({
+    lessonRootRef: liveLessonRoot,
     resetKey: lessonId,
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer && !liveTutorOpen,
     onRush: () => knowledgeCheck.trigger(),

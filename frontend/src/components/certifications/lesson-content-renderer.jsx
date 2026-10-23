@@ -1,5 +1,5 @@
 ﻿import { createPortal } from "react-dom"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
@@ -85,7 +85,7 @@ function ImageAttribution({ sourceUrl, sourceName }) {
 
 // The same full-screen viewer as a tutor snip: dark backdrop, the media large and
 // unframed, closed by clicking outside, Escape, or the "close" pill.
-function MediaViewer({ label, onClose, children }) {
+function MediaViewer({ label, ownerId, onClose, children }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === "Escape") onClose()
@@ -102,6 +102,7 @@ function MediaViewer({ label, onClose, children }) {
   return createPortal(
       <div
           role="dialog"
+          data-live-media-owner={ownerId}
           aria-modal="true"
           aria-label={label}
           onClick={onClose}
@@ -114,6 +115,7 @@ function MediaViewer({ label, onClose, children }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
+            data-live-media-close=""
             className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
         >
           close
@@ -125,6 +127,7 @@ function MediaViewer({ label, onClose, children }) {
 
 function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
   const [open, setOpen] = useState(false)
+  const mediaId = useId()
 
   const youTubeEmbed = getYouTubeEmbedUrl(sourceUrl) ?? getYouTubeEmbedUrl(imageKey)
   if (youTubeEmbed) {
@@ -153,6 +156,9 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
         <button
             type="button"
             onClick={() => setOpen(true)}
+            data-live-image-trigger=""
+            data-live-media-id={mediaId}
+            aria-expanded={open}
             aria-label={alt ? `View "${alt}" full size` : "View image full size"}
             className="group relative mx-auto block w-fit max-w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
@@ -166,7 +172,7 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
         <ImageAttribution sourceUrl={sourceUrl} sourceName={sourceName} />
 
         {open ? (
-            <MediaViewer label={alt || "Lesson image"} onClose={() => setOpen(false)}>
+            <MediaViewer label={alt || "Lesson image"} ownerId={mediaId} onClose={() => setOpen(false)}>
               <img
                   src={src}
                   alt={alt}
@@ -200,6 +206,7 @@ function getYouTubeEmbedUrl(url) {
 
 function VideoBlock({ videoKey, className }) {
   const [expanded, setExpanded] = useState(false)
+  const mediaId = useId()
   const src = useStreamedMediaSrc(videoKey)
 
   if (!videoKey) return null
@@ -243,6 +250,9 @@ function VideoBlock({ videoKey, className }) {
         <button
             type="button"
             onClick={() => setExpanded(true)}
+            data-live-video-trigger=""
+            data-live-media-id={mediaId}
+            aria-expanded={expanded}
             aria-label="View video full size"
             className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full border-2 border-border/70 bg-background/90 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
@@ -250,7 +260,7 @@ function VideoBlock({ videoKey, className }) {
         </button>
 
         {expanded ? (
-            <MediaViewer label="Lesson video" onClose={() => setExpanded(false)}>
+            <MediaViewer label="Lesson video" ownerId={mediaId} onClose={() => setExpanded(false)}>
               {player("aspect-video w-[min(92vw,calc(88vh*16/9))] rounded-lg bg-black shadow-2xl")}
             </MediaViewer>
         ) : null}
@@ -654,7 +664,7 @@ function ImageHotspotBlock({ data, accent }) {
       document.removeEventListener("keydown", handleKeyDown)
     }
   }, [openId])
-  const openIndex = hotspots.findIndex((hotspot) => hotspot.id === openId)
+  const openIndex = hotspots.findIndex((hotspot, index) => (hotspot.id ?? index) === openId)
   const openHotspot = openIndex === -1 ? null : hotspots[openIndex]
 
   if (!data.imageKey) {
@@ -679,15 +689,17 @@ function ImageHotspotBlock({ data, accent }) {
             />
 
             {hotspots.map((hotspot, hotspotIndex) => {
-              const isOpen = hotspot.id === openId
-              const isVisited = visitedIds.has(hotspot.id)
+              const hotspotId = hotspot.id ?? hotspotIndex
+              const isOpen = hotspotId === openId
+              const isVisited = visitedIds.has(hotspotId)
 
               return (
                   <button
                       key={hotspot.id ?? hotspotIndex}
                       type="button"
-                      onClick={() => toggleHotspot(hotspot.id, isOpen)}
+                      onClick={() => toggleHotspot(hotspotId, isOpen)}
                       data-hotspot-pin=""
+                      data-live-hotspot={String(hotspot.id ?? hotspotIndex)}
                       style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
                       aria-label={`Point ${hotspotIndex + 1}: ${hotspot.title}`}
                       aria-pressed={isOpen}
@@ -780,7 +792,7 @@ function ImageHotspotBlock({ data, accent }) {
 }
 
 function LessonTool({ tool, index = 0 }) {
-  return <div data-tool-id={tool.id ?? `block-${index}`} data-tool-type={tool.type}><LessonToolContent tool={tool} index={index} /></div>
+  return <div data-tool-id={tool.id ?? `block-${index}`} data-tool-type={tool.type} data-live-title={tool.data?.smallHeader || tool.data?.title || ""}><LessonToolContent tool={tool} index={index} /></div>
 }
 
 function LessonToolContent({ tool, index = 0 }) {
@@ -860,6 +872,7 @@ function LessonToolContent({ tool, index = 0 }) {
 
           <LessonImage
               imageKey={data.imageKey}
+              alt={data.altText || data.title || data.smallHeader || "Lesson image"}
               className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
               sourceUrl={data.imageSourceUrl}
               sourceName={data.imageSourceName}
@@ -1007,6 +1020,7 @@ function LessonToolContent({ tool, index = 0 }) {
             {(data.cards ?? []).map((card, cardIndex) => (
                 <FlipCard
                     key={card.id ?? cardIndex}
+                    cardId={String(card.id ?? cardIndex)}
                     frontTitle={card.frontTitle}
                     backTitle={card.backTitle}
                     description={card.description}

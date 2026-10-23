@@ -33,4 +33,13 @@ public class AiGenerationUsage {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "provider_conversation_id", length = 128)
+    private String providerConversationId;
+
+    @Column(name = "provider_agent_id", length = 128)
+    private String providerAgentId;
+
+    @Column(name = "provider_verified")
+    private Boolean providerVerified;
 }

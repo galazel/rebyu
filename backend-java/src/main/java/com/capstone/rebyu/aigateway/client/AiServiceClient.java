@@ -67,6 +67,17 @@ public class AiServiceClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> liveTutorTurn(Map<String, Object> event) {
+        try {
+            return webClient.post().uri("/tutor/live/turn").bodyValue(event).retrieve()
+                    .bodyToMono(Map.class).block(Duration.ofSeconds(20));
+        } catch (Exception error) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Live Tutor turn coordination is unavailable. Your response has not been sent; retry when the connection recovers.");
+        }
+    }
+
     public Flux<ServerSentEvent<String>> streamChat(ChatRequest request) {
         return webClient.post()
                 .uri("/tutor/chat/stream")

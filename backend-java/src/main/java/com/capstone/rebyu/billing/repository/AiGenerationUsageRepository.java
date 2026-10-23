@@ -13,4 +13,10 @@ public interface AiGenerationUsageRepository extends JpaRepository<AiGenerationU
 
     long countByLearnerIdAndKindInAndUsageDateBetween(
             Long learnerId, java.util.Collection<String> kinds, LocalDate from, LocalDate to);
+
+    long countByLearnerIdAndKindInAndUsageDateBetweenAndCreatedAtAfter(
+            Long learnerId, java.util.Collection<String> kinds, LocalDate from, LocalDate to, java.time.LocalDateTime after);
+
+    java.util.List<AiGenerationUsage> findTop10ByKindInAndProviderVerifiedFalseAndProviderConversationIdIsNotNullOrderByCreatedAtAsc(
+            java.util.Collection<String> kinds);
 }

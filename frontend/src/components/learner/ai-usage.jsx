@@ -127,10 +127,9 @@ export function AiUsageSummary({ className = "", showHeading = true }) {
     <div className={`rounded-md border bg-muted/20 p-4 ${className}`}>
       {showHeading ? <><p className="text-sm font-semibold text-foreground">AI usage</p>
       <p className="mb-3 text-xs text-muted-foreground">
-        Tutor chat, guided dialogue, and the quizzes, flashcards and mind maps the tutor makes.
+        Tutor chat, guided dialogue and Live Tutor share one allowance. Successful responses and Live Tutor sessions count once; failed attempts do not count.
       </p></> : null}
       <AiUsageBars bucketKey="tutor" showLabel={false} />
-      <AiUsageBars bucketKey="liveTutor" className="mt-4 border-t pt-4" />
     </div>
   )
 }
@@ -234,11 +233,11 @@ export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
       <p className="font-extrabold">
         {reached
           ? `You've reached your AI limit for ${window.period}.`
-          : `${left} AI ${left === 1 ? "message" : "messages"} left ${window.period}.`}
+          : `${left} AI ${left === 1 ? "use" : "uses"} left ${window.period}.`}
       </p>
       <p className="mt-0.5 text-xs font-semibold opacity-90">
         {reached
-          ? `${reset}. The tutor chat, guided dialogue and the quizzes, flashcards and mind maps it makes all count toward it.`
+          ? `${reset}. Tutor chat, guided dialogue and new Live Tutor sessions all share this allowance.`
           : `${reset}.`}{" "}
         <UsageDialogLink />
       </p>
@@ -246,7 +245,7 @@ export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
   )
 }
 
-const MESSAGE_KINDS = { "tutor-chat": "Tutor chat", "tutor-dialogue": "Guided dialogue" }
+const MESSAGE_KINDS = { "tutor-chat": "Tutor chat", "tutor-dialogue": "Guided dialogue", "tutor-live": "Live Tutor sessions" }
 const TOOL_LABELS = {
   quiz: "Practice quiz", flashcards: "Flashcards", mindmap: "Mind map", table: "Comparison table",
   cards: "Example cards", steps: "Worked example", matching: "Matching", ordering: "Put in order",
@@ -313,9 +312,9 @@ export function AiUsageBreakdown({ className = "" }) {
         ))}
       </div>
 
-      <Rows title="Messages" total={messageTotal}
+      <Rows title="AI uses" total={messageTotal}
             rows={messages.map(([label, count]) => [label, count, Math.max(1, messageTotal)])}
-            empty="No AI messages yet." />
+            empty="No AI use yet." />
 
       <Rows title="Tools the tutor used" rows={tools.map(([label, count]) => [label, count, toolMax])}
             empty="The tutor has not drawn any quizzes, mind maps or other tools yet." />
@@ -324,7 +323,7 @@ export function AiUsageBreakdown({ className = "" }) {
         <div>
           <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Last 7 days</p>
           <div className="flex h-24 items-end gap-1.5" role="img"
-               aria-label={days.map((d) => `${d.date}: ${d.messages} messages`).join(", ")}>
+               aria-label={days.map((d) => `${d.date}: ${d.messages} AI uses`).join(", ")}>
             {days.map((d) => (
               <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
                 <span className="text-[10px] tabular-nums text-muted-foreground">{d.messages || ""}</span>
@@ -337,7 +336,7 @@ export function AiUsageBreakdown({ className = "" }) {
           </div>
         </div>
       ) : null}
-      <p className="text-xs text-muted-foreground">Chat messages and Live Tutor sessions have separate limits; tools are shown for reference.</p>
+      <p className="text-xs text-muted-foreground">A successful chat reply, guided dialogue response or Live Tutor session counts once toward the shared limits. Failed connections, provider errors and incomplete replies do not count. Tools are shown for reference and do not count again.</p>
     </div>
   )
 }
@@ -362,7 +361,6 @@ function UsageDialog({ open, onOpenChange }) {
             <DialogDescription>Your limits and what your AI use went on.</DialogDescription>
           </DialogHeader>
           <AiUsageBars bucketKey="tutor" showLabel={false} />
-          <AiUsageBars bucketKey="liveTutor" />
           <AiUsageBreakdown className="mt-2 border-t pt-4" />
         </DialogContent>
       </Dialog>

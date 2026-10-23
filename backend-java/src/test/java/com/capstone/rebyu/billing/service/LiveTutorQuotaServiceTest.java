@@ -2,68 +2,85 @@ package com.capstone.rebyu.billing.service;
 
 import com.capstone.rebyu.aigateway.entity.LiveTutorSettings;
 import com.capstone.rebyu.aigateway.service.ElevenLabsSettingsService;
-import com.capstone.rebyu.billing.entity.AiGenerationUsage;
-import com.capstone.rebyu.billing.repository.AiGenerationUsageRepository;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.web.server.ResponseStatusException;
-import java.util.Set;
 import java.util.function.Supplier;
+import java.util.Map;
+import java.util.List;
+import java.time.LocalDateTime;
+import com.capstone.rebyu.billing.entity.AiGenerationUsage;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LiveTutorQuotaServiceTest {
-    private final AiGenerationUsageRepository rows = mock(AiGenerationUsageRepository.class);
     private final ElevenLabsSettingsService settings = mock(ElevenLabsSettingsService.class);
-    private final LearnerEntitlementService entitlements = mock(LearnerEntitlementService.class);
-    private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final LiveTutorQuotaService service = new LiveTutorQuotaService(rows, entitlements, settings, jdbc);
+    private final AiGenerationQuotaService quota = mock(AiGenerationQuotaService.class);
+    private final LiveTutorQuotaService service = new LiveTutorQuotaService(settings, quota);
     private final LiveTutorSettings config = new LiveTutorSettings();
-    LiveTutorQuotaServiceTest() { when(settings.config()).thenReturn(config); }
-    private void used(long count) { when(rows.countByLearnerIdAndKindInAndUsageDateBetween(eq(9L), eq(Set.of("tutor-live")), any(), any())).thenReturn(count); }
+    LiveTutorQuotaServiceTest() { when(settings.config()).thenReturn(config); when(settings.agentId()).thenReturn("agent_test"); when(quota.reserveTutor(9L, "tutor-live")).thenReturn(7L); }
 
-    @Test void fifthSessionSucceedsAndRecordsOnlyLiveUsage() {
-        used(4); assertEquals("signed", service.authorize(9L, () -> "signed"));
-        var entry = ArgumentCaptor.forClass(AiGenerationUsage.class); verify(rows).save(entry.capture());
-        assertEquals(9L, entry.getValue().getLearnerId()); assertEquals("tutor-live", entry.getValue().getKind());
-        assertEquals(AiGenerationQuotaService.today(), entry.getValue().getUsageDate());
+    @Test void delegatesToSharedAllowanceAndIgnoresLegacySessionCap() {
+        config.setDailySessionLimit(1);
+        Supplier<String> provider = () -> "wss://provider.test?conversation_id=conv_test&conversation_signature=private";
+        assertEquals(7L, service.authorize(9L, provider).usageId());
+        verify(quota).reserveTutor(9L, "tutor-live");
+        verify(quota).bindLive(9L, 7L, "conv_test", "agent_test");
+        verify(quota, never()).authorizeTutor(any(), any(), any());
     }
-    @Test void sixthIsDeniedBeforeProviderCall() {
-        used(5); Supplier<String> provider = mock(Supplier.class);
-        var error = assertThrows(ResponseStatusException.class, () -> service.authorize(9L, provider));
-        assertEquals(429, error.getStatusCode().value()); verifyNoInteractions(provider); verify(rows, never()).save(any());
-    }
-    @Test void providerFailureDoesNotConsumeAllowance() {
-        used(1); assertThrows(IllegalStateException.class, () -> service.authorize(9L, () -> { throw new IllegalStateException(); }));
-        verify(rows, never()).save(any());
-    }
-    @Test void lockPrecedesQuotaCheckAndProviderIssuance() {
-        Supplier<String> provider = mock(Supplier.class); when(provider.get()).thenReturn("signed");
-        service.authorize(9L, provider);
-        var order = inOrder(jdbc, rows, provider);
-        order.verify(jdbc).query(anyString(), any(RowCallbackHandler.class), eq(1279874629), eq(9));
-        order.verify(rows).countByLearnerIdAndKindInAndUsageDateBetween(eq(9L), any(), any(), any());
-        order.verify(provider).get(); order.verify(rows).save(any());
-    }
-    @Test void adminConfiguredCapTakesEffect() {
-        config.setDailySessionLimit(2); used(2);
-        assertThrows(ResponseStatusException.class, () -> service.authorize(9L, () -> "signed"));
-        config.setDailySessionLimit(3); assertEquals("signed", service.authorize(9L, () -> "signed"));
+    @Test void sharedLimitFailurePropagatesWithoutCallingProvider() {
+        Supplier<String> provider = mock(Supplier.class);
+        var failure = new AiGenerationQuotaService.UsageLimitException(AiGenerationQuotaService.Bucket.TUTOR, "this week", 250, "on Monday");
+        when(quota.reserveTutor(9L, "tutor-live")).thenThrow(failure);
+        assertSame(failure, assertThrows(AiGenerationQuotaService.UsageLimitException.class, () -> service.authorize(9L, provider)));
+        verifyNoInteractions(provider);
     }
     @Test void disabledLiveTutorDoesNotIssueOrDebit() {
         config.setEnabled(false);
         assertThrows(ResponseStatusException.class, () -> service.authorize(9L, () -> fail("provider must not be called")));
-        verifyNoInteractions(rows, jdbc);
+        verifyNoInteractions(quota);
     }
-    @Test void usageHasDailyOnlyAllowanceAndNextMidnightReset() {
-        used(3); var data = service.usage(9L);
-        assertEquals("liveTutor", data.key()); assertNull(data.weekly()); assertEquals(5, data.daily().limit()); assertEquals(3, data.daily().used());
-        assertEquals(AiGenerationQuotaService.today().plusDays(1).atStartOfDay(), data.daily().resetsAt());
-        verify(rows).countByLearnerIdAndKindInAndUsageDateBetween(9L, Set.of("tutor-live"), AiGenerationQuotaService.today(), AiGenerationQuotaService.today());
+    @Test void administratorPreviewDoesNotUseLearnerAllowance() {
+        assertEquals("signed", service.authorize(null, () -> "signed").signedUrl());
+        verifyNoInteractions(quota);
     }
-    @Test void usageDoesNotMixLearners() {
-        used(5); assertEquals(0, service.usage(10L).daily().used());
+    @Test void exhaustedCreditsNeverReserveOrChargeAUse() {
+        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)).when(settings).requireAvailableCredits();
+        Supplier<String> provider = mock(Supplier.class);
+        assertThrows(ResponseStatusException.class, () -> service.authorize(9L, provider));
+        verifyNoInteractions(provider, quota);
+    }
+    @Test void issuanceErrorReleasesReservation() {
+        assertThrows(IllegalStateException.class, () -> service.authorize(9L, () -> { throw new IllegalStateException("provider failed"); }));
+        verify(quota).settleTutor(9L, 7L, false);
+    }
+    private AiGenerationUsage pending() {
+        var row = AiGenerationUsage.builder().aiGenerationUsageId(7L).learnerId(9L).kind("hold-live").providerConversationId("conv_test")
+                .providerAgentId("agent_test").providerVerified(false).createdAt(LocalDateTime.now()).build();
+        when(quota.reservation(9L, 7L)).thenReturn(row); return row;
+    }
+    private Map<String, Object> report(String status, boolean speech) {
+        return Map.of("agent_id", "agent_test", "conversation_id", "conv_test", "status", status,
+                "transcript", speech ? List.of(Map.of("role", "agent", "message", "Welcome to your lesson.")) : List.of());
+    }
+    @Test void emptyInitiatedConversationDoesNotCount() {
+        pending(); when(settings.conversation("conv_test")).thenReturn(report("initiated", false));
+        assertEquals(false, service.reconcile(9L, 7L).get("charged"));
+        verify(quota, never()).settleLive(any(), any(), anyBoolean(), anyBoolean());
+    }
+    @Test void providerFailedConversationIsNotChargedEvenWithPartialSpeech() {
+        var row = pending(); row.setKind("tutor-live");
+        when(settings.conversation("conv_test")).thenReturn(report("failed", true));
+        assertEquals(false, service.reconcile(9L, 7L).get("charged"));
+        verify(quota).settleLive(9L, 7L, false, true);
+    }
+    @Test void successfulProviderTranscriptCountsOnce() {
+        pending(); when(settings.conversation("conv_test")).thenReturn(report("done", true));
+        assertEquals(true, service.reconcile(9L, 7L).get("charged"));
+        verify(quota).settleLive(9L, 7L, true, true);
+    }
+    @Test void forgedConversationMetadataCannotAuthorizeACharge() {
+        pending(); when(settings.conversation("conv_test")).thenReturn(Map.of("agent_id", "another_agent", "conversation_id", "conv_test"));
+        assertThrows(IllegalStateException.class, () -> service.reconcile(9L, 7L));
+        verify(quota, never()).settleLive(any(), any(), anyBoolean(), anyBoolean());
     }
 }

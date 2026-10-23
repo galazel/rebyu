@@ -61,14 +61,16 @@ public class TutorDialogueController {
 
         Long meteredLearnerId = user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role())
                 ? user.learnerId() : null;
-        if (meteredLearnerId != null) {
-            generationQuota.requireAvailable(meteredLearnerId, AiGenerationQuotaService.Bucket.TUTOR);
-        }
-
-        Map<String, Object> result = aiServiceClient.tutorDialogue(body);
-        if (meteredLearnerId != null) {
-            generationQuota.record(meteredLearnerId, AiGenerationQuotaService.KIND_TUTOR_DIALOGUE);
-        }
+        java.util.function.Supplier<Map<String, Object>> reply = () -> {
+            var response = aiServiceClient.tutorDialogue(body);
+            boolean hasReply = response != null && response.get("reply") instanceof String text && !text.isBlank();
+            boolean hasSummary = response != null && response.get("summary") instanceof Map<?, ?> summary && !summary.isEmpty();
+            if (response == null || response.containsKey("error") || (!hasReply && !hasSummary)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_GATEWAY, "The AI dialogue returned no answer. Your allowance was not charged.");
+            return response;
+        };
+        Map<String, Object> result = meteredLearnerId == null ? reply.get()
+                : generationQuota.authorizeTutor(meteredLearnerId, AiGenerationQuotaService.KIND_TUTOR_DIALOGUE,
+                reply);
 
         if ("summary".equals(request.action()) && result != null && result.get("summary") instanceof Map<?, ?> summary
                 && user.learnerId() != null && request.lessonId() != null) {
