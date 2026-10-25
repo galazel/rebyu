@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
@@ -946,7 +947,7 @@ export default function DepartmentHeadDashboardPage() {
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-auto pr-2">
+                <div className="-mr-2 min-h-0 flex-1 overflow-x-auto overflow-y-auto pr-2">
                   <table className="w-full text-xs" style={{ minWidth: 400 }}>
                     <thead className="sticky top-0 z-10 bg-background">
                       <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
@@ -956,7 +957,7 @@ export default function DepartmentHeadDashboardPage() {
                         <th className="px-2 py-2 text-center">Passed</th>
                         <th className="px-2 py-2 text-center">Avg done</th>
                         <th className="px-2 py-2 text-center">Avg score</th>
-                        <th className="py-2 pl-2 text-center">Attempts</th>
+                        <th className="hidden py-2 pl-2 text-center sm:table-cell">Attempts</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -965,7 +966,7 @@ export default function DepartmentHeadDashboardPage() {
                           key={row.certificationId}
                           className="border-b border-border/40 transition-colors hover:bg-muted/40"
                         >
-                          <td className="max-w-[150px] truncate py-2 pr-3 font-bold text-foreground">
+                          <td className="max-w-[180px] overflow-hidden text-ellipsis truncate py-2 pr-3 font-bold text-foreground">
                             {row.title}
                           </td>
                           <td className="px-2 py-2 text-center tabular-nums font-semibold text-foreground">
@@ -994,7 +995,7 @@ export default function DepartmentHeadDashboardPage() {
                           >
                             {row.averageScore == null ? "—" : `${row.averageScore}%`}
                           </td>
-                          <td className="py-2 pl-2 text-center tabular-nums text-muted-foreground">
+                          <td className="hidden py-2 pl-2 text-center tabular-nums text-muted-foreground sm:table-cell">
                             {count(row.gradedAttempts)}
                             {row.attemptPassRate != null ? (
                               <span className="ml-1 text-[10px]">({row.attemptPassRate}%)</span>
@@ -1056,9 +1057,13 @@ export default function DepartmentHeadDashboardPage() {
                 hint="Lowest accuracy across everyone's marked answers."
               />
               {hardestTopics.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Not enough marked answers yet to rank topics.
-                </p>
+                <div className="flex flex-1 items-center justify-center">
+                  <InstitutionEmptyState
+                    icon={TargetIcon}
+                    title="No topic data yet"
+                    description="Not enough marked answers yet to rank topics."
+                  />
+                </div>
               ) : (
                 <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
                   {hardestTopics.map((programme) => (
@@ -1103,9 +1108,13 @@ export default function DepartmentHeadDashboardPage() {
                 hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
               />
               {hardestAssessments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No assessment has been graded in this department yet.
-                </p>
+                <div className="flex flex-1 items-center justify-center">
+                  <InstitutionEmptyState
+                    icon={ClipboardListIcon}
+                    title="No graded assessments"
+                    description="No assessment has been graded in this department yet."
+                  />
+                </div>
               ) : (
                 <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
                   {hardestAssessments.map((programme) => (
@@ -1117,6 +1126,11 @@ export default function DepartmentHeadDashboardPage() {
                         data={programme.assessments.map((exam) => ({
                           exam: exam.title,
                           averageScore: exam.averageScore ?? 0,
+                          passRate: exam.passRate,
+                          passedAttempts: exam.passedAttempts,
+                          attempts: exam.attempts,
+                          learners: exam.learners,
+                          passingScore: exam.passingScore,
                         }))}
                         categoryKey="exam"
                         valueKey="averageScore"
@@ -1125,26 +1139,52 @@ export default function DepartmentHeadDashboardPage() {
                         domainMax={100}
                         height={Math.max(120, programme.assessments.length * 36)}
                         categoryWidth={150}
+                        tooltipContent={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const item = payload[0]?.payload
+                          if (!item) return null
+                          return (
+                            <div className="rounded-xl border-2 border-border bg-popover px-3 py-2 text-popover-foreground shadow-md">
+                              <div className="text-xs font-bold text-muted-foreground">{label}</div>
+                              <ul className="mt-1 space-y-1 text-xs">
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Average score</span>
+                                  <span className="font-bold tabular-nums">
+                                    {item.averageScore}%
+                                  </span>
+                                </li>
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Pass rate</span>
+                                  <span
+                                    className={`font-bold tabular-nums ${
+                                      item.passRate === 0 ? "text-destructive" : ""
+                                    }`}
+                                  >
+                                    {item.passRate != null ? `${item.passRate}%` : "—"}
+                                    {item.attempts != null
+                                      ? ` (${item.passedAttempts ?? 0}/${item.attempts} passed)`
+                                      : ""}
+                                  </span>
+                                </li>
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Learners</span>
+                                  <span className="font-semibold tabular-nums">
+                                    {item.learners ?? 0} learner{item.learners === 1 ? "" : "s"}
+                                  </span>
+                                </li>
+                                {item.passingScore != null ? (
+                                  <li className="flex items-center justify-between gap-4">
+                                    <span className="text-muted-foreground">Pass mark</span>
+                                    <span className="font-medium tabular-nums text-muted-foreground">
+                                      {item.passingScore}%
+                                    </span>
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </div>
+                          )
+                        }}
                       />
-                      <ul className="mt-2 space-y-1">
-                        {programme.assessments.map((exam) => (
-                          <li key={exam.examId} className="truncate text-xs text-muted-foreground">
-                            <span className="font-semibold text-foreground">{exam.title}</span>
-                            {" — "}
-                            <span
-                              className={
-                                exam.passRate === 0 ? "font-semibold text-destructive" : undefined
-                              }
-                            >
-                              {exam.passedAttempts} of {exam.attempts} passed
-                            </span>
-                            {" · "}
-                            {exam.learners} learner{exam.learners === 1 ? "" : "s"}
-                            {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
-                            {exam.passingScore != null ? ` · pass mark ${exam.passingScore}%` : ""}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   ))}
                 </div>

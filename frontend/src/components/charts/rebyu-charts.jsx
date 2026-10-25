@@ -467,6 +467,7 @@ export function BarBreakdownChart({
   horizontal = true,
   categoryWidth = 108,
   domainMax,
+  tooltipContent,
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
@@ -518,7 +519,10 @@ export function BarBreakdownChart({
               </>
             )}
 
-            <Tooltip content={<TooltipCard suffix={unit} />} cursor={{ fill: "rgba(127,127,127,0.08)" }} />
+            <Tooltip
+              content={tooltipContent ?? <TooltipCard suffix={unit} />}
+              cursor={{ fill: "rgba(127,127,127,0.08)" }}
+            />
 
             {target != null ? (
               <ReferenceLine
