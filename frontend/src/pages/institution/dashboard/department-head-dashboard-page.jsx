@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -233,6 +233,18 @@ export default function DepartmentHeadDashboardPage() {
   const layout = useDashboardLayout("department-head")
   const [range, setRange] = useState(null)
   const [comparisonType, setComparisonType] = useState("previous_period")
+  const [isMediumScreen, setIsMediumScreen] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(min-width: 768px)")
+    const handler = (e) => setIsMediumScreen(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
 
@@ -886,24 +898,28 @@ export default function DepartmentHeadDashboardPage() {
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
-                  <StackedBarChart
-                    data={programmes.map((row) => ({
-                      programme: row.title,
-                      passed: row.passed,
-                      inProgress: row.inProgress,
-                      notStarted: row.notStarted,
-                    }))}
-                    categoryKey="programme"
-                    series={[
-                      { key: "passed", name: "Passed" },
-                      { key: "inProgress", name: "In progress" },
-                      { key: "notStarted", name: "Not started" },
-                    ]}
-                    height={Math.max(130, programmes.length * 56)}
-                    categoryWidth={140}
-                    note="Passed counts awarded credentials, not assignments marked complete."
-                  />
+                <div className="relative min-h-0 flex-1">
+                  <div className="-mx-2 overflow-x-auto overflow-y-auto px-2 min-h-0 h-full">
+                    <StackedBarChart
+                      data={programmes.map((row) => ({
+                        programme: row.title,
+                        passed: row.passed,
+                        inProgress: row.inProgress,
+                        notStarted: row.notStarted,
+                      }))}
+                      categoryKey="programme"
+                      series={[
+                        { key: "passed", name: "Passed" },
+                        { key: "inProgress", name: "In progress" },
+                        { key: "notStarted", name: "Not started" },
+                      ]}
+                      height={Math.max(130, programmes.length * 56)}
+                      categoryWidth={isMediumScreen ? 140 : 110}
+                      note="Passed counts awarded credentials, not assignments marked complete."
+                    />
+                  </div>
+                  {/* Faint right-fade gradient overlay to signal horizontal overflow on small screens */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background/80 to-transparent sm:hidden" />
                 </div>
               )}
             </div>
