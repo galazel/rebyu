@@ -196,15 +196,21 @@ function DashboardCardHeader({
 
 function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+    <div
+      className={`rounded-lg border p-2.5 transition-colors ${
+        alert
+          ? "border-rb-fox-lip/40 bg-rb-fox-lip/5 ring-1 ring-inset ring-rb-fox-lip/30"
+          : "border-border/70 bg-muted/30"
+      }`}
+    >
       <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         <span className="truncate">{label}</span>
         {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
       </div>
       <div className="mt-1.5 flex items-baseline justify-between gap-1">
         <div
-          className={`font-rb-display text-lg font-bold tabular-nums ${
-            alert ? "text-rb-fox-lip" : "text-foreground"
+          className={`font-rb-display tabular-nums ${
+            alert ? "text-xl font-black text-rb-fox-lip" : "text-lg font-bold text-foreground"
           }`}
         >
           {value}
@@ -783,11 +789,13 @@ export default function DepartmentHeadDashboardPage() {
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                <div className="sm:col-span-5 flex items-center justify-center pl-4 min-w-0">
-                  <BeadedRadialGauge
-                    value={failed ? 0 : Number(summary.averageProgress) || 0}
-                    label="Department Completion"
-                  />
+                <div className="sm:col-span-5 flex min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
+                  <div className="w-full max-w-[160px] sm:max-w-none mx-auto flex items-center justify-center">
+                    <BeadedRadialGauge
+                      value={failed ? 0 : Number(summary.averageProgress) || 0}
+                      label="Department Completion"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
