@@ -922,7 +922,7 @@ function SectionPanel({
                           variant="ghost"
                           size="icon"
                           aria-label={`Remove ${row.name} from this department`}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 text-muted-foreground hover:text-destructive"
                           onClick={() => setRemoveTarget(row)}
                         >
                           <Trash2 className="size-4" />

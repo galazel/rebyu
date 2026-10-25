@@ -259,6 +259,7 @@ export default function InstitutionAssessmentResultsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7"
                               aria-label={`See ${member.name}'s latest attempt`}
                               onClick={() =>
                                 setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: latestSubmitted.attemptId })

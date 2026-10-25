@@ -2252,7 +2252,7 @@ export default function DepartmentHeadDashboardPage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-7 text-muted-foreground hover:text-foreground"
+                                        className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 text-muted-foreground hover:text-foreground"
                                       >
                                         <MoreVertical className="size-3.5" aria-hidden="true" />
                                         <span className="sr-only">Student actions</span>

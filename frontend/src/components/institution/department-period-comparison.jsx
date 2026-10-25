@@ -695,7 +695,7 @@ export function PeriodComparisonTile({
                 </div>
               ) : (
                 <table className="w-full text-xs" style={{ minWidth: 620 }}>
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-background">
                     <tr className="border-b border-border/40 text-[11px] font-bold text-muted-foreground">
                       <th className="py-2 text-left">Programme</th>
                       <th className="py-2 text-center">Pass Rate (Current / Baseline)</th>
@@ -753,8 +753,8 @@ export function PeriodComparisonTile({
 
           {/* TAB 2: Visual Trajectory Chart */}
           {activeTab === "trajectory" && (
-            <div className="py-2">
-              <div className="h-[210px] w-full">
+            <div className="py-2 min-w-0">
+              <div className="h-[210px] w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={trajectoryData}
