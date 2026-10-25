@@ -170,7 +170,7 @@ function AnnouncementsTab({ departmentId }) {
   return (
     <div className="space-y-5">
       <div ref={formRef} className="scroll-mt-24">
-      <Card className={editing ? "border-primary/40 ring-1 ring-primary/20" : undefined}>
+      <Card className={editing ? "border-l-4 border-l-primary border-primary/40 ring-1 ring-primary/20" : undefined}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{editing ? "Edit announcement" : "Post an announcement"}</CardTitle>
           <CardDescription>
@@ -196,7 +196,7 @@ function AnnouncementsTab({ departmentId }) {
               id="announcement-body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              rows={3}
+              rows={4}
               placeholder="What do your learners need to know?"
             />
           </div>
@@ -258,7 +258,7 @@ function AnnouncementsTab({ departmentId }) {
                 key={item.departmentAnnouncementId}
                 className={isEditing ? "border-primary/40 bg-primary/5" : undefined}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 space-y-0 pb-2">
                   <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2 text-base">
                       {item.pinned ? <PinIcon className="size-3.5 text-primary" aria-hidden="true" /> : null}
@@ -269,7 +269,7 @@ function AnnouncementsTab({ departmentId }) {
                       {edited ? ` · edited ${formatDateTime(item.updatedAt)}` : ""}
                     </CardDescription>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -551,7 +551,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   return (
     <div className="space-y-6">
       {program ? (
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-[44px] self-start text-xs sm:text-sm font-medium gap-1.5 px-2">
           <Link to="/institution/programs">
             <ArrowLeftIcon className="size-4" />
             All programs
@@ -571,7 +571,7 @@ export default function InstitutionDepartmentWorkspacePage() {
             ? program.description || group?.departmentName
             : group?.departmentDescription || group?.description || "Your assigned group workspace."
         }
-        actions={<Badge>{program ? "Program" : "Assigned department"}</Badge>}
+        actions={<Badge variant="secondary" className="text-xs font-semibold">{program ? "Program" : "Assigned department"}</Badge>}
       />
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <WorkspaceSidebar
@@ -620,13 +620,13 @@ export default function InstitutionDepartmentWorkspacePage() {
           {ownGroupExams.length ? (
             <ul className="divide-y rounded-xl border bg-card">
               {ownGroupExams.map((exam) => (
-                <li key={exam.examId} className="flex items-center justify-between gap-3 px-4 py-3">
+                <li key={exam.examId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
                   <button
                     type="button"
                     onClick={() => setPreviewExam(exam)}
                     className="min-w-0 text-left"
                   >
-                    <p className="truncate text-sm font-medium text-foreground hover:underline">
+                    <p className="font-medium text-foreground hover:underline break-words sm:truncate text-sm">
                       {exam.title}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -636,7 +636,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                       {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
                     </p>
                   </button>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
                     <Badge variant="outline">
                       {examTypeById.get(exam.examTypeId) ?? "Assessment"}
                     </Badge>
@@ -787,7 +787,7 @@ const WORKSPACE_PAGES = [
 // One certification picker, then the same pages for whichever is chosen.
 function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificationId, onSelect }) {
   const item = (active) =>
-    `flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors ${
+    `flex shrink-0 items-center rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors whitespace-nowrap ${
       active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
     }`
   return (
@@ -815,18 +815,48 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
           </Select>
         </div>
       ) : null}
-      <div className="space-y-1">
-        {WORKSPACE_PAGES.map((page) => (
-          <button
-            key={page.tab}
-            type="button"
-            aria-current={activeTab === page.tab ? "page" : undefined}
-            className={item(activeTab === page.tab)}
-            onClick={() => onSelect(page.tab)}
-          >
-            {page.label}
-          </button>
-        ))}
+
+      {/* Mobile dropdown on < sm */}
+      <div className="sm:hidden px-1 space-y-1.5">
+        <Label htmlFor="workspace-mobile-tab" className="px-2 text-xs text-muted-foreground">
+          Workspace View
+        </Label>
+        <Select value={activeTab} onValueChange={(val) => onSelect(val)}>
+          <SelectTrigger id="workspace-mobile-tab" className="w-full">
+            <SelectValue placeholder="Select tab" />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            {WORKSPACE_PAGES.map((page) => (
+              <SelectItem key={page.tab} value={page.tab}>
+                {page.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Horizontal scroll on sm to <lg with right-fade gradient, vertical list on lg+ */}
+      <div className="hidden sm:block">
+        <div className="relative">
+          <div className="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none">
+            {WORKSPACE_PAGES.map((page) => (
+              <button
+                key={page.tab}
+                type="button"
+                aria-current={activeTab === page.tab ? "page" : undefined}
+                className={item(activeTab === page.tab)}
+                onClick={() => onSelect(page.tab)}
+              >
+                {page.label}
+              </button>
+            ))}
+          </div>
+          {/* Right-fade gradient to indicate overflow on mobile/tablet horizontal scroll */}
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent lg:hidden"
+            aria-hidden="true"
+          />
+        </div>
       </div>
     </nav>
   )

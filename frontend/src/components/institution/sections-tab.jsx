@@ -782,14 +782,14 @@ function SectionPanel({
       </button>
 
       {isOpen ? (
-        <CardContent className="space-y-4 border-t bg-muted/10 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
+        <CardContent className="space-y-4 border-t bg-muted/10 p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {isUnsectioned
                 ? "Learners who joined before sections existed, or whose section was deleted. Move them into a section from the row."
                 : "Add learners by typing them in or uploading a class list."}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               {!isUnsectioned ? (
                 <>
                   <Button size="sm" variant="outline" onClick={() => onEdit(section)}>
@@ -839,18 +839,19 @@ function SectionPanel({
               {pending.length ? "No one has accepted yet." : "No learners here yet."}
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-background">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Learner</TableHead>
-                    <TableHead className="w-40">Certification</TableHead>
-                    <TableHead className="w-32">Joined</TableHead>
-                    <TableHead className="w-44">Lessons completed</TableHead>
-                    <TableHead className="w-44">Section</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
+            <div className="relative rounded-lg border bg-background overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table className="min-w-[620px] whitespace-nowrap">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">Learner</TableHead>
+                      <TableHead className="w-36">Certification</TableHead>
+                      <TableHead className="w-28">Joined</TableHead>
+                      <TableHead className="w-40">Lessons completed</TableHead>
+                      <TableHead className="w-40">Section</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
                 <TableBody>
                   {learners.map((row) => (
                     <TableRow key={row.departmentLearnerId}>
@@ -931,6 +932,11 @@ function SectionPanel({
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              <div
+                className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden"
+                aria-hidden="true"
+              />
             </div>
           )}
         </CardContent>
@@ -1101,15 +1107,15 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-          <div>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0">
+          <div className="min-w-0">
             <CardTitle className="text-base">Sections</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               {sections.length} section{sections.length === 1 ? "" : "s"} · {roster.length} learner
               {roster.length === 1 ? "" : "s"} · {remainingSlots} of {slotTotal} slot(s) remaining
             </CardDescription>
           </div>
-          <Button size="sm" onClick={() => setDialog({ section: null })}>
+          <Button size="sm" onClick={() => setDialog({ section: null })} className="self-start sm:self-auto shrink-0">
             <Plus className="size-4" aria-hidden="true" />
             New section
           </Button>

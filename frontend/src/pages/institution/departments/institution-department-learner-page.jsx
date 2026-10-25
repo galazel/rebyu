@@ -13,7 +13,8 @@ import {
   TargetIcon,
   SparklesIcon,
   TrendingDownIcon,
-  TrendingUpIcon
+  TrendingUpIcon,
+  ArrowLeft,
 } from "@/components/icons"
 
 import { cn } from "@/lib/utils"
@@ -47,50 +48,55 @@ function formatPercent(value) {
 }
 
 function TopicList({ title, description, icon: Icon, topics, tone }) {
+  const isWeak = tone === "weak"
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+    <div className="space-y-3">
+      <div
+        className={cn(
+          "rounded-md border bg-card p-3.5 pl-4",
+          isWeak ? "border-l-4 border-l-destructive" : "border-l-4 border-l-primary"
+        )}
+      >
+        <div className="flex items-center gap-2">
           <Icon
-            className={`size-4 ${tone === "weak" ? "text-destructive" : "text-primary"}`}
+            className={`size-4 shrink-0 ${isWeak ? "text-destructive" : "text-primary"}`}
             aria-hidden="true"
           />
-          {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {topics.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Not enough assessment activity yet to rank topics.
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {topics.map((topic, index) => (
-              <li key={topic.lessonId ?? index}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 truncate text-sm text-foreground">
-                    {topic.lessonTitle ?? `Topic ${index + 1}`}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                    {formatPercent(topic.masteryPercentage)}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(100, Math.max(0, toPercent(topic.masteryPercentage) ?? 0))}
-                  className="mt-1.5 h-1.5"
-                />
-                {topic.categoryTitle ? (
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {topic.categoryTitle}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+          <h3 className="font-heading text-sm font-semibold text-foreground">{title}</h3>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
+
+      {topics.length === 0 ? (
+        <p className="px-1 text-sm text-muted-foreground">
+          Not enough assessment activity yet to rank topics.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-card/50">
+          {topics.map((topic, index) => (
+            <li key={topic.lessonId ?? index} className="p-3 transition-colors hover:bg-muted/30">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-sm font-medium text-foreground">
+                  {topic.lessonTitle ?? `Topic ${index + 1}`}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {formatPercent(topic.masteryPercentage)}
+                </span>
+              </div>
+              <Progress
+                value={Math.min(100, Math.max(0, toPercent(topic.masteryPercentage) ?? 0))}
+                className="mt-1.5 h-1.5"
+              />
+              {topic.categoryTitle ? (
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {topic.categoryTitle}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -635,8 +641,11 @@ export default function InstitutionDepartmentLearnerPage() {
             ) : null}
           </div>
 
-          <Button asChild variant="outline" className="mt-4 w-full">
-            <Link to={backToGroup}>Back to this group</Link>
+          <Button asChild variant="ghost" size="sm" className="mt-4 min-h-[44px] w-full justify-start gap-2 border sm:border-transparent">
+            <Link to={backToGroup}>
+              <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
+              <span>Back to roster</span>
+            </Link>
           </Button>
         </div>
 

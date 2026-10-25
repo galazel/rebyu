@@ -231,9 +231,9 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
         </h1>
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {sidebarOpen ? (
-          <aside className="flex w-full max-w-xs shrink-0 flex-col border-r border-border bg-muted/20">
+          <aside className="absolute inset-y-0 left-0 z-20 flex w-full max-w-[280px] sm:max-w-xs shrink-0 flex-col border-r border-border bg-background sm:bg-muted/20 shadow-lg sm:shadow-none xl:static xl:z-auto">
             <div className="border-b border-border p-3">
               <p className="px-1 pb-2 text-sm font-semibold text-foreground">Course Outline</p>
               <div className="relative">
@@ -251,7 +251,10 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
               {analytics ? (
                 <button
                   type="button"
-                  onClick={() => setShowAssessments(true)}
+                  onClick={() => {
+                    setShowAssessments(true)
+                    if (window.innerWidth < 1280) setSidebarOpen(false)
+                  }}
                   className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-semibold transition ${
                     showAssessments ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
                   }`}
@@ -320,6 +323,7 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
                                     onClick={() => {
                                       setActiveLessonId(lesson.lessonId)
                                       setShowAssessments(false)
+                                      if (window.innerWidth < 1280) setSidebarOpen(false)
                                     }}
                                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition ${
                                       isActive
@@ -381,10 +385,10 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
         ) : null}
 
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-3xl px-6 py-8">
+          <div className="mx-auto max-w-3xl px-3 py-4 sm:px-6 sm:py-8">
             {analytics && showAssessments ? (
               <>
-                <h2 className="font-heading text-2xl font-bold tracking-tight text-foreground">All assessments</h2>
+                <h2 className="font-heading text-xl sm:text-2xl font-bold tracking-tight text-foreground">All assessments</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   How your {enrolled} learner{enrolled === 1 ? "" : "s"} did on every assessment in this certification.
                 </p>
@@ -395,7 +399,7 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
             ) : activeLesson ? (
               <>
                 <p className="text-sm font-medium text-primary">{activeLesson.middleTitle}</p>
-                <h2 className="mt-1 font-heading text-2xl font-bold tracking-tight text-foreground">
+                <h2 className="mt-1 font-heading text-xl sm:text-2xl font-bold tracking-tight text-foreground break-words">
                   {lessonTitle(activeLesson)}
                 </h2>
                 {analytics ? (

@@ -312,12 +312,12 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
       {/* Primary Action Card: Invite Co-Authority by Email */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary mt-0.5 sm:mt-0">
                 <UserPlus className="size-4" aria-hidden="true" />
               </span>
-              <div>
+              <div className="min-w-0">
                 <CardTitle className="text-base font-bold">Invite Co-Authority by Email</CardTitle>
                 <CardDescription className="text-xs">
                   Send a one-time onboarding code to invite a faculty member or assistant dean to co-manage this department.
@@ -325,7 +325,7 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
               </div>
             </div>
             {!isOwner ? (
-              <Badge variant="outline" className="text-[11px] text-muted-foreground">
+              <Badge variant="outline" className="text-[11px] text-muted-foreground self-start sm:self-auto shrink-0 whitespace-normal">
                 Administrator permission required
               </Badge>
             ) : null}
@@ -385,15 +385,15 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
       {/* Invitations Table (List & Cancel Flow) */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="text-base font-bold">Invitations</CardTitle>
               <CardDescription className="text-xs">
                 Track status of sent co-authority invitation codes, registration claims, and expiration.
               </CardDescription>
             </div>
             {isOwner && (
-              <Badge variant="secondary" className="text-xs font-semibold">
+              <Badge variant="secondary" className="text-xs font-semibold self-start sm:self-auto shrink-0">
                 {invitations.length} Total
               </Badge>
             )}
@@ -423,60 +423,102 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs font-semibold">Recipient Email</TableHead>
-                    <TableHead className="text-xs font-semibold">Account Claim</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Sent Date</TableHead>
-                    <TableHead className="text-xs font-semibold">Expires</TableHead>
-                    <TableHead className="text-right text-xs font-semibold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invitations.map((inv) => {
-                    const isPending = (inv.status ?? "").toUpperCase() === "PENDING"
-                    return (
-                      <TableRow key={inv.invitationId}>
-                        <TableCell className="font-mono text-xs font-medium text-foreground">
-                          {inv.email}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {inv.accountName ? (
-                            <span className="font-medium text-foreground">{inv.accountName}</span>
-                          ) : (
-                            <span className="italic">Awaiting registration</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(inv.status)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {formatDateTime(inv.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {formatDate(inv.expiresAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isPending && isOwner ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setCancelTargetInvite(inv)}
-                              className="h-8 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              Cancel
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <>
+              {/* Desktop & Tablet Table (sm+) */}
+              <div className="hidden sm:block relative overflow-hidden rounded-lg border border-border/60">
+                <Table className="min-w-[560px]">
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs font-semibold">Recipient Email</TableHead>
+                      <TableHead className="text-xs font-semibold">Account Claim</TableHead>
+                      <TableHead className="text-xs font-semibold">Status</TableHead>
+                      <TableHead className="text-xs font-semibold">Sent Date</TableHead>
+                      <TableHead className="text-xs font-semibold">Expires</TableHead>
+                      <TableHead className="text-right text-xs font-semibold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invitations.map((inv) => {
+                      const isPending = (inv.status ?? "").toUpperCase() === "PENDING"
+                      return (
+                        <TableRow key={inv.invitationId}>
+                          <TableCell className="font-mono text-xs font-medium text-foreground">
+                            {inv.email}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {inv.accountName ? (
+                              <span className="font-medium text-foreground">{inv.accountName}</span>
+                            ) : (
+                              <span className="italic">Awaiting registration</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {formatDateTime(inv.createdAt)}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {formatDate(inv.expiresAt)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isPending && isOwner ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCancelTargetInvite(inv)}
+                                className="h-8 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                Cancel
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card Layout (< sm) */}
+              <div className="sm:hidden space-y-2.5">
+                {invitations.map((inv) => {
+                  const isPending = (inv.status ?? "").toUpperCase() === "PENDING"
+                  return (
+                    <div
+                      key={inv.invitationId}
+                      className="rounded-lg border border-border/70 bg-card p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-mono font-medium text-xs text-foreground truncate">{inv.email}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {inv.accountName ? inv.accountName : "Awaiting registration"}
+                          </p>
+                        </div>
+                        {getStatusBadge(inv.status)}
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+                        <span>Sent {formatDate(inv.createdAt)}</span>
+                        {isPending && isOwner ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCancelTargetInvite(inv)}
+                            className="h-7 px-2 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            Cancel
+                          </Button>
+                        ) : (
+                          <span>Expires {formatDate(inv.expiresAt)}</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -484,14 +526,14 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
       {/* Active Co-Authorities Section */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="min-w-0">
               <CardTitle className="text-base font-bold">Assigned Department Authorities</CardTitle>
               <CardDescription className="text-xs">
                 Active leaders with authority to manage curriculum, section cohorts, and learner progress.
               </CardDescription>
             </div>
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs self-start sm:self-auto shrink-0">
               {activeAuthorities.length} Assigned
             </Badge>
           </div>
@@ -516,65 +558,116 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border/60">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs font-semibold">Authority</TableHead>
-                    <TableHead className="text-xs font-semibold">Contact Email</TableHead>
-                    <TableHead className="text-xs font-semibold">Status</TableHead>
-                    <TableHead className="text-xs font-semibold">Assigned On</TableHead>
-                    {isOwner ? <TableHead className="text-right text-xs font-semibold">Action</TableHead> : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeAuthorities.map((auth) => {
-                    const profile = memberLookup.get(Number(auth.userId))
-                    const displayName = profile?.name ?? `User #${auth.userId}`
-                    const email = profile?.email ?? "—"
-                    return (
-                      <TableRow key={auth.departmentHeadAssignmentId}>
-                        <TableCell className="text-xs font-semibold text-foreground">
-                          <div className="flex items-center gap-2">
-                            <span className="grid size-6 place-items-center rounded-full bg-primary/10 text-primary">
-                              <UserCheck className="size-3.5" aria-hidden="true" />
-                            </span>
-                            <span>{displayName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {email}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px]"
-                          >
-                            Active Authority
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {formatDate(auth.assignedAt)}
-                        </TableCell>
-                        {isOwner ? (
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setRemoveTargetAuthority(auth)}
-                              className="h-8 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            >
-                              <Trash2 className="mr-1 size-3.5" aria-hidden="true" />
-                              Remove
-                            </Button>
+            <>
+              {/* Desktop & Tablet Table (sm+) */}
+              <div className="hidden sm:block relative overflow-hidden rounded-lg border border-border/60">
+                <Table className="min-w-[500px]">
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs font-semibold">Authority</TableHead>
+                      <TableHead className="text-xs font-semibold">Contact Email</TableHead>
+                      <TableHead className="text-xs font-semibold">Status</TableHead>
+                      <TableHead className="text-xs font-semibold">Assigned On</TableHead>
+                      {isOwner ? <TableHead className="text-right text-xs font-semibold">Action</TableHead> : null}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeAuthorities.map((auth) => {
+                      const profile = memberLookup.get(Number(auth.userId))
+                      const displayName = profile?.name ?? `User #${auth.userId}`
+                      const email = profile?.email ?? "—"
+                      return (
+                        <TableRow key={auth.departmentHeadAssignmentId}>
+                          <TableCell className="text-xs font-semibold text-foreground">
+                            <div className="flex items-center gap-2">
+                              <span className="grid size-6 place-items-center rounded-full bg-primary/10 text-primary shrink-0">
+                                <UserCheck className="size-3.5" aria-hidden="true" />
+                              </span>
+                              <span className="truncate max-w-[160px]">{displayName}</span>
+                            </div>
                           </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {email}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px]"
+                            >
+                              Active Authority
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {formatDate(auth.assignedAt)}
+                          </TableCell>
+                          {isOwner ? (
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRemoveTargetAuthority(auth)}
+                                className="h-8 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Trash2 className="mr-1 size-3.5" aria-hidden="true" />
+                                Remove
+                              </Button>
+                            </TableCell>
+                          ) : null}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card Layout (< sm) */}
+              <div className="sm:hidden space-y-2.5">
+                {activeAuthorities.map((auth) => {
+                  const profile = memberLookup.get(Number(auth.userId))
+                  const displayName = profile?.name ?? `User #${auth.userId}`
+                  const email = profile?.email ?? "—"
+                  return (
+                    <div
+                      key={auth.departmentHeadAssignmentId}
+                      className="rounded-lg border border-border/70 bg-card p-3 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="grid size-7 place-items-center rounded-full bg-primary/10 text-primary shrink-0">
+                            <UserCheck className="size-4" aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-xs text-foreground truncate">{displayName}</p>
+                            <p className="font-mono text-[11px] text-muted-foreground truncate">{email}</p>
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] shrink-0"
+                        >
+                          Active
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+                        <span>Assigned {formatDate(auth.assignedAt)}</span>
+                        {isOwner ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRemoveTargetAuthority(auth)}
+                            className="h-7 px-2 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="mr-1 size-3" aria-hidden="true" />
+                            Remove
+                          </Button>
                         ) : null}
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
 
           {/* Quick Assign from Institution Staff (Owner Only) */}
