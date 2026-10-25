@@ -131,13 +131,14 @@ export default function InstitutionAssessmentResultsPage() {
         ) : null}
       </div>
 
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,2fr)_6rem_9.5rem] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
-          <span>Student</span>
-          <span>Attempts (select one to see every answer)</span>
-          <span>Best score</span>
-          <span>Status</span>
-        </div>
+      {/* Desktop / Tablet view: Wrapped in overflow-x-auto with right-fade affordance */}
+      <section className="relative overflow-hidden rounded-xl border bg-card">
+        {/* Right fade gradient overlay for scroll affordance */}
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-card to-transparent sm:hidden"
+          aria-hidden="true"
+        />
+
         {resultsQuery.isLoading ? (
           <div className="space-y-2 p-4">
             {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -145,59 +146,135 @@ export default function InstitutionAssessmentResultsPage() {
         ) : members.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">This department has no students yet.</p>
         ) : (
-          <ul className="divide-y">
-            {members.map((member) => {
-              const status = memberStatus(member)
-              const latestSubmitted = [...member.attempts].reverse().find((a) => a.status === "SUBMITTED")
-              return (
-                <li
-                  key={member.learnerId}
-                  className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_6rem_9.5rem] md:items-center md:gap-3"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      to={`/institution/departments/${departmentId}/learners/${member.learnerId}`}
-                      className="truncate text-sm font-medium text-foreground hover:underline"
-                    >
-                      {member.name}
-                    </Link>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {[member.sectionName, member.email].filter(Boolean).join(" · ")}
-                    </p>
+          <>
+            {/* Mobile Card-per-row layout (< sm) */}
+            <div className="divide-y sm:hidden">
+              {members.map((member) => {
+                const status = memberStatus(member)
+                const latestSubmitted = [...member.attempts].reverse().find((a) => a.status === "SUBMITTED")
+                return (
+                  <div key={member.learnerId} className="space-y-3 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link
+                          to={`/institution/departments/${departmentId}/learners/${member.learnerId}`}
+                          className="truncate text-sm font-semibold text-foreground hover:underline"
+                        >
+                          {member.name}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[member.sectionName, member.email].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                      <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold", status.className)}>
+                        {status.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">Best score</span>
+                      <span className="font-bold text-foreground text-sm">{percent(member.bestPercentage)}</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Attempts</span>
+                        {latestSubmitted ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline min-h-[32px]"
+                            onClick={() =>
+                              setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: latestSubmitted.attemptId })
+                            }
+                          >
+                            Latest review <ChevronRight className="size-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {member.attempts.length ? (
+                          member.attempts.map((attempt) => (
+                            <AttemptChip
+                              key={attempt.attemptId}
+                              attempt={attempt}
+                              onOpen={() => setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: attempt.attemptId })}
+                            />
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No attempts taken</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {member.attempts.length ? (
-                      member.attempts.map((attempt) => (
-                        <AttemptChip
-                          key={attempt.attemptId}
-                          attempt={attempt}
-                          onOpen={() => setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: attempt.attemptId })}
-                        />
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No attempts</span>
-                    )}
-                  </div>
-                  <div className="text-sm font-semibold text-foreground">{percent(member.bestPercentage)}</div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", status.className)}>{status.label}</span>
-                    {latestSubmitted ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`See ${member.name}'s latest attempt`}
-                        onClick={() =>
-                          setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: latestSubmitted.attemptId })
-                        }
+                )
+              })}
+            </div>
+
+            {/* Desktop / Tablet Table (sm and up) with horizontal scroll support */}
+            <div className="hidden sm:block overflow-x-auto">
+              <div className="min-w-[640px]">
+                <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_6rem_9.5rem] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">
+                  <span>Student</span>
+                  <span>Attempts (select one to see every answer)</span>
+                  <span>Best score</span>
+                  <span>Status</span>
+                </div>
+                <ul className="divide-y">
+                  {members.map((member) => {
+                    const status = memberStatus(member)
+                    const latestSubmitted = [...member.attempts].reverse().find((a) => a.status === "SUBMITTED")
+                    return (
+                      <li
+                        key={member.learnerId}
+                        className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_6rem_9.5rem] items-center gap-3 px-4 py-3"
                       >
-                        <ChevronRight className="size-4" />
-                      </Button>
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+                        <div className="min-w-0">
+                          <Link
+                            to={`/institution/departments/${departmentId}/learners/${member.learnerId}`}
+                            className="truncate text-sm font-medium text-foreground hover:underline"
+                          >
+                            {member.name}
+                          </Link>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[member.sectionName, member.email].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {member.attempts.length ? (
+                            member.attempts.map((attempt) => (
+                              <AttemptChip
+                                key={attempt.attemptId}
+                                attempt={attempt}
+                                onOpen={() => setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: attempt.attemptId })}
+                              />
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No attempts</span>
+                          )}
+                        </div>
+                        <div className="text-sm font-semibold text-foreground">{percent(member.bestPercentage)}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={cn("whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", status.className)}>{status.label}</span>
+                          {latestSubmitted ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`See ${member.name}'s latest attempt`}
+                              onClick={() =>
+                                setReviewing({ learnerId: member.learnerId, name: member.name, attemptId: latestSubmitted.attemptId })
+                              }
+                            >
+                              <ChevronRight className="size-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
+          </>
         )}
       </section>
 

@@ -8,13 +8,16 @@ import {
   Building2,
   CheckCheck,
   ClipboardListIcon,
+  CreditCard,
   Download,
   GraduationCap,
   History,
   Layers,
+  Loader2,
   MailIcon,
   MoreVertical,
   Pencil,
+  PinIcon,
   Plus,
   Search,
   ShieldCheck,
@@ -53,14 +56,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
+  InstitutionStatusBadge,
   formatDate,
+  formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
 import {
+  archiveDepartmentAnnouncement,
+  createDepartmentAnnouncement,
   deleteGroupSection,
+  getDepartmentAnnouncements,
   getDepartmentHeadAssignments,
   getDepartmentHeadCodeInvitations,
   getDepartmentPrograms,
@@ -69,6 +79,8 @@ import {
   getGroupSections,
   getMyInstitutionInvoices,
   removeLearnerFromGroup,
+  startInvoiceCheckout,
+  updateDepartmentAnnouncement,
 } from "@/services/institutionService.js"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
@@ -151,6 +163,11 @@ const PROGRESS_TIERS = [
   { label: "51-75%", min: 51, max: 75 },
   { label: "76-100%", min: 76, max: 100 },
 ]
+
+function money(value, currency = "PHP") {
+  if (value == null) return "—"
+  return Number(value).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 2 })
+}
 
 function passMarkFor(assessments) {
   const marks = new Set(
@@ -609,6 +626,96 @@ export default function DepartmentHeadDashboardPage() {
     () => (Array.isArray(invoicesQuery.data) ? invoicesQuery.data : []),
     [invoicesQuery.data]
   )
+
+  const checkoutMutation = useMutation({
+    mutationFn: (invoiceId) => startInvoiceCheckout(invoiceId),
+    onSuccess: ({ checkoutUrl }) => {
+      window.location.assign(checkoutUrl)
+    },
+    onError: (error) => {
+      const msg = error?.response?.data?.message ?? error?.message ?? "Could not open PayMongo checkout."
+      toast.error(msg)
+    },
+  })
+
+  // Checklist 15.2: Announcements quick-compose tile queries and mutations
+  const announcementsQuery = useQuery({
+    queryKey: ["department-announcements", primaryDeptId],
+    queryFn: () => getDepartmentAnnouncements(primaryDeptId),
+    enabled: primaryDeptId != null,
+    staleTime: 30_000,
+  })
+  const announcements = useMemo(
+    () => (Array.isArray(announcementsQuery.data) ? announcementsQuery.data : []),
+    [announcementsQuery.data]
+  )
+  const sortedAnnouncements = useMemo(() => {
+    return [...announcements].sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
+      return new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
+    })
+  }, [announcements])
+
+  const [announcementTitle, setAnnouncementTitle] = useState("")
+  const [announcementBody, setAnnouncementBody] = useState("")
+  const [announcementPinned, setAnnouncementPinned] = useState(false)
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null)
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState(null)
+
+  const saveAnnouncementMutation = useMutation({
+    mutationFn: () => {
+      const payload = {
+        title: announcementTitle.trim(),
+        body: announcementBody.trim(),
+        pinned: announcementPinned,
+      }
+      return editingAnnouncement
+        ? updateDepartmentAnnouncement(primaryDeptId, editingAnnouncement.departmentAnnouncementId, payload)
+        : createDepartmentAnnouncement(primaryDeptId, payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success(editingAnnouncement ? "Announcement updated." : "Announcement posted.")
+      setAnnouncementTitle("")
+      setAnnouncementBody("")
+      setAnnouncementPinned(false)
+      setEditingAnnouncement(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to save this announcement."
+      toast.error(msg)
+    },
+  })
+
+  const pinAnnouncementMutation = useMutation({
+    mutationFn: (item) =>
+      updateDepartmentAnnouncement(primaryDeptId, item.departmentAnnouncementId, {
+        title: item.title,
+        body: item.body,
+        pinned: !item.pinned,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success("Pin status updated.")
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to update pin status."
+      toast.error(msg)
+    },
+  })
+
+  const archiveAnnouncementMutation = useMutation({
+    mutationFn: (announcementId) => archiveDepartmentAnnouncement(primaryDeptId, announcementId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success("Announcement archived.")
+      setDeletingAnnouncement(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to archive this announcement."
+      toast.error(msg)
+    },
+  })
 
   const handleInspectFlaggedRoster = useCallback(() => {
     setRosterStatusFilter("flagged")
@@ -1586,6 +1693,282 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
+        id: "dept-invoices",
+        col: 3,
+        row: 2,
+        x: 0,
+        y: 12,
+        element: (
+          <BentoTile tone="plain" col={3} row={2}>
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={CreditCard}
+                kicker="Billing & Payments"
+                title="Invoices Summary"
+                hint={`${invoices.length} total invoice${invoices.length === 1 ? "" : "s"}`}
+                action={
+                  <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
+                    <Link to="/institution/invoices">View all</Link>
+                  </Button>
+                }
+              />
+
+              {invoicesQuery.isLoading ? (
+                <div className="space-y-2 py-2">
+                  <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
+                  <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
+                  <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="my-auto flex flex-col items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                  <CreditCard className="size-8 text-muted-foreground/40 mb-2" aria-hidden="true" />
+                  <p className="font-semibold text-foreground">No invoices</p>
+                  <p className="mt-0.5">Your institution has no billing records yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 overflow-y-auto max-h-[220px] pr-1">
+                  {invoices.slice(0, 5).map((inv) => {
+                    const isPayable = inv.status !== "paid" && (inv.payable ?? true)
+                    const isOverdue = inv.status === "overdue" || (inv.dueAt && new Date(inv.dueAt) < new Date() && inv.status !== "paid")
+                    const statusLabel = isOverdue ? "OVERDUE" : (inv.status || "PENDING").toUpperCase()
+
+                    return (
+                      <div
+                        key={inv.institutionInvoiceId}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/70 bg-card p-2.5 transition-colors hover:border-primary/30"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link
+                              to={`/institution/invoices/${inv.institutionInvoiceId}`}
+                              className="font-mono text-xs font-bold text-foreground hover:underline"
+                            >
+                              {inv.invoiceNumber || `Invoice #${inv.institutionInvoiceId}`}
+                            </Link>
+                            <Badge
+                              variant={
+                                inv.status === "paid"
+                                  ? "default"
+                                  : isOverdue
+                                    ? "destructive"
+                                    : "secondary"
+                              }
+                              className="text-[10px] uppercase font-bold px-1.5 py-0"
+                            >
+                              {statusLabel}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {formatDate(inv.issuedAt)} {inv.dueAt ? `· Due ${formatDate(inv.dueAt)}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                          <span className="font-bold text-xs text-foreground tabular-nums">
+                            {money(inv.totalAmount, inv.currency)}
+                          </span>
+                          {isPayable ? (
+                            <Button
+                              size="sm"
+                              className="h-7 px-2.5 text-xs font-semibold"
+                              onClick={() => checkoutMutation.mutate(inv.institutionInvoiceId)}
+                              disabled={checkoutMutation.isPending}
+                            >
+                              {checkoutMutation.isPending ? (
+                                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                              ) : (
+                                "Pay now"
+                              )}
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" asChild className="h-7 px-2 text-xs text-muted-foreground">
+                              <Link to={`/institution/invoices/${inv.institutionInvoiceId}`}>View</Link>
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div className="border-t border-border/50 pt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Invoices are issued on partnership approvals</span>
+                <Link to="/institution/invoices" className="font-semibold text-primary hover:underline">
+                  Go to Invoices →
+                </Link>
+              </div>
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
+        id: "dept-announcements",
+        col: 3,
+        row: 2,
+        x: 3,
+        y: 12,
+        element: (
+          <BentoTile tone="plain" col={3} row={2}>
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={PinIcon}
+                kicker="Department Communications"
+                title="Announcements & Quick-Compose"
+                hint={`${announcements.length} announcement${announcements.length === 1 ? "" : "s"}`}
+                action={
+                  <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
+                    <Link to={`/institution/departments/${primaryDeptId}?tab=announcements`}>
+                      Workspace view
+                    </Link>
+                  </Button>
+                }
+              />
+
+              {/* Inline Quick Compose Form (Checklist 15.2) */}
+              <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-foreground">
+                    {editingAnnouncement ? "Edit Announcement" : "Quick Compose"}
+                  </span>
+                  {editingAnnouncement ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAnnouncement(null)
+                        setAnnouncementTitle("")
+                        setAnnouncementBody("")
+                        setAnnouncementPinned(false)
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
+                </div>
+                <Input
+                  placeholder="Announcement title..."
+                  value={announcementTitle}
+                  onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  className="h-7 text-xs bg-background"
+                  maxLength={200}
+                />
+                <Textarea
+                  placeholder="Share a message or reminder..."
+                  value={announcementBody}
+                  onChange={(e) => setAnnouncementBody(e.target.value)}
+                  rows={2}
+                  className="text-xs min-h-[48px] bg-background resize-none py-1.5"
+                />
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                    <Switch
+                      checked={announcementPinned}
+                      onCheckedChange={setAnnouncementPinned}
+                      className="scale-75"
+                    />
+                    <span>Pin to top</span>
+                  </label>
+                  <Button
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                    disabled={!announcementTitle.trim() || !announcementBody.trim() || saveAnnouncementMutation.isPending}
+                    onClick={() => saveAnnouncementMutation.mutate()}
+                  >
+                    {saveAnnouncementMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin mr-1" aria-hidden="true" />
+                    ) : null}
+                    {editingAnnouncement ? "Save" : "Post"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Recent Announcements List */}
+              <div className="space-y-1.5 overflow-y-auto max-h-[160px] pr-1">
+                {announcementsQuery.isLoading ? (
+                  <div className="space-y-1.5 py-1">
+                    <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
+                    <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
+                  </div>
+                ) : announcements.length === 0 ? (
+                  <p className="text-center text-xs text-muted-foreground py-2">
+                    No announcements posted for this department yet.
+                  </p>
+                ) : (
+                  sortedAnnouncements.slice(0, 3).map((item) => (
+                    <div
+                      key={item.departmentAnnouncementId}
+                      className="flex items-start justify-between gap-2 rounded-lg border border-border/50 bg-card p-2 text-xs transition-colors hover:border-primary/30"
+                    >
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          {item.pinned ? (
+                            <Badge
+                              variant="secondary"
+                              className="gap-1 px-1 py-0 text-[10px] font-bold text-primary bg-primary/10 border-primary/20"
+                            >
+                              <PinIcon className="size-2.5" aria-hidden="true" />
+                              Pinned
+                            </Badge>
+                          ) : null}
+                          <p className="font-bold text-foreground truncate">{item.title}</p>
+                        </div>
+                        <p className="line-clamp-1 text-[11px] text-muted-foreground">{item.body}</p>
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground">
+                            <MoreVertical className="size-3.5" aria-hidden="true" />
+                            <span className="sr-only">Announcement options</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingAnnouncement(item)
+                              setAnnouncementTitle(item.title)
+                              setAnnouncementBody(item.body)
+                              setAnnouncementPinned(Boolean(item.pinned))
+                            }}
+                          >
+                            <Pencil className="mr-2 size-3.5" aria-hidden="true" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => pinAnnouncementMutation.mutate(item)}>
+                            <PinIcon className="mr-2 size-3.5" aria-hidden="true" />
+                            {item.pinned ? "Unpin" : "Pin"}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => setDeletingAnnouncement(item)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 size-3.5" aria-hidden="true" />
+                            Archive
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Mobile / Footer Link */}
+              <div className="border-t border-border/50 pt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Pinned items display first</span>
+                <Link
+                  to={`/institution/departments/${primaryDeptId}?tab=announcements`}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  View all ({announcements.length}) →
+                </Link>
+              </div>
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
         id: "dept-learner-table",
         col: 6,
         row: 2,
@@ -1950,6 +2333,18 @@ export default function DepartmentHeadDashboardPage() {
     periodComp.comparisonRange,
     periodComp.isLoading,
     periodComp.isError,
+    invoices,
+    invoicesQuery.isLoading,
+    checkoutMutation.isPending,
+    announcements,
+    sortedAnnouncements,
+    announcementsQuery.isLoading,
+    announcementTitle,
+    announcementBody,
+    announcementPinned,
+    editingAnnouncement,
+    saveAnnouncementMutation.isPending,
+    pinAnnouncementMutation.isPending,
     comparisonType,
   ])
 
@@ -2172,6 +2567,32 @@ export default function DepartmentHeadDashboardPage() {
           departmentName={overviewGroup?.departmentName || overviewGroup?.name}
         />
       ) : null}
+
+      <AlertDialog
+        open={deletingAnnouncement != null}
+        onOpenChange={(open) => !open && setDeletingAnnouncement(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this announcement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{deletingAnnouncement?.title}” will no longer be visible to department members.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={archiveAnnouncementMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => archiveAnnouncementMutation.mutate(deletingAnnouncement.departmentAnnouncementId)}
+              disabled={archiveAnnouncementMutation.isPending}
+            >
+              {archiveAnnouncementMutation.isPending ? "Archiving..." : "Archive announcement"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
