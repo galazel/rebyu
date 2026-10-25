@@ -538,24 +538,28 @@ export function PeriodComparisonTile({
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md border border-border/50">
-              <span className="font-bold text-foreground">Current:</span>
-              <span className="tabular-nums">{comparisonRange.current.formatted}</span>
-              <ArrowRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
-              <span className="font-bold text-foreground">Baseline:</span>
-              <span className="tabular-nums">{comparisonRange.previous.formatted}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md border border-border/50">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-foreground">Current:</span>
+                <span className="tabular-nums">{comparisonRange.current.formatted}</span>
+              </div>
+              <ArrowRight className="hidden sm:inline-block size-3 text-muted-foreground/60" aria-hidden="true" />
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-foreground">Baseline:</span>
+                <span className="tabular-nums">{comparisonRange.previous.formatted}</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* 6 Metric Comparison Cards */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Avg Completion</span>
               <PeriodDeltaBadge delta={deltas.averageProgress.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {Math.round(deltas.averageProgress.current)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -563,12 +567,12 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Pass Rate</span>
               <PeriodDeltaBadge delta={deltas.passRate.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {Math.round(deltas.passRate.current)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -576,12 +580,12 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Average Score</span>
               <PeriodDeltaBadge delta={deltas.averageScore.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {Math.round(deltas.averageScore.current)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -589,12 +593,12 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Graded Attempts</span>
               <PeriodDeltaBadge delta={deltas.gradedAttempts.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {deltas.gradedAttempts.current.toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -602,12 +606,12 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Lessons Done</span>
               <PeriodDeltaBadge delta={deltas.lessonsCompleted.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {deltas.lessonsCompleted.current.toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -615,12 +619,12 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-3 shadow-xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Active Students</span>
               <PeriodDeltaBadge delta={deltas.activeMembers.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-xl font-extrabold tabular-nums text-foreground">
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
               {deltas.activeMembers.current.toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -629,59 +633,65 @@ export function PeriodComparisonTile({
           </div>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex items-center gap-1.5 border-b border-border/40 pb-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab("scorecard")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-              activeTab === "scorecard"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            }`}
-          >
-            <Award className="size-3.5" aria-hidden="true" />
-            <span>Programme Scorecard</span>
-          </button>
+        {/* Tab Controls with mobile horizontal scroll and right-fade affordance */}
+        <div className="relative border-b border-border/40 pb-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-none pr-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab("scorecard")}
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === "scorecard"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Award className="size-3.5" aria-hidden="true" />
+              <span>Programme Scorecard</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("trajectory")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-              activeTab === "trajectory"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            }`}
-          >
-            <BarChart3 className="size-3.5" aria-hidden="true" />
-            <span>Visual Trajectory</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("trajectory")}
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === "trajectory"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <BarChart3 className="size-3.5" aria-hidden="true" />
+              <span>Visual Trajectory</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("momentum")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-              activeTab === "momentum"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            }`}
-          >
-            <UsersRoundIcon className="size-3.5" aria-hidden="true" />
-            <span>Learner Momentum</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("momentum")}
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === "momentum"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <UsersRoundIcon className="size-3.5" aria-hidden="true" />
+              <span>Learner Momentum</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("insights")}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
-              activeTab === "insights"
-                ? "bg-primary text-primary-foreground shadow-xs"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            }`}
-          >
-            <Sparkles className="size-3.5" aria-hidden="true" />
-            <span>Executive Insights</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("insights")}
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                activeTab === "insights"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="size-3.5" aria-hidden="true" />
+              <span>Executive Insights</span>
+            </button>
+          </div>
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-2 w-6 bg-gradient-to-l from-card to-transparent sm:hidden"
+            aria-hidden="true"
+          />
         </div>
 
         {/* Tab Contents */}

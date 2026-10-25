@@ -1002,8 +1002,8 @@ export default function DepartmentHeadDashboardPage() {
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                <div className="sm:col-span-5 flex min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
-                  <div className="w-full max-w-[160px] sm:max-w-none mx-auto flex items-center justify-center">
+                <div className="sm:col-span-5 flex min-h-[130px] sm:min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
+                  <div className="w-full max-w-[130px] sm:max-w-none mx-auto flex items-center justify-center">
                     <BeadedRadialGauge
                       value={failed ? 0 : Number(summary.averageProgress) || 0}
                       label="Department Completion"
@@ -1418,11 +1418,11 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-section-breakdown",
         col: 6,
-        row: 1,
+        row: 2,
         x: 0,
         y: 14,
         element: (
-          <BentoTile col={6} row={1} className="!p-0">
+          <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={Layers}
@@ -2108,7 +2108,7 @@ export default function DepartmentHeadDashboardPage() {
                     <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: 560 }}>
                       <thead className="sticky top-0 bg-background z-10">
                         <tr className="border-b border-border/40 text-xs font-semibold text-muted-foreground">
-                          <th className="py-2.5 pl-2 pr-3 text-left sticky left-0 bg-background z-20">
+                          <th className="py-2.5 pl-2 pr-3 text-left sticky left-0 bg-background z-20 border-r border-border/40 shadow-xs">
                             Student Name
                           </th>
                           <th className="py-2.5 px-3 text-left">Section</th>
@@ -2177,7 +2177,7 @@ export default function DepartmentHeadDashboardPage() {
                                 key={learner.learnerId}
                                 className="border-b border-border/40 hover:bg-muted/40 transition-colors"
                               >
-                                <td className="py-2.5 pl-2 pr-3 sticky left-0 bg-background z-10">
+                                <td className="py-2.5 pl-2 pr-3 sticky left-0 bg-background z-10 border-r border-border/40 shadow-xs">
                                   <Link
                                     to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
                                     className="font-bold text-foreground hover:underline text-xs"
@@ -2354,7 +2354,30 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Mobile Alert Banner (Item 1.3) */}
+      {/* Mobile Alert Banner (Item 2.1) */}
+      {alerts.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById("dept-alert-strip")
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+          }}
+          className={`sm:hidden w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold shadow-xs transition-colors ${
+            alerts.some((a) => a.severity === "critical")
+              ? "border-rose-500/50 bg-rose-500/10 text-rose-800 dark:text-rose-300 ring-1 ring-rose-500/30 animate-pulse"
+              : "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+          }`}
+        >
+          <div className="flex items-center gap-2 truncate">
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+            <span className="truncate">
+              {alerts.length} department alert{alerts.length === 1 ? "" : "s"} require attention
+            </span>
+          </div>
+          <span className="shrink-0 text-[11px] underline">View</span>
+        </button>
+      ) : null}
+
       {/* Controls & Header Navigation (Checklist 1) */}
       <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2.5">
         {/* Left semantic group: Context selectors (Dept Selector + DateRangeNavigator) */}
@@ -2472,6 +2495,20 @@ export default function DepartmentHeadDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Rearrange Bottom Bar */}
+      {layout.rearranging ? (
+        <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur shadow-lg animate-in slide-in-from-bottom-2">
+          <span className="text-xs font-semibold text-muted-foreground">Rearranging tiles</span>
+          <DashboardRearrangeControls
+            rearranging={layout.rearranging}
+            onStart={layout.startRearranging}
+            onFinish={layout.finishRearranging}
+            onCancel={layout.cancelRearranging}
+            onReset={layout.resetLayout}
+          />
+        </div>
+      ) : null}
 
       {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
       <DepartmentAlertStrip alerts={alerts} />

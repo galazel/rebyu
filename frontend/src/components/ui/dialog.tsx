@@ -104,13 +104,23 @@ function DialogContent({
   showCloseButton?: boolean
   overlayClassName?: string
 }) {
-  const [contentEl, setContentEl] = React.useState<HTMLDivElement | null>(null)
-  const closeCorner = useCornerAnchor(contentEl, showCloseButton)
+  const [contentEl, setContentEl] = React.useState<HTMLElement | null>(null)
+  const [isMobile, setIsMobile] = React.useState(false)
+
+  React.useEffect(() => {
+    const mql = window.matchMedia("(max-width: 639px)")
+    const onChange = () => setIsMobile(mql.matches)
+    onChange()
+    mql.addEventListener("change", onChange)
+    return () => mql.removeEventListener("change", onChange)
+  }, [])
+
+  const closeCorner = useCornerAnchor(contentEl, showCloseButton && !isMobile)
 
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
-      {showCloseButton && (
+      {showCloseButton && !isMobile && (
         <DialogPrimitive.Close data-slot="dialog-close" asChild>
           <button
             type="button"
@@ -118,7 +128,7 @@ function DialogContent({
             tabIndex={-1}
             style={closeCorner}
             className={cn(
-              "pointer-events-auto fixed z-51 inline-flex size-12 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-[0_4px_0_var(--border)] transition-[transform,box-shadow,filter] duration-75 hover:brightness-[0.98] active:translate-y-1 active:shadow-none motion-reduce:transition-none",
+              "pointer-events-auto fixed z-51 hidden sm:inline-flex size-12 items-center justify-center rounded-full border-2 border-border bg-card text-foreground shadow-[0_4px_0_var(--border)] transition-[transform,box-shadow,filter] duration-75 hover:brightness-[0.98] active:translate-y-1 active:shadow-none motion-reduce:transition-none",
               closeCorner ? "opacity-100" : "opacity-0"
             )}
           >
@@ -137,7 +147,12 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close className="sr-only">Close</DialogPrimitive.Close>
+          <DialogPrimitive.Close
+            className="sm:sr-only absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Close dialog"
+          >
+            <ArrowLeftIcon className="size-4" />
+          </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>

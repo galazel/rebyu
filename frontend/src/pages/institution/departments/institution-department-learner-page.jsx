@@ -15,6 +15,7 @@ import {
   TrendingDownIcon,
   TrendingUpIcon,
   ArrowLeft,
+  ChevronDown,
 } from "@/components/icons"
 
 import { cn } from "@/lib/utils"
@@ -199,47 +200,53 @@ function ActivityGrid({ attempts }) {
 
   return (
     <div>
-      <div className="overflow-x-auto pb-1">
-        <div className="min-w-max">
-          <div className="flex gap-[3px] pl-8 text-[10px] text-muted-foreground">
-            {weeks.map((_, week) => {
-              const label = monthLabels.find((entry) => entry.week === week)
-              return (
-                <span key={week} className="w-[11px] shrink-0">
-                  {label ? label.name : ""}
-                </span>
-              )
-            })}
-          </div>
-
-          <div className="mt-1 flex gap-[3px]">
-            <div className="flex w-8 shrink-0 flex-col gap-[3px] pr-1 text-[10px] leading-[11px] text-muted-foreground">
-              {["", "Mon", "", "Wed", "", "Fri", ""].map((label, index) => (
-                <span key={index} className="h-[11px]">
-                  {label}
-                </span>
-              ))}
+      <div className="relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-card to-transparent sm:hidden"
+          aria-hidden="true"
+        />
+        <div className="overflow-x-auto pb-1 scrollbar-none">
+          <div className="min-w-max">
+            <div className="flex gap-[3px] pl-8 text-[10px] text-muted-foreground">
+              {weeks.map((_, week) => {
+                const label = monthLabels.find((entry) => entry.week === week)
+                return (
+                  <span key={week} className="w-[11px] shrink-0">
+                    {label ? label.name : ""}
+                  </span>
+                )
+              })}
             </div>
 
-            {weeks.map((days, week) => (
-              <div key={week} className="flex flex-col gap-[3px]">
-                {days.map((day) => (
-                  <span
-                    key={day.key}
-                    title={
-                      day.future
-                        ? undefined
-                        : `${day.count} attempt${day.count === 1 ? "" : "s"} on ${day.date.toLocaleDateString()}`
-                    }
-                    className="size-[11px] rounded-[2px] ring-1 ring-inset ring-border/40"
-                    style={{
-                      background: day.future ? "transparent" : ACTIVITY_STEPS[activityStep(day.count)],
-                      visibility: day.future ? "hidden" : undefined,
-                    }}
-                  />
+            <div className="mt-1 flex gap-[3px]">
+              <div className="flex w-8 shrink-0 flex-col gap-[3px] pr-1 text-[10px] leading-[11px] text-muted-foreground">
+                {["", "Mon", "", "Wed", "", "Fri", ""].map((label, index) => (
+                  <span key={index} className="h-[11px]">
+                    {label}
+                  </span>
                 ))}
               </div>
-            ))}
+
+              {weeks.map((days, week) => (
+                <div key={week} className="flex flex-col gap-[3px]">
+                  {days.map((day) => (
+                    <span
+                      key={day.key}
+                      title={
+                        day.future
+                          ? undefined
+                          : `${day.count} attempt${day.count === 1 ? "" : "s"} on ${day.date.toLocaleDateString()}`
+                      }
+                      className="size-[11px] rounded-[2px] ring-1 ring-inset ring-border/40"
+                      style={{
+                        background: day.future ? "transparent" : ACTIVITY_STEPS[activityStep(day.count)],
+                        visibility: day.future ? "hidden" : undefined,
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -311,7 +318,7 @@ function AttemptBars({ attempts, onOpen }) {
             key={attempt.attemptId ?? attempt.attemptNumber ?? attempt.label}
             disabled={!attempt.attemptId || !onOpen}
             onClick={() => onOpen?.(attempt.attemptId)}
-            className="flex w-14 shrink-0 flex-col items-center gap-2 rounded-md transition enabled:hover:bg-muted/50"
+            className="flex min-w-[56px] shrink-0 flex-col items-center gap-2 rounded-md p-1 transition enabled:hover:bg-muted/50"
             title={`Open every answer of attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
               attempt.correctCount != null && attempt.itemCount != null
                 ? ` (${attempt.correctCount} of ${attempt.itemCount} correct)`
@@ -497,6 +504,7 @@ export default function InstitutionDepartmentLearnerPage() {
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
   const [reviewAttemptId, setReviewAttemptId] = useState(null)
+  const [profileExpanded, setProfileExpanded] = useState(false)
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", departmentIdNumber],
@@ -649,42 +657,58 @@ export default function InstitutionDepartmentLearnerPage() {
           </Button>
         </div>
 
-        <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
-          <ProfileStat
-            icon={BookOpen}
-            label="Lessons completed"
-            value={`${completedLessons}/${totalLessons}`}
-            hint={
-              totalLessons
-                ? `${Math.round(((completedLessons / totalLessons) * 100 + Number.EPSILON) * 10) / 10}% of the curriculum`
-                : "No lessons yet"
-            }
-          />
-          <ProfileStat
-            icon={ClipboardListIcon}
-            label="Assessments passed"
-            value={`${passedAssessments}/${totalAssessments}`}
-            hint={
-              totalAssessments
-                ? `${totalAttempts} attempt${totalAttempts === 1 ? "" : "s"}`
-                : "None published yet"
-            }
-          />
-          <ProfileStat
-            icon={TargetIcon}
-            label="Average score"
-            value={formatPercent(analytics?.averageAssessmentScore)}
-            hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
-          />
-          <ProfileStat
-            icon={GaugeIcon}
-            label="Readiness"
-            value={formatPercent(analytics?.readinessPercentage)}
-            hint="Likelihood of passing"
-          />
-        </dl>
+        {/* Collapsible stats toggle for mobile (< lg) */}
+        <div className="lg:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setProfileExpanded((prev) => !prev)}
+            className="w-full justify-between"
+          >
+            <span>{profileExpanded ? "Hide profile details" : "View profile & stats summary"}</span>
+            <ChevronDown className={cn("size-4 transition-transform", profileExpanded && "rotate-180")} />
+          </Button>
+        </div>
 
-        <CredentialsCard query={awardsQuery} />
+        <div className={cn("space-y-4", !profileExpanded && "hidden lg:block")}>
+          <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+            <ProfileStat
+              icon={BookOpen}
+              label="Lessons completed"
+              value={`${completedLessons}/${totalLessons}`}
+              hint={
+                totalLessons
+                  ? `${Math.round(((completedLessons / totalLessons) * 100 + Number.EPSILON) * 10) / 10}% of the curriculum`
+                  : "No lessons yet"
+              }
+            />
+            <ProfileStat
+              icon={ClipboardListIcon}
+              label="Assessments passed"
+              value={`${passedAssessments}/${totalAssessments}`}
+              hint={
+                totalAssessments
+                  ? `${totalAttempts} attempt${totalAttempts === 1 ? "" : "s"}`
+                  : "None published yet"
+              }
+            />
+            <ProfileStat
+              icon={TargetIcon}
+              label="Average score"
+              value={formatPercent(analytics?.averageAssessmentScore)}
+              hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
+            />
+            <ProfileStat
+              icon={GaugeIcon}
+              label="Readiness"
+              value={formatPercent(analytics?.readinessPercentage)}
+              hint="Likelihood of passing"
+            />
+          </dl>
+
+          <CredentialsCard query={awardsQuery} />
+        </div>
       </aside>
 
       <div className="min-w-0 space-y-6 lg:overflow-y-auto">

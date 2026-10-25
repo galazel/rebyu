@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Award,
   BarChart3,
+  BookOpen,
   BookOpenCheck,
   Bot,
   Building2,
@@ -124,6 +125,12 @@ const departmentHeadGroups = [
         icon: UsersRound,
         match: ["/institution/programs", "/institution/departments"],
       },
+      {
+        label: "Department Workspace",
+        href: "/institution/departments",
+        icon: BookOpen,
+        match: ["/institution/departments"],
+      },
     ],
   },
 ]
@@ -188,7 +195,7 @@ function Brand({ role, institutionName }) {
 
           {institutionName ? (
             <span
-              className="mt-[1px] block max-w-[200px] truncate text-[11px] font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs sm:text-xs md:max-w-md"
+              className="mt-[1px] block max-w-[120px] xs:max-w-[160px] truncate text-[10px] sm:text-xs font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs md:max-w-md"
               style={{ fontFamily: "var(--font-institution-body, 'Poppins', sans-serif)" }}
               title={institutionName}
             >

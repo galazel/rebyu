@@ -620,33 +620,39 @@ export default function InstitutionDepartmentWorkspacePage() {
           {ownGroupExams.length ? (
             <ul className="divide-y rounded-xl border bg-card">
               {ownGroupExams.map((exam) => (
-                <li key={exam.examId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewExam(exam)}
-                    className="min-w-0 text-left"
-                  >
-                    <p className="font-medium text-foreground hover:underline break-words sm:truncate text-sm">
-                      {exam.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {exam.totalQuestions ?? 0}{" "}
-                      {(exam.totalQuestions ?? 0) === 1 ? "question" : "questions"}
-                      {exam.durationMinutes ? ` · ${exam.durationMinutes} min` : ""}
-                      {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
-                    </p>
-                  </button>
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
-                    <Badge variant="outline">
-                      {examTypeById.get(exam.examTypeId) ?? "Assessment"}
-                    </Badge>
-                    <InstitutionStatusBadge status={exam.status} />
+                <li key={exam.examId} className="space-y-3 p-3.5 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewExam(exam)}
+                      className="min-w-0 text-left"
+                    >
+                      <p className="font-semibold text-foreground hover:underline break-words text-sm sm:text-base">
+                        {exam.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {exam.totalQuestions ?? 0}{" "}
+                        {(exam.totalQuestions ?? 0) === 1 ? "question" : "questions"}
+                        {exam.durationMinutes ? ` · ${exam.durationMinutes} min` : ""}
+                        {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
+                      </p>
+                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-xs">
+                        {examTypeById.get(exam.examTypeId) ?? "Assessment"}
+                      </Badge>
+                      <InstitutionStatusBadge status={exam.status} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40 sm:border-t-0 sm:pt-0 sm:justify-end">
                     {exam.status === "PUBLISHED" ? (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => unpublishExamMutation.mutate(exam.examId)}
                         disabled={unpublishExamMutation.isPending}
+                        className="flex-1 sm:flex-none text-xs"
                       >
                         Unpublish
                       </Button>
@@ -656,16 +662,17 @@ export default function InstitutionDepartmentWorkspacePage() {
                         size="sm"
                         onClick={() => publishExamMutation.mutate(exam.examId)}
                         disabled={publishExamMutation.isPending}
+                        className="flex-1 sm:flex-none text-xs"
                       >
                         {exam.status === "ARCHIVED" ? "Republish" : "Publish"}
                       </Button>
                     )}
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results?certificationId=${groupCertificationId ?? ""}`}>
                         Results
                       </Link>
                     </Button>
-                    <Button asChild variant="ghost" size="sm">
+                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit?certificationId=${groupCertificationId ?? ""}`}>
                         Edit
                       </Link>
@@ -675,7 +682,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                       size="icon"
                       aria-label={`Delete ${exam.title}`}
                       onClick={() => setDeleteExamTarget(exam)}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="size-8 text-muted-foreground hover:text-destructive shrink-0"
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -816,29 +823,10 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
         </div>
       ) : null}
 
-      {/* Mobile dropdown on < sm */}
-      <div className="sm:hidden px-1 space-y-1.5">
-        <Label htmlFor="workspace-mobile-tab" className="px-2 text-xs text-muted-foreground">
-          Workspace View
-        </Label>
-        <Select value={activeTab} onValueChange={(val) => onSelect(val)}>
-          <SelectTrigger id="workspace-mobile-tab" className="w-full">
-            <SelectValue placeholder="Select tab" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {WORKSPACE_PAGES.map((page) => (
-              <SelectItem key={page.tab} value={page.tab}>
-                {page.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Horizontal scroll on sm to <lg with right-fade gradient, vertical list on lg+ */}
-      <div className="hidden sm:block">
+      {/* Horizontal scroll on mobile & tablet with right-fade gradient, vertical list on lg+ */}
+      <div>
         <div className="relative">
-          <div className="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none">
+          <div className="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-6">
             {WORKSPACE_PAGES.map((page) => (
               <button
                 key={page.tab}

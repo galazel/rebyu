@@ -16,10 +16,12 @@ function percent(value) {
 
 function StatTile({ label, value, hint }) {
   return (
-    <div className="rounded-xl border bg-card px-4 py-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    <div className="flex min-h-[76px] flex-col justify-between rounded-xl border bg-card px-4 py-3">
+      <div>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+      </div>
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   )
 }

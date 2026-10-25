@@ -353,7 +353,7 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
                 type="submit"
                 id="co-authority-submit-invite"
                 disabled={!inviteEmail.trim() || sendInviteMutation.isPending}
-                className="h-10 shrink-0 font-medium"
+                className="w-full sm:w-auto h-11 sm:h-10 shrink-0 font-medium cursor-pointer"
               >
                 {sendInviteMutation.isPending ? (
                   <>
@@ -491,8 +491,8 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-mono font-medium text-xs text-foreground truncate">{inv.email}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                          <p className="font-mono font-medium text-xs text-foreground break-all">{inv.email}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                             {inv.accountName ? inv.accountName : "Awaiting registration"}
                           </p>
                         </div>

@@ -83,6 +83,43 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
     ]
   }, [tiles, layout, byId])
 
+  const layouts = useMemo(() => {
+    // Generate stacked mobile layout for sm, xs, and xxs
+    const mobileLayout = currentLayout.map((item) => {
+      const tile = byId.get(item.i)
+      // On mobile, grant extra height row-span for dense tiles so their content does not get clipped
+      const extraHeight =
+        item.i === "dept-progress" || item.i === "dept-section-breakdown" || item.i === "dept-hard-topics" || item.i === "dept-hard-assessments"
+          ? 1
+          : 0
+      return {
+        i: item.i,
+        x: 0,
+        y: Infinity, // Let react-grid-layout auto-flow vertically
+        w: 1,
+        h: Math.max(item.h, (tile?.row ?? 1) + extraHeight),
+      }
+    })
+
+    const smLayout = currentLayout.map((item) => {
+      return {
+        i: item.i,
+        x: item.x % 2,
+        y: Infinity,
+        w: Math.min(item.w, 2),
+        h: item.h,
+      }
+    })
+
+    return {
+      lg: currentLayout,
+      md: currentLayout,
+      sm: smLayout,
+      xs: mobileLayout,
+      xxs: mobileLayout,
+    }
+  }, [currentLayout, byId])
+
   const handleLayoutChange = (next) => {
     if (!editing) return
     onLayoutChange?.(
@@ -98,7 +135,7 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
     <Responsive
       width={width}
       className={`rebyu-board ${editing ? "is-editing" : ""}`}
-      layouts={{ lg: currentLayout, md: currentLayout }}
+      layouts={layouts}
       breakpoints={BREAKPOINTS}
       cols={COLS}
       rowHeight={ROW_HEIGHT}

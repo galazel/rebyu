@@ -371,12 +371,14 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
               onChange={(e) => setDraft((d) => ({ ...d, firstName: e.target.value }))}
               placeholder="First name"
               aria-label="First name"
+              className="h-10 text-sm"
             />
             <Input
               value={draft.lastName}
               onChange={(e) => setDraft((d) => ({ ...d, lastName: e.target.value }))}
               placeholder="Last name"
               aria-label="Last name"
+              className="h-10 text-sm"
             />
             <Input
               type="email"
@@ -390,8 +392,9 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
               }}
               placeholder="learner@example.com"
               aria-label="Email"
+              className="h-10 text-sm"
             />
-            <Button type="button" variant="outline" onClick={addManual}>
+            <Button type="button" variant="outline" onClick={addManual} className="h-10 w-full sm:w-auto">
               Add
             </Button>
           </div>
@@ -445,18 +448,18 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {staged.length} learner(s) ready
             </p>
-            <div className="max-h-56 divide-y overflow-y-auto rounded-lg border">
+            <div className="max-h-44 divide-y overflow-y-auto rounded-lg border">
               {staged.map((row) => (
                 <div key={row.email} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <div className="min-w-0 truncate">
-                    <span className="font-medium">{fullName(row) || "—"}</span>
-                    <span className="ml-2 text-muted-foreground">{row.email}</span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{fullName(row) || "—"}</p>
+                    <p className="break-all text-xs text-muted-foreground">{row.email}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setStaged((current) => current.filter((r) => r.email !== row.email))}
                     aria-label={`Remove ${row.email}`}
-                    className="rounded-full px-1 text-muted-foreground hover:text-destructive"
+                    className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-destructive"
                   >
                     ×
                   </button>
@@ -812,18 +815,19 @@ function SectionPanel({
           {pending.length ? (
             <div className="divide-y rounded-lg border bg-background">
               {pending.map((inv) => (
-                <div key={inv.invitationId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <MailIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span className="truncate">
-                      {fullName(inv) ? <span className="font-medium">{fullName(inv)} </span> : null}
-                      <span className="text-muted-foreground">{inv.email}</span>
-                    </span>
+                <div key={inv.invitationId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm">
+                  <div className="flex min-w-0 items-start sm:items-center gap-2">
+                    <MailIcon className="size-4 shrink-0 text-muted-foreground mt-0.5 sm:mt-0" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      {fullName(inv) ? <p className="font-medium text-foreground truncate">{fullName(inv)}</p> : null}
+                      <p className="text-xs text-muted-foreground break-all">{inv.email}</p>
+                    </div>
                     <InstitutionStatusBadge status={inv.status} />
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="self-end sm:self-auto text-xs text-destructive hover:bg-destructive/10"
                     onClick={() => cancel.mutate(inv.invitationId)}
                     disabled={cancel.isPending}
                   >
@@ -839,8 +843,9 @@ function SectionPanel({
               {pending.length ? "No one has accepted yet." : "No learners here yet."}
             </p>
           ) : (
-            <div className="relative rounded-lg border bg-background overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="rounded-lg border bg-background overflow-hidden">
+              {/* Desktop / Tablet view (sm+) */}
+              <div className="hidden sm:block overflow-x-auto">
                 <Table className="min-w-[620px] whitespace-nowrap">
                   <TableHeader>
                     <TableRow>
@@ -852,48 +857,150 @@ function SectionPanel({
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
-                <TableBody>
-                  {learners.map((row) => (
-                    <TableRow key={row.departmentLearnerId}>
-                      <TableCell
-                        className="cursor-pointer"
+                  <TableBody>
+                    {learners.map((row) => (
+                      <TableRow key={row.departmentLearnerId}>
+                        <TableCell
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
+                              {rosterInitials(row.name)}
+                              {rosterAvatars[row.avatarKey] ? (
+                                <img
+                                  src={rosterAvatars[row.avatarKey]}
+                                  alt=""
+                                  loading="lazy"
+                                  className="absolute inset-0 size-full object-cover"
+                                />
+                              ) : null}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-medium text-foreground hover:underline">{row.name}</p>
+                                <EarnedBadges learnerId={row.learnerId} />
+                              </div>
+                              <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {certTitles.get(row.certificationId) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(row.assignedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <LessonProgressCell
+                            completed={row.completedLessonCount}
+                            total={row.totalLessonCount}
+                            percentage={row.completionPercentage}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
+                            onValueChange={(value) =>
+                              move.mutate({
+                                assigneeId: row.departmentLearnerId,
+                                sectionId: value === NO_SECTION ? null : Number(value),
+                              })
+                            }
+                            disabled={move.isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs" aria-label="Move to section">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_SECTION}>No section</SelectItem>
+                              {sections.map((s) => (
+                                <SelectItem key={s.sectionId} value={String(s.sectionId)}>
+                                  {s.sectionName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove ${row.name} from this department`}
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => setRemoveTarget(row)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card-per-learner Layout (< sm) */}
+              <div className="sm:hidden divide-y divide-border/60">
+                {learners.map((row) => (
+                  <div key={row.departmentLearnerId} className="p-3.5 space-y-3">
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer"
                         onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
-                            {rosterInitials(row.name)}
-                            {rosterAvatars[row.avatarKey] ? (
-                              <img
-                                src={rosterAvatars[row.avatarKey]}
-                                alt=""
-                                loading="lazy"
-                                className="absolute inset-0 size-full object-cover"
-                              />
-                            ) : null}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium text-foreground hover:underline">{row.name}</p>
-                              <EarnedBadges learnerId={row.learnerId} />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
-                          </div>
+                        <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
+                          {rosterInitials(row.name)}
+                          {rosterAvatars[row.avatarKey] ? (
+                            <img
+                              src={rosterAvatars[row.avatarKey]}
+                              alt=""
+                              loading="lazy"
+                              className="absolute inset-0 size-full object-cover"
+                            />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground hover:underline truncate">{row.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {certTitles.get(row.certificationId) ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(row.assignedAt)}
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${row.name} from this department`}
+                        className="size-8 text-muted-foreground hover:text-destructive shrink-0"
+                        onClick={() => setRemoveTarget(row)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <EarnedBadges learnerId={row.learnerId} />
+                      {certTitles.get(row.certificationId) ? (
+                        <Badge variant="secondary" className="text-[11px] font-normal truncate max-w-full">
+                          {certTitles.get(row.certificationId)}
+                        </Badge>
+                      ) : null}
+                      {row.assignedAt ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          Joined {formatDate(row.assignedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-lg bg-muted/40 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-muted-foreground">Lessons completed</span>
                         <LessonProgressCell
                           completed={row.completedLessonCount}
                           total={row.totalLessonCount}
                           percentage={row.completionPercentage}
                         />
-                      </TableCell>
-                      <TableCell>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                        <span className="font-medium text-muted-foreground shrink-0">Section</span>
                         <Select
                           value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
                           onValueChange={(value) =>
@@ -904,7 +1011,7 @@ function SectionPanel({
                           }
                           disabled={move.isPending}
                         >
-                          <SelectTrigger className="h-8 text-xs" aria-label="Move to section">
+                          <SelectTrigger className="h-8 text-xs max-w-[180px]" aria-label="Move to section">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -916,27 +1023,11 @@ function SectionPanel({
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove ${row.name} from this department`}
-                          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => setRemoveTarget(row)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div
-                className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden"
-                aria-hidden="true"
-              />
             </div>
           )}
         </CardContent>
