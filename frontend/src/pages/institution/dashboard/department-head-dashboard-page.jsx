@@ -16,6 +16,7 @@ import {
   MoreVertical,
   Pencil,
   Plus,
+  Search,
   ShieldCheck,
   TargetIcon,
   Trash2,
@@ -26,6 +27,7 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import {
   DropdownMenu,
@@ -55,6 +57,7 @@ import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
+  formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import {
   deleteGroupSection,
@@ -65,6 +68,7 @@ import {
   getGroupLearnerRoster,
   getGroupSections,
   getMyInstitutionInvoices,
+  removeLearnerFromGroup,
 } from "@/services/institutionService.js"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
@@ -217,14 +221,14 @@ function DashboardCardHeader({
   )
 }
 
-function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null }) {
+function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null, className = "" }) {
   return (
     <div
       className={`rounded-lg border p-2.5 transition-colors ${
         alert
           ? "border-rb-fox-lip/40 bg-rb-fox-lip/5 ring-1 ring-inset ring-rb-fox-lip/30"
           : "border-border/70 bg-muted/30"
-      }`}
+      } ${className}`}
     >
       <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         <span className="truncate">{label}</span>
@@ -247,6 +251,23 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delt
       ) : null}
     </div>
   )
+}
+
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return null
+  const date = new Date(dateValue)
+  const time = date.getTime()
+  if (Number.isNaN(time)) return null
+  const diffSec = Math.floor((Date.now() - time) / 1000)
+  if (diffSec < 60) return "Just now"
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  if (diffDays === 1) return "1 day ago"
+  if (diffDays < 30) return `${diffDays} days ago`
+  return formatDate(dateValue)
 }
 
 export default function DepartmentHeadDashboardPage() {
@@ -402,6 +423,8 @@ export default function DepartmentHeadDashboardPage() {
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
   const [rosterStatusFilter, setRosterStatusFilter] = useState("all")
+  const [rosterSearch, setRosterSearch] = useState("")
+  const [removingLearner, setRemovingLearner] = useState(null)
 
   const removeSectionMutation = useMutation({
     mutationFn: (sectionId) => deleteGroupSection(primaryDeptId, sectionId),
@@ -413,6 +436,20 @@ export default function DepartmentHeadDashboardPage() {
     },
     onError: (err) => {
       const msg = err?.response?.data?.message ?? err?.message ?? "Unable to archive this section."
+      toast.error(msg)
+    },
+  })
+
+  const removeLearnerMutation = useMutation({
+    mutationFn: (learnerId) => removeLearnerFromGroup(primaryDeptId, learnerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      queryClient.invalidateQueries({ queryKey: ["department-head-learning-stats"] })
+      toast.success("Learner removed from department.")
+      setRemovingLearner(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to remove this learner."
       toast.error(msg)
     },
   })
@@ -479,6 +516,9 @@ export default function DepartmentHeadDashboardPage() {
             sectionId: row.sectionId,
             sectionName: row.sectionName,
             departmentLearnerId: row.departmentLearnerId,
+            mockExamPassed: row.mockExamPassed,
+            bestMockExamScore: row.bestMockExamScore,
+            mockExamPassedAt: row.mockExamPassedAt,
           })
         }
       }
@@ -536,6 +576,10 @@ export default function DepartmentHeadDashboardPage() {
           sectionId: sectionInfo?.sectionId ?? null,
           sectionName: sectionInfo?.sectionName ?? null,
           departmentLearnerId: sectionInfo?.departmentLearnerId ?? null,
+          lastActivityAt: m.lastActivityAt ?? null,
+          mockExamPassed: sectionInfo?.mockExamPassed ?? m.mockExamPassed ?? false,
+          bestMockExamScore: sectionInfo?.bestMockExamScore ?? m.bestMockExamScore ?? null,
+          mockExamPassedAt: sectionInfo?.mockExamPassedAt ?? m.mockExamPassedAt ?? null,
           flag: flagFor(m),
         }
       })
@@ -625,8 +669,18 @@ export default function DepartmentHeadDashboardPage() {
         return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
       })
     }
+
+    if (rosterSearch.trim()) {
+      const query = rosterSearch.trim().toLowerCase()
+      list = list.filter((l) => {
+        const nameMatch = (l.name || "").toLowerCase().includes(query)
+        const usernameMatch = (l.username || "").toLowerCase().includes(query)
+        return nameMatch || usernameMatch
+      })
+    }
+
     return list
-  }, [deptLearners, selectedSectionFilter, rosterStatusFilter])
+  }, [deptLearners, selectedSectionFilter, rosterStatusFilter, rosterSearch])
 
   /* Each learner's weakest lesson against the cohort average for that same
      lesson and the benchmark -- the "is this one learner or the whole class"
@@ -1468,7 +1522,7 @@ export default function DepartmentHeadDashboardPage() {
                 }
               />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <StatBox
                   label="Active Authorities"
                   value={count(activeHeadAssignments.length)}
@@ -1490,28 +1544,43 @@ export default function DepartmentHeadDashboardPage() {
                   value={overviewGroup?.departmentName || overviewGroup?.name || "Department"}
                   icon={Building2}
                   iconClass="text-sky-600 dark:text-sky-400"
+                  className="hidden sm:block"
                 />
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3.5 py-2.5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
-                  <span className="font-medium text-foreground">
-                    {pendingHeadInvitations.length > 0
-                      ? `${pendingHeadInvitations.length} invitation code${pendingHeadInvitations.length === 1 ? "" : "s"} waiting to be claimed by faculty`
-                      : "Faculty and assistant deans can co-manage curricula, cohorts, and assessments."}
+              {pendingHeadInvitations.length > 0 ? (
+                <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/20 p-2.5">
+                  <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-muted-foreground">
+                    <span>Recent Pending Invitations</span>
+                    {pendingHeadInvitations.length > 2 && (
+                      <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        +{pendingHeadInvitations.length - 2} more
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    {pendingHeadInvitations.slice(0, 2).map((inv) => (
+                      <div
+                        key={inv.invitationId || inv.email}
+                        className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-2.5 py-1.5 text-xs border border-border/40"
+                      >
+                        <span className="truncate font-mono text-[11px] font-medium text-foreground max-w-[200px] sm:max-w-[280px]">
+                          {inv.email}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {formatDate(inv.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3.5 py-2.5 text-xs text-muted-foreground">
+                  <span className="truncate">
+                    No pending invitations. Faculty can co-manage curricula and assessments.
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setCoAuthoritiesOpen(true)}
-                    className="h-7 text-xs font-semibold text-primary hover:text-primary"
-                  >
-                    Open Delegation Flow
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           </BentoTile>
         ),
@@ -1530,14 +1599,32 @@ export default function DepartmentHeadDashboardPage() {
                 kicker="Department Roster"
                 title="Student roster & who needs a conversation"
                 hint="Anyone flagged sits at the top, with the reason beside their name."
-                action={
-                  sections.length > 0 ? (
-                    <div className="w-48">
+              />
+
+              {/* Dedicated filter bar: Search + Section + Status pills (Checklist 10.1) */}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-border/50">
+                <div className="relative w-full sm:w-64">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    type="search"
+                    placeholder="Search by student name or username..."
+                    value={rosterSearch}
+                    onChange={(e) => setRosterSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs bg-background"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {sections.length > 0 && (
+                    <div className="w-full sm:w-44">
                       <Select
                         value={selectedSectionFilter}
                         onValueChange={setSelectedSectionFilter}
                       >
-                        <SelectTrigger className="h-7 text-xs bg-background">
+                        <SelectTrigger className="h-8 text-xs bg-background">
                           <SelectValue placeholder="All sections" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1556,14 +1643,13 @@ export default function DepartmentHeadDashboardPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                  ) : null
-                }
-                chip={
+                  )}
+
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setRosterStatusFilter("all")}
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                      className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                         rosterStatusFilter === "all"
                           ? "bg-foreground text-background"
                           : "text-muted-foreground hover:bg-muted"
@@ -1577,7 +1663,7 @@ export default function DepartmentHeadDashboardPage() {
                         onClick={() =>
                           setRosterStatusFilter(rosterStatusFilter === "flagged" ? "all" : "flagged")
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                           rosterStatusFilter === "flagged"
                             ? "border border-amber-500/50 bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/40"
                             : "border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-500/20"
@@ -1593,7 +1679,7 @@ export default function DepartmentHeadDashboardPage() {
                         onClick={() =>
                           setRosterStatusFilter(rosterStatusFilter === "dormant" ? "all" : "dormant")
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                           rosterStatusFilter === "dormant"
                             ? "border border-sky-500/50 bg-sky-500/20 text-sky-800 dark:text-sky-300 ring-1 ring-sky-500/40"
                             : "border border-sky-500/20 bg-sky-500/10 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-500/20"
@@ -1603,21 +1689,24 @@ export default function DepartmentHeadDashboardPage() {
                         <span>{dormantCount} dormant</span>
                       </button>
                     ) : null}
-                    {rosterStatusFilter !== "all" ? (
+                    {(rosterStatusFilter !== "all" || rosterSearch) ? (
                       <button
                         type="button"
-                        onClick={() => setRosterStatusFilter("all")}
+                        onClick={() => {
+                          setRosterStatusFilter("all")
+                          setRosterSearch("")
+                        }}
                         className="text-[11px] text-muted-foreground underline hover:text-foreground ml-1"
                       >
-                        Reset filter
+                        Reset filters
                       </button>
                     ) : null}
                   </div>
-                }
-              />
+                </div>
+              </div>
 
               {statsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mt-3">
                   Department learners could not be loaded.
                 </p>
               ) : deptLearners.length === 0 ? (
@@ -1626,119 +1715,192 @@ export default function DepartmentHeadDashboardPage() {
                   <p>No learners assigned to your department yet.</p>
                 </div>
               ) : (
-                <div className="min-h-0 flex-1 overflow-x-auto">
-                  <table className="w-full text-sm" style={{ minWidth: 680 }}>
-                    <colgroup>
-                      <col style={{ width: "22%" }} />
-                      <col style={{ width: "16%" }} />
-                      <col style={{ width: "20%" }} />
-                      <col style={{ width: "18%" }} />
-                      <col style={{ width: "8%" }} />
-                      <col style={{ width: "8%" }} />
-                      <col style={{ width: "8%" }} />
-                    </colgroup>
-                    <thead className="sticky top-0 bg-background z-10">
-                      <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
-                        <th className="py-2.5 pl-2 pr-3 text-left">Student Name</th>
-                        <th className="py-2.5 px-3 text-left">Section</th>
-                        <th className="py-2.5 px-3 text-left">Needs attention</th>
-                        <th className="py-2.5 px-3 text-left">Progress</th>
-                        <th className="py-2.5 px-2 text-center">Lessons</th>
-                        <th className="py-2.5 px-2 text-center">Attempts</th>
-                        <th className="py-2.5 px-2 text-center">Avg Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredLearners.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-6 text-center text-xs text-muted-foreground">
-                            {rosterStatusFilter === "flagged" ? (
-                              <div className="space-y-1">
-                                <p>No flagged learners found in this view.</p>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs text-primary"
-                                  onClick={() => setRosterStatusFilter("all")}
-                                >
-                                  View all students
-                                </Button>
-                              </div>
-                            ) : rosterStatusFilter === "dormant" ? (
-                              <div className="space-y-1">
-                                <p>No dormant learners found in this view.</p>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs text-primary"
-                                  onClick={() => setRosterStatusFilter("all")}
-                                >
-                                  View all students
-                                </Button>
-                              </div>
-                            ) : (
-                              "No students in this section."
-                            )}
-                          </td>
+                <div className="relative min-h-0 flex-1">
+                  {/* Right-fade gradient to hint horizontal scroll affordance (Checklist 10.2) */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent z-20"
+                  />
+                  <div className="min-h-0 h-full overflow-x-auto">
+                    <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: 560 }}>
+                      <thead className="sticky top-0 bg-background z-10">
+                        <tr className="border-b border-border/40 text-xs font-semibold text-muted-foreground">
+                          <th className="py-2.5 pl-2 pr-3 text-left sticky left-0 bg-background z-20">
+                            Student Name
+                          </th>
+                          <th className="py-2.5 px-3 text-left">Section</th>
+                          <th className="hidden sm:table-cell py-2.5 px-3 text-left">Last active</th>
+                          <th className="py-2.5 px-3 text-left">Needs attention</th>
+                          <th className="py-2.5 px-3 text-left">Progress</th>
+                          <th className="hidden sm:table-cell py-2.5 px-2 text-center">Lessons</th>
+                          <th className="hidden sm:table-cell py-2.5 px-2 text-center">Attempts</th>
+                          <th className="py-2.5 px-2 text-center">Avg Score</th>
+                          <th className="hidden sm:table-cell py-2.5 px-2 text-center">Mock</th>
+                          <th className="py-2.5 pl-2 pr-3 text-right">
+                            <span className="sr-only">Actions</span>
+                          </th>
                         </tr>
-                      ) : (
-                        filteredLearners.map((learner) => (
-                          <tr
-                            key={learner.learnerId}
-                            className="border-b border-border/40 hover:bg-muted/40 transition-colors"
-                          >
-                            <td className="py-2.5 pl-2 pr-3">
-                              <Link
-                                to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
-                                className="font-bold text-foreground hover:underline text-xs"
-                              >
-                                {learner.name || `Learner #${learner.learnerId}`}
-                              </Link>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {learner.sectionName ? (
-                                <Badge variant="outline" className="text-[11px] font-medium border-border/80">
-                                  {learner.sectionName}
-                                </Badge>
+                      </thead>
+                      <tbody>
+                        {filteredLearners.length === 0 ? (
+                          <tr>
+                            <td colSpan={10} className="py-6 text-center text-xs text-muted-foreground">
+                              {rosterSearch.trim() ? (
+                                <div className="space-y-1">
+                                  <p>No students match “{rosterSearch}”.</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-primary"
+                                    onClick={() => setRosterSearch("")}
+                                  >
+                                    Clear search
+                                  </Button>
+                                </div>
+                              ) : rosterStatusFilter === "flagged" ? (
+                                <div className="space-y-1">
+                                  <p>No flagged learners found in this view.</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-primary"
+                                    onClick={() => setRosterStatusFilter("all")}
+                                  >
+                                    View all students
+                                  </Button>
+                                </div>
+                              ) : rosterStatusFilter === "dormant" ? (
+                                <div className="space-y-1">
+                                  <p>No dormant learners found in this view.</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs text-primary"
+                                    onClick={() => setRosterStatusFilter("all")}
+                                  >
+                                    View all students
+                                  </Button>
+                                </div>
                               ) : (
-                                <span className="text-xs text-muted-foreground/60 italic">Unassigned</span>
+                                "No students in this section."
                               )}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              {learner.flag ? (
-                                <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
-                                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-                                  <span className="truncate">{learner.flag}</span>
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="flex items-center gap-2 max-w-[140px]">
-                                <Progress
-                                  value={Number(learner.averageProgress ?? 0)}
-                                  className="h-2 flex-1 rounded-full"
-                                />
-                                <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
-                                  {percent(learner.averageProgress)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                              {count(learner.lessonsCompleted)}
-                            </td>
-                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
-                              {count(learner.gradedAttempts)}
-                            </td>
-                            <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
-                              {percent(learner.averageScore)}
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          filteredLearners.map((learner) => {
+                            const lastActive = formatRelativeTime(learner.lastActivityAt)
+                            return (
+                              <tr
+                                key={learner.learnerId}
+                                className="border-b border-border/40 hover:bg-muted/40 transition-colors"
+                              >
+                                <td className="py-2.5 pl-2 pr-3 sticky left-0 bg-background z-10">
+                                  <Link
+                                    to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
+                                    className="font-bold text-foreground hover:underline text-xs"
+                                  >
+                                    {learner.name || `Learner #${learner.learnerId}`}
+                                  </Link>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  {learner.sectionName ? (
+                                    <Badge variant="outline" className="text-[11px] font-medium border-border/80">
+                                      {learner.sectionName}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground/60 italic">Unassigned</span>
+                                  )}
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 px-3">
+                                  {lastActive ? (
+                                    <span className="text-xs text-muted-foreground">{lastActive}</span>
+                                  ) : (
+                                    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+                                      Never
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  {learner.flag ? (
+                                    <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
+                                      <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                                      <span className="truncate">{learner.flag}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2 max-w-[140px]">
+                                    <Progress
+                                      value={Number(learner.averageProgress ?? 0)}
+                                      className="h-2 flex-1 rounded-full"
+                                    />
+                                    <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
+                                      {percent(learner.averageProgress)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                  {count(learner.lessonsCompleted)}
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                                  {count(learner.gradedAttempts)}
+                                </td>
+                                <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
+                                  {percent(learner.averageScore)}
+                                </td>
+                                <td className="hidden sm:table-cell py-2.5 px-2 text-center tabular-nums text-xs">
+                                  {learner.mockExamPassed ? (
+                                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-0 text-[10px] font-semibold">
+                                      Pass{Number.isFinite(Number(learner.bestMockExamScore)) ? ` (${Math.round(Number(learner.bestMockExamScore))}%)` : ""}
+                                    </Badge>
+                                  ) : Number.isFinite(Number(learner.bestMockExamScore)) ? (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {Math.round(Number(learner.bestMockExamScore))}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 pl-2 pr-3 text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-7 text-muted-foreground hover:text-foreground"
+                                      >
+                                        <MoreVertical className="size-3.5" aria-hidden="true" />
+                                        <span className="sr-only">Student actions</span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      <DropdownMenuItem asChild>
+                                        <Link
+                                          to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
+                                        >
+                                          View analytics
+                                        </Link>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => setRemovingLearner(learner)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="mr-2 size-3.5" aria-hidden="true" />
+                                        Remove from department
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -1765,6 +1927,7 @@ export default function DepartmentHeadDashboardPage() {
     flaggedCount,
     dormantCount,
     rosterStatusFilter,
+    rosterSearch,
     groupStats,
     deptLearners,
     filteredLearners,
@@ -1970,6 +2133,32 @@ export default function DepartmentHeadDashboardPage() {
               disabled={removeSectionMutation.isPending}
             >
               {removeSectionMutation.isPending ? "Archiving..." : "Archive section"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={removingLearner != null}
+        onOpenChange={(open) => !open && setRemovingLearner(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove “{removingLearner?.name || `Learner #${removingLearner?.learnerId}`}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the learner from this department. Their account, subscription, and historical progress remain unaffected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeLearnerMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => removeLearnerMutation.mutate(removingLearner.learnerId)}
+              disabled={removeLearnerMutation.isPending}
+            >
+              {removeLearnerMutation.isPending ? "Removing..." : "Remove learner"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
