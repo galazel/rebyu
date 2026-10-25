@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import {
   AlertTriangle,
   Award,
@@ -12,9 +13,12 @@ import {
   History,
   Layers,
   MailIcon,
+  MoreVertical,
+  Pencil,
   Plus,
   ShieldCheck,
   TargetIcon,
+  Trash2,
   UserCheck,
   UserPlus,
   UsersRoundIcon,
@@ -23,6 +27,23 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -36,6 +57,7 @@ import {
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
 import {
+  deleteGroupSection,
   getDepartmentHeadAssignments,
   getDepartmentHeadCodeInvitations,
   getDepartmentPrograms,
@@ -366,6 +388,7 @@ export default function DepartmentHeadDashboardPage() {
   /* The overview strip's own facts: the allocation behind the first active
      department (its access window), and the certification it studies. Both
      come from data the page already fetches -- no new endpoint. */
+  const queryClient = useQueryClient()
   const [selectedDeptId, setSelectedDeptId] = useState(null)
   const activeSelectedDeptId = selectedDeptId ?? (groups[0]?.departmentId ?? groups[0]?.id)
   const overviewGroup = useMemo(
@@ -374,9 +397,25 @@ export default function DepartmentHeadDashboardPage() {
   )
   const primaryDeptId = overviewGroup?.departmentId ?? overviewGroup?.id
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
+  const [editingSection, setEditingSection] = useState(null)
+  const [archivingSection, setArchivingSection] = useState(null)
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
   const [rosterStatusFilter, setRosterStatusFilter] = useState("all")
+
+  const removeSectionMutation = useMutation({
+    mutationFn: (sectionId) => deleteGroupSection(primaryDeptId, sectionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-sections", primaryDeptId] })
+      queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      toast.success("Section archived. Its learners remain in the department.")
+      setArchivingSection(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to archive this section."
+      toast.error(msg)
+    },
+  })
 
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
@@ -1293,14 +1332,26 @@ export default function DepartmentHeadDashboardPage() {
                           ) / sectionLearners.length
                         )
                       : 0
+                    const scoredLearners = sectionLearners.filter(
+                      (l) => l.averageScore != null
+                    )
+                    const avgScore = scoredLearners.length
+                      ? Math.round(
+                          scoredLearners.reduce(
+                            (sum, l) => sum + Number(l.averageScore),
+                            0
+                          ) / scoredLearners.length
+                        )
+                      : null
                     const pendingCount = Number(section.pendingInvitationCount ?? 0)
 
                     return (
                       <div
                         key={section.sectionId}
-                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
                       >
-                        <div className="min-w-0 flex-1 sm:min-w-[180px]">
+                        {/* Row 1 on mobile: section info + pending badge */}
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <Link
                               to={`/institution/departments/${primaryDeptId}?tab=learners`}
@@ -1325,21 +1376,61 @@ export default function DepartmentHeadDashboardPage() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 w-32">
+                        {/* Row 2 on mobile: progress + chips + actions */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                          <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:w-36">
                             <Progress value={progress} className="h-1.5 flex-1" />
                             <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
                               {progress}%
                             </span>
                           </div>
+                          {avgScore != null ? (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] shrink-0 font-medium tabular-nums bg-primary/10 text-primary border-primary/20"
+                            >
+                              avg {avgScore}%
+                            </Badge>
+                          ) : null}
                           <Badge variant="outline" className="text-xs shrink-0">
                             {count(totalInSection)} {totalInSection === 1 ? "student" : "students"}
                           </Badge>
-                          <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                            <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
-                              Open
-                            </Link>
-                          </Button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                              <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
+                                Open
+                              </Link>
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7 text-muted-foreground hover:text-foreground"
+                                  aria-label={`Actions for section ${section.sectionName}`}
+                                >
+                                  <MoreVertical className="size-3.5" aria-hidden="true" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-36">
+                                <DropdownMenuItem
+                                  onClick={() => setEditingSection(section)}
+                                  className="gap-2 text-xs"
+                                >
+                                  <Pencil className="size-3.5" aria-hidden="true" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setArchivingSection(section)}
+                                  className="gap-2 text-xs text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="size-3.5" aria-hidden="true" />
+                                  Archive
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       </div>
                     )
@@ -1836,6 +1927,7 @@ export default function DepartmentHeadDashboardPage() {
 
       {createSectionOpen && primaryDeptId ? (
         <SectionDialog
+          key="create-section"
           open={createSectionOpen}
           onOpenChange={setCreateSectionOpen}
           departmentId={primaryDeptId}
@@ -1843,6 +1935,45 @@ export default function DepartmentHeadDashboardPage() {
           certifications={overviewGroup?.certifications ?? []}
         />
       ) : null}
+
+      {editingSection && primaryDeptId ? (
+        <SectionDialog
+          key={`edit-${editingSection.sectionId}`}
+          open={Boolean(editingSection)}
+          onOpenChange={(open) => !open && setEditingSection(null)}
+          departmentId={primaryDeptId}
+          section={editingSection}
+          institutionCertId={editingSection.institutionCertId ?? overviewGroup?.institutionCertId ?? null}
+          certifications={overviewGroup?.certifications ?? []}
+        />
+      ) : null}
+
+      <AlertDialog
+        open={archivingSection != null}
+        onOpenChange={(open) => !open && setArchivingSection(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive “{archivingSection?.sectionName}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Its learners remain in the department under “Not in a section”, and any pending invitations
+              continue to bring learners into the department. You can reassign learners to another section at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeSectionMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => removeSectionMutation.mutate(archivingSection.sectionId)}
+              disabled={removeSectionMutation.isPending}
+            >
+              {removeSectionMutation.isPending ? "Archiving..." : "Archive section"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {coAuthoritiesOpen && primaryDeptId ? (
         <CoAuthoritiesDialog
