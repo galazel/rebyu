@@ -25,7 +25,7 @@ export default function CertificationQuestionBankPage() {
   )
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-muted/20">
       <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
 
         <div className="min-w-0">

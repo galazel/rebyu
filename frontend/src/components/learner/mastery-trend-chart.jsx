@@ -33,7 +33,7 @@ export function MasteryTrendChart({ certificationId, className = '' }) {
     before: Math.round(item.previous_mastery * 100),
     after: Math.round(item.final_mastery * 100),
     assessment: item.assessment_type,
-    correct: item.observed_correct ? '✓' : '✗',
+    correct: Boolean(item.observed_correct),
   }))
 
   const maxValue = 100
@@ -90,7 +90,7 @@ export function MasteryTrendChart({ certificationId, className = '' }) {
             dot={(props) => (
               <CustomDot
                 {...props}
-                correct={chartData[props.index]?.correct === '✓'}
+                correct={chartData[props.index]?.correct === true}
               />
             )}
           />

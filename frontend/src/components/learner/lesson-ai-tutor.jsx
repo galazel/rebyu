@@ -3,11 +3,12 @@ import { AiLimitNotice, AiUsageRing, isBucketExhausted, useAiUsage } from "@/com
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   ArrowRight,
+  ArrowUp,
   BookOpenCheck,
   Crop,
   ImageIcon,
@@ -21,7 +22,6 @@ import {
   PlayCircle,
   Plus,
   Radio,
-  SendHorizontal,
   SquarePen,
   Sparkles,
   X,
@@ -54,6 +54,8 @@ import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
 import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
+import { LearningToolsPicker } from "@/components/learner/learning-tools-picker.jsx"
+import { friendlyActivityRequest } from "@/lib/friendly-activity-request.js"
 import { tutorActivityScope } from "@/lib/tutor-widget-progress.js"
 import { MicButton } from "@/components/learner/mic-button.jsx"
 import { LiveTutor, LiveTutorVoiceOrb } from "@/components/learner/live-tutor.jsx"
@@ -612,7 +614,7 @@ function SnippetPreview({ snippet, onDark = false }) {
   )
 }
 
-function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup, persistenceScope }) {
+export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup, persistenceScope }) {
   const isLearner = message.role === "user"
 
   const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-tl-md"
@@ -636,7 +638,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
             ) : null}
 
             <Bubble
-                variant="secondary"
+                variant={isLearner ? "secondary" : "ghost"}
                 align={isLearner ? "end" : "start"}
                 className={isLearner ? "!max-w-[85%]" : "!w-full !max-w-full"}
             >
@@ -644,7 +646,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                   className={
                     isLearner
                       ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : "!w-full !rounded-2xl !rounded-tl-md !border !border-rb-swan !bg-white !px-4 !py-3.5 !text-rb-eel !shadow-[0_2px_10px_rgba(17,55,43,0.06)]"
+                      : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-rb-eel !shadow-none"
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
@@ -654,7 +656,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                     : "font-normal text-rb-eel [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink"
                 } [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.text}
+                    {isLearner ? friendlyActivityRequest(message.text) : message.text}
                   </ReactMarkdown>
                 </div> : null}
 
@@ -691,6 +693,8 @@ export function LessonAiTutor({
                             onSnippetTaken,
                             onStartSnip,
                           }) {
+  const queryClient = useQueryClient()
+  const [toolsOpen, setToolsOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState("")
   const [pending, setPending] = useState(false)
@@ -792,6 +796,9 @@ export function LessonAiTutor({
   }, [streamText, shownLength, finishedReply])
 
   function showReply(message) {
+    if (message.widgets?.some((widget) => widget.library?.id != null)) {
+      queryClient.invalidateQueries({ queryKey: ["library-items"] })
+    }
     setMessages((current) => [...current, message])
     setPending(false)
     setGenerating(null)
@@ -1265,11 +1272,12 @@ export function LessonAiTutor({
         {dialogueOpen || chatListOpen || liveTutorOpen ? null : (
         <form
             onSubmit={handleSubmit}
-            className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
+            className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-3"
         >
           <AiLimitNotice className="mb-2" />
+          <div data-tutor-composer className="min-w-0 rounded-[calc(var(--radius-rb-control,10px)+8px)] border border-border bg-card p-3 text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
           {attachment ? (
-              <div className="mb-2 flex items-start gap-2 rounded-xl border-2 border-rb-swan bg-rb-snow p-2">
+              <div className="mb-3 flex items-start gap-2 rounded-[var(--radius-rb-control,10px)] border border-border bg-muted/40 p-2.5">
                 {attachment.image ? (
                     <img
                         src={attachment.image}
@@ -1301,14 +1309,26 @@ export function LessonAiTutor({
                 </button>
               </div>
           ) : null}
-          <div className="flex items-end gap-1.5 rounded-2xl border-2 border-rb-swan bg-rb-snow p-1.5 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
+            <textarea
+                ref={draftRef}
+                aria-label="Message your tutor"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={tutorExhausted ? "AI limit reached—see when it resets above"
+                    : attachment ? "Ask about this snippet…" : "Ask your tutor anything…"}
+                disabled={Boolean(generating) || tutorExhausted}
+                rows={2}
+                className="field-sizing-content block max-h-40 min-h-14 w-full resize-none overflow-y-auto appearance-none border-0 bg-transparent px-1 py-1 text-sm font-normal leading-6 text-foreground shadow-none outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 disabled:opacity-60"
+            />
+          <div className="mt-2 flex items-center justify-between gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <TactileButton
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon shrink-0"
+                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
                     disabled={pending || Boolean(generating)}
                     aria-label="Create study aid"
                 >
@@ -1346,6 +1366,10 @@ export function LessonAiTutor({
                     {hasConversation ? <DropdownMenuSeparator /> : null}
                   </>
                 ) : null}
+                <DropdownMenuItem disabled={tutorExhausted} onSelect={() => setToolsOpen(true)} className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip"><BookOpenCheck className="size-4" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-rb-eel">Practice & games</span><span className="mt-0.5 block text-xs leading-4 text-rb-wolf">Quizzes, matching, word games and scenarios</span></span>
+                </DropdownMenuItem>
                 {hasConversation ? (
                     <DropdownMenuItem
                       onSelect={() => setDialogueOpen(true)}
@@ -1380,59 +1404,58 @@ export function LessonAiTutor({
                 {/* AI usage lives on the ring beside the send button, not here too. */}
               </DropdownMenuContent>
             </DropdownMenu>
-            <textarea
-                ref={draftRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={tutorExhausted ? "AI limit reached -- see when it resets above"
-                    : attachment ? "Ask about this, or just send" : "Ask anything about this lesson…"}
-                disabled={pending || Boolean(generating) || tutorExhausted}
-                rows={1}
-                className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
-            />
+            <LearningToolsPicker open={toolsOpen} onOpenChange={setToolsOpen} onGenerate={sendTutorMessage} disabled={pending || tutorExhausted} />
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {pending ? (
               <>
                 <TactileButton
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon shrink-0"
+                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
                     onClick={() => setStreamPaused((current) => !current)}
                     aria-label={streamPaused ? "Resume displaying tutor reply" : "Pause displaying tutor reply"}
                     title={streamPaused ? "Resume reply" : "Pause reply"}
                 >
                   {streamPaused ? <Play className="size-3.5" aria-hidden="true" /> : <Pause className="size-3.5" aria-hidden="true" />}
                 </TactileButton>
-                <TactileButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rb-btn-icon shrink-0 !text-red-700 hover:!bg-red-50"
-                    onClick={stopTutorResponse}
-                    aria-label="Stop tutor reply"
-                    title="Stop reply"
-                >
-                  <X className="size-4" aria-hidden="true" />
-                </TactileButton>
               </>
             ) : (
-              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} />
+              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} className="!rounded-[var(--radius-rb-control,10px)]" />
             )}
+            {pending ? (
+              <TactileButton
+                type="button"
+                variant="feather"
+                size="sm"
+                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                onClick={(event) => {
+                  event.preventDefault()
+                  stopTutorResponse()
+                }}
+                aria-label="Stop tutor reply"
+                title="Stop reply"
+              >
+                <span className="size-3 rounded-[2px] bg-current" aria-hidden="true" />
+              </TactileButton>
+            ) : (
             <TactileButton
                 type="submit"
                 variant="feather"
                 size="sm"
-                className="rb-btn-icon shrink-0"
-                disabled={pending || Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
+                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                disabled={Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
                 aria-label="Send message"
             >
-              {pending || generating ? (
+              {generating ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                  <SendHorizontal className="size-4" aria-hidden="true" />
+                  <ArrowUp className="size-4" aria-hidden="true" />
               )}
             </TactileButton>
+            )}
+            </div>
+          </div>
           </div>
 
           <div className="mt-1.5 flex items-center gap-2 px-2">

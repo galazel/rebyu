@@ -1,5 +1,6 @@
 package com.capstone.rebyu.notification.service;
 
+import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.gamification.entity.NotificationPreference;
 import com.capstone.rebyu.gamification.entity.Streak;
 import com.capstone.rebyu.gamification.repository.NotificationPreferenceRepository;
@@ -51,7 +52,9 @@ public class LearnerReminderService {
         LocalTime configuredStreakTime = parseTime(streakReminderTime).orElse(LocalTime.of(20, 0));
 
         for (Learner learner : learners.findAll()) {
-            if (learner.getUser() == null) {
+            // Admin and institution accounts can carry a learner row too; study nudges are for learners only.
+            if (learner.getUser() == null || learner.getUser().getUserType() == null
+                    || !CognitoAuthService.LEARNER_USER_TYPE.equalsIgnoreCase(learner.getUser().getUserType().getUserTypeText())) {
                 continue;
             }
             NotificationPreference preference = preferences

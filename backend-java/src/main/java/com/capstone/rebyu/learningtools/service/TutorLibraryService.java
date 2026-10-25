@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,25 +35,63 @@ public class TutorLibraryService {
     public record Saved(Long id, String title, String route) {}
 
     public static boolean isSaveable(String widgetType) {
-        return List.of("quiz", "flashcards", "mindmap").contains(widgetType);
+        return List.of("quiz", "flashcards", "mindmap", "matching", "ordering", "fill_blank", "true_false",
+                "sorting", "word_game", "puzzle", "visual_game", "speed_flashcards", "branching_story", "simulation", "two_truths_lie").contains(widgetType);
     }
 
     /** Saves one widget; null when it cannot be (no lesson, malformed). */
+    @Transactional
     public Saved save(Long learnerId, Long lessonId, String lessonName, JsonNode widget) {
         if (learnerId == null || lessonId == null || widget == null) return null;
         String lesson = lessonName == null || lessonName.isBlank() ? "this lesson" : lessonName.trim();
         try {
-            return switch (widget.path("type").asText()) {
+            Saved saved = switch (widget.path("type").asText()) {
                 case "quiz" -> saveQuiz(learnerId, lessonId, lesson, widget);
                 case "flashcards" -> saveFlashcards(learnerId, lessonId, lesson, widget);
                 case "mindmap" -> saveMindMap(learnerId, lessonId, lesson, widget);
-                default -> null;
+                default -> isSaveable(widget.path("type").asText()) ? saveActivity(learnerId, lessonId, lesson, widget) : null;
             };
+            if (saved == null) return null;
+            // Keep the original widget, not just its title or a chat link. Both study modes reopen identically.
+            if (!"mindmap".equals(widget.path("type").asText())) {
+                String route = "/learner/activities/" + saved.id();
+                jdbc.update("UPDATE learner_library_items SET resource_url = ?, content = ? WHERE library_item_id = ? AND learner_id = ?",
+                        route, objectMapper.writeValueAsString(widget), saved.id(), learnerId);
+                return new Saved(saved.id(), saved.title(), route);
+            }
+            return saved;
         } catch (Exception e) {
             log.warn("Could not save a tutor {} to learner {}'s Library: {}",
                     widget.path("type").asText(), learnerId, e.toString());
-            return null;
+            throw new IllegalStateException("The activity could not be saved to Library", e);
         }
+    }
+
+    private Saved saveActivity(Long learnerId, Long lessonId, String lesson, JsonNode widget) {
+        Long certificationId = jdbc.query("""
+                SELECT ma.certification_id FROM lessons l
+                JOIN middle_categories mi ON mi.middle_category_id = l.middle_category_id
+                JOIN major_categories ma ON ma.major_category_id = mi.major_category_id
+                WHERE l.lesson_id = ?
+                """, rs -> rs.next() ? (Long) rs.getObject(1) : null, lessonId);
+        var item = learnerToolsService.createLibraryItem(learnerId, new LearnerToolsService.LibraryRequest(
+                "activity", title(widget.path("title").asText(""), widget.path("type").asText().replace('_', ' '), lesson),
+                "Interactive learning activity made by the AI tutor in " + lesson + ".", null, certificationId, lessonId));
+        return new Saved(item.id(), item.title(), item.route());
+    }
+
+    /** Only the owning learner can retrieve playable content, including its answers. */
+    public Map<String, Object> activity(Long learnerId, Long libraryItemId) throws Exception {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT i.title, i.content, i.lesson_id, l.name lesson_title
+                FROM learner_library_items i LEFT JOIN lessons l ON l.lesson_id = i.lesson_id
+                WHERE i.library_item_id = ? AND i.learner_id = ? AND i.item_type IN ('quiz','flashcard','activity')
+                """, libraryItemId, learnerId);
+        if (rows.isEmpty() || rows.get(0).get("content") == null) throw new IllegalArgumentException("Activity not found");
+        Map<String, Object> row = rows.get(0);
+        return Map.of("title", row.get("title"), "lessonId", row.get("lesson_id") == null ? "" : row.get("lesson_id"),
+                "lessonTitle", row.get("lesson_title") == null ? "" : row.get("lesson_title"),
+                "widget", objectMapper.readValue((String) row.get("content"), Map.class));
     }
 
     private Saved saveQuiz(Long learnerId, Long lessonId, String lesson, JsonNode widget) {

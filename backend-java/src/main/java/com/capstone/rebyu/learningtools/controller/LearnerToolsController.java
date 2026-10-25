@@ -39,6 +39,11 @@ public class LearnerToolsController {
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 
+    @GetMapping("/library/activities/{id}")
+    public Map<String, Object> activity(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {
+        return tutorLibrary.activity(me(jwt), id);
+    }
+
     /** A mind map the AI tutor drew and saved to the learner's Library. */
     @GetMapping("/library/mind-maps/{id}")
     public Map<String, Object> mindMap(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {

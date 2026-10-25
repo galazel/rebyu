@@ -209,6 +209,11 @@ export default function LearnerCertificationDetailPage() {
       queryClient.invalidateQueries({
         queryKey: ["learner-enrollments"],
       })
+      // My Learning reads enrolled certifications from the portal query, so
+      // refresh it before navigating there or the new card won't appear.
+      await queryClient.invalidateQueries({
+        queryKey: ["learner-portal-data"],
+      })
 
       toast.success(
           "You are now enrolled. This certification was added to My Learning."

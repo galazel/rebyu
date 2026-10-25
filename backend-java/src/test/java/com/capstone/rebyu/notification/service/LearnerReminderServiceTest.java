@@ -6,6 +6,7 @@ import com.capstone.rebyu.gamification.repository.NotificationPreferenceReposito
 import com.capstone.rebyu.gamification.repository.StreakRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
+import com.capstone.rebyu.user.entity.UserType;
 import com.capstone.rebyu.user.repository.LearnerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class LearnerReminderServiceTest {
 
         learner = Learner.builder()
                 .learnerId(7L)
-                .user(User.builder().userId(11L).build())
+                .user(User.builder().userId(11L).userType(type("LEARNER")).build())
                 .build();
         when(learners.findAll()).thenReturn(List.of(learner));
         when(preferences.findByLearner_LearnerId(7L)).thenReturn(Optional.empty());
@@ -92,6 +93,21 @@ class LearnerReminderServiceTest {
 
         verify(notifications).notifyOnceSince(eq(learner.getUser()),
                 eq(LearnerReminderService.STREAK_TITLE), any(), eq("/learner/learning"), any());
+    }
+
+    @Test
+    void skipsAccountsThatAreNotLearners() {
+        learner.getUser().setUserType(type("ADMIN"));
+
+        service.deliverDueReminders(at("2026-10-18T09:00:00+08:00"));
+
+        verify(notifications, never()).notifyOnceSince(any(), any(), any(), any(), any());
+    }
+
+    private static UserType type(String text) {
+        UserType type = new UserType();
+        type.setUserTypeText(text);
+        return type;
     }
 
     private static ZonedDateTime at(String value) {

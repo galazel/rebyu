@@ -53,7 +53,7 @@ import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
+import { asPdf, cancelTagJob, checkQuestions, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
 import {
     activeJobFor,
     addActiveJob,
@@ -100,7 +100,7 @@ function forDisplay(question) {
     return {
         ...rest,
         figureSrcs: figures.map(srcOf),
-        snapSrcs: snaps.map((canvas) => canvas.toDataURL("image/jpeg", 0.8)),
+        snapSrcs: snaps.map(srcOf),
         options: question.options.map(({ image, ...option }) => ({
             ...option,
             imageSrc: image ? srcOf(image) : null,
@@ -200,6 +200,22 @@ function fingerprint(text) {
     return print
 }
 
+// The AI decides what kind of answer each question needs.
+const TYPE_FROM_AI = { mcq: "MCQ", short_answer: "SHORT_ANSWER", descriptive: "DESCRIPTIVE", programming: "DESCRIPTIVE", diagram: "DESCRIPTIVE" }
+const AI_TYPE_LABEL = { mcq: "Multiple choice", short_answer: "Short answer", descriptive: "Descriptive", programming: "Programming", diagram: "Diagram" }
+
+// Letters for chosen options, model-answer text for written questions.
+function answersOf(read) {
+    if (read.kind === "key") return { ...(read.answerTexts || {}), ...(read.answers || {}) }
+    return Object.fromEntries(
+        (read.questions ?? []).filter((q) => q.answer || q.answerText).map((q) => [q.num, q.answer || q.answerText]),
+    )
+}
+
+function isWritten(question, paper) {
+    return (paper.types[question.num] ?? "MCQ") !== "MCQ" && question.options.length < 2
+}
+
 function unanswered(paper) {
     return paper.questions.filter((question) => !paper.answers[question.num])
 }
@@ -226,6 +242,13 @@ function dropReason(tag) {
     return null
 }
 
+// The AI check disagrees with the keyed answer and the admin has not decided.
+function aiFlag(paper, num) {
+    const check = paper.checks?.[num]
+    if (!check || check.resolved || !check.answer) return null
+    return check.answer !== paper.answers[num] ? check : null
+}
+
 function problemWith(question, paper) {
     const tag = paper.tags[question.num]
     const type = paper.types[question.num] ?? "MCQ"
@@ -234,6 +257,8 @@ function problemWith(question, paper) {
     if (!tag?.lessonId) return "no lesson"
     if (!tag?.difficulty) return "no difficulty"
     if (!answer) return "no correct answer"
+    if (aiFlag(paper, question.num)) return `the AI thinks the answer is ${paper.checks[question.num].answer}, not ${answer} -- confirm one`
+    if (isWritten(question, paper)) return null
     if (question.options.length < 2) return "choices were not read"
     if (!question.options.some((option) => option.key === answer)) {
         return `the answer key says ${answer}, but choice ${answer} was not read -- check the choices against the original`
@@ -260,7 +285,8 @@ function questionText(question, paper) {
     const source = citation
         ? `\n\nSource: ${citation}${adapted.length ? ` -- adapted: ${adapted.join("; ")}.` : ""}`
         : ""
-    return `${question.stem}${source}`
+    const context = question.context ? `${question.context}\n\n` : ""
+    return `${context}${question.stem}${source}`
 }
 
 async function saveOne(question, paper, certificationId, ownerDepartmentId) {
@@ -302,7 +328,7 @@ async function saveOne(question, paper, certificationId, ownerDepartmentId) {
         const correct = question.options.find((option) => option.key === answer)
         await saveTextQuestion({
             questionId: saved.questionId,
-            correctAnswer: correct.text,
+            correctAnswer: correct ? correct.text : answer,
             checkingMethod: type === "SHORT_ANSWER" ? "EXACT_MATCH" : "AI_SEMANTIC",
             ...(type === "SHORT_ANSWER" ? { acceptedVariations: null } : {}),
         })
@@ -354,17 +380,21 @@ const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
             <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 lg:grid-cols-4">
                 {answered(paper).map((question) => {
                     const answer = paper.answers[question.num]
+                    const flagged = aiFlag(paper, question.num)
                     return (
                         <button
                             key={question.num}
                             type="button"
                             onClick={() => onJump(paper.id, question.num)}
-                            className="group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-background text-primary transition hover:-translate-y-0.5 hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            title={`Question ${question.num}: answer ${answer}`}
+                            className={cn(
+                                "group relative flex aspect-square flex-col items-center justify-center rounded-lg border bg-background text-primary transition hover:-translate-y-0.5 hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                flagged && "border-amber-400 bg-amber-50 text-amber-800",
+                            )}
+                            title={flagged ? `Question ${question.num}: key says ${answer}, AI says ${flagged.answer}` : `Question ${question.num}: ${answer}`}
                         >
                             <b className="text-xs leading-none">{question.num}</b>
-                            <span className="mt-1 grid size-4 place-items-center rounded-full bg-emerald-600 text-[9px] font-bold leading-none text-white">
-                                {answer}
+                            <span className={cn("mt-1 grid size-4 place-items-center rounded-full text-[9px] font-bold leading-none text-white", flagged ? "bg-amber-500" : "bg-emerald-600")}>
+                                {answer?.length > 1 ? "✓" : answer}
                             </span>
                         </button>
                     )
@@ -601,7 +631,10 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
         setDraft(null)
     }
     const cardRef = (node) => { cardRefs.current[`${paper.id}-${question.num}`] = node }
-    const [showOriginal, setShowOriginal] = useState(false)
+    const [showOriginal, setShowOriginal] = useState(true)
+    const check = paper.checks?.[question.num]
+    const flagged = aiFlag(paper, question.num)
+    const written = isWritten(question, paper)
     const answer = paper.answers[question.num]
     const tag = paper.tags[question.num]
     const type = paper.types[question.num] ?? "MCQ"
@@ -628,6 +661,25 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                             Page {question.pages.join("–")}
                             {question.figureSrcs.length ? ` · ${question.figureSrcs.length} figure${question.figureSrcs.length > 1 ? "s" : ""}` : ""}
                         </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                            {question.type ? (
+                                <Badge variant="outline" className="gap-1 border-primary/30 text-[10px] text-primary" title="Question type decided by AI from the page">
+                                    <Sparkles className="h-3 w-3" /> AI: {AI_TYPE_LABEL[question.type] ?? question.type}
+                                    {["programming", "diagram"].includes(question.type) ? " (saved as descriptive)" : ""}
+                                </Badge>
+                            ) : null}
+                            {question.parent ? (
+                                <Badge variant="outline" className="text-[10px]">Sub-question of {question.parent}</Badge>
+                            ) : null}
+                            {question.hasImage ? (
+                                <Badge variant="outline" className="border-sky-300 text-[10px] text-sky-700">Needs its image</Badge>
+                            ) : null}
+                            {check && !flagged && check.answer && check.answer === answer ? (
+                                <Badge variant="outline" className="gap-1 border-emerald-300 text-[10px] text-emerald-700">
+                                    <CheckCircle2 className="h-3 w-3" /> AI agrees
+                                </Badge>
+                            ) : null}
+                        </div>
                     </div>
                     {saved ? (
                         <Badge variant="secondary" className="mt-0.5 gap-1">
@@ -664,6 +716,50 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                 </div>
             </div>
 
+            <div className={cn(showOriginal && question.snapSrcs.length && "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-5")}>
+            <div className="min-w-0">
+            {flagged ? (
+                <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p className="flex items-start gap-2">
+                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>
+                            {answer ? (
+                                <>The key says <b>{answer}</b>, but the AI thinks it is <b>{flagged.answer}</b></>
+                            ) : (
+                                <>No answer in the key. The AI suggests <b>{flagged.answer}</b></>
+                            )}
+                            {" "}({flagged.confidence} confidence). {flagged.reason}
+                        </span>
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 pl-6">
+                        <Button type="button" size="xs" onClick={() => actions.acceptAi(paper.id, question.num)}>
+                            Use {flagged.answer}
+                        </Button>
+                        {answer ? (
+                            <Button type="button" size="xs" variant="outline" onClick={() => actions.keepKey(paper.id, question.num)}>
+                                Keep {answer}
+                            </Button>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+            {question.missingImage && !question.figureSrcs.length ? (
+                <p className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                        This question refers to a picture or table that was not cut out. Drag over it on the original page to add it as a figure.
+                    </span>
+                </p>
+            ) : null}
+            {check?.before ? (
+                <div className="mb-3 flex flex-wrap items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 p-2 text-xs text-sky-900">
+                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span className="flex-1">AI fixed the wording: {check.fixes?.length ? check.fixes.join("; ") : "misread text repaired"}.</span>
+                    <Button type="button" size="xs" variant="outline" onClick={() => actions.undoFix(paper.id, question.num)}>
+                        Undo
+                    </Button>
+                </div>
+            ) : null}
             {answer && question.options.length && !question.options.some((option) => option.key === answer) ? (
                 <p className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -748,9 +844,19 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                     </div>
                 </div>
             ) : (
-                <p className="mb-3 max-w-[72ch] whitespace-pre-line font-serif text-[1.05rem] leading-relaxed">
-                    {question.stem}
-                </p>
+                <>
+                    {question.context ? (
+                        <div className="mb-3 max-w-[72ch] rounded-lg border-l-4 border-primary/30 bg-muted/40 px-3 py-2 text-sm leading-relaxed">
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                Shared scenario{question.parent ? ` · question ${question.parent}` : ""}
+                            </p>
+                            <p className="whitespace-pre-line font-serif">{question.context}</p>
+                        </div>
+                    ) : null}
+                    <p className="mb-3 max-w-[72ch] whitespace-pre-line font-serif text-[1.05rem] leading-relaxed">
+                        {question.stem}
+                    </p>
+                </>
             )}
 
             {question.figureSrcs.map((src, index) => (
@@ -805,6 +911,18 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                         {type === "SHORT_ANSWER" ? "Learner types a short answer" : "Learner writes an answer"}
                     </p>
                     <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">Their answer…</div>
+                    {written ? (
+                        <label className="mt-2 block text-sm">
+                            {type === "SHORT_ANSWER" ? "Marked correct when it matches:" : "Model answer (AI marks against it):"}
+                            <Textarea
+                                value={answer ?? ""}
+                                rows={type === "SHORT_ANSWER" ? 1 : 4}
+                                placeholder={type === "SHORT_ANSWER" ? "The expected answer" : "The model answer from the key"}
+                                onChange={(event) => actions.answerText(paper.id, question.num, event.target.value)}
+                                className="mt-1 bg-background"
+                            />
+                        </label>
+                    ) : (
                     <p className="mt-2 text-sm">
                         {type === "SHORT_ANSWER" ? "Marked correct when it matches: " : "Marked by AI against: "}
                         {(() => {
@@ -814,6 +932,7 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                             return <strong>{correct.text}</strong>
                         })()}
                     </p>
+                    )}
                 </div>
             ) : null}
             {type !== "MCQ" && question.options.length ? (
@@ -825,7 +944,9 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
             <ul
                 className={cn(
                     "mt-3 gap-2",
-                    pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid",
+                    pictures || question.options.every((option) => (option.text || "").length <= 40)
+                        ? "grid grid-cols-1 sm:grid-cols-2"
+                        : "grid",
                     type !== "MCQ" && "mt-1 text-sm opacity-80",
                     draft && "hidden",
                 )}
@@ -893,8 +1014,10 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                 <p className="mt-2 text-sm text-amber-700">The choices could not be read. Check the original.</p>
             ) : null}
 
-            {showOriginal ? (
-                <div className="mt-4 border-t border-dashed pt-3">
+            </div>
+            {showOriginal && question.snapSrcs.length ? (
+                <aside className="mt-4 max-h-[80vh] self-start overflow-auto rounded-xl border bg-muted/20 p-2 lg:sticky lg:top-4 lg:mt-0">
+                    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Original page</p>
                     {question.snapSrcs.map((src, index) => (
                         <CropableImage
                             key={index}
@@ -911,8 +1034,9 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                             }}
                         />
                     ))}
-                </div>
+                </aside>
             ) : null}
+            </div>
 
             {tagged ? (
                 <div className="mt-4 grid gap-3 rounded-xl border bg-muted/30 p-3 sm:grid-cols-[auto_1fr_10rem] sm:items-end">
@@ -1086,13 +1210,65 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
         }))
     }
 
+    // Second AI pass: judge every answer and repair misread wording. Repairs are
+    // applied with the original kept for undo; disagreements block saving
+    // until the admin picks an answer.
+    async function runAiCheck(paperId) {
+        const paper = latest.current.papers.find((p) => p.id === paperId)
+        if (!paper?.questions.length) return
+        updatePaper(paperId, () => ({ checking: true }))
+        try {
+            const payload = paper.questions
+                .filter((q) => q.options.length >= 2)
+                .map((q) => ({
+                    id: String(q.num),
+                    stem: q.stem,
+                    context: q.context || null,
+                    options: q.options.map((o) => ({ key: o.key, text: o.text || "" })),
+                    answer: paper.answers[q.num] || null,
+                }))
+            const { results = [], failedBatches = 0 } = await checkQuestions(payload)
+            const byNum = new Map(results.map((r) => [r.id, r]))
+            updatePaper(paperId, (p) => {
+                const checks = { ...(p.checks || {}) }
+                const questions = p.questions.map((q) => {
+                    const r = byNum.get(String(q.num))
+                    if (!r) return q
+                    const fixed = Boolean(r.stem || Object.keys(r.options || {}).length)
+                    checks[q.num] = {
+                        answer: r.answer,
+                        confidence: r.confidence,
+                        reason: r.reason,
+                        fixes: fixed ? r.fixes : [],
+                        before: fixed ? { stem: q.stem, texts: Object.fromEntries(q.options.map((o) => [o.key, o.text])) } : null,
+                        resolved: false,
+                    }
+                    if (!fixed) return q
+                    return {
+                        ...q,
+                        stem: r.stem || q.stem,
+                        options: q.options.map((o) => (r.options?.[o.key] ? { ...o, text: r.options[o.key] } : o)),
+                    }
+                })
+                return { questions, checks, checking: false }
+            })
+            const flagged = results.filter((r) => r.answer && r.answer !== paper.answers[r.id]).length
+            const fixed = results.filter((r) => r.stem || Object.keys(r.options || {}).length).length
+            setNotice({
+                kind: flagged || failedBatches ? "warn" : "ok",
+                text: `${paper.name}: AI checked ${results.length} questions -- ${flagged} answer${flagged === 1 ? "" : "s"} to confirm, ${fixed} wording fix${fixed === 1 ? "" : "es"} applied (each can be undone).${failedBatches ? ` ${failedBatches} batch(es) could not be checked; run the check again.` : ""}`,
+            })
+        } catch (error) {
+            updatePaper(paperId, () => ({ checking: false }))
+            setNotice({ kind: "warn", text: `${paper.name}: the AI answer check failed (${error?.response?.data?.message || error?.message || error}). Run it again with "Check with AI".` })
+        }
+    }
+
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30, stage: "pages", startedAt: Date.now() })
         try {
             const read = await readExamPdf(await asPdf(file), null, readDocumentLayout, readDocumentPage)
-            const answers = read.kind === "key"
-                ? read.answers
-                : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
+            const answers = answersOf(read)
             if (!Object.keys(answers).length) {
                 setNotice({ kind: "error", text: `No answers could be read from ${file.name}. Is it the answer key? You can also paste the key instead.` })
                 return
@@ -1105,6 +1281,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 key,
             ])
             updatePaper(target.id, () => ({ answers: { ...result.answers }, keyName: result.name }))
+            runAiCheck(target.id)
 
             const fits = target.questions.filter((q) => result.answers[q.num]).length
             const warnings = []
@@ -1168,7 +1345,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 continue
             }
 
-            let answers = Object.fromEntries(result.questions.filter((q) => q.answer).map((q) => [q.num, q.answer]))
+            let answers = answersOf(result)
             let keyName = null
             let keyEntry = null
             const fileId = `${pair.paper.name}:${pair.paper.size}`
@@ -1177,9 +1354,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90, stage: "pages", startedAt })
                 try {
                     const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentLayout, readDocumentPage)
-                    const keyAnswers = key.kind === "key"
-                        ? key.answers
-                        : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
+                    const keyAnswers = answersOf(key)
                     if (!Object.keys(keyAnswers).length) throw new Error("no answers could be read from it")
                     answers = { ...answers, ...keyAnswers }
                     keyName = pair.key.name
@@ -1200,7 +1375,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             const displayed = result.questions.map(forDisplay)
             for (const question of displayed) {
                 const ans = answers[question.num]
-                if (question.options.length < 2 && ans) {
+                if (question.options.length < 2 && ans && (question.type ?? "mcq") === "mcq" && /^[a-z0-9]$/i.test(ans)) {
                     const isNum = /^\d$/.test(ans)
                     let keys
                     if (isNum) {
@@ -1230,7 +1405,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 answers,
                 keyName,
                 tags: {},
-                types: {},
+                types: Object.fromEntries(displayed.map((q) => [q.num, TYPE_FROM_AI[q.type] ?? "MCQ"])),
                 include: {},
                 saved: {},
                 duplicates: {},
@@ -1241,6 +1416,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             }
             setPapers(latest.current.papers)
             setKeys(latest.current.keys)
+            runAiCheck(id)
 
             const questions = result.questions
             const check = (attempt = 0) =>
@@ -1447,7 +1623,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     }
 
     const handlers = useRef(null)
-    handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm, setCurrentPaperId }
+    handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm, setCurrentPaperId, runAiCheck }
     const cardActions = useMemo(
         () => ({
             pick: (paperId, num, key) => handlers.current.updatePaper(paperId, (p) => ({ answers: { ...p.answers, [num]: key } })),
@@ -1460,6 +1636,28 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                 handlers.current.updateQuestion(paperId, num, (q) => ({
                     options: q.options.map((o) => (o.key === key ? { ...o, imageSrc: canvas ? srcOf(canvas) : null } : o)),
                 })),
+            answerText: (paperId, num, text) =>
+                handlers.current.updatePaper(paperId, (p) => ({ answers: { ...p.answers, [num]: text } })),
+            acceptAi: (paperId, num) =>
+                handlers.current.updatePaper(paperId, (p) => ({
+                    answers: { ...p.answers, [num]: p.checks[num].answer },
+                    checks: { ...p.checks, [num]: { ...p.checks[num], resolved: true } },
+                })),
+            keepKey: (paperId, num) =>
+                handlers.current.updatePaper(paperId, (p) => ({ checks: { ...p.checks, [num]: { ...p.checks[num], resolved: true } } })),
+            undoFix: (paperId, num) =>
+                handlers.current.updatePaper(paperId, (p) => {
+                    const before = p.checks?.[num]?.before
+                    if (!before) return {}
+                    return {
+                        questions: p.questions.map((q) =>
+                            q.num === num
+                                ? { ...q, stem: before.stem, options: q.options.map((o) => (o.key in before.texts ? { ...o, text: before.texts[o.key] } : o)) }
+                                : q,
+                        ),
+                        checks: { ...p.checks, [num]: { ...p.checks[num], before: null, fixes: [] } },
+                    }
+                }),
             imageError: (error) => handlers.current.setNotice({ kind: "error", text: error?.message || "That image could not be used." }),
             remove: (paperId, num) => handlers.current.deleteQuestions(paperId, [num]),
             edit: (paperId, num, stem, texts) =>
@@ -1565,10 +1763,12 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     const currentPaper = papers.find((p) => p.id === currentPaperId) ?? papers[0] ?? null
     const currentIndex = currentPaper ? papers.indexOf(currentPaper) : -1
     const searching = term.trim() !== ""
+    const flaggedCount = papers.reduce((sum, p) => sum + p.questions.filter((q) => aiFlag(p, q.num)).length, 0)
+    const checkingAny = papers.some((p) => p.checking)
     const missingTagCount = papers.reduce((sum, p) => sum + answered(p).filter((q) => needsTag(p, q)).length, 0)
 
     return (
-        <div className="flex h-dvh w-full flex-col overflow-hidden bg-gradient-to-b from-primary/[0.035] via-muted/20 to-muted/30">
+        <div className="flex h-full w-full flex-col overflow-hidden bg-gradient-to-b from-primary/[0.035] via-muted/20 to-muted/30">
             <header className="flex shrink-0 items-center gap-3 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
                 <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-bold text-primary">QB</div>
                 <div className="min-w-0 flex-1">
@@ -1609,7 +1809,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                     </section>
                 ) : (
                     <div className="mx-auto grid w-full max-w-[1800px] gap-5 px-4 py-5 xl:grid-cols-[18rem_minmax(0,1fr)] xl:px-6">
-                        <aside className="hidden max-h-[calc(100dvh-6.75rem)] self-start overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-sm xl:sticky xl:top-0 xl:block">
+                        <aside className="hidden max-h-[calc(100dvh-10.75rem)] self-start overflow-y-auto rounded-2xl border border-border/80 bg-background p-4 shadow-sm xl:sticky xl:top-0 xl:block">
                             <div className="mb-4 border-b border-border pb-3">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Navigate the import</p>
                                 <h2 className="mt-1 text-base font-bold">Answer map</h2>
@@ -1621,7 +1821,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">answered</p>
                                 </div>
                                 <div className="border-l border-border">
-                                    <p className="text-lg font-bold text-foreground">{totalQuestions - answeredCount}</p>
+                                    <p className="text-lg font-bold text-foreground">{totalQuestions - answeredCount + flaggedCount}</p>
                                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">to check</p>
                                 </div>
                             </div>
@@ -1656,6 +1856,17 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                         <AlertTriangle className="mr-2 h-4 w-4" /> {duplicateList.length} duplicate{duplicateList.length === 1 ? "" : "s"}
                                     </Button>
                                 ) : null}
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={checkingAny || busy}
+                                    title="AI re-checks every answer and repairs misread wording"
+                                    onClick={() => latest.current.papers.forEach((p) => runAiCheck(p.id))}
+                                >
+                                    {checkingAny ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                    {checkingAny ? "AI is checking answers…" : flaggedCount ? `Check with AI · ${flaggedCount} to confirm` : "Check with AI"}
+                                </Button>
                                 <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={() => tagWithAi(false)}>
                                     {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                     {tagging

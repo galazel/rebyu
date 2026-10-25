@@ -10,46 +10,42 @@ import "katex/dist/katex.min.css"
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
 import { registerCodeLanguages } from "@/components/certifications/code-languages.js"
 import { MindMap } from "@/components/learner/tutor-mindmap.jsx"
+import { TutorStudyWidget } from "@/components/learner/tutor-study-widget.jsx"
+import { SortingGame, WordGame, PuzzleGame, VisualGame, SpeedFlashcardsGame } from "@/components/learner/learning-game-widgets.jsx"
+import { BranchingStoryGame, SimulationGame, TwoTruthsLieGame } from "@/components/learner/decision-game-widgets.jsx"
 import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
 import { widgetProgressKey } from "@/lib/tutor-widget-progress.js"
+import { categoryClass, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
 import {
   ArrowDown,
   ArrowUp,
   BarChart3,
   BookOpen,
-  Brain,
   Building,
   Check,
   CheckCircle2,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Code2,
   Copy,
-  Eye,
-  FlipHorizontal,
   Home,
-  ListOrdered,
   Lock,
   Network,
-  RotateCcw,
   ServerCog,
   Sparkles,
-  Type,
   UploadCloud,
   User,
   XCircle,
   Zap,
 } from "@/components/icons"
+import { Ico, Stars } from "@/components/learner/tutor-game-kit.jsx"
 
 registerCodeLanguages(SyntaxHighlighter)
 
 const TONES = [
   { wash: "bg-sky-50", text: "text-sky-700", ring: "border-sky-200", dot: "bg-sky-500" },
-  { wash: "bg-emerald-50", text: "text-emerald-700", ring: "border-emerald-200", dot: "bg-emerald-500" },
+  { wash: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700", ring: "border-emerald-200", dot: "bg-emerald-500" },
   { wash: "bg-amber-50", text: "text-amber-700", ring: "border-amber-200", dot: "bg-amber-500" },
   { wash: "bg-violet-50", text: "text-violet-700", ring: "border-violet-200", dot: "bg-violet-500" },
-  { wash: "bg-rose-50", text: "text-rose-700", ring: "border-rose-200", dot: "bg-rose-500" },
+  { wash: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-700", ring: "border-rose-200", dot: "bg-rose-500" },
   { wash: "bg-teal-50", text: "text-teal-700", ring: "border-teal-200", dot: "bg-teal-500" },
   { wash: "bg-orange-50", text: "text-orange-700", ring: "border-orange-200", dot: "bg-orange-500" },
 ]
@@ -70,7 +66,7 @@ function shuffled(items) {
 
 function Md({ children, className = "" }) {
   return (
-      <div className={`text-sm leading-6 [&_p]:my-1 [&_strong]:font-extrabold [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-2 [&_td]:border-b [&_td]:border-rb-swan [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_code]:rounded [&_code]:bg-rb-polar [&_code]:px-1 ${className}`}>
+      <div className={`text-sm leading-6 [&_p]:my-1 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_table]:my-2 [&_td]:border-b [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 ${className}`}>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{children ?? ""}</ReactMarkdown>
       </div>
   )
@@ -81,23 +77,28 @@ function Md({ children, className = "" }) {
 function SavedChip({ library }) {
   return (
       <Link to={library?.route ?? "/learner/library"}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700 hover:bg-emerald-100">
-        <BookOpen className="size-3" /> {library?.route ? "Saved · Open" : "In your Library"}
+            className="tg-pill inline-flex shrink-0 items-center gap-1 !text-[11px] hover:underline">
+        <BookOpen className="size-3" /> {library?.route ? "Saved · Open" : "Open Library"}
       </Link>
   )
 }
 
-function Frame({ kind, title, badge, children, icon: Icon = Sparkles, saved }) {
+function Frame({ kind, type, title, badge, children, saved }) {
+  const counts = typeof badge === "string" && /^(\d+)\/(\d+)$/.exec(badge)
+  const progress = counts && Number(counts[2]) ? Number(counts[1]) / Number(counts[2]) : null
   return (
-      <section className="my-3 w-full overflow-hidden rounded-2xl border-2 border-rb-swan bg-white">
-        <header className="flex items-center gap-2 border-b-2 border-rb-swan bg-rb-polar/60 px-4 py-2.5">
-          <Icon className="size-4 text-rb-feather" />
-          <span className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-lip">{kind}</span>
-          {title ? <span className="min-w-0 truncate text-sm font-extrabold text-rb-eel">· {title}</span> : null}
+      <section className={`tg-frame my-3 w-full ${categoryClass(type)}`} data-tutor-widget={type}>
+        <header className="tg-head flex flex-wrap items-center gap-3 px-4 py-3">
+          <span className="tg-badge-icon"><GameIcon type={type} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="tg-kicker block">{kind}</span>
+            {title ? <span className="block truncate text-sm font-extrabold text-foreground">{title}</span> : null}
+          </span>
           <span className="ml-auto flex shrink-0 items-center gap-2">
-            {badge ? <span className="text-xs font-bold text-rb-hare">{badge}</span> : null}
+            {badge ? <span className="tg-pill">{badge}</span> : null}
             {saved ? <SavedChip library={saved.library} /> : null}
           </span>
+          {progress != null ? <span className="tg-progress"><span style={{ width: `${progress * 100}%` }} /></span> : null}
         </header>
         <div className="p-4">{children}</div>
       </section>
@@ -106,201 +107,161 @@ function Frame({ kind, title, badge, children, icon: Icon = Sparkles, saved }) {
 
 function Feedback({ ok, children }) {
   return (
-      <div className={`mt-2 flex gap-2 rounded-xl px-3 py-2 text-sm ${ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}>
+      <div className={`mt-2 flex gap-2 rounded-xl px-3 py-2 text-sm ${ok ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200" : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200"}`}>
         {ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
         <div className="min-w-0"><strong>{ok ? "Correct!" : "Not quite."}</strong> {children}</div>
       </div>
   )
 }
 
-function SmallButton({ children, onClick, primary, disabled }) {
-  return (
-      <button
-          type="button"
-          onClick={onClick}
-          disabled={disabled}
-          className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-extrabold transition disabled:opacity-40 ${
-              primary ? "bg-rb-feather text-white hover:brightness-110" : "border-2 border-rb-swan bg-white text-rb-eel hover:bg-rb-polar"
-          }`}
-      >
-        {children}
-      </button>
-  )
-}
-
 function Score({ right, total, onReset }) {
   const pct = total ? right / total : 0
   const line = pct === 1 ? "Perfect -- you've got this!" : pct >= 0.7 ? "Good job!" : pct >= 0.4 ? "Getting there -- review the misses." : "Let's go over this again."
+  const stars = pct === 1 ? 3 : pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0
   return (
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-rb-polar px-4 py-3">
-        <div>
-          <p className="text-2xl font-extrabold text-rb-eel">{right}/{total}</p>
-          <p className="text-sm font-bold text-rb-hare">{line}</p>
+      <div role="status" className="tg-result mt-4 flex animate-in fade-in zoom-in-95 items-center justify-between gap-3 px-4 py-3 duration-300">
+        <div className="flex items-center gap-3">
+          <span className="tg-confetti text-4xl text-[var(--tg)]" aria-hidden="true"><Ico name={pct === 1 ? "trophy" : pct >= 0.7 ? "medal" : pct >= 0.4 ? "strong" : "book"} /></span>
+          <div>
+            <p className="flex items-baseline gap-2 text-2xl font-semibold tabular-nums text-foreground">{right}/{total}
+              <span className="text-lg tracking-tight text-amber-400" aria-label={`${stars} of 3 stars`}><Stars count={stars} /></span>
+            </p>
+            <p className="text-sm font-medium text-muted-foreground">{line}</p>
+          </div>
         </div>
-        <SmallButton onClick={onReset}><RotateCcw className="size-3.5" /> Try again</SmallButton>
+        <IconButton icon="restart" label="Try again" onClick={onReset} />
       </div>
   )
 }
 
 /* ---------- practice ---------- */
 
-function QuizWidget({ data }) {
-  const [answers, setAnswers] = useTutorWidgetProgress("answers", {})
-  const [hint, setHint] = useTutorWidgetProgress("hint", false)
-  const total = data.questions.length
-  const answered = Object.keys(answers).length
-  const right = data.questions.filter((q, i) => answers[i] === q.correctIndex).length
-  return (
-      <Frame kind="Practice quiz" title={data.title} badge={`${answered}/${total} answered`} icon={Brain} saved={data}>
-        <div className="mb-4 flex gap-1">
-          {data.questions.map((q, i) => (
-              <span key={i} className={`h-1.5 flex-1 rounded-full ${
-                  answers[i] == null ? "bg-rb-swan" : answers[i] === q.correctIndex ? "bg-emerald-500" : "bg-rose-400"}`} />
-          ))}
-        </div>
-        <ol className="space-y-5">
-          {data.questions.map((q, i) => {
-            const picked = answers[i]
-            const inline = q.options.every((o) => o.length <= 4)
-            return (
-                <li key={i} className="border-b border-rb-swan pb-4 last:border-0 last:pb-0">
-                  <p className="mb-2 text-sm font-extrabold text-rb-eel">{i + 1}. {q.question}</p>
-                  <div className={inline ? "flex flex-wrap gap-2" : "space-y-1.5"}>
-                    {q.options.map((option, o) => {
-                      const state = picked == null ? "" : o === q.correctIndex ? "right" : o === picked ? "wrong" : "dim"
-                      return (
-                          <button
-                              key={o}
-                              type="button"
-                              disabled={picked != null}
-                              onClick={() => setAnswers((a) => ({ ...a, [i]: o }))}
-                              className={`flex items-center gap-2.5 rounded-xl border-2 px-3 py-2 text-left text-sm font-semibold transition ${inline ? "" : "w-full"} ${
-                                  state === "right" ? "border-emerald-400 bg-emerald-50 text-emerald-900"
-                                      : state === "wrong" ? "border-rose-300 bg-rose-50 text-rose-900"
-                                          : state === "dim" ? "border-rb-swan text-rb-hare"
-                                              : "border-rb-swan text-rb-eel hover:border-rb-feather hover:bg-rb-polar"}`}
-                          >
-                            <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-[10px] ${
-                                state === "right" ? "border-emerald-500 bg-emerald-500 text-white" : state === "wrong" ? "border-rose-400 bg-rose-400 text-white" : "border-rb-swan"}`}>
-                              {state === "right" ? <Check className="size-3" /> : state === "wrong" ? "✕" : String.fromCharCode(65 + o)}
-                            </span>
-                            {option}
-                          </button>
-                      )
-                    })}
-                  </div>
-                  {picked != null ? (
-                      <Feedback ok={picked === q.correctIndex}>
-                        {picked !== q.correctIndex ? <>Answer: <strong>{q.options[q.correctIndex]}</strong>. </> : null}
-                        {q.explanation}
-                      </Feedback>
-                  ) : null}
-                </li>
-            )
-          })}
-        </ol>
-        {data.hint ? (
-            <div className="mt-4 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/60">
-              <button type="button" onClick={() => setHint((h) => !h)} className="flex w-full items-center gap-2 px-3 py-2 text-sm font-extrabold text-amber-800">
-                <Zap className="size-4" /> {hint ? "Hide hint" : "Show hint"}
-                <ChevronDown className={`ml-auto size-4 transition ${hint ? "rotate-180" : ""}`} />
-              </button>
-              {hint ? <Md className="px-3 pb-3 text-amber-900">{data.hint}</Md> : null}
-            </div>
-        ) : null}
-        {answered === total ? <Score right={right} total={total} onReset={() => setAnswers({})} /> : null}
-      </Frame>
-  )
-}
 
-function FlashcardsWidget({ data }) {
-  const [index, setIndex] = useTutorWidgetProgress("index", 0)
-  const [flipped, setFlipped] = useTutorWidgetProgress("flipped", false)
-  const [known, setKnown] = useTutorWidgetProgress("known", {})
-  const card = data.cards[index]
-  const go = (next) => { setFlipped(false); setIndex((next + data.cards.length) % data.cards.length) }
-  const mark = (value) => { setKnown((k) => ({ ...k, [index]: value })); go(index + 1) }
-  const knownCount = Object.values(known).filter(Boolean).length
-  return (
-      <Frame kind="Flashcards" title={data.title} badge={`${index + 1}/${data.cards.length} · ${knownCount} known`} icon={FlipHorizontal} saved={data}>
-        <button
-            type="button"
-            onClick={() => setFlipped((f) => !f)}
-            className="group relative h-44 w-full [perspective:1000px]"
-            aria-label={flipped ? "Show the front" : "Flip to see the answer"}
-        >
-          <div className={`relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? "[transform:rotateY(180deg)]" : ""}`}>
-            <div className="absolute inset-0 grid place-items-center rounded-2xl border-2 border-rb-swan bg-gradient-to-br from-white to-rb-polar p-5 [backface-visibility:hidden]">
-              <p className="text-lg font-extrabold text-rb-eel">{card.front}</p>
-              <span className="absolute bottom-2 text-[11px] font-bold text-rb-hare">tap to flip</span>
-            </div>
-            <div className="absolute inset-0 grid place-items-center overflow-auto rounded-2xl border-2 border-rb-feather bg-rb-feather/5 p-5 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-              <p className="text-sm font-semibold leading-6 text-rb-eel">{card.back}</p>
-            </div>
-          </div>
-        </button>
-        <div className="mt-3 flex items-center gap-2">
-          <SmallButton onClick={() => go(index - 1)}><ChevronLeft className="size-4" /></SmallButton>
-          <div className="flex flex-1 justify-center gap-2">
-            <SmallButton onClick={() => mark(false)}>Still learning</SmallButton>
-            <SmallButton primary onClick={() => mark(true)}><Check className="size-3.5" /> Got it</SmallButton>
-          </div>
-          <SmallButton onClick={() => go(index + 1)}><ChevronRight className="size-4" /></SmallButton>
-        </div>
-      </Frame>
-  )
-}
+const PAIR_COLORS = ["#2f7ee0", "#d6436b", "#d98a00", "#7c4ddb", "#1f9d74", "#e25c1c", "#0e9bb3", "#b5459b", "#5d7a1f", "#4b5bd6"]
 
+/** "Match the letters" worksheet: drag (or tap) from a term's dot to a definition's dot. */
 function MatchingWidget({ data }) {
   const [matches, setMatches] = useTutorWidgetProgress("matches", () => shuffled(data.pairs.map((p) => p.match)))
-  const [picked, setPicked] = useState(null)
-  const [done, setDone] = useTutorWidgetProgress("done", {})
-  const [miss, setMiss] = useState(null)
-  const [mistakes, setMistakes] = useTutorWidgetProgress("mistakes", 0)
-  const choose = (match) => {
-    if (picked == null || Object.values(done).includes(match)) return
-    if (data.pairs[picked].match === match) {
-      setDone((d) => ({ ...d, [picked]: match }))
-      setPicked(null)
-    } else {
-      setMistakes((m) => m + 1)
-      setMiss(match)
-      setTimeout(() => setMiss(null), 600)
-    }
+  const [links, setLinks] = useTutorWidgetProgress("links", {})
+  const [checked, setChecked] = useTutorWidgetProgress("linksChecked", false)
+  const [from, setFrom] = useState(null)
+  const [pointer, setPointer] = useState(null)
+  const [dots, setDots] = useState({ left: [], right: [], w: 0, h: 0 })
+  const box = useRef(null)
+  const measure = () => {
+    const root = box.current
+    if (!root) return
+    const r = root.getBoundingClientRect()
+    const at = (side) => [...root.querySelectorAll(`[data-dot="${side}"]`)].map((el) => { const d = el.getBoundingClientRect(); return { x: d.left + d.width / 2 - r.left, y: d.top + d.height / 2 - r.top } })
+    setDots({ left: at("left"), right: at("right"), w: r.width, h: r.height })
   }
-  const finished = Object.keys(done).length === data.pairs.length
+  useEffect(() => {
+    measure()
+    const observer = new ResizeObserver(measure)
+    if (box.current) observer.observe(box.current)
+    return () => observer.disconnect()
+  }, [matches, data.pairs.length])
+  const link = (term, match) => {
+    setLinks((current) => {
+      const next = Object.fromEntries(Object.entries(current).filter(([, m]) => m !== match))
+      next[term] = match
+      return next
+    })
+    setChecked(false)
+    setFrom(null)
+  }
+  const unlink = (term) => { setLinks((current) => { const next = { ...current }; delete next[term]; return next }); setChecked(false) }
+  const local = (event) => { const r = box.current.getBoundingClientRect(); return { x: event.clientX - r.left, y: event.clientY - r.top } }
+  const dragged = useRef(false)
+  const startDrag = (event, i) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    const start = { x: event.clientX, y: event.clientY }
+    dragged.current = false
+    const move = (e) => {
+      if (!dragged.current && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return
+      dragged.current = true
+      setFrom(i)
+      setPointer(local(e))
+    }
+    const up = (e) => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      if (!dragged.current) return
+      setPointer(null)
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-match-index]")
+      if (target && box.current?.contains(target)) link(i, matches[Number(target.dataset.matchIndex)])
+      else setFrom(null)
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+  }
+  const isRight = (i) => links[i] === data.pairs[i].match
+  const linkedCount = Object.keys(links).length
+  const right = data.pairs.filter((_, i) => isRight(i)).length
+  const colorOf = (i) => PAIR_COLORS[i % PAIR_COLORS.length]
+  const curve = (a, b) => { const mid = (a.x + b.x) / 2; return `M${a.x} ${a.y} C${mid} ${a.y} ${mid} ${b.y} ${b.x} ${b.y}` }
+  const termOf = (match) => Object.keys(links).find((t) => links[t] === match)
+  const badge = "relative flex min-h-12 w-full items-center gap-2.5 rounded-full border-2 bg-card py-1.5 text-left text-sm font-bold shadow-[0_3px_0_var(--tg-line)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)]"
+  const dot = "absolute top-1/2 size-4 -translate-y-1/2 rounded-full border-[3px] border-card shadow ring-2"
   return (
-      <Frame kind="Match the pairs" title={data.title} badge={`${Object.keys(done).length}/${data.pairs.length}`} icon={Network}>
-        <p className="mb-3 text-xs font-bold text-rb-hare">Pick a term, then its match.</p>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-2">
-            {data.pairs.map((p, i) => (
-                <button key={i} type="button" disabled={done[i] != null} onClick={() => setPicked(i)}
-                        className={`w-full rounded-xl border-2 px-3 py-2 text-left text-sm font-bold transition ${
-                            done[i] != null ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                                : picked === i ? "border-rb-feather bg-rb-feather/10 text-rb-eel" : "border-rb-swan text-rb-eel hover:bg-rb-polar"}`}>
-                  {p.term}
-                </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            {matches.map((m) => {
-              const used = Object.values(done).includes(m)
+      <Frame kind="Match the pairs" type="matching" title={data.title} badge={`${linkedCount}/${data.pairs.length}`} saved={data}>
+        <p className="mb-4 text-xs font-bold text-muted-foreground">Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</p>
+        <div ref={box} className="relative grid grid-cols-2 gap-x-10 gap-y-3 sm:gap-x-20" >
+          <svg className="pointer-events-none absolute inset-0 z-10 overflow-visible" width={dots.w} height={dots.h} aria-hidden="true">
+            {Object.entries(links).map(([t, m]) => {
+              const a = dots.left[t], b = dots.right[matches.indexOf(m)]
+              if (!a || !b) return null
+              const stroke = checked ? (isRight(t) ? "#22a565" : "#e0475f") : colorOf(Number(t))
+              return <path key={t} d={curve(a, b)} fill="none" stroke={stroke} strokeWidth="3.5" strokeLinecap="round" className="animate-in fade-in duration-300" />
+            })}
+            {from != null && pointer && dots.left[from] ? <path d={curve(dots.left[from], pointer)} fill="none" stroke={colorOf(from)} strokeWidth="3" strokeDasharray="7 6" strokeLinecap="round" /> : null}
+          </svg>
+          <ol className="contents">
+            {data.pairs.map((p, i) => {
+              const linked = links[i] != null
+              const state = checked && linked ? (isRight(i) ? "!border-emerald-500" : "!border-rose-500 animate-[shake_0.3s_ease-in-out]") : ""
               return (
-                  <button key={m} type="button" disabled={used} onClick={() => choose(m)}
-                          className={`w-full rounded-xl border-2 px-3 py-2 text-left text-sm font-semibold transition ${
-                              used ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                                  : miss === m ? "animate-pulse border-rose-300 bg-rose-50 text-rose-800" : "border-rb-swan text-rb-eel hover:bg-rb-polar"}`}>
-                    {m}
-                  </button>
+                  <li key={i} className="col-start-1" style={{ gridRow: i + 1 }}>
+                    <button type="button" aria-pressed={from === i} aria-label={`${p.term}${linked ? `, linked to ${links[i]}` : ""}`}
+                            onClick={() => { if (dragged.current) { dragged.current = false; return } if (from === i) setFrom(null); else if (linked && from == null) unlink(i); else setFrom(i) }}
+                            onPointerDown={(e) => startDrag(e, i)}
+                            className={`${badge} touch-none pl-1.5 pr-6 ${state}`}
+                            style={{ borderColor: from === i || linked ? colorOf(i) : "var(--tg-line)", background: from === i ? `color-mix(in oklab, ${colorOf(i)} 14%, var(--card))` : undefined }}>
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full text-xs font-black text-white" style={{ background: colorOf(i) }}>{String.fromCharCode(65 + (i % 26))}</span>
+                      <span className="min-w-0 flex-1">{p.term}</span>
+                      <span data-dot="left" className={`${dot} -right-2`} style={{ background: colorOf(i), "--tw-ring-color": colorOf(i) }} />
+                    </button>
+                  </li>
               )
             })}
-          </div>
+          </ol>
+          <ul className="contents">
+            {matches.map((m, j) => {
+              const t = termOf(m)
+              const c = t != null ? colorOf(Number(t)) : null
+              const state = checked && t != null ? (isRight(t) ? "!border-emerald-500" : "!border-rose-500") : ""
+              return (
+                  <li key={m} className="col-start-2" style={{ gridRow: j + 1 }}>
+                    <button type="button" data-match-index={j} disabled={from == null && t == null}
+                            aria-label={`${m}${t != null ? `, linked to ${data.pairs[t].term}` : ""}`}
+                            onClick={() => from != null && link(from, m)}
+                            className={`${badge} pl-6 pr-3 !font-semibold disabled:opacity-100 ${from != null ? "cursor-pointer hover:-translate-y-0.5 hover:border-[var(--tg)]" : ""} ${state}`}
+                            style={{ borderColor: c ?? "var(--tg-line)", background: c ? `color-mix(in oklab, ${c} 10%, var(--card))` : undefined }}>
+                      <span data-dot="right" className={`${dot} -left-2`} style={{ background: c ?? "var(--card)", "--tw-ring-color": c ?? "var(--tg-line)" }} />
+                      <span className="min-w-0 flex-1">{m}</span>
+                      {checked && t != null ? (isRight(t) ? <CheckCircle2 className="size-4 shrink-0 text-emerald-600" /> : <XCircle className="size-4 shrink-0 text-rose-600" />) : null}
+                    </button>
+                  </li>
+              )
+            })}
+          </ul>
         </div>
-        {finished ? (
-            <Score right={data.pairs.length} total={data.pairs.length + mistakes}
-                   onReset={() => { setDone({}); setPicked(null); setMistakes(0); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
-        ) : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <IconButton icon="check" primary label="Check matches" disabled={!linkedCount} onClick={() => setChecked(true)} />
+          <IconButton icon="restart" label="Reset" onClick={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
+        </div>
+        {checked && right < data.pairs.length ? <Feedback ok={false}>{right} of {data.pairs.length} lines are right -- re-draw the red ones.</Feedback> : null}
+        {checked && right === data.pairs.length ? <Score right={right} total={data.pairs.length} onReset={() => { setLinks({}); setChecked(false); setMatches(shuffled(data.pairs.map((p) => p.match))) }} /> : null}
       </Frame>
   )
 }
@@ -313,35 +274,42 @@ function OrderingWidget({ data }) {
   }
   const [order, setOrder] = useTutorWidgetProgress("order", fresh)
   const [checked, setChecked] = useTutorWidgetProgress("checked", false)
-  const move = (i, delta) => {
-    const j = i + delta
-    if (j < 0 || j >= order.length) return
+  const reorder = (from, to) => {
+    if (from === to || from < 0 || to < 0 || to >= order.length) return
     const next = [...order]
-    ;[next[i], next[j]] = [next[j], next[i]]
+    next.splice(to, 0, next.splice(from, 1)[0])
     setOrder(next)
     setChecked(false)
   }
+  const move = (i, delta) => reorder(i, i + delta)
+  const drag = useCardDrag((item, target) => reorder(order.indexOf(item), target))
   const right = order.filter((x, i) => x === data.items[i]).length
   return (
-      <Frame kind="Put in order" title={data.title} icon={ArrowDown}>
+      <Frame kind="Put in order" type="ordering" title={data.title} saved={data}>
+        <p className="mb-3 text-xs font-bold text-muted-foreground">Drag the cards into order — or tap one card, then tap where it goes. The arrows work too.</p>
         <ol className="space-y-2">
           {order.map((item, i) => {
             const ok = checked && item === data.items[i]
             const bad = checked && item !== data.items[i]
+            const card = drag.card(item)
             return (
-                <li key={item} className={`flex items-center gap-2 rounded-xl border-2 px-2 py-1.5 text-sm font-semibold transition ${
-                    ok ? "border-emerald-300 bg-emerald-50" : bad ? "border-rose-300 bg-rose-50" : "border-rb-swan bg-white"}`}>
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rb-polar text-xs font-extrabold text-rb-feather-lip">{i + 1}</span>
-                  <span className="min-w-0 flex-1 text-rb-eel">{item}</span>
-                  <button type="button" aria-label="Move up" onClick={() => move(i, -1)} className="rounded-lg p-1.5 text-rb-hare hover:bg-rb-polar"><ArrowUp className="size-3.5" /></button>
-                  <button type="button" aria-label="Move down" onClick={() => move(i, 1)} className="rounded-lg p-1.5 text-rb-hare hover:bg-rb-polar"><ArrowDown className="size-3.5" /></button>
+                <li key={item} {...drag.zone(i)} {...card}
+                    onClick={() => drag.picked != null && drag.picked !== item ? drag.placePicked(i) : card.onClick()}
+                    onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.currentTarget.click() } }}
+                    tabIndex={0} role="button" aria-label={`Step ${i + 1}: ${item}`}
+                    className={`tg-card !py-1.5 ${ok ? "is-right" : bad ? "is-wrong" : ""} ${drag.picked === item ? "is-picked" : ""} ${drag.dragging === item ? "is-dragging" : ""} ${drag.over === i && drag.dragging !== item ? "!border-[var(--tg)] !bg-[var(--tg-soft)]" : ""}`}>
+                  <Grip />
+                  <span className="tg-num">{i + 1}</span>
+                  <span className="min-w-0 flex-1 text-foreground">{item}</span>
+                  <button type="button" aria-label="Move up" disabled={i === 0} onClick={(e) => { e.stopPropagation(); move(i, -1) }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-[var(--tg-soft)] disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
+                  <button type="button" aria-label="Move down" disabled={i === order.length - 1} onClick={(e) => { e.stopPropagation(); move(i, 1) }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-[var(--tg-soft)] disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
                 </li>
             )
           })}
         </ol>
         <div className="mt-3 flex gap-2">
-          <SmallButton primary onClick={() => setChecked(true)}>Check order</SmallButton>
-          <SmallButton onClick={() => { setOrder(fresh()); setChecked(false) }}><RotateCcw className="size-3.5" /> Shuffle</SmallButton>
+          <IconButton icon="check" primary label="Check order" onClick={() => setChecked(true)} />
+          <IconButton icon="shuffle" label="Shuffle" onClick={() => { setOrder(fresh()); setChecked(false) }} />
         </div>
         {checked ? (
             <Feedback ok={right === order.length}>
@@ -360,32 +328,32 @@ function FillBlankWidget({ data }) {
   const isRight = (b, i) => [b.answer, ...(b.alternatives ?? [])].some((a) => normalizeAnswer(a) === normalizeAnswer(values[i]))
   const right = data.blanks.filter(isRight).length
   return (
-      <Frame kind="Fill in the blank" title={data.title} icon={Type}>
+      <Frame kind="Fill in the blank" type="fill_blank" title={data.title} saved={data}>
         <ol className="space-y-3">
           {data.blanks.map((b, i) => {
             const [before, ...rest] = b.sentence.split("___")
             const ok = checked && isRight(b, i)
             return (
-                <li key={i} className="text-sm leading-8 text-rb-eel">
-                  <span className="font-extrabold text-rb-feather-lip">{i + 1}. </span>
+                <li key={i} className="flex gap-3 rounded-2xl bg-[var(--tg-softer)] p-3 text-sm leading-8 text-foreground">
+                  <span className="tg-num mt-1">{i + 1}</span><span className="min-w-0">
                   {before}
                   <input
                       value={values[i] ?? ""}
                       onChange={(e) => { setValues((v) => ({ ...v, [i]: e.target.value })); setChecked(false) }}
                       onKeyDown={(e) => e.key === "Enter" && setChecked(true)}
-                      className={`mx-1 w-32 rounded-lg border-2 px-2 py-0.5 text-sm font-bold outline-none ${
-                          !checked ? "border-rb-swan focus:border-rb-feather" : ok ? "border-emerald-400 bg-emerald-50" : "border-rose-300 bg-rose-50"}`}
+                      className={`mx-1 w-36 rounded-lg border-0 border-b-[3px] bg-card px-2 py-0.5 text-center text-sm font-extrabold outline-none ${
+                          !checked ? "border-[var(--tg-line)] focus:border-[var(--tg)]" : ok ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40" : "border-rose-300 bg-rose-50 dark:bg-rose-950/40"}`}
                       aria-label={`Blank ${i + 1}`}
                   />
                   {rest.join("___")}
-                  {checked && !ok ? <span className="ml-2 text-xs font-bold text-rose-700">→ {b.answer}</span> : null}
+                  {checked && !ok ? <span className="ml-2 text-xs font-bold text-rose-700 dark:text-rose-300">→ {b.answer}</span> : null}</span>
                 </li>
             )
           })}
         </ol>
         <div className="mt-3 flex gap-2">
-          <SmallButton primary onClick={() => setChecked(true)}>Check answers</SmallButton>
-          <SmallButton onClick={() => { setValues({}); setChecked(false) }}><RotateCcw className="size-3.5" /> Clear</SmallButton>
+          <IconButton icon="check" primary label="Check answers" onClick={() => setChecked(true)} />
+          <IconButton icon="clear" label="Clear answers" onClick={() => { setValues({}); setChecked(false) }} />
         </div>
         {checked ? <Feedback ok={right === data.blanks.length}>{right} of {data.blanks.length} right.</Feedback> : null}
       </Frame>
@@ -398,11 +366,11 @@ function TrueFalseWidget({ data }) {
   const answered = Object.keys(answers).length
   const right = data.claims.filter((c, i) => answers[i] === c.isTrue).length
   return (
-      <Frame kind="Myth or fact" title={data.title} badge={`${answered}/${total}`} icon={Eye}>
+      <Frame kind="Myth or fact" type="true_false" title={data.title} badge={`${answered}/${total}`} saved={data}>
         <ol className="space-y-4">
           {data.claims.map((c, i) => (
-              <li key={i}>
-                <p className="text-sm font-extrabold text-rb-eel">{i + 1}. {c.statement}</p>
+              <li key={i} className="rounded-2xl bg-[var(--tg-softer)] p-3">
+                <p className="flex gap-2 text-sm font-semibold text-foreground"><span className="tg-num">{i + 1}</span><span className="pt-1">{c.statement}</span></p>
                 <div className="mt-2 flex gap-2">
                   {[true, false].map((value) => {
                     const picked = answers[i] === value
@@ -410,11 +378,11 @@ function TrueFalseWidget({ data }) {
                     return (
                         <button key={String(value)} type="button" disabled={answers[i] != null}
                                 onClick={() => setAnswers((a) => ({ ...a, [i]: value }))}
-                                className={`flex-1 rounded-xl border-2 py-2 text-sm font-extrabold transition ${
-                                    state === "right" ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                                        : state === "wrong" ? "border-rose-300 bg-rose-50 text-rose-800"
-                                            : state === "dim" ? "border-rb-swan text-rb-hare" : "border-rb-swan text-rb-eel hover:bg-rb-polar"}`}>
-                          {value ? "Fact" : "Myth"}
+                                className={`flex-1 rounded-xl border-2 py-2.5 text-sm font-extrabold shadow-[0_3px_0_var(--tg-line)] transition ${
+                                    state === "right" ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200"
+                                        : state === "wrong" ? "border-rose-300 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200"
+                                            : state === "dim" ? "border-border text-muted-foreground" : "border-[var(--tg-line)] bg-card text-foreground hover:-translate-y-0.5 hover:border-[var(--tg)] active:translate-y-0"}`}>
+                          <Ico name={value ? "right" : "wrong"} className="mr-1.5" />{value ? "Fact" : "Myth"}
                         </button>
                     )
                   })}
@@ -432,44 +400,44 @@ function TrueFalseWidget({ data }) {
 
 function TableWidget({ data }) {
   return (
-      <Frame kind="Comparison" icon={BarChart3}>
-        <div className="-mx-1 overflow-x-auto">
+      <Frame kind="Comparison" type="table">
+        <div className="overflow-x-auto rounded-xl ring-1 ring-[var(--tg-line)]">
           <table className="w-full min-w-max border-collapse text-sm">
             <thead>
-              <tr>{data.columns.map((c, i) => (
-                  <th key={i} className="border-b-2 border-rb-swan px-2.5 py-2 text-left text-xs font-extrabold uppercase tracking-wide text-rb-feather-lip">{c}</th>
+              <tr className="bg-[var(--tg-soft)]">{data.columns.map((c, i) => (
+                  <th key={i} className="border-b-2 border-[var(--tg-line)] px-3 py-2.5 text-left text-xs font-extrabold uppercase tracking-wide text-[var(--tg-ink)]">{c}</th>
               ))}</tr>
             </thead>
             <tbody>
               {data.rows.map((row, r) => (
-                  <tr key={r} className="even:bg-rb-polar/50">
+                  <tr key={r} className="transition even:bg-[var(--tg-softer)] hover:bg-[var(--tg-soft)]">
                     {row.map((cell, c) => (
-                        <td key={c} className={`border-b border-rb-swan px-2.5 py-2 text-rb-eel ${c === 0 ? "font-extrabold" : "font-medium"}`}>{cell}</td>
+                        <td key={c} className={`border-b border-[var(--tg-line)] px-3 py-2 text-foreground ${c === 0 ? "font-extrabold" : "font-medium"}`}>{cell}</td>
                     ))}
                   </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {data.caption ? <p className="mt-2 text-xs font-semibold text-rb-hare">{data.caption}</p> : null}
+        {data.caption ? <p className="mt-2 text-xs font-semibold text-muted-foreground">{data.caption}</p> : null}
       </Frame>
   )
 }
 
 function CardsWidget({ data }) {
   return (
-      <Frame kind="Examples" title={data.title} icon={Building}>
-        <div className="divide-y-2 divide-rb-swan">
+      <Frame kind="Examples" type="cards" title={data.title}>
+        <div className="grid gap-3 sm:grid-cols-2">
           {data.cards.map((card, i) => {
             const tone = TONES[i % TONES.length]
             const Icon = CARD_ICONS[card.icon] ?? Sparkles
             return (
-                <div key={i} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                  <span className={`grid size-12 shrink-0 place-items-center rounded-xl ${tone.wash} ${tone.text}`}><Icon className="size-5" /></span>
+                <div key={i} className={`flex gap-3 rounded-2xl border ${tone.ring} ${tone.wash} p-3 shadow-[0_3px_0_var(--tg-line)] transition hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/5`}>
+                  <span className={`grid size-12 shrink-0 -rotate-3 place-items-center rounded-xl text-white shadow-md ${tone.dot}`}><Icon className="size-5" /></span>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-rb-eel">{card.title}</p>
-                    {card.detail ? <p className="text-xs font-semibold text-rb-hare">{card.detail}</p> : null}
-                    {card.highlight ? <p className={`mt-0.5 text-sm font-extrabold ${tone.text}`}>{card.highlight}</p> : null}
+                    <p className="text-sm font-semibold text-foreground">{card.title}</p>
+                    {card.detail ? <p className="text-xs font-semibold text-muted-foreground">{card.detail}</p> : null}
+                    {card.highlight ? <p className={`mt-0.5 text-sm font-extrabold ${tone.text} dark:brightness-150`}>{card.highlight}</p> : null}
                   </div>
                 </div>
             )
@@ -483,27 +451,27 @@ function StepsWidget({ data }) {
   const [shown, setShown] = useTutorWidgetProgress("shown", 1)
   const all = shown > data.steps.length
   return (
-      <Frame kind="Worked example" badge={`step ${Math.min(shown, data.steps.length)}/${data.steps.length}`} icon={ListOrdered}>
-        <Md className="mb-3 rounded-xl bg-rb-polar px-3 py-2 font-semibold text-rb-eel">{data.problem}</Md>
-        <ol className="relative space-y-3 border-l-2 border-rb-swan pl-5">
+      <Frame kind="Worked example" type="steps" badge={`step ${Math.min(shown, data.steps.length)}/${data.steps.length}`}>
+        <div className="mb-4 flex gap-2 rounded-2xl border border-[var(--tg-line)] bg-[var(--tg-softer)] px-3 py-2"><Ico name="calc" className="mt-1 size-5 text-[var(--tg)]" /><Md className="font-semibold text-foreground">{data.problem}</Md></div>
+        <ol className="relative ml-3 space-y-4 border-l-[3px] border-dashed border-[var(--tg-line)] pl-6">
           {data.steps.slice(0, shown).map((step, i) => (
-              <li key={i} className="relative">
-                <span className="absolute -left-[31px] grid size-5 place-items-center rounded-full bg-rb-feather text-[10px] font-extrabold text-white">{i + 1}</span>
-                <p className="text-sm font-extrabold text-rb-eel">{step.title}</p>
-                <Md className="text-rb-eel">{step.detail}</Md>
+              <li key={i} className="relative animate-in fade-in slide-in-from-left-2 duration-300">
+                <span className="tg-num absolute -left-[39px] top-0 !rounded-full ring-4 ring-card">{i + 1}</span>
+                <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                <Md className="text-foreground">{step.detail}</Md>
               </li>
           ))}
         </ol>
         {all && data.answer ? (
-            <div className="mt-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-900">Answer: {data.answer}</div>
+            <div className="tg-result mt-4 flex animate-in fade-in zoom-in-95 items-center gap-2 px-3 py-2.5 text-sm font-extrabold text-foreground"><Ico name="target" className="tg-confetti size-6 text-[var(--tg)]" />Answer: {data.answer}</div>
         ) : null}
         <div className="mt-3 flex gap-2">
           {!all ? (
               <>
-                <SmallButton primary onClick={() => setShown((s) => s + 1)}>{shown < data.steps.length ? "Next step" : "Show answer"} <ChevronRight className="size-3.5" /></SmallButton>
-                <SmallButton onClick={() => setShown(data.steps.length + 1)}>Show all</SmallButton>
+                <IconButton icon={shown < data.steps.length ? "next" : "show"} primary label={shown < data.steps.length ? "Next step" : "Show answer"} onClick={() => setShown((s) => s + 1)} />
+                <IconButton icon="all" label="Show all steps" onClick={() => setShown(data.steps.length + 1)} />
               </>
-          ) : <SmallButton onClick={() => setShown(1)}><RotateCcw className="size-3.5" /> Start over</SmallButton>}
+          ) : <IconButton icon="restart" label="Start over" onClick={() => setShown(1)} />}
         </div>
       </Frame>
   )
@@ -513,11 +481,12 @@ function CodeWidget({ data }) {
   const [copied, setCopied] = useState(false)
   const copy = () => navigator.clipboard?.writeText(data.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
   return (
-      <section className="my-3 w-full overflow-hidden rounded-2xl border-2 border-rb-swan bg-white">
-        <header className="flex items-center gap-2 border-b-2 border-rb-swan bg-rb-polar/60 px-4 py-2">
-          <Code2 className="size-4 text-rb-feather" />
-          <span className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-lip">{data.language}</span>
-          <button type="button" onClick={copy} className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-rb-hare hover:bg-white">
+      <section className={`tg-frame my-3 w-full ${categoryClass("code")}`} data-tutor-widget="code">
+        <header className="tg-head flex items-center gap-3 px-4 py-2.5">
+          <span className="flex gap-1.5" aria-hidden="true"><span className="size-3 rounded-full bg-rose-400" /><span className="size-3 rounded-full bg-amber-400" /><span className="size-3 rounded-full bg-emerald-400" /></span>
+          <span className="tg-badge-icon !size-7"><Code2 className="size-3.5" /></span>
+          <span className="tg-kicker">{data.language}</span>
+          <button type="button" onClick={copy} className="tg-btn ml-auto !px-2.5 !py-1 !text-xs">
             {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} {copied ? "Copied" : "Copy"}
           </button>
         </header>
@@ -527,7 +496,7 @@ function CodeWidget({ data }) {
             {data.code}
           </SyntaxHighlighter>
         </div>
-        {data.caption ? <p className="border-t-2 border-rb-swan px-4 py-2 text-xs font-semibold text-rb-hare">{data.caption}</p> : null}
+        {data.caption ? <p className="border-t border-border px-4 py-2 text-xs font-semibold text-muted-foreground">{data.caption}</p> : null}
       </section>
   )
 }
@@ -539,12 +508,12 @@ function TeX({ latex }) {
 
 function MathWidget({ data }) {
   return (
-      <Frame kind="Math" title={data.title} icon={Sparkles}>
-        <div className="space-y-1">
+      <Frame kind="Math" type="math" title={data.title}>
+        <div className="space-y-2">
           {data.steps.map((step, i) => (
-              <div key={i} className="flex flex-col gap-0.5 border-b border-dashed border-rb-swan pb-1 last:border-0">
+              <div key={i} className="relative flex flex-col gap-0.5 rounded-xl bg-[var(--tg-softer)] px-3 py-1.5 ring-1 ring-[var(--tg-line)]"><span className="tg-num absolute left-2 top-2 !size-6 !text-[10px]">{i + 1}</span>
                 <TeX latex={step.latex} />
-                {step.note ? <p className="text-center text-xs font-semibold text-rb-hare">{step.note}</p> : null}
+                {step.note ? <p className="text-center text-xs font-semibold text-muted-foreground">{step.note}</p> : null}
               </div>
           ))}
         </div>
@@ -574,13 +543,13 @@ function DiagramWidget({ data }) {
     return () => { live = false }
   }, [data.mermaid])
   return (
-      <Frame kind="Diagram" title={data.title} icon={Network}>
+      <Frame kind="Diagram" type="diagram" title={data.title}>
         {failed ? (
-            <pre className="overflow-x-auto rounded-xl bg-rb-polar p-3 text-xs text-rb-eel">{data.mermaid}</pre>
+            <pre className="overflow-x-auto rounded-xl bg-muted p-3 text-xs text-foreground">{data.mermaid}</pre>
         ) : svg ? (
-            <div className="flex justify-center overflow-x-auto [&_svg]:h-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+            <div className="flex justify-center overflow-x-auto rounded-xl bg-white p-3 ring-1 ring-[var(--tg-line)] [&_svg]:h-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
-            <div className="h-32 animate-pulse rounded-xl bg-rb-polar" />
+            <div className="grid h-32 animate-pulse place-items-center rounded-xl bg-[var(--tg-soft)] text-2xl text-[var(--tg)]" aria-label="Drawing diagram"><Ico name="map" /></div>
         )}
       </Frame>
   )
@@ -653,17 +622,17 @@ function formatValue(value, format) {
 function ExplorerWidget({ data }) {
   const [scope, setScope] = useTutorWidgetProgress("scope", () => Object.fromEntries(data.variables.map((v) => [v.name, v.value])))
   return (
-      <Frame kind="Explorer" title={data.title} icon={Zap}>
+      <Frame kind="Explorer" type="explorer" title={data.title}>
         <div className="space-y-3">
           {data.variables.map((v) => (
               <label key={v.name} className="block">
-                <span className="flex items-center justify-between text-xs font-extrabold text-rb-eel">
+                <span className="flex items-center justify-between text-xs font-semibold text-foreground">
                   {v.label}
-                  <span className="rounded-lg bg-rb-feather px-2 py-0.5 text-white">{scope[v.name]}</span>
+                  <span className="tg-num !h-6 !w-auto min-w-6 px-2 tabular-nums">{scope[v.name]}</span>
                 </span>
                 <input type="range" min={v.min} max={v.max} step={v.step} value={scope[v.name]}
                        onChange={(e) => setScope((s) => ({ ...s, [v.name]: Number(e.target.value) }))}
-                       className="mt-1 w-full accent-[var(--rb-feather,#58a700)]" />
+                       className="mt-1 w-full accent-[var(--tg)]" />
               </label>
           ))}
         </div>
@@ -673,33 +642,35 @@ function ExplorerWidget({ data }) {
             try { value = evaluate(o.formula, scope) } catch { value = NaN }
             const tone = TONES[i % TONES.length]
             return (
-                <div key={i} className={`rounded-xl border-2 ${tone.ring} ${tone.wash} px-3 py-2`}>
-                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-rb-hare">{o.label}</p>
-                  <p className={`break-all text-lg font-extrabold ${tone.text}`}>{formatValue(value, o.format)}</p>
+                <div key={i} className={`rounded-2xl border ${tone.ring} ${tone.wash} px-3 py-2 shadow-[0_3px_0_var(--tg-line)] dark:border-white/10 dark:bg-white/5`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{o.label}</p>
+                  <p className={`break-all text-xl font-black tabular-nums ${tone.text} dark:brightness-150`}>{formatValue(value, o.format)}</p>
                 </div>
             )
           })}
         </div>
-        {data.note ? <p className="mt-3 text-xs font-semibold text-rb-hare">💡 {data.note}</p> : null}
+        {data.note ? <p className="mt-3 text-xs font-semibold text-muted-foreground"><Ico name="idea" className="mr-1 text-amber-500" />{data.note}</p> : null}
       </Frame>
   )
 }
 
 export function MindMapWidget({ data }) {
-  return <MindMap data={data} header={data.standalone ? null : <SavedChip library={data.library} />} />
+  return <div className={categoryClass("mindmap")}><MindMap data={data} header={data.standalone ? null : <SavedChip library={data.library} />} /></div>
 }
 
 const WIDGETS = {
-  quiz: QuizWidget, flashcards: FlashcardsWidget, matching: MatchingWidget, ordering: OrderingWidget,
+  quiz: TutorStudyWidget, flashcards: TutorStudyWidget, matching: MatchingWidget, ordering: OrderingWidget,
   fill_blank: FillBlankWidget, true_false: TrueFalseWidget, table: TableWidget, cards: CardsWidget,
   steps: StepsWidget, code: CodeWidget, math: MathWidget, diagram: DiagramWidget,
   explorer: ExplorerWidget, mindmap: MindMapWidget,
+  sorting: SortingGame, word_game: WordGame, puzzle: PuzzleGame, visual_game: VisualGame, speed_flashcards: SpeedFlashcardsGame,
+  branching_story: BranchingStoryGame, simulation: SimulationGame, two_truths_lie: TwoTruthsLieGame,
 }
 
 export function TutorWidget({ widget, persistenceKey }) {
   const Widget = WIDGETS[widget?.type]
   if (!Widget) return null
-  return <TutorWidgetProgressContext.Provider key={persistenceKey || "temporary"} value={persistenceKey}><Widget data={widget} /></TutorWidgetProgressContext.Provider>
+  return <TutorWidgetProgressContext.Provider key={persistenceKey || "temporary"} value={persistenceKey}>{widget.libraryError && !["sorting", "word_game", "puzzle", "visual_game", "speed_flashcards", "branching_story", "simulation", "two_truths_lie"].includes(widget.type) ? <p role="alert" className="rounded-xl border border-destructive p-3 text-sm text-destructive">{widget.libraryError}</p> : null}<Widget data={widget} /></TutorWidgetProgressContext.Provider>
 }
 
 export function TutorWidgets({ widgets, persistenceScope }) {

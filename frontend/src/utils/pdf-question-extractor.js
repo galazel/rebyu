@@ -1,14 +1,6 @@
 
 const SCALE = 2
 
-const GARBLED_RE = /[□�-]/
-
-function isGarbledMathLine(text) {
-    if (!GARBLED_RE.test(text)) return false
-    const tokens = text.split(/\s+/).filter(Boolean)
-    return tokens.length >= 3 && tokens.every((token) => token.length <= 2)
-}
-
 const FOOTER_RE = /^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:\/|of)\s*\d{1,4})?(?:\s*[–—-])?$/i
 
 function isPageNumber(line, pageHeight) {
@@ -19,15 +11,6 @@ function isPageNumber(line, pageHeight) {
 // quizzes. The local layout reader has additional profiles; these patterns
 // make the fast in-browser pass useful for more ordinary documents too.
 const QUESTION_RE = /^(?:Q(?:uestion)?|Item|No\.?)\s?(\d{1,3})\s*[.:)]\s*/i
-const BARE_QUESTION_RE = /^(?:(?:Q(?:uestion)?|Item|No\.?)\s?)?(\d{1,3})(?=\s|$)\s*/i
-
-const BANNER_RE = /^Answer (?:the )?questions? (?:Q?\d+|[A-Z]) through (?:Q?\d+|[A-Z])\b/i
-
-const CASE_RE = /^Question [A-Z]\b/
-
-const MARKER_RE = /^\(?([a-h1-8])[).]$/
-
-const TEXT_CHOICE_RE = /^\(?[a-h1-8][).]\s+\S/
 
 async function loadPdfJs() {
     const [module, worker] = await Promise.all([
@@ -190,81 +173,6 @@ function withoutRunningLines(pages) {
     return pages
 }
 
-function locateQuestions(pages) {
-    let questions = []
-    let current = null
-    let lastNumber = 0
-
-    let context = null
-    const contexts = []
-
-    for (const pg of pages) {
-        pg.stops = []
-        for (const line of pg.lines) {
-            if (BANNER_RE.test(line.text)) {
-                pg.stops.push(line.top - 12)
-                current = null
-                context = null
-                continue
-            }
-            if (CASE_RE.test(line.text)) {
-                pg.stops.push(line.top - 12)
-                current = null
-                context = { segs: [{ pg, top: line.top, bottom: line.bottom }] }
-                contexts.push(context)
-                continue
-            }
-            let match = line.text.match(QUESTION_RE)
-            let pattern = QUESTION_RE
-            const bare = !match && line.text.match(BARE_QUESTION_RE)
-            const range = bare && /^(through|to|and|or|[–~-]|Q\s?\d)/i.test(line.text.slice(bare[0].length))
-            if (bare && !range && Number(bare[1]) === lastNumber + 1) {
-                match = bare
-                pattern = BARE_QUESTION_RE
-            }
-            if (match && line.x0 < pg.minX + pg.W * 0.12) {
-                const number = Number(match[1])
-                if (number <= lastNumber) questions = []
-                lastNumber = number
-                line.stripped = line.text.replace(pattern, "")
-                line.isQuestion = true
-                current = { num: number, lines: [line], segs: [{ pg, top: line.top, bottom: line.bottom }], context }
-                questions.push(current)
-            } else if (!current && context) {
-                const seg = context.segs[context.segs.length - 1]
-                if (seg.pg !== pg) context.segs.push({ pg, top: line.top, bottom: line.bottom })
-                const last = context.segs[context.segs.length - 1]
-                last.bottom = Math.max(last.bottom, line.bottom)
-            } else if (current) {
-                const seg = current.segs[current.segs.length - 1]
-                if (seg.pg !== pg) current.segs.push({ pg, top: line.top, bottom: line.bottom })
-                current.lines.push(line)
-                const last = current.segs[current.segs.length - 1]
-                last.bottom = Math.max(last.bottom, line.bottom)
-            }
-        }
-    }
-
-    const starts = questions.map((q) => ({ pg: q.segs[0].pg, top: q.segs[0].top }))
-    const extend = (seg) => {
-        let limit = seg.pg.H * 0.93
-        for (const start of starts) {
-            if (start.pg === seg.pg && start.top > seg.bottom && start.top - 6 < limit) limit = start.top - 6
-        }
-        for (const stop of seg.pg.stops) {
-            if (stop > seg.bottom && stop < limit) limit = stop
-        }
-        let bottom = seg.bottom
-        for (let y = Math.ceil(seg.bottom); y < limit; y++) {
-            if (seg.pg.rowInk[y] > 2) bottom = y
-        }
-        seg.bottom = Math.min(limit, bottom + 4)
-        seg.top = Math.max(0, seg.top - 8)
-    }
-    for (const question of questions) question.segs.forEach(extend)
-    for (const shared of contexts) shared.segs.forEach(extend)
-    return questions
-}
 
 function crop(source, x, y, width, height) {
     const canvas = makeCanvas(width, height)
@@ -272,395 +180,6 @@ function crop(source, x, y, width, height) {
     return canvas
 }
 
-const HIDDEN_INK_MIN = 30
-
-function hiddenInk(pg, x0, y0, x1, y1) {
-    const x = Math.max(0, Math.floor(x0))
-    const y = Math.max(0, Math.floor(y0))
-    const w = Math.min(pg.W, Math.ceil(x1)) - x
-    const h = Math.min(pg.H, Math.ceil(y1)) - y
-    if (w <= 0 || h <= 0) return 0
-    const data = pg.canvas.getContext("2d", { willReadFrequently: true }).getImageData(x, y, w, h).data
-    const covered = new Uint8Array(w * h)
-    const pad = 3
-    for (const item of pg.items) {
-        if (!item.str.trim() || GARBLED_RE.test(item.str)) continue
-        const xa = Math.max(0, Math.floor(item.x - pad - x))
-        const xb = Math.min(w, Math.ceil(item.x + item.w + pad - x))
-        const ya = Math.max(0, Math.floor(item.y0 - pad - y))
-        const yb = Math.min(h, Math.ceil(item.y1 + pad - y))
-        for (let row = ya; row < yb; row++) covered.fill(1, row * w + xa, row * w + xb)
-    }
-    let count = 0
-    for (let i = 0; i < w * h; i++) {
-        if (!covered[i] && isDark(data, i * 4)) count++
-    }
-    return count
-}
-
-function formulaLines(lines) {
-    const flagged = new Set()
-    lines.forEach((line, index) => {
-        const pg = line.pg
-        if (GARBLED_RE.test(line.text) || hiddenInk(pg, line.x0 - 2, line.top, line.x1 + 2, line.bottom) >= HIDDEN_INK_MIN) {
-            flagged.add(line)
-        }
-        const below = lines[index + 1]
-        const height = line.bottom - line.top
-        if (below && below.pg === pg && below.top - line.bottom < height * 1.2 && below.top > line.bottom) {
-            const x0 = Math.min(line.x0, below.x0) - 2
-            const x1 = Math.max(line.x1, below.x1) + 2
-            if (hiddenInk(pg, x0, line.bottom, x1, below.top) >= HIDDEN_INK_MIN) {
-                flagged.add(line)
-                flagged.add(below)
-            }
-        }
-    })
-    return flagged
-}
-
-function formulaCrops(lines, flagged) {
-    const crops = []
-    let run = []
-    const flush = () => {
-        if (!run.length) return
-        const pg = run[0].pg
-        const x0 = Math.max(0, Math.floor(pg.minX - 8))
-        const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 8))
-        const y0 = Math.max(0, Math.floor(Math.min(...run.map((l) => l.top)) - 8))
-        const y1 = Math.min(pg.H, Math.ceil(Math.max(...run.map((l) => l.bottom)) + 8))
-        if (y1 - y0 > 4) crops.push(crop(pg.canvas, x0, y0, x1 - x0, y1 - y0))
-        run = []
-    }
-    for (const line of lines) {
-        if (flagged.has(line) && (!run.length || run[run.length - 1].pg === line.pg)) run.push(line)
-        else {
-            flush()
-            if (flagged.has(line)) run.push(line)
-        }
-    }
-    flush()
-    return crops
-}
-
-function readableText(text) {
-    return (text || "").replace(/[�-]/g, " ").replace(/[ \t]{2,}/g, " ").trim()
-}
-
-function inkBounds(pg, rect, exclude = []) {
-    const x = Math.max(0, Math.floor(rect.x0))
-    const y = Math.max(0, Math.floor(rect.y0))
-    const w = Math.min(pg.W, Math.ceil(rect.x1)) - x
-    const h = Math.min(pg.H, Math.ceil(rect.y1)) - y
-    if (w <= 0 || h <= 0) return null
-    const data = pg.canvas.getContext("2d", { willReadFrequently: true }).getImageData(x, y, w, h).data
-    let x0 = Infinity
-    let y0 = Infinity
-    let x1 = -Infinity
-    let y1 = -Infinity
-    for (let row = 0; row < h; row++) {
-        for (let col = 0; col < w; col++) {
-            if (!isDark(data, (row * w + col) * 4)) continue
-            const px = x + col
-            const py = y + row
-            if (exclude.some((r) => px >= r.x0 && px <= r.x1 && py >= r.y0 && py <= r.y1)) continue
-            if (px < x0) x0 = px
-            if (px > x1) x1 = px
-            if (py < y0) y0 = py
-            if (py > y1) y1 = py
-        }
-    }
-    for (const item of pg.items) {
-        const cx = item.x + item.w / 2
-        const cy = (item.y0 + item.y1) / 2
-        if (cx < rect.x0 || cx > rect.x1 || cy < rect.y0 || cy > rect.y1) continue
-        if (exclude.some((r) => cx >= r.x0 && cx <= r.x1 && cy >= r.y0 && cy <= r.y1)) continue
-        x0 = Math.min(x0, item.x)
-        x1 = Math.max(x1, item.x + item.w)
-        y0 = Math.min(y0, item.y0)
-        y1 = Math.max(y1, item.y1)
-    }
-    return x1 < x0 ? null : { x0, y0, x1, y1 }
-}
-
-function bandsOf(values, tolerance) {
-    const starts = []
-    for (const value of [...values].sort((a, b) => a - b)) {
-        if (!starts.length || value - starts[starts.length - 1] > tolerance) starts.push(value)
-    }
-    return starts
-}
-
-function cropOptions(question, keys) {
-    const markers = []
-    for (const line of question.lines) {
-        if (line.isQuestion) continue
-        const seg = question.segs.find((s) => s.pg === line.pg)
-        if (!seg) continue
-        for (const item of line.items) {
-            const match = item.str.trim().match(MARKER_RE)
-            if (!match || !keys.includes(match[1])) continue
-            markers.push({ key: match[1], pg: line.pg, seg, item, x0: item.x, x1: item.x + item.w, y0: item.y0, y1: item.y1 })
-        }
-    }
-    const byKey = {}
-    for (const marker of markers) {
-        if (byKey[marker.key]) return null
-        byKey[marker.key] = marker
-    }
-    if (keys.some((key) => !byKey[key])) return null
-    const pg = byKey[keys[0]].pg
-    if (keys.some((key) => byKey[key].pg !== pg)) return null
-
-    const found = keys.map((key) => byKey[key])
-    const rows = bandsOf(found.map((m) => m.y0), 8)
-    const columns = bandsOf(found.map((m) => m.x0), 12)
-    const right = Math.min(pg.W, pg.maxX + 16)
-    const bottom = Math.max(...found.map((m) => m.seg.bottom))
-    const next = (starts, value, limit) => {
-        const later = starts.filter((s) => s > value + 8)
-        return later.length ? Math.min(...later) - 6 : limit
-    }
-    const occupied = (y) =>
-        pg.rowInk[Math.round(y)] > 1 || pg.items.some((item) => !item.sideways && item.y0 <= y && item.y1 >= y)
-    const rowEnd = (marker) => {
-        const later = rows.filter((start) => start > marker.y0 + 8)
-        if (!later.length) return bottom
-        const nextStart = Math.min(...later)
-        let best = null
-        let run = null
-        for (let y = Math.ceil(marker.y1); y < nextStart; y++) {
-            if (occupied(y)) {
-                run = null
-                continue
-            }
-            run = run ? { a: run.a, b: y } : { a: y, b: y }
-            if (!best || run.b - run.a > best.b - best.a) best = { ...run }
-        }
-        return best && best.b - best.a >= 2 ? Math.round((best.a + best.b) / 2) : nextStart - 6
-    }
-    const cellOf = (marker) => ({
-        x0: marker.x0 - 6,
-        y0: marker.y0 - 6,
-        x1: next(columns, marker.x0, right),
-        y1: rowEnd(marker),
-    })
-    const top = Math.min(...found.map((m) => m.y0)) - 6
-
-    const pitch = rows.length > 1 ? Math.min(...rows.slice(1).map((r, i) => r - rows[i])) : Infinity
-    const lineHeight = Math.max(...found.map((m) => m.y1 - m.y0))
-    if (columns.length === 1 && rows.length === keys.length && pitch < lineHeight * 3.5) {
-        const texts = {}
-        for (const marker of found) {
-            const cell = cellOf(marker)
-            const cells = pg.items
-                .filter((item) => !item.sideways && item !== marker.item)
-                .filter((item) => {
-                    const cy = (item.y0 + item.y1) / 2
-                    return item.x > marker.x1 && cy > cell.y0 && cy < cell.y1 && !MARKER_RE.test(item.str.trim())
-                })
-                .sort((a, b) => a.x - b.x)
-            if (!cells.length) return null
-            const parts = []
-            let end = -Infinity
-            for (const item of cells) {
-                const text = item.str.trim()
-                if (!text) continue
-                if (parts.length && item.x - end < item.h * 0.6) parts[parts.length - 1] += ` ${text}`
-                else parts.push(text)
-                end = item.x + item.w
-            }
-            texts[marker.key] = parts.join(" | ")
-        }
-        return { texts, top, pg, table: true }
-    }
-
-    const crops = {}
-    for (const marker of found) {
-        const cell = cellOf(marker)
-        const bounds = inkBounds(pg, cell, found.map((m) => ({ x0: m.x0 - 2, y0: m.y0 - 2, x1: m.x1 + 2, y1: m.y1 + 2 })))
-        if (!bounds) return null
-        const x = Math.max(0, bounds.x0 - 8)
-        const y = Math.max(0, bounds.y0 - 8)
-        crops[marker.key] = crop(pg.canvas, x, y, Math.min(pg.W, bounds.x1 + 8) - x, Math.min(pg.H, bounds.y1 + 8) - y)
-    }
-    return { crops, top, pg }
-}
-
-function buildQuestion(question) {
-    const snaps = []
-    const bands = []
-    for (const seg of question.segs) {
-        const pg = seg.pg
-        const x0 = Math.max(0, Math.floor(pg.minX - 16))
-        const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 16))
-        const y0 = Math.floor(seg.top)
-        const y1 = Math.ceil(seg.bottom)
-        if (y1 - y0 < 4) continue
-        snaps.push(crop(pg.canvas, x0, y0, x1 - x0, y1 - y0))
-
-        const clusters = []
-        let cluster = null
-        let gap = 0
-        for (let y = y0; y < y1; y++) {
-            if (pg.rowInk[y] > 1) {
-                if (!cluster || gap > 44) {
-                    cluster = { a: y, b: y, ink: 0 }
-                    clusters.push(cluster)
-                }
-                cluster.b = y
-                cluster.ink += pg.rowInk[y]
-                gap = 0
-            } else {
-                gap++
-            }
-        }
-
-        for (const c of clusters) {
-            if (c.ink < 40) continue
-            let a = c.a
-            let b = c.b
-            let changed = true
-            while (changed) {
-                changed = false
-                for (const line of question.lines) {
-                    if (line.pg !== pg || line.isQuestion) continue
-                    if (!(line.bottom > a - 22 && line.top < b + 22 && (line.top < a || line.bottom > b))) continue
-                    const inside = line.top >= c.a - 4 && line.bottom <= c.b + 4
-                    const index = question.lines.indexOf(line)
-                    const previous = question.lines[index - 1]
-                    const prose =
-                        line.wraps ||
-                        /[?:]$/.test(line.text) ||
-                        (previous && previous.wraps && previous.pg === line.pg && line.top < c.a)
-                    if (!inside && (prose || TEXT_CHOICE_RE.test(line.text))) continue
-                    a = Math.min(a, line.top)
-                    b = Math.max(b, line.bottom)
-                    changed = true
-                }
-            }
-            bands.push({ pg, a: Math.max(y0, a - 10), b: Math.min(y1, b + 10), x0, x1 })
-        }
-    }
-    const inBand = (line) =>
-        bands.some((band) => band.pg === line.pg && (line.top + line.bottom) / 2 > band.a && (line.top + line.bottom) / 2 < band.b)
-
-    const texts = question.lines.map((line, index) => ({
-        t: index === 0 ? line.stripped : line.text,
-        line,
-        fig: index > 0 && inBand(line),
-    }))
-    const optionStart = texts.findIndex((entry) => /^\(?(?:a|1)[).](\s|$)/.test(entry.t))
-    const stemPart = optionStart === -1 ? texts : texts.slice(0, optionStart)
-    const optionPart = optionStart === -1 ? [] : texts.slice(optionStart)
-
-    const stemLines = stemPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
-    while (optionStart > 0 && stemLines.length && isGarbledMathLine(stemLines[stemLines.length - 1].text)) stemLines.pop()
-    const stemFormulas = formulaCrops(stemLines, formulaLines(stemLines))
-    const optionLines = optionPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
-    const drawnOptions = formulaLines(optionLines).size > 0
-
-    let stem = ""
-    let previous = null
-    for (const entry of stemPart) {
-        if (entry.fig || !entry.t || isGarbledMathLine(entry.t)) {
-            previous = null
-            continue
-        }
-        stem += stem ? (previous && previous.line.wraps ? " " : "\n") + entry.t : entry.t
-        previous = entry
-    }
-
-    const optionText = optionPart
-        .map((entry) => (entry.fig ? (entry.t.match(/\(?[a-h1-8][).]/g) || []).join(" ") : entry.t))
-        .join("\n")
-    const markerRe = /(?:^|\s)\(?([a-h1-8])[).](?=\s|$)/g
-    const marks = []
-    let match
-    while ((match = markerRe.exec(optionText))) {
-        marks.push({ key: match[1], at: match.index + match[0].length, start: match.index })
-    }
-    const buildSequence = (first, nextFn) => {
-        const seq = []
-        let want = first
-        for (const mark of marks) {
-            if (mark.key === want) {
-                seq.push(mark)
-                want = nextFn(want)
-            }
-        }
-        return seq
-    }
-    let sequence = buildSequence("a", (ch) => String.fromCharCode(ch.charCodeAt(0) + 1))
-    if (sequence.length < 2) {
-        const numSeq = buildSequence("1", (n) => String(Number(n) + 1))
-        if (numSeq.length > sequence.length) sequence = numSeq
-    }
-    const options = sequence.map((mark, index) => ({
-        key: mark.key,
-        text: optionText
-            .slice(mark.at, index + 1 < sequence.length ? sequence[index + 1].start : optionText.length)
-            .replace(/\s+/g, " ")
-            .trim(),
-        image: null,
-    }))
-    const garbled = options.some((option) => GARBLED_RE.test(option.text))
-    const visualOptions = options.length > 0 && (garbled || drawnOptions || options.some((option) => !option.text))
-
-    let optionCut = null
-    if (visualOptions) {
-        optionCut = cropOptions(question, options.map((option) => option.key))
-        if (optionCut?.table && !garbled) {
-            for (const option of options) {
-                option.text = optionCut.texts[option.key]
-                option.fromTable = true
-            }
-        } else if (optionCut?.crops) {
-            for (const option of options) {
-                option.image = optionCut.crops[option.key]
-                if (option.image) option.text = ""
-            }
-        }
-    }
-
-    for (const option of options) if (!option.image) option.text = readableText(option.text)
-
-    const figures = []
-    if (question.context) {
-        question.context.snaps ??= question.context.segs
-            .filter((seg) => seg.bottom - seg.top > 4)
-            .map((seg) => {
-                const x0 = Math.max(0, Math.floor(seg.pg.minX - 16))
-                const x1 = Math.min(seg.pg.W, Math.ceil(seg.pg.maxX + 16))
-                return crop(seg.pg.canvas, x0, Math.floor(seg.top), x1 - x0, Math.ceil(seg.bottom - seg.top))
-            })
-        figures.push(...question.context.snaps)
-    }
-    for (const band of bands) {
-        let bottom = band.b
-        if (optionCut && optionCut.pg === band.pg && band.a >= optionCut.top - 30) continue
-        if (optionCut && optionCut.pg === band.pg && optionCut.top > band.a && optionCut.top < band.b) {
-            bottom = Math.max(band.a, Math.floor(optionCut.top))
-            if (bottom - band.a < 24) continue
-        }
-        figures.push(crop(band.pg.canvas, band.x0, band.a, band.x1 - band.x0, bottom - band.a))
-    }
-    figures.push(...stemFormulas)
-
-    const unclear = options.length === 0 || (visualOptions && !optionCut)
-    if (unclear && figures.length === 0) figures.push(...snaps)
-
-    return {
-        num: question.num,
-        stem: readableText(stem),
-        options,
-        visualOptions,
-        unclear,
-        figures,
-        snaps,
-        pages: [...new Set(question.segs.map((seg) => seg.pg.num))],
-    }
-}
 
 async function pageTexts(pdf) {
     const out = []
@@ -759,128 +278,6 @@ export function citationFor(info, number) {
     return `(${[when, info.category, `Q${number}`].filter(Boolean).join(", ")})`
 }
 
-function pmAnswersFrom(texts) {
-    const all = texts.join("\n")
-    if (!/subquestion/i.test(all)) return null
-    const answers = {}
-    let question = null
-    let sub = null
-    for (const row of all.split("\n")) {
-        const tokens = row.trim().split(/\s+/)
-        const numbers = []
-        while (tokens.length && /^\d{1,2}$/.test(tokens[0])) numbers.push(Number(tokens.shift()))
-        const [first, second] = tokens
-        const answerOf = (token) => (token && /^[a-z](\/[a-z])?$/.test(token) ? token[0] : null)
-
-        if (first && /^[A-Z]$/.test(first) && answerOf(second)) {
-            if (numbers.length >= 2) {
-                ;[question, sub] = numbers
-            } else if (numbers.length === 1) {
-                if (first === "A" || question === null) {
-                    question = numbers[0]
-                    sub = null
-                } else {
-                    sub = numbers[0]
-                }
-            }
-            if (question === null) continue
-            answers[sub === null ? `${question}-${first}` : `${question}-${sub}-${first}`] = answerOf(second)
-        } else if (numbers.length && answerOf(first)) {
-            if (numbers.length >= 2) {
-                ;[question, sub] = numbers
-            } else if (question !== null) {
-                sub = numbers[0]
-            } else {
-                continue
-            }
-            answers[`${question}-${sub}`] = answerOf(first)
-        }
-    }
-    const count = Object.keys(answers).length
-    return count >= 10 ? { answers, count } : null
-}
-
-async function pmAnswersFromPdf(pdf) {
-    // Afternoon FE keys are commonly printed as a table with the question
-    // number, optional subquestion number, choice letter and answer in four
-    // separate columns. Reading that table as a plain text stream joins the
-    // columns (for example "21 a"), so reconstruct it from PDF coordinates.
-    const answers = {}
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-        const page = await pdf.getPage(pageNumber)
-        const content = await page.getTextContent()
-        const words = content.items
-            .map((item) => ({ text: String(item.str || "").trim(), x: item.transform?.[4], y: item.transform?.[5] }))
-            .filter((item) => item.text && Number.isFinite(item.x) && Number.isFinite(item.y))
-        if (!words.some((item) => /subquestion/i.test(item.text))) continue
-
-        const header = (pattern) => words.find((item) => pattern.test(item.text))
-        const questionHeader = header(/^question$/i)
-        const subHeader = header(/^subquestion$/i)
-        const answerHeader = header(/^(correct|answer)$/i)
-        if (!questionHeader || !subHeader || !answerHeader) continue
-
-        // The headers are left-aligned, whereas the values are centred in
-        // their columns.  These boundaries intentionally favour the wide
-        // spaces between the printed values instead of the header starts.
-        const questionEdge = subHeader.x - 5
-        const choiceEdge = subHeader.x + (answerHeader.x - subHeader.x) * 0.45
-        const answerEdge = answerHeader.x - 8
-        const rows = []
-        for (const word of words.sort((a, b) => Math.abs(a.y - b.y) < 4 ? a.x - b.x : b.y - a.y)) {
-            const row = rows.find((candidate) => Math.abs(candidate.y - word.y) < 4)
-            if (row) row.words.push(word)
-            else rows.push({ y: word.y, words: [word] })
-        }
-
-        let question = null
-        let subquestion = null
-        for (const row of rows) {
-            const valueAt = (from, to) => row.words.find((word) => word.x >= from && word.x < to)?.text || null
-            const questionValue = valueAt(0, questionEdge)
-            const subValue = valueAt(questionEdge, choiceEdge)
-            const choice = valueAt(choiceEdge, answerEdge)
-            const answer = valueAt(answerEdge, Number.POSITIVE_INFINITY)
-            if (/^\d{1,3}$/.test(questionValue || "")) {
-                question = Number(questionValue)
-                subquestion = null
-            }
-            if (/^\d{1,3}$/.test(subValue || "")) subquestion = Number(subValue)
-            const cleanAnswer = /^[a-h](?:\/[a-h])?$/i.test(answer || "") ? answer[0].toLowerCase() : null
-            const cleanChoice = /^[A-H]$/.test(choice || "") ? choice : null
-            if (!question || !cleanAnswer) continue
-            const id = [question, subquestion, cleanChoice].filter((part) => part !== null).join("-")
-            if (id) answers[id] = cleanAnswer
-        }
-    }
-    const count = Object.keys(answers).length
-    return count >= 10 ? { answers, count } : null
-}
-
-async function answersFrom(texts, fileName, pdf) {
-    texts = texts.map((text) => text.normalize("NFKC"))
-    const positionedPm = pdf ? await pmAnswersFromPdf(pdf) : null
-    if (positionedPm) return positionedPm
-    const pm = pmAnswersFrom(texts)
-    if (pm) return pm
-    const all = texts.join("\n")
-    const questionLines =
-        (all.match(/^\s*(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item)\s+\d{1,3}\b|\d{1,3}\s?[.)]\s+[A-Za-z]{3,})/gim) || [])
-            .length +
-        (all.match(/^\s*\(?[a-hA-H][.)]\s+[A-Za-z]{3,}/gm) || []).length / 4
-    const answers = {}
-    const re = /(?:^|\s)(?:[A-Z]{1,2}(?=\d))?0*(\d{1,3})\s*[.):-]?\s+\(?([a-hA-H1-8])\)?(?=\s|$)/g
-    let match
-    while ((match = re.exec(all))) {
-        const number = Number(match[1])
-        const raw = match[2]
-        if (number > 0 && number <= 200 && !answers[number]) answers[number] = /\d/.test(raw) ? raw : raw.toLowerCase()
-    }
-    const count = Object.keys(answers).length
-    const looksLikeKey = /answer/i.test(all + " " + (fileName || "")) || count >= 20
-    if (count < 10 || questionLines > count / 4 || !looksLikeKey) return null
-    return { answers, count }
-}
 
 function pageFigures(pg) {
     if (!pg.items.length) return []
@@ -944,6 +341,7 @@ function headingTop(pg, label) {
 async function readWithAi(pages, readPage, onProgress) {
     const questions = []
     const answers = {}
+    const answerTexts = {}
     const byId = new Map()
     let previousId = null
 
@@ -959,6 +357,7 @@ async function readWithAi(pages, readPage, onProgress) {
             openIds,
         })
         Object.assign(answers, result.answers || {})
+        Object.assign(answerTexts, result.answerTexts || {})
 
         const figureCanvas = (id) => {
             const figure = figures.find((f) => f.id === id)
@@ -967,13 +366,26 @@ async function readWithAi(pages, readPage, onProgress) {
         for (const item of result.questions || []) {
             const id = String(item?.id || "").trim()
             if (!id) continue
+            // Pictures the AI located on the page: scanned pages have no
+            // separate figure objects, so the box is the only way to cut them.
+            const boxCanvas = (box) => {
+                const pad = 0.008
+                const x0 = Math.max(0, (box.left - pad) * pg.W)
+                const y0 = Math.max(0, (box.top - pad) * pg.H)
+                const x1 = Math.min(pg.W, (box.right + pad) * pg.W)
+                const y1 = Math.min(pg.H, (box.bottom + pad) * pg.H)
+                return crop(pg.canvas, x0, y0, x1 - x0, y1 - y0)
+            }
             const options = (item.options || []).map((option) => ({
                 key: option.key,
                 text: option.text,
-                image: option.figureId ? figureCanvas(option.figureId) : null,
+                image: option.figureId
+                    ? figureCanvas(option.figureId)
+                    : !option.text && option.imageBox ? boxCanvas(option.imageBox) : null,
                 fromTable: false,
             }))
             const own = (item.figureIds || []).map(figureCanvas).filter(Boolean)
+            if (!own.length) own.push(...(item.imageBoxes || []).map(boxCanvas))
             const earlier = byId.get(id)
             if (earlier && (item.continuesFromPreviousPage || !earlier.options.length)) {
                 if (item.stem && !String(earlier.stem || "").includes(item.stem)) {
@@ -981,24 +393,32 @@ async function readWithAi(pages, readPage, onProgress) {
                 }
                 if (!earlier.options.length && options.length) {
                     earlier.options = options
+                    earlier.type = "mcq"
                     earlier.visualOptions = options.some((o) => !o.text)
                 }
                 earlier.figures.push(...own)
                 if (!earlier.pages.includes(pg.num)) earlier.pages.push(pg.num)
                 earlier.unclear = (earlier.unclear || item.unclear) && !earlier.options.length
                 if (item.answer) earlier.answer = item.answer
+                if (item.answerText) earlier.answerText = item.answerText
+                if (item.hasImage) earlier.hasImage = true
+                if (item.context && !earlier.context) earlier.context = item.context
                 continue
             }
             const entry = {
                 num: id,
-                parent: id.includes("-") ? id.split("-")[0] : null,
+                parent: item.parentId || (id.includes("-") ? id.split("-")[0] : null),
+                type: item.type || (options.length ? "mcq" : "short_answer"),
+                context: item.context || null,
+                hasImage: Boolean(item.hasImage || own.length),
+                answerText: item.answerText || null,
                 stem: String(item.stem || "").trim(),
                 options,
                 figures: own,
                 snaps: [],
                 pages: [pg.num],
                 answer: item.answer,
-                unclear: item.unclear || (!pg.items.length && own.length === 0),
+                unclear: Boolean(item.unclear),
                 visualOptions: options.some((o) => !o.text),
                 aiRead: true,
             }
@@ -1036,7 +456,9 @@ async function readWithAi(pages, readPage, onProgress) {
             context.push(crop(pg.canvas, x0, y0, x1 - x0, pg.H * 0.95 - y0))
         }
         for (const blank of blanks) {
-            blank.figures = context
+            // The shared scenario is kept as text when the AI read it; the
+            // cropped region becomes a figure only when the part needs a picture.
+            if (!blank.context || blank.hasImage) blank.figures = blank.figures.length ? blank.figures : context
             blank.snaps = context
             blank.contextPages = [firstPage, lastPage]
         }
@@ -1044,75 +466,38 @@ async function readWithAi(pages, readPage, onProgress) {
     for (const question of questions) {
         if (!question.snaps.length) question.snaps = question.pages.map((n) => pages[n - 1].canvas)
         if (!question.answer && answers[question.num]) question.answer = answers[question.num]
+        if (!question.answerText && answerTexts[question.num]) question.answerText = answerTexts[question.num]
     }
-    return { questions, answers }
-}
-
-function fromLayout(layout, pages) {
-    const cropBox = (ref, pad = 6) => {
-        const pg = pages[ref.page - 1]
-        if (!pg) return null
-        const [left, top, right, bottom] = ref.box
-        const x0 = Math.max(0, Math.floor(left * pg.W) - pad)
-        const y0 = Math.max(0, Math.floor(top * pg.H) - pad)
-        const x1 = Math.min(pg.W, Math.ceil(right * pg.W) + pad)
-        const y1 = Math.min(pg.H, Math.ceil(bottom * pg.H) + pad)
-        return x1 - x0 < 4 || y1 - y0 < 4 ? null : crop(pg.canvas, x0, y0, x1 - x0, y1 - y0)
+    // A main question whose parts were returned separately is only their
+    // heading; its text already travels with each part as the shared context.
+    const parents = new Set(questions.filter((q) => q.parent && q.parent !== q.num).map((q) => q.parent))
+    const heading = (q) => parents.has(q.num) && !q.options.length && !q.answer && !q.answerText
+    for (const part of questions) {
+        const main = part.parent && questions.find((q) => q.num === part.parent && heading(q))
+        if (main && !part.context && main.stem) part.context = main.stem
     }
-    const region = (area) => {
-        const pg = pages[area.page - 1]
-        if (!pg) return null
-        const x0 = Math.max(0, Math.floor(pg.minX - 16))
-        const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 16))
-        const y0 = Math.max(0, Math.floor(area.top * pg.H) - 10)
-        const y1 = Math.min(pg.H, Math.ceil(area.bottom * pg.H) + 10)
-        return y1 - y0 < 4 ? null : crop(pg.canvas, x0, y0, x1 - x0, y1 - y0)
-    }
-    return (layout.questions || []).map((question) => {
-        const options = question.options.map((option) => ({
-            key: option.key,
-            text: option.text,
-            image: option.figure ? cropBox(option.figure) : null,
-            fromTable: false,
-        }))
-        return {
-            num: question.num,
-            stem: question.stem,
-            options,
-            figures: question.figures.map((ref) => cropBox(ref)).filter(Boolean),
-            snaps: (question.regions || []).map(region).filter(Boolean),
-            pages: question.pages,
-            answer: question.answer,
-            unclear: question.issues.length > 0,
-            issues: question.issues,
-            visualOptions: options.some((o) => !o.text),
+    // The stem points at a picture the reader did not return: flag it for review.
+    const POINTS_AT_PICTURE = /\b(shown|given|as follows|table|figure|diagram|chart|graph|circuit|tree)\b[^.?]*\bbelow\b|\bbelow\b[^.?]*\b(table|figure|diagram|chart|graph|circuit|tree)\b/i
+    for (const q of questions) {
+        const pictured = q.figures.length || q.options.some((o) => o.image)
+        if (!pictured && !q.context && POINTS_AT_PICTURE.test(q.stem)) {
+            q.unclear = true
+            q.missingImage = true
         }
-    })
+    }
+    const kept = questions.filter((q) => !heading(q))
+    return { questions: kept, answers, answerTexts }
 }
 
-function layoutNeedsAiRecovery(layout, questions) {
-    if (!questions.length) return true
-    const complete = questions.filter((question) => question.stem && question.options.length >= 2 && !question.unclear).length
-    if (layout.total && layout.complete < layout.total) return true
-    if (complete < Math.max(2, Math.ceil(questions.length * 0.75))) return true
 
-    // The layout parser intentionally returns normal text. If an otherwise
-    // complete mathematical item has lost every operator, use the rendered
-    // page to recover it rather than asking an editor to transcribe it.
-    return questions.some((question) => {
-        const text = [question.stem, ...question.options.map((option) => option.text)].join(" ")
-        const describesSetNotation = /\b(union|intersection|relative complement|mutually exclusive)\b/i.test(text)
-        return describesSetNotation && !/[∪∩⊕−≤≥≠]/.test(text)
-    })
-}
 
-function usableAiQuestions(questions, localQuestions) {
-    const complete = questions.filter((question) => question.stem && question.options.length >= 2).length
-    const localComplete = localQuestions.filter((question) => question.stem && question.options.length >= 2 && !question.unclear).length
-    return complete >= Math.max(1, localComplete) && questions.length >= localQuestions.length
-}
 
+
+// Every file is read by AI vision (OpenRouter) from the rendered page image.
+// Papers come in too many layouts for rule-based parsing to be trusted, so a
+// failed read is reported instead of silently falling back to a local guess.
 export async function readExamPdf(file, onProgress, readLayout, readPage) {
+    if (!readPage) throw new Error("AI page reading is required to import papers")
     const pdfjs = await loadPdfJs()
     const data = new Uint8Array(await file.arrayBuffer())
     const task = pdfjs.getDocument({ data, isEvalSupported: false })
@@ -1120,119 +505,25 @@ export async function readExamPdf(file, onProgress, readLayout, readPage) {
     try {
         const texts = await pageTexts(pdf)
         const info = examInfo(texts[0] || "", file.name)
-        const key = await answersFrom(texts, file.name, pdf)
-        if (key) return { kind: "key", name: file.name, info, ...key }
-
         const pages = await readPages(pdf, pdfjs, onProgress)
-        let aiProblem = null
-        let aiAttempted = false
-
-        // Vision is the primary reader for imports.  It sees the rendered
-        // source page, so it can retain diagrams, tables, scanned text,
-        // mathematical notation and multi-part PM question IDs that a PDF
-        // text stream cannot represent reliably.
-        if (readPage) {
-            aiAttempted = true
-            if (onProgress) {
-                await onProgress(0, pages.length, "ai", {
-                    reason: "Reading the original pages with AI vision",
-                })
-            }
-            try {
-                const ai = await readWithAi(pages, readPage, onProgress)
-                const complete = ai.questions.filter((question) => question.stem && question.options.length >= 2).length
-                if (complete >= 1) {
-                    return {
-                        kind: "paper",
-                        name: file.name,
-                        info,
-                        questions: ai.questions,
-                        readBy: "ai",
-                        partial: complete < ai.questions.length,
-                    }
-                }
-                if (Object.keys(ai.answers || {}).length >= 1) {
-                    return { kind: "key", name: file.name, info, answers: ai.answers, count: Object.keys(ai.answers).length, readBy: "ai" }
-                }
-                aiProblem = "AI vision did not find reviewable questions or answers"
-            } catch (error) {
-                aiProblem = error?.response?.data?.message || error?.message || "AI vision could not read this file"
-            }
+        if (onProgress) {
+            await onProgress(0, pages.length, "ai", { reason: "Reading the original pages with AI vision" })
         }
-
-        // If vision is unavailable, retain a local path for simple numbered
-        // papers, answer sections and figure coordinates rather than failing
-        // the whole import.
-        const ruled = locateQuestions(pages).map(buildQuestion)
-        const fourChoice = ruled.filter((q) => q.options.length === 4).length
-        if (ruled.length >= 5 && fourChoice >= ruled.length * 0.8) {
-            return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules" }
+        let ai
+        try {
+            ai = await readWithAi(pages, readPage, onProgress)
+        } catch (error) {
+            throw new Error(`AI could not read ${file.name}: ${error?.response?.data?.message || error?.message || "unknown error"}`)
         }
-
-        let layoutProblem = aiProblem
-        if (readLayout) {
-            if (onProgress) await onProgress(0, pages.length, "layout")
-            try {
-                const layout = await readLayout(file)
-                // Preserve every locally detected question for review. A
-                // partial scan should flag individual items, not discard an
-                // entire upload or force it through an external AI provider.
-                if (layout.total >= 1) {
-                    const localQuestions = fromLayout(layout, pages)
-                    if (readPage && !aiAttempted && layoutNeedsAiRecovery(layout, localQuestions)) {
-                        if (onProgress) {
-                            await onProgress(0, pages.length, "ai", {
-                                reason: "The local layout was incomplete or lost notation, so it is being verified from the page image",
-                            })
-                        }
-                        try {
-                            const ai = await readWithAi(pages, readPage, onProgress)
-                            if (usableAiQuestions(ai.questions, localQuestions)) {
-                                return {
-                                    kind: "paper",
-                                    name: file.name,
-                                    info,
-                                    questions: ai.questions,
-                                    readBy: "ai-fallback",
-                                    profile: layout.profile,
-                                }
-                            }
-                            layoutProblem = "the AI recovery did not return enough complete questions; the local review is shown instead"
-                        } catch (error) {
-                            layoutProblem = `AI recovery could not finish (${error?.response?.data?.message || error?.message || "unknown error"}); the local review is shown instead`
-                        }
-                    }
-                    return {
-                        kind: "paper",
-                        name: file.name,
-                        info,
-                        questions: localQuestions,
-                        readBy: "layout",
-                        profile: layout.profile,
-                        partial: layout.complete < layout.total,
-                        recoveryWarning: aiProblem || layoutProblem,
-                    }
-                }
-                if (!layout.total && Object.keys(layout.answers || {}).length >= 1) {
-                    const answers = layout.answers
-                    return { kind: "key", name: file.name, info, answers, count: Object.keys(answers).length }
-                }
-                layoutProblem = layout.total
-                    ? `the layout reader read only ${layout.complete} of ${layout.total} questions completely`
-                    : "the layout reader found no questions"
-            } catch (error) {
-                layoutProblem = error?.response?.data?.message || error?.message || "the layout reader failed"
-            }
+        const complete = ai.questions.filter((question) => question.stem && (question.options.length >= 2 || question.type !== "mcq")).length
+        const answerCount = Object.keys(ai.answers || {}).length + Object.keys(ai.answerTexts || {}).length
+        if (complete >= 1) {
+            return { kind: "paper", name: file.name, info, questions: ai.questions, readBy: "ai", partial: complete < ai.questions.length }
         }
-
-        // A paper that is only partly recognized should remain reviewable in
-        // the workspace rather than failing the whole upload or silently
-        // sending its contents to an AI provider. The reviewer can correct
-        // the highlighted incomplete items before saving.
-        if (ruled.length) {
-            return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules", partial: true }
+        if (answerCount >= 1) {
+            return { kind: "key", name: file.name, info, answers: ai.answers, answerTexts: ai.answerTexts, count: answerCount, readBy: "ai" }
         }
-        throw new Error(layoutProblem || "no questions could be read by the local extractors")
+        throw new Error(`AI found no questions or answers in ${file.name}`)
     } finally {
         task.destroy()
     }

@@ -8,6 +8,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./styles/rebyu-ds.css";
+@import "./styles/tutor-games.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -165,6 +166,10 @@ html {
 
     .rebyu-page-bleed {
         @apply max-w-none gap-0 px-0 py-0 sm:px-0 sm:py-0 lg:px-0;
+    }
+
+    .rebyu-page-fill {
+        @apply h-[calc(100dvh-4rem)] min-h-0 max-w-none gap-0 overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0;
     }
 
     .rebyu-page-header {
@@ -1747,3 +1752,5 @@ span:not(.font-rb-display):not(.font-display):not(.font-heading),
     transform: translateX(220%);
   }
 }
+
+@keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }

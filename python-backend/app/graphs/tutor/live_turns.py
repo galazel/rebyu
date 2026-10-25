@@ -5,6 +5,8 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import END, START, MessagesState, StateGraph
 
+from app.domain.tutor_conduct import classify, conduct_directive
+
 
 class LiveTurnState(MessagesState):
     event: dict
@@ -18,6 +20,8 @@ class LiveTurnState(MessagesState):
     allowContinue: bool
     allowSpeak: bool
     directive: str
+    conduct: str
+    conduct_strikes: int
 
 
 def apply_event(state: LiveTurnState) -> dict:
@@ -25,7 +29,7 @@ def apply_event(state: LiveTurnState) -> dict:
     sequence = event["sequence"]
     if sequence <= state.get("sequence", 0):
         return {"stale": True}
-    update = {"sequence": sequence, "stale": False, "directive": ""}
+    update = {"sequence": sequence, "stale": False, "directive": "", "conduct": "ok"}
     action = event["action"]
     if action == "open":
         update.update(typing=False, paused=False, closed=False, awaiting_response=False)
@@ -36,6 +40,11 @@ def apply_event(state: LiveTurnState) -> dict:
             return update
         update.update(typing=False, awaiting_response=True)
         update["messages"] = [HumanMessage(content=event["message"], id=f"student-{sequence}")]
+        # Warnings escalate across the whole session, like a teacher remembering a student.
+        conduct = classify(event.get("message"))
+        update["conduct"] = conduct.kind
+        if conduct.is_misconduct:
+            update["conduct_strikes"] = state.get("conduct_strikes", 0) + 1
     elif action == "agent_message":
         update["awaiting_response"] = False
         update["messages"] = [AIMessage(content=event["message"], id=f"teacher-{sequence}")]
@@ -60,6 +69,10 @@ _evaluation = ChatPromptTemplate.from_messages([
 def prepare_evaluation(state: LiveTurnState) -> dict:
     # LangChain constructs the evaluation context; ElevenLabs remains the existing
     # conversational model/voice transport, rather than invoking a second paid LLM.
+    conduct = conduct_directive(classify(state.get("messages", [])[-1].content if state.get("messages") else ""), state.get("conduct_strikes", 0))
+    if conduct:
+        # Behaviour comes first; the answer itself isn't evaluated.
+        return {"directive": conduct}
     prompt = _evaluation.invoke({"history": state.get("messages", [])[-3:]})
     return {"directive": prompt.to_string()[-12000:]}
 
@@ -91,4 +104,4 @@ async def coordinate_live_turn(thread_id: str, event: dict) -> dict:
     async with locked_checkpointer(thread_id) as checkpointer:
         graph = build_live_turn_graph(checkpointer)
         result = await graph.ainvoke({"event": event}, {"configurable": {"thread_id": thread_id}})
-    return {key: result.get(key) for key in ("sequence", "phase", "allowContinue", "allowSpeak", "directive", "stale")}
+    return {key: result.get(key) for key in ("sequence", "phase", "allowContinue", "allowSpeak", "directive", "stale", "conduct", "conduct_strikes")}

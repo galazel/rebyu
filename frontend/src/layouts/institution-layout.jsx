@@ -134,7 +134,7 @@ export default function InstitutionLayout() {
            </DropdownMenu>
       </>} />
 
-        <main className="rebyu-page">
+        <main data-route-content className="rebyu-page">
           <Suspense fallback={<PortalPageSkeleton />}>
             <Outlet context={outletContext} />
           </Suspense>

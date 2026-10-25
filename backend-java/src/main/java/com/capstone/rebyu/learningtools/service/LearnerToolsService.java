@@ -19,7 +19,7 @@ import java.util.List;
 public class LearnerToolsService {
 
     private static final List<String> ALLOWED_ITEM_TYPES =
-            List.of("quiz", "flashcard", "mindmap", "file", "link", "note");
+            List.of("quiz", "flashcard", "mindmap", "activity", "file", "link", "note");
 
     private final JdbcTemplate jdbc;
     private final S3StorageService s3StorageService;

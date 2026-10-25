@@ -21,7 +21,9 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 MAX_WIDGETS = 3
-MIN_QUIZ_QUESTIONS = 5
+MIN_ACTIVITY_ITEMS = 10
+MAX_ACTIVITY_ITEMS = 20
+MIN_QUIZ_QUESTIONS = MIN_ACTIVITY_ITEMS
 MAX_QUIZ_QUESTIONS = 20
 
 
@@ -38,7 +40,7 @@ class show_quiz(BaseModel):
     test themselves. Each question gets instant right/wrong feedback."""
 
     title: str = Field(description="Short quiz title, e.g. 'IPv4 Address Classes'.")
-    questions: list[QuizQuestion] = Field(description="5-20 questions. Honour the learner's requested number exactly when it is in this range.")
+    questions: list[QuizQuestion] = Field(description="10-20 questions, default 10. Honour the requested count exactly.")
     hint: str = Field(default="", description="Optional hint the learner can reveal, e.g. a range table in markdown.")
 
 
@@ -77,7 +79,7 @@ class show_flashcards(BaseModel):
     definitions, port numbers, acronyms or facts."""
 
     title: str = Field(default="", description="Deck title.")
-    cards: list[Flashcard] = Field(description="3-12 cards.")
+    cards: list[Flashcard] = Field(description="10-20 distinct cards, default 10. Honour the requested count exactly.")
 
 
 class Step(BaseModel):
@@ -102,10 +104,10 @@ class Pair(BaseModel):
 
 class show_matching(BaseModel):
     """Show a match-the-pairs exercise (term to definition, protocol to port,
-    layer to device). Use for recall practice on 3-6 related pairs."""
+    layer to device). Use for recall practice on 10-20 related pairs."""
 
     title: str = Field(default="", description="Instruction, e.g. 'Match each protocol to its port'.")
-    pairs: list[Pair] = Field(description="3-6 pairs.")
+    pairs: list[Pair] = Field(description="10-20 distinct pairs, default 10. Honour the requested count exactly.")
 
 
 class show_ordering(BaseModel):
@@ -113,7 +115,7 @@ class show_ordering(BaseModel):
     OSI layers, handshake messages, a lifecycle."""
 
     title: str = Field(description="Instruction, e.g. 'Order the TCP handshake'.")
-    items: list[str] = Field(description="3-7 items in the CORRECT order; REBYU shuffles them.")
+    items: list[str] = Field(description="10-20 distinct items in the CORRECT order; default 10. REBYU shuffles them.")
     explanation: str = Field(default="", description="One sentence on why this order.")
 
 
@@ -128,7 +130,7 @@ class show_fill_blank(BaseModel):
     terms and short numeric facts."""
 
     title: str = Field(default="", description="Short title.")
-    blanks: list[Blank] = Field(description="2-8 sentences.")
+    blanks: list[Blank] = Field(description="10-20 distinct sentences with blanks, default 10.")
 
 
 class Claim(BaseModel):
@@ -142,7 +144,7 @@ class show_true_false(BaseModel):
     misconceptions about the topic."""
 
     title: str = Field(default="", description="Short title, e.g. 'Myth or fact?'.")
-    claims: list[Claim] = Field(description="3-8 statements.")
+    claims: list[Claim] = Field(description="10-20 distinct statements, default 10. Honour the requested count exactly.")
 
 
 class show_code(BaseModel):
@@ -226,9 +228,138 @@ class show_mindmap(BaseModel):
     branches: list[MindBranch] = Field(description="3-7 main branches.")
 
 
+class SortGroup(BaseModel):
+    name: str
+    items: list[str] = Field(description="Lesson-based items that belong ONLY in this category; use 10-20 items TOTAL across all groups, default 10.")
+
+
+class show_sorting(BaseModel):
+    """A drag-and-drop categorizing game. Every item must have exactly one unambiguous category."""
+    title: str
+    groups: list[SortGroup] = Field(description="2-4 distinct categories.")
+    explanation: str = ""
+
+
+class WordClue(BaseModel):
+    word: str = Field(description="One lesson keyword, 3-14 English letters, no spaces.")
+    clue: str = Field(description="Accurate lesson-based definition, not the answer itself.")
+
+
+class show_word_game(BaseModel):
+    """Create a word search, crossword, hangman or unscramble game from lesson vocabulary."""
+    title: str
+    variant: str = Field(description="Exactly word_search, crossword, hangman or unscramble, matching the request.")
+    words: list[WordClue] = Field(description="10-20 unique vocabulary words with clues, default 10.")
+
+
+class show_puzzle(BaseModel):
+    """Create a jigsaw or sliding-tile puzzle of an educational concept diagram."""
+    title: str
+    variant: str = Field(description="jigsaw or sliding, as requested.")
+    labels: list[str] = Field(description="Exactly 9 short lesson concepts in logical reading order; rendered as a diagram.")
+    explanation: str = Field(description="Explain how the completed diagram relates to the lesson.")
+
+
+class SceneObject(BaseModel):
+    label: str = Field(description="Unique lesson-related object name.")
+    symbol: str = Field(description="A single recognizable emoji representing this object.")
+    changed_symbol: str = Field(default="", description="Different emoji for a changed object; blank for unchanged objects.")
+    position: int = Field(description="Unique grid cell 0-15.")
+
+
+class show_visual_game(BaseModel):
+    """Spot-the-difference or hidden-object game in an illustrated educational scene."""
+    title: str
+    variant: str = Field(description="spot_difference or hidden_objects, as requested.")
+    objects: list[SceneObject] = Field(description="8-12 unique objects; use changed_symbol on 3-5 for spot_difference.")
+    targets: list[str] = Field(description="3-5 labels to find for hidden_objects; changed object labels for spot_difference.")
+    explanation: str = ""
+
+
+class show_speed_flashcards(BaseModel):
+    """A timed speed round of lesson flashcards, with a timer and self-assessment."""
+    title: str
+    cards: list[Flashcard] = Field(description="10-20 concise cards, default 10.")
+    seconds: int = Field(default=15, description="Seconds per card, 5-60.")
+
+
+class StoryChoice(BaseModel):
+    text: str
+    next_id: str
+    feedback: str = Field(default="", description="One or two plain sentences: the consequence of this choice and the lesson concept it shows.")
+
+
+class StoryNode(BaseModel):
+    id: str
+    text: str = Field(description="A concrete scenario or ending. Explain the lesson-based consequence at endings.")
+    choices: list[StoryChoice] = Field(default=[], description="2-3 choices, or empty for an ending.")
+    ending_title: str = Field(default="", description="Endings only: a short name for this ending, e.g. 'Licensed and safe'.")
+    outcome: str = Field(default="", description="Endings only: best, mixed or poor — how well this ending applies the lesson.")
+
+
+class show_branching_story(BaseModel):
+    """A lesson-grounded branching story where decisions lead to different outcomes."""
+    title: str
+    role: str
+    start_id: str
+    nodes: list[StoryNode] = Field(description="Exactly the requested 10-20 reachable decision nodes (default 10), plus at least two ending nodes. Share later nodes between branches to keep the story compact. All next_id references must exist. No loops.")
+    concept: str = Field(default="", description="Optional: the lesson concept this story practises, under 10 words.")
+    takeaway: str = Field(default="", description="Optional: one sentence on what the best path shows about the lesson.")
+
+
+class SimulationResource(BaseModel):
+    name: str
+    initial: float
+    minimum: float = 0
+    description: str = Field(default="", description="Optional: what this resource stands for in the lesson, under 12 words.")
+
+
+class ResourceEffect(BaseModel):
+    resource: str
+    delta: float
+
+
+class SimulationChoice(BaseModel):
+    text: str
+    effects: list[ResourceEffect]
+    feedback: str = Field(description="One or two plain sentences: what this choice changed and why, naming the lesson concept it shows.")
+
+
+class SimulationRound(BaseModel):
+    situation: str
+    choices: list[SimulationChoice]
+
+
+class show_simulation(BaseModel):
+    """A resource-constrained simulation or role-play, such as running a budget. Choices apply deterministic resource changes."""
+    title: str
+    role: str
+    goal: str
+    resources: list[SimulationResource] = Field(description="1-3 resources, e.g. Budget and Quality. Every initial value must meet its minimum.")
+    target_resource: str
+    target_minimum: float = Field(description="Achievable end-of-simulation target for target_resource.")
+    rounds: list[SimulationRound] = Field(description="10-20 rounds (default 10), with 2-3 concise choices each. Choice text names the action only; costs go in effects. Ensure at least one legal path reaches the target without falling below any resource minimum.")
+    concept: str = Field(default="", description="Optional: the lesson concept this simulation practises, under 10 words.")
+    takeaway: str = Field(default="", description="Optional: one-sentence lesson takeaway shown on the end screen.")
+
+
+class TruthLieRound(BaseModel):
+    statements: list[str] = Field(description="Exactly three distinct statements: two true, one false.")
+    false_index: int = Field(description="Zero-based index of the ONLY false statement.")
+    explanation: str = Field(description="Correct the false statement and briefly explain why the other two are true.")
+
+
+class show_two_truths_lie(BaseModel):
+    """Two truths and a lie: choose the false statement in each round."""
+    title: str
+    rounds: list[TruthLieRound] = Field(description="10-20 varied lesson-grounded rounds, default 10.")
+
+
 TOOLS = [show_quiz, show_table, show_cards, show_flashcards, show_steps,
          show_matching, show_ordering, show_fill_blank, show_true_false,
-         show_code, show_math, show_diagram, show_explorer, show_mindmap]
+         show_code, show_math, show_diagram, show_explorer, show_mindmap,
+         show_sorting, show_word_game, show_speed_flashcards,
+         show_branching_story, show_simulation, show_two_truths_lie]
 
 TOOL_RULES = """
     Interactive answers -- you have tools that render inside the chat. They are
@@ -236,14 +367,20 @@ TOOL_RULES = """
     request matches a row below, you MUST call that tool (and not write the same
     content as text, markdown lists or markdown tables):
     - practice, a quiz, quiz me, test me, practice problems .. show_quiz
-      (a generated quiz has 5-20 questions. Honour an in-range requested count
-      exactly. If the learner asks for fewer than 5 or more than 20, do not call
-      a tool: briefly say the minimum is 5 and the maximum is 20, then ask them
+      (all learning activities have 10-20 items, default 10. Honour an in-range requested count
+      exactly. If the learner asks for fewer than 10 or more than 20, do not call
+      a tool: briefly say the minimum is 10 and the maximum is 20, then ask them
       to choose a number in that range.)
       (asked again? vary: show_true_false for misconceptions, show_matching for
       pairs, show_ordering for sequences, show_fill_blank for key terms)
     - memorise, remember, flashcards, drill me ............... show_flashcards
-      (8-12 cards when they ask to generate a set)
+      (10-20 cards, default 10)
+    - sorting, categorizing, drag items into groups ......... show_sorting
+    - word search, crossword, hangman, unscramble ............ show_word_game
+    - flashcard speed round, timed flashcards ............... show_speed_flashcards
+    - branching story, choices leading to outcomes .......... show_branching_story
+    - simulation, role-play, decisions under constraints .... show_simulation
+    - two truths and a lie, pick the false statement ........ show_two_truths_lie
     - mind map, overview, big picture, summarise the lesson .. show_mindmap
     - how do I solve / find / calculate / convert X .......... show_steps
     - compare, difference between, vs, X and Y and Z ......... show_table
@@ -257,7 +394,11 @@ TOOL_RULES = """
       X affect Y, any relationship between numbers ........... show_explorer
       (give the learner a slider for X and the live formula for Y -- far
       better than describing the trend in words)
-    Quality gate before calling a tool: use only facts supported by the lesson,
+    Quality gate before calling a tool: use only facts supported by the lesson.
+    Every learning activity MUST contain 10-20 distinct items, default exactly 10.
+    Counts mean questions, cards, pairs, sortable items, steps, blanks, statements,
+    words or rounds as appropriate. In branching stories count decision nodes,
+    not endings. Honour the exact requested count and never pad with duplicates.
     make every prompt distinct, give exactly one defensible correct answer where
     applicable, and make wrong choices plausible without being trick questions.
     Do not use a widget merely to decorate an answer. If the learner's request is
@@ -266,7 +407,7 @@ TOOL_RULES = """
     Pick the ONE best tool (at most three for a request that clearly needs
     several). Write one or two sentences of text with the tool -- never repeat
     the tool's content in the text. The word limits above apply to your text,
-    not to tool content. Quizzes, flashcards and mind maps are saved to the
+    not to tool content. All generated learning activities are saved to the
     learner's Library automatically -- you may say so in one short clause.
     """
 
@@ -276,6 +417,12 @@ TOOL_RULES = """
 # matters -- the first match wins, most specific first. A message matching none
 # leaves the choice to the model.
 _REQUESTS = [
+    (r"\btwo truths (and|&) a lie\b", "show_two_truths_lie"),
+    (r"\bbranching stor(y|ies)\b", "show_branching_story"),
+    (r"\bsimulation\b|\brole[- ]play\b", "show_simulation"),
+    (r"\bspeed round\b|\btimed flashcards\b", "show_speed_flashcards"),
+    (r"\b(word search|crossword|hangman|unscramble)\b", "show_word_game"),
+    (r"\b(sort(ing)?|categori[sz](e|ing|ation))\b", "show_sorting"),
     (r"\bmind ?maps?\b", "show_mindmap"),
     (r"\bmatch(ing)?\b|\bpair (them|each|up)\b", "show_matching"),
     (r"\b(in|into) (the right |correct )?order\b|\border (the|these)\b|\bsequence (the|these)\b", "show_ordering"),
@@ -314,6 +461,38 @@ def requested_quiz_count(message: str) -> int | None:
         return None
     match = _QUIZ_ITEM_COUNT.search(message or "")
     return int(match.group(1)) if match else None
+
+
+ACTIVITY_TOOLS = {"show_quiz", "show_flashcards", "show_matching", "show_ordering", "show_fill_blank",
+                  "show_true_false", "show_sorting", "show_word_game", "show_speed_flashcards",
+                  "show_branching_story", "show_simulation", "show_two_truths_lie"}
+_ACTIVITY_COUNT = re.compile(r"\b(\d{1,3})\s*[- ]?\s*(?:quiz\s*)?(?:questions?|items?|flashcards?|cards?|pairs?|terms?|words?|blanks?|statements?|claims?|rounds?|steps?|decision points?|decisions?)\b", re.IGNORECASE)
+
+
+def requested_activity_count(message: str) -> int | None:
+    if requested_tool(message) not in ACTIVITY_TOOLS:
+        return None
+    match = _ACTIVITY_COUNT.search(message or "")
+    return int(match.group(1)) if match else MIN_ACTIVITY_ITEMS
+
+
+def activity_token_budget(tool: str | None, count: int | None) -> int | None:
+    if tool not in ACTIVITY_TOOLS or count is None:
+        return None
+    per_item = 500 if tool in ("show_branching_story", "show_simulation") else 250
+    return min(12000, max(4000, count * per_item + 1500))
+
+
+def activity_item_count(widget: dict) -> int | None:
+    fields = {"quiz": "questions", "flashcards": "cards", "speed_flashcards": "cards", "matching": "pairs",
+              "ordering": "items", "fill_blank": "blanks", "true_false": "claims", "word_game": "words",
+              "simulation": "rounds", "two_truths_lie": "rounds"}
+    kind = widget.get("type")
+    if kind == "sorting":
+        return sum(len(group["items"]) for group in widget["groups"])
+    if kind == "branching_story":
+        return sum(bool(node["choices"]) for node in widget["nodes"])
+    return len(widget[fields[kind]]) if kind in fields else None
 
 
 def _text(value: Any, limit: int) -> str:
@@ -404,7 +583,7 @@ def _cards(args: dict) -> dict | None:
 
 def _flashcards(args: dict) -> dict | None:
     cards = [{"front": _text(r.get("front"), 200), "back": _text(r.get("back"), 500)}
-             for r in _list(args, "cards", 12)]
+             for r in _list(args, "cards", MAX_ACTIVITY_ITEMS)]
     cards = _unique([c for c in cards if c["front"] and c["back"]], "front")
     return {"type": "flashcards", "title": _text(args.get("title"), 120), "cards": cards} if len(cards) >= 3 else None
 
@@ -421,7 +600,7 @@ def _steps(args: dict) -> dict | None:
 
 def _matching(args: dict) -> dict | None:
     pairs = [{"term": _text(r.get("term"), 120), "match": _text(r.get("match"), 200)}
-             for r in _list(args, "pairs", 6)]
+             for r in _list(args, "pairs", MAX_ACTIVITY_ITEMS)]
     pairs = _unique([p for p in pairs if p["term"] and p["match"]], "term")
     if (len(pairs) < 3 or len({_key(p["match"]) for p in pairs}) < len(pairs)):
         return None
@@ -429,7 +608,7 @@ def _matching(args: dict) -> dict | None:
 
 
 def _ordering(args: dict) -> dict | None:
-    items = [i for i in (_text(i, 200) for i in (args.get("items") or [])[:7]) if i]
+    items = [i for i in (_text(i, 200) for i in (args.get("items") or [])[:MAX_ACTIVITY_ITEMS]) if i]
     if len(items) < 3 or len({_key(item) for item in items}) < len(items):
         return None
     return {"type": "ordering", "title": _text(args.get("title"), 160) or "Put these in order",
@@ -438,7 +617,7 @@ def _ordering(args: dict) -> dict | None:
 
 def _fill_blank(args: dict) -> dict | None:
     blanks = []
-    for r in _list(args, "blanks", 8):
+    for r in _list(args, "blanks", MAX_ACTIVITY_ITEMS):
         sentence, answer = _text(r.get("sentence"), 400), _text(r.get("answer"), 80)
         if sentence and answer and "___" in sentence:
             alts = [a for a in (_text(a, 80) for a in (r.get("alternatives") or [])) if a][:5]
@@ -449,7 +628,7 @@ def _fill_blank(args: dict) -> dict | None:
 
 def _true_false(args: dict) -> dict | None:
     claims = []
-    for r in _list(args, "claims", 8):
+    for r in _list(args, "claims", MAX_ACTIVITY_ITEMS):
         statement = _text(r.get("statement"), 300)
         value = r.get("is_true", r.get("isTrue"))
         if statement and isinstance(value, bool):
@@ -529,7 +708,203 @@ def _mindmap(args: dict) -> dict | None:
     return {"type": "mindmap", "center": center, "branches": branches}
 
 
+def _sorting(args: dict) -> dict | None:
+    groups, seen = [], set()
+    for group in _list(args, "groups", 4):
+        name = _text(group.get("name"), 80)
+        items = []
+        for value in (group.get("items") or [])[:MAX_ACTIVITY_ITEMS]:
+            text = _text(value, 160)
+            if text and _key(text) not in seen and len(seen) < MAX_ACTIVITY_ITEMS:
+                seen.add(_key(text))
+                items.append(text)
+        if name and items:
+            groups.append({"name": name, "items": items})
+    if len(groups) < 2 or len({_key(g["name"]) for g in groups}) != len(groups):
+        return None
+    return {"type": "sorting", "title": _text(args.get("title"), 120), "groups": groups,
+            "explanation": _text(args.get("explanation"), 500)}
+
+
+def _word_game(args: dict) -> dict | None:
+    variant = args.get("variant")
+    if variant not in ("word_search", "crossword", "hangman", "unscramble"):
+        return None
+    words = []
+    for entry in _list(args, "words", MAX_ACTIVITY_ITEMS):
+        word = re.sub(r"[^A-Z]", "", _text(entry.get("word"), 40).upper())
+        clue = _text(entry.get("clue"), 240)
+        if 3 <= len(word) <= 14 and clue:
+            words.append({"word": word, "clue": clue})
+    words = _unique(words, "word")
+    return {"type": "word_game", "title": _text(args.get("title"), 120), "variant": variant, "words": words} if len(words) >= 2 else None
+
+
+def _puzzle(args: dict) -> dict | None:
+    variant = args.get("variant")
+    labels = [_text(value, 36) for value in (args.get("labels") or [])[:9]]
+    if variant not in ("jigsaw", "sliding") or len(labels) != 9 or not all(labels):
+        return None
+    return {"type": "puzzle", "variant": variant, "title": _text(args.get("title"), 120), "labels": labels,
+            "explanation": _text(args.get("explanation"), 600)}
+
+
+def _visual_game(args: dict) -> dict | None:
+    variant = args.get("variant")
+    if variant not in ("spot_difference", "hidden_objects"):
+        return None
+    objects, positions = [], set()
+    for entry in _list(args, "objects", 12):
+        position = entry.get("position")
+        if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < 16 or position in positions:
+            continue
+        label, symbol = _text(entry.get("label"), 60), _text(entry.get("symbol"), 12)
+        if not label or not symbol:
+            continue
+        positions.add(position)
+        changed = _text(entry.get("changed_symbol"), 12)
+        objects.append({"label": label, "symbol": symbol, "changedSymbol": changed if changed != symbol else "", "position": position})
+    objects = _unique(objects, "label")
+    labels = {obj["label"] for obj in objects}
+    targets = list(dict.fromkeys(_text(value, 60) for value in (args.get("targets") or [])[:6] if _text(value, 60) in labels))
+    if variant == "spot_difference":
+        targets = [obj["label"] for obj in objects if obj["changedSymbol"]]
+    if len(objects) < 4 or not targets:
+        return None
+    return {"type": "visual_game", "variant": variant, "title": _text(args.get("title"), 120), "objects": objects,
+            "targets": targets, "explanation": _text(args.get("explanation"), 500)}
+
+
+def _speed_flashcards(args: dict) -> dict | None:
+    widget = _flashcards(args)
+    if widget:
+        widget["type"] = "speed_flashcards"
+        widget["seconds"] = int(min(60, max(5, _number(args.get("seconds"), 15))))
+    return widget
+
+
+def _branching_story(args: dict) -> dict | None:
+    nodes = []
+    for entry in _list(args, "nodes", 60):
+        node_id, text = _text(entry.get("id"), 40), _text(entry.get("text"), 900)
+        choices = [{"text": _text(choice.get("text"), 200), "nextId": _text(choice.get("next_id"), 40),
+                    "feedback": _text(choice.get("feedback"), 500)} for choice in _list(entry, "choices", 3)]
+        if not node_id or not text or any(not choice["text"] or not choice["nextId"] for choice in choices):
+            return None
+        node = {"id": node_id, "text": text, "choices": choices}
+        if not choices:
+            outcome = _text(entry.get("outcome"), 10).lower()
+            node["endingTitle"] = _text(entry.get("ending_title"), 80)
+            node["outcome"] = outcome if outcome in ("best", "mixed", "poor") else ""
+        nodes.append(node)
+    by_id = {node["id"]: node for node in nodes}
+    start = _text(args.get("start_id"), 40)
+    if len(by_id) != len(nodes) or start not in by_id:
+        return None
+    visiting, visited, endings = set(), set(), set()
+
+    def visit(node_id):
+        if node_id not in by_id or node_id in visiting:
+            return False
+        if node_id in visited:
+            return True
+        visiting.add(node_id)
+        node = by_id[node_id]
+        if not node["choices"]:
+            endings.add(node_id)
+        elif len(node["choices"]) < 2 or not all(visit(choice["nextId"]) for choice in node["choices"]):
+            return False
+        visiting.remove(node_id)
+        visited.add(node_id)
+        return True
+
+    if not visit(start) or len(endings) < 2:
+        return None
+    return {"type": "branching_story", "title": _text(args.get("title"), 120), "role": _text(args.get("role"), 200),
+            "startId": start, "nodes": [node for node in nodes if node["id"] in visited],
+            "concept": _text(args.get("concept"), 120), "takeaway": _text(args.get("takeaway"), 300)}
+
+
+def _simulation(args: dict) -> dict | None:
+    resources = []
+    for entry in _list(args, "resources", 3):
+        name = _text(entry.get("name"), 40)
+        initial, minimum = _number(entry.get("initial")), _number(entry.get("minimum"), 0)
+        if not name or initial is None or minimum is None or initial < minimum:
+            return None
+        resources.append({"name": name, "initial": initial, "minimum": minimum, "description": _text(entry.get("description"), 120)})
+    names = {resource["name"] for resource in resources}
+    target, threshold = _text(args.get("target_resource"), 40), _number(args.get("target_minimum"))
+    if not resources or len(names) != len(resources) or target not in names or threshold is None:
+        return None
+    rounds = []
+    for entry in _list(args, "rounds", MAX_ACTIVITY_ITEMS):
+        situation = _text(entry.get("situation"), 700)
+        choices = []
+        for choice in _list(entry, "choices", 3):
+            text = _text(choice.get("text"), 200)
+            effects = []
+            for effect in _list(choice, "effects", 3):
+                name, delta = _text(effect.get("resource"), 40), _number(effect.get("delta"))
+                if name not in names or delta is None:
+                    return None
+                effects.append({"resource": name, "delta": delta})
+            if not text:
+                return None
+            choices.append({"text": text, "effects": effects, "feedback": _text(choice.get("feedback"), 600)})
+        if not situation or len(choices) < 2:
+            return None
+        rounds.append({"situation": situation, "choices": choices})
+    if len(rounds) < 2:
+        return None
+    # Bounded memoized search avoids enumerating 3**20 paths for a 20-round set.
+    visited, remaining_budget = set(), [10000]
+    optimistic = [0.0] * (len(rounds) + 1)
+    for index in range(len(rounds) - 1, -1, -1):
+        optimistic[index] = optimistic[index + 1] + max(sum(effect["delta"] for effect in choice["effects"] if effect["resource"] == target) for choice in rounds[index]["choices"])
+
+    def achievable(index, state):
+        if index == len(rounds):
+            return state[target] >= threshold
+        if state[target] + optimistic[index] < threshold or remaining_budget[0] <= 0:
+            return False
+        key = (index, tuple(round(state[resource["name"]], 6) for resource in resources))
+        if key in visited:
+            return False
+        visited.add(key)
+        remaining_budget[0] -= 1
+        for choice in rounds[index]["choices"]:
+            next_state = dict(state)
+            for effect in choice["effects"]:
+                next_state[effect["resource"]] += effect["delta"]
+            if all(next_state[resource["name"]] >= resource["minimum"] for resource in resources) and achievable(index + 1, next_state):
+                return True
+        return False
+
+    if not achievable(0, {resource["name"]: resource["initial"] for resource in resources}):
+        return None
+    return {"type": "simulation", "title": _text(args.get("title"), 120), "role": _text(args.get("role"), 200),
+            "goal": _text(args.get("goal"), 300), "resources": resources, "targetResource": target,
+            "targetMinimum": threshold, "rounds": rounds, "concept": _text(args.get("concept"), 120),
+            "takeaway": _text(args.get("takeaway"), 300)}
+
+
+def _two_truths_lie(args: dict) -> dict | None:
+    rounds = []
+    for entry in _list(args, "rounds", MAX_ACTIVITY_ITEMS):
+        statements = [_text(statement, 300) for statement in (entry.get("statements") or [])[:3]]
+        false_index = entry.get("false_index")
+        if (len(statements) != 3 or not all(statements) or len({_key(statement) for statement in statements}) != 3
+                or isinstance(false_index, bool) or not isinstance(false_index, int) or false_index not in (0, 1, 2)):
+            return None
+        rounds.append({"statements": statements, "falseIndex": false_index, "explanation": _text(entry.get("explanation"), 600)})
+    return {"type": "two_truths_lie", "title": _text(args.get("title"), 120), "rounds": rounds} if len(rounds) >= 2 else None
+
+
 _BUILDERS = {
+    "show_branching_story": _branching_story, "show_simulation": _simulation, "show_two_truths_lie": _two_truths_lie,
+    "show_sorting": _sorting, "show_word_game": _word_game, "show_puzzle": _puzzle,
+    "show_visual_game": _visual_game, "show_speed_flashcards": _speed_flashcards,
     "show_mindmap": _mindmap,
     "show_quiz": _quiz, "show_table": _table, "show_cards": _cards, "show_flashcards": _flashcards,
     "show_steps": _steps, "show_matching": _matching, "show_ordering": _ordering,
@@ -538,16 +913,24 @@ _BUILDERS = {
 }
 
 
-def normalize(name: str, args: Any) -> dict | None:
+def normalize(name: str, args: Any, expected_count: int | None = None) -> dict | None:
     """The widget a tool call describes, or None when it is unusable."""
     builder = _BUILDERS.get(name)
     if builder is None or not isinstance(args, dict):
         return None
-    return builder(args)
+    widget = builder(args)
+    if widget is None:
+        return None
+    count = activity_item_count(widget)
+    if count is not None and (not MIN_ACTIVITY_ITEMS <= count <= MAX_ACTIVITY_ITEMS or (expected_count is not None and count != expected_count)):
+        return None
+    return widget
 
 
 def _describe_one(w: dict) -> str:
     kind = w["type"]
+    if kind in ("sorting", "word_game", "puzzle", "visual_game", "speed_flashcards", "branching_story", "simulation", "two_truths_lie"):
+        return f"[Learning activity shown: {kind} -- {w.get('title', '')}]"
     if kind == "quiz":
         return "\n".join([f"[Quiz shown: {w['title']}]"] + [
             f"{i}. {q['question']} -- answer: {q['options'][q['correctIndex']]}"

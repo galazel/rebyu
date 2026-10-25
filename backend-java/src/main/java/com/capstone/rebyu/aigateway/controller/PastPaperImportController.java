@@ -76,6 +76,14 @@ public class PastPaperImportController {
         return pastPaperImportService.forward("/past-papers/read-page", request, "The page could not be read");
     }
 
+    @PostMapping(value = "/check", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> check(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireImporter(jwt, null);
+        return pastPaperImportService.forward("/past-papers/check", request, "The questions could not be checked");
+    }
+
     @PostMapping(value = "/duplicates", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> duplicates(
             @AuthenticationPrincipal Jwt jwt,

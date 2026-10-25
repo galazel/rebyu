@@ -65,6 +65,7 @@ public class AiChatService {
                         if ("done".equals(type)) done.set(true);
                         if (("delta".equals(type) || "replace".equals(type)) && !payload.path("text").asText("").isBlank()) hasOutput.set(true);
                         if ("widget".equals(type) && payload.path("widget").isObject() && !payload.path("widget").path("type").asText("").isBlank()) {
+                            if (payload.path("widget").hasNonNull("libraryError")) fail.run();
                             hasOutput.set(true); tools.add(payload.path("widget").path("type").asText());
                         }
                     } catch (Exception invalidEvent) { /* Invalid/heartbeat events cannot establish delivery. */ }
@@ -110,11 +111,16 @@ public class AiChatService {
             // Usage-tool notes are committed only after the entire stream succeeds.
             if (!TutorLibraryService.isSaveable(widget.path("type").asText())) return event;
             TutorLibraryService.Saved saved = tutorLibrary.save(learnerId, request.getLessonId(), request.getLessonName(), widget);
-            if (saved == null) return event;
+            if (saved == null) throw new IllegalStateException("Activity was not saved");
             widget.set("library", objectMapper.valueToTree(saved));
             return ServerSentEvent.<String>builder(objectMapper.writeValueAsString(payload)).event(event.event()).build();
         } catch (Exception e) {
             log.warn("Could not save a tutor widget for {}: {}", request.getSessionId(), e.toString());
+            try {
+                ObjectNode payload = (ObjectNode) objectMapper.readTree(event.data());
+                if (payload.get("widget") instanceof ObjectNode widget) widget.put("libraryError", "This activity could not be saved to Library. Please try generating it again.");
+                return ServerSentEvent.<String>builder(objectMapper.writeValueAsString(payload)).event(event.event()).build();
+            } catch (Exception ignored) { /* Preserve the original response if it cannot be decoded. */ }
             return event;
         }
     }

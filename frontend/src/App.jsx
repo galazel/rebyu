@@ -57,6 +57,7 @@ const CommunityReviewerPage = lazyRoute(() => import("./pages/learner/community/
 const LearnerPracticeAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-attempt-page.jsx"))
 const LearnerFlashcardAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-flashcard-attempt-page.jsx"))
 const LearnerMindMapPage = lazyRoute(() => import("./pages/learner/learner-mind-map-page.jsx"))
+const LearnerActivityPage = lazyRoute(() => import("./pages/learner/learner-activity-page.jsx"))
 const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-history-page.jsx"))
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
@@ -149,16 +150,18 @@ function RouteTransition({ children }) {
     useEffect(() => {
         if (!window.location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" })
 
-        const node = ref.current
+        // Inside a portal layout only the page content animates, so the sidebar and topbar stay still.
+        const node = ref.current?.querySelector("[data-route-content]") ?? ref.current
         if (!node) return
 
+        ref.current.classList.remove("rb-route-enter")
         node.classList.remove("rb-route-enter")
         void node.offsetWidth
         node.classList.add("rb-route-enter")
     }, [pathname])
 
     return (
-        <div ref={ref} className="rb-route-enter">
+        <div ref={ref}>
             {children}
         </div>
     )
@@ -241,23 +244,6 @@ export function App() {
             ) : null}
 
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-                <Route
-                    path="/admin/certification/:id/question-bank"
-                    element={<CertificationQuestionBank />}
-                />
-
-                <Route
-                    path="/admin/certification/:id/question-bank/import"
-                    element={<CertificationPdfImport />}
-                />
-
-                <Route
-                    path="/admin/certification/:id/assessments"
-                    element={<CertificationAssessments />}
-                />
-
-                <Route path="/admin/lessons/:name/create" element={<CreateLessons />} />
-
                 <Route path="/admin" element={<DashboardLayout />}>
                     <Route index element={<Certifications />} />
                     <Route path="notifications" element={<NotificationsPage />} />
@@ -284,6 +270,10 @@ export function App() {
                         path="certification/:id"
                         element={<ViewCertificationAdmin />}
                     />
+                    <Route path="certification/:id/question-bank" element={<CertificationQuestionBank />} />
+                    <Route path="certification/:id/question-bank/import" element={<CertificationPdfImport />} />
+                    <Route path="certification/:id/assessments" element={<CertificationAssessments />} />
+                    <Route path="lessons/:name/create" element={<CreateLessons />} />
                 </Route>
             </Route>
 
@@ -351,6 +341,7 @@ export function App() {
                 <Route path="/learner/practice/:studySetId" element={<LearnerPracticeAttemptPage />} />
                 <Route path="/learner/flashcards/:studySetId" element={<LearnerFlashcardAttemptPage />} />
                 <Route path="/learner/mind-maps/:libraryItemId" element={<LearnerMindMapPage />} />
+                <Route path="/learner/activities/:libraryItemId" element={<LearnerActivityPage />} />
                 <Route path="/learner/practice-history" element={<LearnerPracticeHistoryPage />} />
                 <Route path="/learner/practice-review/:attemptId" element={<LearnerPracticeReviewPage />} />
                 <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />

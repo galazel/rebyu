@@ -51,4 +51,13 @@ class AiChatServiceTest {
         when(client.chat(request)).thenReturn(new ChatResponse(" ", "9-246", null));
         assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> service.chat(request));
     }
+    @Test void anActivityThatCannotBeSavedIsNotCharged() {
+        when(client.streamChat(request)).thenReturn(Flux.just(
+                ServerSentEvent.<String>builder("{\"type\":\"widget\",\"widget\":{\"type\":\"sorting\"}}").event("widget").build(),
+                event("{\"type\":\"done\"}")));
+        service.streamChat(request, 9L);
+        verify(quota, timeout(3000)).settleTutor(9L, 7L, false);
+        verify(quota, never()).settleTutor(9L, 7L, true);
+        verify(quota, never()).recordTool(anyLong(), anyString());
+    }
 }

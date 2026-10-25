@@ -35,7 +35,9 @@ export function buildPortalContentItems({ role, certifications = [], enrolledCer
       items.set(`lesson:${lesson.lessonId}`, {
         id: `lesson:${lesson.lessonId}`, label: name, group: "Lesson",
         description: [lesson.certificationTitle, lesson.middleCategoryTitle].filter(Boolean).join(" · "),
-        href: `/learner/learning/${lesson.certificationId}/topics/${lesson.lessonId}`,
+        href: lesson.middleCategoryId != null
+          ? `/learner/learning/${lesson.certificationId}/topics/${lesson.middleCategoryId}?lesson=${lesson.lessonId}`
+          : `/learner/lessons/${lesson.lessonId}`,
       })
     }
   }

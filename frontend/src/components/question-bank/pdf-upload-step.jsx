@@ -204,7 +204,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                     </ul>
                 </div>
                 <p className="sm:col-span-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
-                    AI vision reads the original page image first. If it is unavailable, Rebyu falls back to local extraction and tells you in the review header. You always approve the result before saving.
+                    Every page is read by AI vision (OpenRouter) from the original page image, so any layout works. If the AI cannot read a file, the import stops and tells you why. You always approve the result before saving.
                 </p>
             </div>
 

@@ -157,7 +157,7 @@ export default function LearnerLayout() {
                 />
             } />
           ) : null}
-          <main
+          <main data-route-content
           className={`rebyu-page ${isTopicPage ? "" : "pb-8"} ${
             isTopicPage || isCurriculumPage || isCertificationDetailPage
               ? "!max-w-none !gap-0 !p-0"

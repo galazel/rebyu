@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 
-import { LoadingScreen, messagesForUser } from "@/components/loading-screen.jsx"
+import { useLocation } from "react-router-dom"
+
+import { LoadingScreen, messagesForPath } from "@/components/loading-screen.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 
 const MIN_VISIBLE_MS = 1200
@@ -13,7 +15,8 @@ export function LoadingOverlayProvider({ children }) {
   const [phase, setPhase] = useState("hidden")
   const [messages, setMessages] = useState(undefined)
   const { user } = useAuth()
-  const roleMessages = messagesForUser(user)
+  const { pathname } = useLocation()
+  const pageMessages = useMemo(() => messagesForPath(pathname, user), [pathname, user])
 
   const register = useCallback((id, next) => {
     setSignals((list) => [...list.filter((s) => s.id !== id), { id, messages: next }])
@@ -51,7 +54,7 @@ export function LoadingOverlayProvider({ children }) {
       {phase !== "hidden" ? (
         <LoadingScreen
           overlay
-          messages={messages ?? roleMessages}
+          messages={messages ?? pageMessages}
           finishing={phase === "finishing"}
           onFinished={() => setPhase((current) => (current === "finishing" ? "hidden" : current))}
         />

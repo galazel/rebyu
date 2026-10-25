@@ -1452,7 +1452,7 @@ function CreateLessons() {
   }
 
   return (
-      <section className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
+      <section className="relative flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b bg-background px-3 py-2 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <Button

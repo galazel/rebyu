@@ -208,6 +208,7 @@ export default function LearnerFlashcardAttemptPage() {
         <ArenaHeader
           title={studySet.title}
           subtitle="Flip-card round"
+          tool="flashcards"
           position={index + 1}
           total={studySet.items.length}
           onLeave={() => navigate(-1)}

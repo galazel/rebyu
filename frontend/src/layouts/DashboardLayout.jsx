@@ -31,7 +31,14 @@ export default function DashboardLayout() {
     /^\/admin\/certification\/[^/]+$/,
   ]
 
+  // Full-height workspaces own their scroll container, so <main> is pinned to the viewport below the topbar.
+  const FILL_PATHS = [
+    /^\/admin\/certification\/[^/]+\/(question-bank|assessments)(\/.*)?$/,
+    /^\/admin\/lessons\/[^/]+\/create$/,
+  ]
+
   const isBleedPage = BLEED_PATHS.some((pattern) => pattern.test(location.pathname))
+  const isFillPage = FILL_PATHS.some((pattern) => pattern.test(location.pathname))
   const { user, logout } = useAuth()
   const notifications = useNotifications()
   const displayName = user?.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "Administrator"
@@ -53,7 +60,7 @@ export default function DashboardLayout() {
         <AdminAppSidebar displayName={displayName} email={user?.email ?? ""} avatarUrl={avatarUrl} onLogout={handleLogout} />
         <SidebarInset className="min-w-0">
           <PortalTopbar role="admin" items={searchItems} notifications={notificationBell} value={searchValue} onValueChange={setSearchValue} loading={contentQuery.isLoading} error={contentQuery.isError} onRetry={() => contentQuery.refetch()} />
-          <main className={`rebyu-page ${isBleedPage ? "rebyu-page-bleed" : ""}`}>
+          <main data-route-content className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
             <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? <CertificationsPageSkeleton /> : <PortalPageSkeleton />}>
               <Outlet />
             </Suspense>
