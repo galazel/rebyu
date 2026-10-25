@@ -37,6 +37,7 @@ import {
 import {
   getDepartmentHeadAssignments,
   getDepartmentHeadCodeInvitations,
+  getDepartmentPrograms,
   getDepartments,
   getGroupLearnerRoster,
   getGroupSections,
@@ -346,7 +347,12 @@ export default function DepartmentHeadDashboardPage() {
   /* The overview strip's own facts: the allocation behind the first active
      department (its access window), and the certification it studies. Both
      come from data the page already fetches -- no new endpoint. */
-  const overviewGroup = groups[0] ?? null
+  const [selectedDeptId, setSelectedDeptId] = useState(null)
+  const activeSelectedDeptId = selectedDeptId ?? (groups[0]?.departmentId ?? groups[0]?.id)
+  const overviewGroup = useMemo(
+    () => groups.find((g) => String(g.departmentId ?? g.id) === String(activeSelectedDeptId)) ?? groups[0] ?? null,
+    [groups, activeSelectedDeptId]
+  )
   const primaryDeptId = overviewGroup?.departmentId ?? overviewGroup?.id
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
@@ -378,15 +384,28 @@ export default function DepartmentHeadDashboardPage() {
     [headAssignmentsQuery.data]
   )
 
+  const [selectedProgramId, setSelectedProgramId] = useState("all")
+
+  const programsQuery = useQuery({
+    queryKey: ["department-programs", primaryDeptId],
+    queryFn: () => getDepartmentPrograms(primaryDeptId),
+    enabled: primaryDeptId != null,
+  })
+  const programs = useMemo(
+    () => (Array.isArray(programsQuery.data) ? programsQuery.data : []),
+    [programsQuery.data]
+  )
+
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", primaryDeptId],
     queryFn: () => getGroupSections(primaryDeptId),
     enabled: primaryDeptId != null,
   })
-  const sections = useMemo(
-    () => (Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []),
-    [sectionsQuery.data]
-  )
+  const sections = useMemo(() => {
+    const raw = Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []
+    if (selectedProgramId === "all") return raw
+    return raw.filter((s) => String(s.programId ?? s.departmentProgramId) === String(selectedProgramId))
+  }, [sectionsQuery.data, selectedProgramId])
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", primaryDeptId],
@@ -1622,13 +1641,85 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Controls & Header Navigation (2A) */}
-      <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
-        <div className="w-full md:w-[calc(50%-10px)] flex flex-wrap items-center gap-2">
-          <DateRangeNavigator className="w-full" onRangeChange={setRange} />
+      {/* Mobile Alert Banner (Item 1.3) */}
+      {alerts.length > 0 ? (
+        <div className="block sm:hidden mb-2">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("dept-alert-strip")
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
+              alerts.some((a) => a.severity === "critical")
+                ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-2 ring-rose-500/30"
+                : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+              <span>{alerts.length} Actionable Alert{alerts.length === 1 ? "" : "s"}</span>
+            </div>
+            <span className="text-[10px] underline">View details</span>
+          </button>
+        </div>
+      ) : null}
+
+      {/* Controls & Header Navigation (Checklist 1) */}
+      <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2.5">
+        {/* Left semantic group: Context selectors (Dept Selector + DateRangeNavigator) */}
+        <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="w-full sm:w-[220px] shrink-0">
+            <Select
+              value={selectedProgramId}
+              onValueChange={setSelectedProgramId}
+              disabled={programs.length === 0}
+            >
+              <SelectTrigger className="h-9 w-full bg-background" id="dept-header-program-picker">
+                <SelectValue placeholder="Select Program" />
+              </SelectTrigger>
+              <SelectContent className="z-50">
+                <SelectItem value="all">All Programs ({programs.length})</SelectItem>
+                {programs.map((prog) => {
+                  const idStr = String(prog.programId ?? prog.id)
+                  const code = prog.programCode ? `${prog.programCode} - ` : ""
+                  return (
+                    <SelectItem key={idStr} value={idStr}>
+                      {code}{prog.programName || prog.name || `Program #${idStr}`}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:max-w-[320px]">
+            <DateRangeNavigator className="w-full" onRangeChange={setRange} />
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        {/* Right semantic group: Action buttons & alerts */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:border-l md:border-border/30 md:pl-3">
+          {/* 1.3: Alert badge as first item in right-side group */}
+          {alerts.length > 0 ? (
+            <Badge
+              variant="outline"
+              className={`hidden sm:inline-flex h-9 px-3 gap-1.5 cursor-pointer font-bold transition-all rounded-full select-none ${
+                alerts.some((a) => a.severity === "critical")
+                  ? "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-2 ring-rose-500/40 ring-offset-1 hover:bg-rose-500/20 animate-pulse"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+              }`}
+              onClick={() => {
+                const el = document.getElementById("dept-alert-strip")
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+              }}
+              title="Click to view alerts"
+            >
+              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>{alerts.length} Alert{alerts.length === 1 ? "" : "s"}</span>
+            </Badge>
+          ) : null}
+
           <Button
             variant="outline"
             size="sm"
@@ -1652,8 +1743,9 @@ export default function DepartmentHeadDashboardPage() {
 
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setCoAuthoritiesOpen(true)}
-            className="gap-2"
+            className="gap-2 h-9"
             id="dept-header-co-authorities-btn"
           >
             <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -1668,26 +1760,10 @@ export default function DepartmentHeadDashboardPage() {
             ) : null}
           </Button>
 
-          {alerts.length > 0 ? (
-            <Badge
-              variant="outline"
-              className={
-                alerts.some((a) => a.severity === "critical")
-                  ? "h-9 border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-rose-500/20 transition-colors"
-                  : "h-9 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-amber-500/20 transition-colors"
-              }
-              onClick={() => {
-                const el = document.getElementById("dept-alert-strip")
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-              }}
-            >
-              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-              <span>{alerts.length} Alert{alerts.length === 1 ? "" : "s"}</span>
-            </Badge>
-          ) : null}
-
           <Button
             variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
             disabled={statsQuery.isLoading || statsQuery.isError}
           >
