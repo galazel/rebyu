@@ -486,7 +486,7 @@ export function PeriodComparisonTile({
 
   return (
     <BentoTile col={6} row={3} className="!p-0" id="dept-period-comparison">
-      <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6 space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5 space-y-4">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
           <div className="flex items-center gap-2.5">

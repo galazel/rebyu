@@ -160,7 +160,7 @@ function DashboardCardHeader({
 }) {
   return (
     <div
-      className={`flex items-start justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 ${className}`}
+      className={`flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 ${className}`}
     >
       <div className="flex items-center gap-2 min-w-0">
         {Icon ? (
@@ -185,7 +185,7 @@ function DashboardCardHeader({
         </div>
       </div>
       {(chip || action) && (
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {chip}
           {action}
         </div>
@@ -856,7 +856,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 0,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Enrolment by Programme"
@@ -910,7 +910,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 2,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={Award}
                 kicker="Programme Scorecard"
@@ -1024,7 +1024,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 4,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
@@ -1071,7 +1071,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 4,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
@@ -1159,7 +1159,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 14,
         element: (
           <BentoTile col={6} row={1} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={Layers}
                 kicker="Section Management"
@@ -1369,7 +1369,7 @@ export default function DepartmentHeadDashboardPage() {
         y: 15,
         element: (
           <BentoTile col={6} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
               <DashboardCardHeader
                 icon={Building2}
                 kicker="Department Roster"
