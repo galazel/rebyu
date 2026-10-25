@@ -278,29 +278,47 @@ export function DepartmentAlertStrip({
     }
   }
 
+  const getSeverityAccentBorder = () => {
+    if (criticalCount > 0) return "border-l-4 border-l-rose-500"
+    if (warningCount > 0) return "border-l-4 border-l-amber-500"
+    return "border-l-4 border-l-sky-500"
+  }
+
+  const getAlertItemAccentBorder = (severity) => {
+    switch (severity) {
+      case "critical":
+        return "border-l-4 border-l-rose-500"
+      case "warning":
+        return "border-l-4 border-l-amber-500"
+      case "info":
+      default:
+        return "border-l-4 border-l-sky-500"
+    }
+  }
+
   return (
     <div
-      className={`rounded-xl border border-border/70 bg-card shadow-sm transition-all duration-200 overflow-hidden ${className}`}
+      className={`rounded-xl border border-border/40 bg-muted/20 shadow-sm transition-all duration-200 overflow-hidden ${getSeverityAccentBorder()} ${className}`}
       id="dept-alert-strip"
     >
       {/* Summarized Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-muted/20 border-b border-border/40">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span
-            className={`grid size-7 shrink-0 place-items-center rounded-lg ${
-              criticalCount > 0
-                ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
-                : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-            }`}
-          >
-            {criticalCount > 0 ? (
-              <AlertCircle className="size-4" aria-hidden="true" />
-            ) : (
-              <AlertTriangle className="size-4" aria-hidden="true" />
-            )}
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`grid size-7 shrink-0 place-items-center rounded-lg ${
+                criticalCount > 0
+                  ? "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+                  : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+              }`}
+            >
+              {criticalCount > 0 ? (
+                <AlertCircle className="size-4" aria-hidden="true" />
+              ) : (
+                <AlertTriangle className="size-4" aria-hidden="true" />
+              )}
+            </span>
 
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Badge
               variant="outline"
               className={
@@ -316,74 +334,86 @@ export function DepartmentAlertStrip({
               <Badge variant="outline" className="text-[11px] border-rose-500/30 text-rose-600 dark:text-rose-400">
                 {criticalCount} Critical
               </Badge>
-            ) : null}
-
-            {warningCount > 0 ? (
+            ) : warningCount > 0 ? (
               <Badge variant="outline" className="text-[11px] border-amber-500/30 text-amber-600 dark:text-amber-400">
                 {warningCount} Warning{warningCount === 1 ? "" : "s"}
               </Badge>
             ) : null}
-
-            {!expanded && topAlert ? (
-              <span className="hidden sm:inline-block truncate text-xs text-muted-foreground font-medium pl-1">
-                <strong className="text-foreground font-semibold">{topAlert.kicker}:</strong>{" "}
-                {topAlert.title}
-              </span>
-            ) : null}
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5 ml-auto">
-          {!expanded && topAlert && (topAlert.actionLabel || topAlert.onClick) ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => handleAction(topAlert)}
-              className="h-7 px-2.5 text-xs font-semibold text-primary hover:text-primary"
-            >
-              {topAlert.actionLabel ?? "View"}
-            </Button>
-          ) : null}
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setExpanded((prev) => !prev)}
-            className="h-7 px-2.5 text-xs font-semibold gap-1"
-            aria-expanded={expanded}
-            aria-controls="dept-alert-strip-details"
-          >
-            <span>{expanded ? "Collapse" : `Show All (${alerts.length})`}</span>
-            {expanded ? (
-              <ChevronUpIcon className="size-3.5" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="size-3.5" aria-hidden="true" />
-            )}
-          </Button>
-
+          {/* Dismiss button on mobile pinned right in top bar */}
           <Button
             size="icon"
             variant="ghost"
             onClick={() => setDismissed(true)}
             aria-label="Dismiss alert strip"
-            className="size-7 text-muted-foreground hover:text-foreground"
+            className="sm:hidden size-7 text-muted-foreground hover:text-foreground shrink-0"
           >
             <X className="size-3.5" aria-hidden="true" />
           </Button>
+        </div>
+
+        {!expanded && topAlert ? (
+          <span className="hidden sm:inline-block truncate text-xs text-muted-foreground font-medium pl-1">
+            <strong className="text-foreground font-semibold">{topAlert.kicker}:</strong>{" "}
+            {topAlert.title}
+          </span>
+        ) : null}
+
+        <div className="flex items-center gap-2 justify-between sm:justify-end sm:ml-auto w-full sm:w-auto pt-1 sm:pt-0 border-t border-border/20 sm:border-0">
+          {!expanded && topAlert && (topAlert.actionLabel || topAlert.onClick) ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => handleAction(topAlert)}
+              className="h-7 px-2 text-xs font-semibold text-primary hover:text-primary"
+            >
+              {topAlert.actionLabel ?? "View details"}
+            </Button>
+          ) : <span className="sm:hidden" />}
+
+          <div className="flex items-center gap-1.5 ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setExpanded((prev) => !prev)}
+              className="h-7 px-2.5 text-xs font-semibold gap-1.5"
+              aria-expanded={expanded}
+              aria-controls="dept-alert-strip-details"
+            >
+              <span>{expanded ? "Collapse" : "Show all"}</span>
+              {expanded ? (
+                <ChevronUpIcon className="size-3.5" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="size-3.5" aria-hidden="true" />
+              )}
+            </Button>
+
+            {/* Dismiss button on desktop */}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss alert strip"
+              className="hidden sm:inline-flex size-7 text-muted-foreground hover:text-foreground shrink-0"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Expanded Multi-Card View */}
       {expanded ? (
-        <div id="dept-alert-strip-details" className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-card">
+        <div id="dept-alert-strip-details" className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-card/60 border-t border-border/30">
           {alerts.map((alert) => {
             const Icon = alert.icon ?? AlertTriangle
             return (
               <div
                 key={alert.id}
-                className={`flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors ${getSeverityCardBorder(
+                className={`w-full flex flex-col justify-between gap-3 rounded-xl border p-3.5 transition-colors ${getAlertItemAccentBorder(
                   alert.severity
-                )}`}
+                )} ${getSeverityCardBorder(alert.severity)}`}
               >
                 <div className="space-y-1.5">
                   <div className="flex items-start justify-between gap-2">
@@ -414,7 +444,7 @@ export function DepartmentAlertStrip({
                       size="sm"
                       variant="outline"
                       onClick={() => handleAction(alert)}
-                      className="h-7 px-3 text-xs font-semibold"
+                      className="h-7 px-3 text-xs font-semibold w-full sm:w-auto"
                     >
                       {alert.actionLabel}
                     </Button>

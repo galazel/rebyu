@@ -1642,29 +1642,6 @@ export default function DepartmentHeadDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Mobile Alert Banner (Item 1.3) */}
-      {alerts.length > 0 ? (
-        <div className="block sm:hidden mb-2">
-          <button
-            type="button"
-            onClick={() => {
-              const el = document.getElementById("dept-alert-strip")
-              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-colors ${
-              alerts.some((a) => a.severity === "critical")
-                ? "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-2 ring-rose-500/30"
-                : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-              <span>{alerts.length} Actionable Alert{alerts.length === 1 ? "" : "s"}</span>
-            </div>
-            <span className="text-[10px] underline">View details</span>
-          </button>
-        </div>
-      ) : null}
-
       {/* Controls & Header Navigation (Checklist 1) */}
       <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2.5">
         {/* Left semantic group: Context selectors (Dept Selector + DateRangeNavigator) */}
@@ -1699,7 +1676,7 @@ export default function DepartmentHeadDashboardPage() {
         </div>
 
         {/* Right semantic group: Action buttons & alerts */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:border-l md:border-border/30 md:pl-3">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 md:border-l md:border-border/30 md:pl-3">
           {/* 1.3: Alert badge as first item in right-side group */}
           {alerts.length > 0 ? (
             <Badge
@@ -1727,7 +1704,7 @@ export default function DepartmentHeadDashboardPage() {
               const el = document.getElementById("dept-period-comparison")
               if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
             }}
-            className="gap-1.5 h-9"
+            className="gap-1.5 h-9 justify-center w-full sm:w-auto"
             id="dept-header-period-comparison-btn"
             title="Jump to period comparison analysis"
           >
@@ -1745,11 +1722,11 @@ export default function DepartmentHeadDashboardPage() {
             variant="outline"
             size="sm"
             onClick={() => setCoAuthoritiesOpen(true)}
-            className="gap-2 h-9"
+            className="gap-2 h-9 justify-center w-full sm:w-auto"
             id="dept-header-co-authorities-btn"
           >
             <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-            <span>Co-Authorities</span>
+            <span className="text-xs sm:text-sm">Co-Authorities</span>
             {pendingHeadInvitations.length > 0 ? (
               <Badge
                 variant="secondary"
@@ -1763,7 +1740,7 @@ export default function DepartmentHeadDashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5"
+            className="h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
             disabled={statsQuery.isLoading || statsQuery.isError}
           >
@@ -1771,13 +1748,15 @@ export default function DepartmentHeadDashboardPage() {
             Export CSV
           </Button>
 
-          <DashboardRearrangeControls
-            rearranging={layout.rearranging}
-            onStart={layout.startRearranging}
-            onFinish={layout.finishRearranging}
-            onCancel={layout.cancelRearranging}
-            onReset={layout.resetLayout}
-          />
+          <div className="flex items-center justify-center sm:justify-start">
+            <DashboardRearrangeControls
+              rearranging={layout.rearranging}
+              onStart={layout.startRearranging}
+              onFinish={layout.finishRearranging}
+              onCancel={layout.cancelRearranging}
+              onReset={layout.resetLayout}
+            />
+          </div>
         </div>
       </div>
 
