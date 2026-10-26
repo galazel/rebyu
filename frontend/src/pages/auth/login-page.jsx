@@ -184,6 +184,9 @@ export default function LoginPage() {
           story="login"
           title="Sign in"
           description="Enter your account details to continue your certification review."
+          showBackButton
+          backTo="/"
+          backLabel="Back"
           footer={
             <>
               Don&apos;t have an account?{" "}
