@@ -155,6 +155,11 @@ function RouteTransition({ children }) {
         node.classList.remove("rb-route-enter")
         void node.offsetWidth
         node.classList.add("rb-route-enter")
+
+        const timer = setTimeout(() => {
+            node.classList.remove("rb-route-enter")
+        }, 360)
+        return () => clearTimeout(timer)
     }, [pathname])
 
     return (

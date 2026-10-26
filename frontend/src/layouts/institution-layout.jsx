@@ -95,10 +95,10 @@ export default function InstitutionLayout() {
              <DropdownMenuTrigger asChild>
                <button
                  type="button"
-                 className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                 className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-1 cursor-pointer transition-transform hover:scale-105 active:scale-95"
                  aria-label="Open account menu"
                >
-                 <Avatar>
+                 <Avatar className="size-8">
                    <AvatarFallback>{getInitials(orgName)}</AvatarFallback>
                  </Avatar>
                </button>

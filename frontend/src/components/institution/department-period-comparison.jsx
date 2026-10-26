@@ -517,7 +517,7 @@ export function PeriodComparisonTile({
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("previous_period")}
-                className={`rounded-md px-2.5 py-1 transition-colors ${
+                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${
                   comparisonType === "previous_period"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -528,7 +528,7 @@ export function PeriodComparisonTile({
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("prior_year")}
-                className={`rounded-md px-2.5 py-1 transition-colors ${
+                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${
                   comparisonType === "prior_year"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -639,7 +639,7 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("scorecard")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
                 activeTab === "scorecard"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -652,7 +652,7 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("trajectory")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
                 activeTab === "trajectory"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -665,7 +665,7 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("momentum")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
                 activeTab === "momentum"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -678,7 +678,7 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("insights")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
                 activeTab === "insights"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"

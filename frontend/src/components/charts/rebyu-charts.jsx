@@ -468,6 +468,8 @@ export function BarBreakdownChart({
   categoryWidth = 108,
   domainMax,
   tooltipContent,
+  showLegend = true,
+  mobileStacked = true,
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
@@ -479,7 +481,56 @@ export function BarBreakdownChart({
 
   return (
     <figure className="w-full min-w-0">
-      <div style={{ height }} className="w-full min-w-0 overflow-hidden">
+      {/* Mobile stacked view: Full-width progress bars with full category labels */}
+      {mobileStacked && horizontal ? (
+        <div className="sm:hidden space-y-3 py-1">
+          {data.map((row, index) => {
+            const val = Number(row[valueKey]) || 0
+            const maxVal = domainMax || 100
+            const pct = Math.min(100, Math.max(0, (val / maxVal) * 100))
+            const isPassing = target == null || val >= target
+            return (
+              <div key={`${row[categoryKey]}-${index}`} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-foreground text-[11px] leading-tight" title={row[categoryKey]}>
+                    {row[categoryKey]}
+                  </span>
+                  <span
+                    className={`shrink-0 font-bold tabular-nums text-xs ${
+                      isPassing ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {val}{unit}
+                  </span>
+                </div>
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/60">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: isPassing ? above : below,
+                    }}
+                  />
+                  {target != null ? (
+                    <div
+                      className="absolute inset-y-0 w-0.5 bg-foreground/50 z-10"
+                      style={{ left: `${(target / maxVal) * 100}%` }}
+                      title={`Target: ${target}${unit}`}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+          {target != null ? (
+            <div className="flex items-center justify-end text-[10px] text-muted-foreground pt-0.5">
+              <span>Target: {target}{unit}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div style={{ height }} className={`w-full min-w-0 overflow-hidden ${mobileStacked && horizontal ? "hidden sm:block" : ""}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -553,18 +604,20 @@ export function BarBreakdownChart({
         </ResponsiveContainer>
       </div>
 
-      <ChartLegend
-        items={data.map((row) => ({
-          name: row[categoryKey],
-          value: `${row[valueKey].toLocaleString()}${unit}`,
-          color: colorFor(row),
-        }))}
-        note={
-          target != null
-            ? `Bars that reach the ${target}${unit} line are drawn in the first colour; those below it in the second.`
-            : undefined
-        }
-      />
+      {showLegend ? (
+        <ChartLegend
+          items={data.map((row) => ({
+            name: row[categoryKey],
+            value: `${row[valueKey].toLocaleString()}${unit}`,
+            color: colorFor(row),
+          }))}
+          note={
+            target != null
+              ? `Bars that reach the ${target}${unit} line are drawn in the first colour; those below it in the second.`
+              : undefined
+          }
+        />
+      ) : null}
     </figure>
   )
 }
@@ -894,7 +947,7 @@ export function BeadedRadialGauge({
         style={{ marginLeft: '-18px' }}
       >
         <div
-          className="font-rb-display text-7xl font-black leading-none tracking-tight tabular-nums shrink-0"
+          className="font-rb-display text-5xl sm:text-7xl font-black leading-none tracking-tight tabular-nums shrink-0"
           style={{ color: valueInk || activeColor }}
         >
           {Math.round(bounded)}%

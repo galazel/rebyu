@@ -464,14 +464,14 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           id="date-range-mode-trigger"
           onClick={() => { setModeOpen(o => !o); setPickerOpen(false) }}
           className={[
-            "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition cursor-pointer select-none",
+            "flex min-h-[44px] sm:min-h-0 sm:h-7 items-center gap-1.5 rounded-md px-3 sm:px-2.5 text-xs font-semibold transition cursor-pointer select-none",
             modeOpen
               ? "bg-primary/10 text-primary"
               : "text-foreground hover:bg-muted",
           ].join(" ")}
         >
           {MODE_LABELS[mode]}
-          <ChevronDown className={`size-3 transition-transform duration-200 ${modeOpen ? "rotate-180 text-primary" : "text-muted-foreground"}`} />
+          <ChevronDown className={`size-3.5 sm:size-3 transition-transform duration-200 ${modeOpen ? "rotate-180 text-primary" : "text-muted-foreground"}`} />
         </button>
 
         {modeOpen && (
@@ -484,7 +484,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
                 type="button"
                 onClick={() => { handleModeChange(m); setModeOpen(false) }}
                 className={[
-                  "flex w-full items-center rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors duration-150",
+                  "flex w-full items-center rounded-lg px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors duration-150 min-h-[44px] sm:min-h-0",
                   m === mode
                     ? "text-primary font-bold bg-primary/10"
                     : "text-foreground hover:bg-muted",
@@ -498,15 +498,15 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
         )}
       </div>
 
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-1 sm:gap-0.5">
         <button
           type="button"
           id="date-range-prev"
           onClick={() => navigate(-1)}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
+          className="flex min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
           title="Previous period"
         >
-          <ChevronLeft className="size-3.5" />
+          <ChevronLeft className="size-4 sm:size-3.5" />
         </button>
 
         <div ref={pickerContainerRef} className="relative">
@@ -515,7 +515,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
             id="date-range-label"
             onClick={() => { setPickerOpen(o => !o); setModeOpen(false) }}
             className={[
-              "h-7 min-w-[110px] rounded-md px-2.5 text-[12px] font-semibold transition cursor-pointer select-none",
+              "flex items-center justify-center min-h-[44px] sm:min-h-0 sm:h-7 min-w-[110px] rounded-md px-3 sm:px-2.5 text-xs font-semibold transition cursor-pointer select-none",
               pickerOpen
                 ? "bg-primary/10 text-primary"
                 : "text-foreground hover:bg-muted",
@@ -539,10 +539,10 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           id="date-range-next"
           onClick={() => canGoForward && navigate(1)}
           disabled={!canGoForward}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
+          className="flex min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
           title="Next period"
         >
-          <ChevronRight className="size-3.5" />
+          <ChevronRight className="size-4 sm:size-3.5" />
         </button>
       </div>
     </div>

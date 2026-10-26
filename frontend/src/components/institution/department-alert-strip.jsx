@@ -347,9 +347,9 @@ export function DepartmentAlertStrip({
             variant="ghost"
             onClick={() => setDismissed(true)}
             aria-label="Dismiss alert strip"
-            className="sm:hidden size-7 text-muted-foreground hover:text-foreground shrink-0"
+            className="sm:hidden size-9 min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0 rounded-lg hover:bg-muted/60"
           >
-            <X className="size-3.5" aria-hidden="true" />
+            <X className="size-4" aria-hidden="true" />
           </Button>
         </div>
 

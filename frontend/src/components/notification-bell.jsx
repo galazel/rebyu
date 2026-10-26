@@ -73,11 +73,11 @@ export function NotificationBell({
               variant="ghost"
               size="icon"
               aria-label={`Open notifications${unread ? `, ${unread} unread` : ""}`}
-              className="relative"
+              className="relative min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-foreground hover:bg-muted/70"
             >
-              <Bell />
+              <Bell className="size-5" />
               {unread > 0 ? (
-                <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background">
+                <span className="absolute right-1.5 top-1.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background">
                   {unread > 9 ? "9+" : unread}
                 </span>
               ) : null}

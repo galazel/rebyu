@@ -325,7 +325,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b">
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md shadow-xs transition-shadow">
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
           <Brand role={role} institutionName={institutionName} />
           <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
@@ -356,7 +356,16 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
           <div className="flex flex-1 items-center justify-end gap-1.5 lg:flex-none">
             {groups.length > 0 ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation"><Menu /></Button></DropdownMenuTrigger>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-foreground hover:bg-muted/70"
+                    aria-label="Open navigation"
+                  >
+                    <Menu className="size-5" />
+                  </Button>
+                </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72 p-2">
                   {groups.map((group, index) => <div key={group.label}><DropdownMenuLabel>{group.label}</DropdownMenuLabel>{group.items.map((item) => <NavigationMenuItem key={item.href} item={item} />)}{index < groups.length - 1 ? <DropdownMenuSeparator /> : null}</div>)}
                 </DropdownMenuContent>

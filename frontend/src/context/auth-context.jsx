@@ -18,17 +18,7 @@ import {
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat.js"
 
-const DEV_USER = import.meta.env.DEV
-  ? {
-      role: "DEPARTMENT_HEAD",
-      userId: 1,
-      learnerId: null,
-      institutionId: 1,
-      departmentHeadRole: "manager",
-      displayName: "Dev Dean",
-      email: "dev@rebyu.local",
-    }
-  : null;
+const DEV_USER = null;
 
 const AuthContext = createContext(null)
 const AUTH_USER_SNAPSHOT_KEY = "rebyu:auth-user-snapshot"

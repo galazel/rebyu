@@ -207,7 +207,7 @@ function AnnouncementsTab({ departmentId }) {
             </label>
             <div className="flex items-center gap-2">
               {editing ? (
-                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending}>
+                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending} className="min-h-[44px] sm:min-h-0 sm:h-9">
                   Cancel
                 </Button>
               ) : null}
@@ -215,6 +215,7 @@ function AnnouncementsTab({ departmentId }) {
                 type="button"
                 onClick={() => saveMutation.mutate()}
                 disabled={!title.trim() || !body.trim() || saveMutation.isPending || unchanged}
+                className="min-h-[44px] sm:min-h-0 sm:h-9"
               >
                 {saveMutation.isPending ? (
                   <>
@@ -609,7 +610,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                 New assessments start as drafts — publish one before your learners can access it.
               </p>
             </div>
-            <Button asChild disabled={!certification}>
+            <Button asChild disabled={!certification} className="min-h-[44px] sm:min-h-0 sm:h-9 w-full sm:w-auto">
               <Link to={`/institution/departments/${id}/assessments/new?certificationId=${groupCertificationId ?? ""}`}>
                 <Plus className="size-4" aria-hidden="true" />
                 Create Assessment
@@ -682,7 +683,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                       size="icon"
                       aria-label={`Delete ${exam.title}`}
                       onClick={() => setDeleteExamTarget(exam)}
-                      className="size-8 text-muted-foreground hover:text-destructive shrink-0"
+                      className="size-9 sm:size-8 text-muted-foreground hover:text-destructive shrink-0 min-h-[36px] min-w-[36px]"
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -794,8 +795,8 @@ const WORKSPACE_PAGES = [
 // One certification picker, then the same pages for whichever is chosen.
 function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificationId, onSelect }) {
   const item = (active) =>
-    `flex shrink-0 items-center rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors whitespace-nowrap ${
-      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+    `flex shrink-0 items-center rounded-lg px-3.5 py-2.5 text-left text-sm font-semibold transition-colors whitespace-nowrap min-h-[44px] lg:min-h-0 ${
+      active ? "bg-primary text-primary-foreground shadow-xs" : "text-foreground hover:bg-muted"
     }`
   return (
     <nav aria-label="Workspace" className="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -809,7 +810,7 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
             value={activeCertificationId != null ? String(activeCertificationId) : undefined}
             onValueChange={(value) => onSelect(activeTab, Number(value))}
           >
-            <SelectTrigger id="workspace-certification" className="w-full">
+            <SelectTrigger id="workspace-certification" className="w-full min-h-[44px] lg:min-h-0">
               <SelectValue placeholder="Choose a certification" />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -826,7 +827,7 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
       {/* Horizontal scroll on mobile & tablet with right-fade gradient, vertical list on lg+ */}
       <div>
         <div className="relative">
-          <div className="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-6">
+          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-8">
             {WORKSPACE_PAGES.map((page) => (
               <button
                 key={page.tab}
@@ -841,7 +842,7 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
           </div>
           {/* Right-fade gradient to indicate overflow on mobile/tablet horizontal scroll */}
           <div
-            className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent lg:hidden"
+            className="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-background via-background/70 to-transparent lg:hidden"
             aria-hidden="true"
           />
         </div>

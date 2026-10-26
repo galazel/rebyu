@@ -266,8 +266,8 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
               ) : null}
               {!query && curriculumExams(certification?.exams).length > 0 ? (
                 <div className="mb-2 border-b border-border pb-2">
-                  {curriculumExams(certification?.exams).map((exam) => (
-                    <OutlineExam key={exam.examId} exam={exam} />
+                  {curriculumExams(certification?.exams).map((exam, cIdx) => (
+                    <OutlineExam key={`cert-${certification?.certificationId}-exam-${exam.examId ?? cIdx}`} exam={exam} />
                   ))}
                 </div>
               ) : null}
@@ -351,22 +351,22 @@ export function CertificationViewer({ certificationId, departmentId, initialLess
                                   row,
                                   ...(query
                                     ? []
-                                    : curriculumExams(lesson.exams).map((exam) => (
-                                        <OutlineExam key={`q-${exam.examId}`} exam={exam} nested />
+                                    : curriculumExams(lesson.exams).map((exam, eIdx) => (
+                                        <OutlineExam key={`lesson-${lesson.lessonId}-exam-${exam.examId ?? eIdx}`} exam={exam} nested />
                                       ))),
                                 ]
                               })}
                               {!query
-                                ? curriculumExams(middle.exams).map((exam) => (
-                                    <OutlineExam key={exam.examId} exam={exam} />
+                                ? curriculumExams(middle.exams).map((exam, mIdx) => (
+                                    <OutlineExam key={`middle-${middle.middleCategoryId}-exam-${exam.examId ?? mIdx}`} exam={exam} />
                                   ))
                                 : null}
                             </div>
                           )
                         })}
                         {!query
-                          ? curriculumExams(major.exams).map((exam) => (
-                              <OutlineExam key={exam.examId} exam={exam} />
+                          ? curriculumExams(major.exams).map((exam, jIdx) => (
+                              <OutlineExam key={`major-${major.majorCategoryId}-exam-${exam.examId ?? jIdx}`} exam={exam} />
                             ))
                           : null}
                       </div>

@@ -745,7 +745,7 @@ function DepartmentCard({ group, onManage }) {
         <button
           type="button"
           onClick={() => setShowDetails((prev) => !prev)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors min-h-[36px] sm:min-h-0 py-1"
         >
           {showDetails ? (
             <ChevronUpIcon className="size-3.5 shrink-0" aria-hidden="true" />
@@ -768,7 +768,7 @@ function DepartmentCard({ group, onManage }) {
       </CardContent>
 
       <CardFooter className="gap-2 pt-2 border-t border-border/40">
-        <Button asChild size="sm" className="flex-1">
+        <Button asChild size="sm" className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9">
           <Link to={`/institution/departments/${group.departmentId}`}>
             Open workspace
           </Link>
@@ -776,6 +776,7 @@ function DepartmentCard({ group, onManage }) {
         <Button
           variant="outline"
           size="sm"
+          className="min-h-[44px] sm:min-h-0 sm:h-9"
           onClick={() => onManage(group)}
         >
           <UserCog className="size-4" aria-hidden="true" />

@@ -265,45 +265,45 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
   return (
     <div className={`space-y-6 ${embedded ? "" : "p-1"}`}>
       {/* Overview Stat Strip */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex items-center gap-3.5 rounded-xl border border-border/70 bg-card p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
-            <ShieldCheck className="size-5" aria-hidden="true" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+        <div className="flex items-center text-left gap-2.5 sm:gap-3.5 rounded-xl border border-border/70 bg-card p-2.5 sm:p-4 min-w-0">
+          <span className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+            <ShieldCheck className="size-4 sm:size-5" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Active Authorities
+          <div className="min-w-0 w-full">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
+              Active
             </p>
-            <p className="text-2xl font-black text-foreground">
+            <p className="text-base sm:text-2xl font-black text-foreground tabular-nums">
               {authoritiesQuery.isLoading ? "—" : activeAuthorities.length}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5 rounded-xl border border-border/70 bg-card p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-            <MailIcon className="size-5" aria-hidden="true" />
+        <div className="flex items-center text-left gap-2.5 sm:gap-3.5 rounded-xl border border-border/70 bg-card p-2.5 sm:p-4 min-w-0">
+          <span className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+            <MailIcon className="size-4 sm:size-5" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Pending Invitations
+          <div className="min-w-0 w-full">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
+              Pending
             </p>
-            <p className="text-2xl font-black text-foreground">
+            <p className="text-base sm:text-2xl font-black text-foreground tabular-nums">
               {invitationsQuery.isLoading ? "—" : pendingInvitations.length}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5 rounded-xl border border-border/70 bg-card p-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-sky-500/10 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400">
-            <UsersRoundIcon className="size-5" aria-hidden="true" />
+        <div className="col-span-2 sm:col-span-1 flex items-center text-left gap-2.5 sm:gap-3.5 rounded-xl border border-border/70 bg-card p-2.5 sm:p-4 min-w-0">
+          <span className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-lg bg-sky-500/10 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400">
+            <UsersRoundIcon className="size-4 sm:size-5" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="min-w-0 w-full">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
               Department Scope
             </p>
-            <p className="truncate text-sm font-bold text-foreground">
-              {departmentName || `Department #${departmentId}`}
+            <p className="truncate text-xs sm:text-sm font-bold text-foreground" title={departmentName}>
+              {departmentName || `Dept #${departmentId}`}
             </p>
           </div>
         </div>
@@ -799,10 +799,10 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
 export function CoAuthoritiesDialog({ open, onOpenChange, departmentId, departmentName }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto p-4 sm:p-6 w-[95vw] sm:max-w-3xl scrollbar-thin">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-            <ShieldCheck className="size-5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold pr-8 sm:pr-0">
+            <ShieldCheck className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
             <span>Co-Authority Delegation & Invitations</span>
           </DialogTitle>
           <DialogDescription className="text-xs">

@@ -476,10 +476,10 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
         ) : null}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => close(false)} disabled={send.isPending}>
+          <Button variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => close(false)} disabled={send.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || send.isPending}>
+          <Button className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || send.isPending}>
             {send.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -600,10 +600,11 @@ export function SectionDialog({
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={save.isPending}>
+          <Button variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => onOpenChange(false)} disabled={save.isPending}>
             Cancel
           </Button>
           <Button
+            className="min-h-[44px] sm:min-h-0 sm:h-9"
             onClick={() => {
               if (!name.trim()) return setError("Enter a section name.")
               return save.mutate()
@@ -655,20 +656,20 @@ function EarnedBadges({ learnerId }) {
         <Badge
           key={award.certificationId}
           variant="default"
-          className="gap-1"
-          title={`Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
+          className="gap-1 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold text-[10px] tracking-wide"
+          title={`Certified - Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
         >
           {award.hasBadgeImage ? (
             <img
               src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
               alt=""
-              className="size-4 rounded-full object-cover"
+              className="size-3.5 rounded-full object-cover"
               loading="lazy"
             />
           ) : (
-            <AwardIcon className="size-3.5" aria-hidden="true" />
+            <AwardIcon className="size-3" aria-hidden="true" />
           )}
-          {award.certificationTitle ?? "Badge"}
+          <span>Certified</span>
         </Badge>
       ))}
     </span>
@@ -792,20 +793,20 @@ function SectionPanel({
                 ? "Learners who joined before sections existed, or whose section was deleted. Move them into a section from the row."
                 : "Add learners by typing them in or uploading a class list."}
             </p>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
               {!isUnsectioned ? (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => onEdit(section)}>
+                  <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center" onClick={() => onEdit(section)}>
                     <PencilIcon className="size-4" aria-hidden="true" />
                     Rename
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onDelete(section)}>
+                  <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center text-muted-foreground hover:text-destructive" onClick={() => onDelete(section)}>
                     <Trash2 className="size-4" aria-hidden="true" />
                     Delete
                   </Button>
                 </>
               ) : null}
-              <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Button size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center col-span-2 sm:col-span-1" onClick={() => setAddOpen(true)}>
                 <UserPlusIcon className="size-4" aria-hidden="true" />
                 Add learners
               </Button>
@@ -968,7 +969,7 @@ function SectionPanel({
                         variant="ghost"
                         size="icon"
                         aria-label={`Remove ${row.name} from this department`}
-                        className="size-8 text-muted-foreground hover:text-destructive shrink-0"
+                        className="size-10 min-h-[40px] min-w-[40px] text-muted-foreground hover:text-destructive shrink-0 inline-flex items-center justify-center rounded-lg hover:bg-destructive/10"
                         onClick={() => setRemoveTarget(row)}
                       >
                         <Trash2 className="size-4" />

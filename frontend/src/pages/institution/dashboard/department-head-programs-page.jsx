@@ -117,13 +117,13 @@ export default function DepartmentHeadProgramsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h2 className="font-rb-display text-lg font-bold text-foreground">{deptName}</h2>
                 <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
-                  <Button asChild variant="outline" size="sm" className="h-9 justify-center">
+                  <Button asChild variant="outline" size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center">
                     <Link to={`/institution/departments/${deptId}?tab=learners`}>
                       <Layers className="size-4" />
                       Manage sections
                     </Link>
                   </Button>
-                  <Button size="sm" className="h-9 justify-center" onClick={() =>
+                  <Button size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center" onClick={() =>
                       setAddingTo({ deptId, deptName, certifications, existingCodes })
                     }>
                     <PlusIcon className="size-4" />
@@ -153,7 +153,7 @@ export default function DepartmentHeadProgramsPage() {
                       title={program.programName}
                       footer={
                         <div className="space-y-2">
-                          <Button asChild className="w-full">
+                          <Button asChild className="w-full min-h-[44px] sm:min-h-0 sm:h-10 font-bold">
                             <Link to={`/institution/departments/${deptId}?programId=${program.programId}`}>
                               <BookOpenIcon className="size-4" />
                               Open workspace
@@ -162,12 +162,17 @@ export default function DepartmentHeadProgramsPage() {
                           <div className="grid grid-cols-2 gap-2">
                             <Button
                               variant="outline"
+                              className="min-h-[44px] sm:min-h-0 sm:h-10"
                               onClick={() => setAddingTo({ deptId, deptName, certifications, existingCodes, program })}
                             >
                               <PencilIcon className="size-4" />
                               Edit
                             </Button>
-                            <Button variant="outline" onClick={() => setDeleting({ deptId, program })}>
+                            <Button
+                              variant="outline"
+                              className="min-h-[44px] sm:min-h-0 sm:h-10 text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleting({ deptId, program })}
+                            >
                               <Trash2Icon className="size-4" />
                               Delete
                             </Button>

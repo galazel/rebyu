@@ -690,17 +690,20 @@ function LandingNavbar() {
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     const handleKeyDown = (event) => {
       if (event.key === "Escape") setMobileMenuOpen(false);
     };
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setMobileMenuOpen(false);
+      }
+    };
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", handleResize);
     };
   }, [mobileMenuOpen]);
 
@@ -730,141 +733,186 @@ function LandingNavbar() {
   const overHero = !isScrolled && !mobileMenuOpen;
 
   return (
-    <header className="sticky top-0 z-50 w-full">
-      <div
-        className={`w-full border-b-2 transition-colors duration-200 ${
-          overHero ? "border-transparent bg-transparent" : "border-rb-swan bg-rb-snow"
-        }`}
+    <>
+      <header
+        className="sticky top-0 z-50 w-full -mb-20"
+        style={{ position: "sticky", top: 0, zIndex: 50, width: "100%" }}
       >
-        <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
-          <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
-            <BrandMark light={overHero} />
-          </Link>
+        <div
+          className={`w-full border-b-2 transition-colors duration-200 ${
+            overHero ? "border-transparent bg-transparent" : "border-rb-swan bg-rb-snow"
+          }`}
+        >
+          <div className="relative z-50 mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
+            <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
+              <BrandMark light={overHero} />
+            </Link>
 
-          <nav
-            className="hidden items-center gap-1 lg:flex"
-            onMouseLeave={() => setHoveredNav(null)}
-          >
-            {NAV_ITEMS.map((item) => {
-              const isActive = !overHero && activeSection === item.href;
-              const isHovered = hoveredNav === item.href;
-
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={(e) => handleNavClick(e, item.href)}
-                  onMouseEnter={() => setHoveredNav(item.href)}
-                  onFocus={() => setHoveredNav(item.href)}
-                  className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
-                    isActive ? "font-bold text-rb-eel" : "font-medium"
-                  } ${
-                    overHero
-                      ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
-                      : isHovered || isActive
-                        ? "text-rb-eel"
-                        : "text-rb-wolf hover:text-rb-eel"
-                  }`}
-                >
-                  {isHovered ? (
-                    <motion.span
-                      layoutId="landing-nav-pill"
-                      className={`absolute inset-0 rounded-rb-pill ${
-                        overHero
-                          ? "bg-white/15 backdrop-blur-md border border-white/20 shadow-sm"
-                          : "bg-black/[0.05] border border-black/[0.04]"
-                      }`}
-                      transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
-                    />
-                  ) : null}
-                  <span className="relative z-10">{item.label}</span>
-                </a>
-              );
-            })}
-          </nav>
-
-          <div className="hidden items-center gap-3 lg:flex">
-            <TactileButton asChild variant="ghost" size="sm">
-              <Link to="/login">log in</Link>
-            </TactileButton>
-            <TactileButton asChild size="sm">
-              <Link to="/register">start learning</Link>
-            </TactileButton>
-          </div>
-
-          <button
-            type="button"
-            className={`grid size-11 place-items-center rounded-rb-tile transition-colors hover:bg-rb-polar hover:text-rb-eel focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw lg:hidden ${
-              overHero ? "text-white" : "text-rb-eel"
-            }`}
-            aria-label="Toggle navigation menu"
-            aria-expanded={mobileMenuOpen}
-            aria-controls="landing-mobile-navigation"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-          >
-            {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
-          </button>
-        </div>
-
-        <AnimatePresence initial={false}>
-          {mobileMenuOpen ? (
-            <motion.div
-              key="mobile-nav"
-              id="landing-mobile-navigation"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ height: { duration: 0.32, ease: EASE }, opacity: { duration: 0.2 } }}
-              className="overflow-hidden border-t-2 border-rb-swan bg-rb-snow lg:hidden"
+            <nav
+              className="hidden items-center gap-1 lg:flex"
+              onMouseLeave={() => setHoveredNav(null)}
             >
-              <div className="max-h-[calc(100dvh-5rem)] overflow-y-auto p-5">
-                <motion.nav
-                  className="flex flex-col gap-1"
-                  initial="hidden"
-                  animate="show"
-                  variants={staggerParent(0.04, 0.06)}
-                >
-                  {NAV_ITEMS.map((item) => {
-                    const isActive = activeSection === item.href;
-                    return (
-                      <motion.a
-                        key={item.href}
-                        href={item.href}
-                        onClick={(e) => handleNavClick(e, item.href)}
-                        variants={fadeUp}
-                        className={`rounded-rb-tile px-4 py-3.5 font-rb-display text-lg transition-colors hover:bg-rb-polar ${
-                          isActive ? "font-bold text-rb-eel bg-rb-polar/60" : "font-medium text-rb-wolf"
+              {NAV_ITEMS.map((item) => {
+                const isActive = !overHero && activeSection === item.href;
+                const isHovered = hoveredNav === item.href;
+
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    onClick={(e) => handleNavClick(e, item.href)}
+                    onMouseEnter={() => setHoveredNav(item.href)}
+                    onFocus={() => setHoveredNav(item.href)}
+                    className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
+                      isActive ? "font-bold text-rb-eel" : "font-medium"
+                    } ${
+                      overHero
+                        ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
+                        : isHovered || isActive
+                          ? "text-rb-eel"
+                          : "text-rb-wolf hover:text-rb-eel"
+                    }`}
+                  >
+                    {isHovered ? (
+                      <motion.span
+                        layoutId="landing-nav-pill"
+                        className={`absolute inset-0 rounded-rb-pill ${
+                          overHero
+                            ? "bg-white/15 backdrop-blur-md border border-white/20 shadow-sm"
+                            : "bg-black/[0.05] border border-black/[0.04]"
                         }`}
+                        transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
+                      />
+                    ) : null}
+                    <span className="relative z-10">{item.label}</span>
+                  </a>
+                );
+              })}
+            </nav>
+
+            <div className="hidden items-center gap-3 lg:flex">
+              <TactileButton asChild variant="ghost" size="sm">
+                <Link to="/login">log in</Link>
+              </TactileButton>
+              <TactileButton asChild size="sm">
+                <Link to="/register">start learning</Link>
+              </TactileButton>
+            </div>
+
+            <button
+              type="button"
+              className={`grid size-11 place-items-center rounded-rb-tile transition-colors hover:bg-rb-polar hover:text-rb-eel focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw lg:hidden ${
+                overHero ? "text-white" : "text-rb-eel"
+              }`}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="landing-mobile-navigation"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {mobileMenuOpen ? (
+              <div
+                className="fixed inset-0 z-[99999] lg:hidden"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation menu"
+              >
+                {/* Backdrop: lightly darkens current homepage view without hiding it */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.14 }}
+                  className="absolute inset-0 bg-black/25 touch-none"
+                  onClick={close}
+                  aria-hidden="true"
+                />
+
+                {/* Dropdown Menu Panel */}
+                <motion.div
+                  key="landing-mobile-menu-panel"
+                  id="landing-mobile-navigation"
+                  initial={{ opacity: 0, y: -16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  className="rebyu-ds rb-light-only rb-classroom-landing relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-b-3xl border-b-2 border-rb-swan bg-rb-snow shadow-2xl overscroll-contain"
+                >
+                  <div className="flex h-20 w-full shrink-0 items-center justify-between border-b-2 border-rb-swan bg-rb-snow px-5 sm:px-8">
+                    <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
+                      <BrandMark light={false} />
+                    </Link>
+                    <button
+                      type="button"
+                      className="grid size-11 place-items-center rounded-rb-tile text-rb-eel transition-colors hover:bg-rb-polar focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
+                      aria-label="Close navigation menu"
+                      onClick={close}
+                    >
+                      <X className="size-6" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-4 overflow-y-auto p-5 pb-6 overscroll-contain">
+                    <nav className="flex flex-col gap-1">
+                      {NAV_ITEMS.map((item) => {
+                        const isActive = activeSection === item.href;
+                        return (
+                          <a
+                            key={item.href}
+                            href={item.href}
+                            onClick={(e) => handleNavClick(e, item.href)}
+                            className={`flex items-center justify-between rounded-rb-tile px-4 py-2.5 font-rb-display text-base transition-colors hover:bg-rb-polar ${
+                              isActive
+                                ? "bg-rb-polar/80 font-bold text-rb-eel"
+                                : "font-medium text-rb-wolf hover:text-rb-eel"
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            {isActive ? <span className="size-2 rounded-full bg-rb-macaw" /> : null}
+                          </a>
+                        );
+                      })}
+                    </nav>
+
+                    <div className="flex flex-col gap-2.5 border-t-2 border-rb-swan/70 pt-4">
+                      <TactileButton asChild size="md" className="w-full justify-center text-center">
+                        <Link to="/register" onClick={close}>
+                          start learning
+                        </Link>
+                      </TactileButton>
+                      <TactileButton
+                        asChild
+                        variant="ghost"
+                        size="md"
+                        className="w-full justify-center text-center"
                       >
-                        {item.label}
-                      </motion.a>
-                    );
-                  })}
-                </motion.nav>
-                <div className="mt-4 flex flex-col gap-3">
-                  <TactileButton asChild>
-                    <Link to="/register" onClick={close}>
-                      start learning
-                    </Link>
-                  </TactileButton>
-                  <TactileButton asChild variant="ghost">
-                    <Link to="/login" onClick={close}>
-                      log in
-                    </Link>
-                  </TactileButton>
-                </div>
+                        <Link to="/login" onClick={close}>
+                          log in
+                        </Link>
+                      </TactileButton>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </div>
-    </header>
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )}
+    </>
   );
 }
 
 function HeroSection() {
   return (
-    <section className="relative isolate -mt-[82px] flex min-h-svh items-center overflow-hidden">
+    <section className="relative isolate flex min-h-svh items-center overflow-hidden">
       <div aria-hidden="true" className="rb-classroom-photo absolute inset-0 -z-10" />
 
       <motion.div

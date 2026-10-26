@@ -474,7 +474,7 @@ export default function DepartmentHeadDashboardPage() {
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
     queryFn: () => getDepartmentHeadCodeInvitations(primaryDeptId),
-    enabled: primaryDeptId != null,
+    enabled: primaryDeptId != null && isOwner,
     retry: 1,
   })
   const headAssignmentsQuery = useQuery({
@@ -1272,10 +1272,14 @@ export default function DepartmentHeadDashboardPage() {
                         {programme.certificationTitle}
                       </p>
                       <BarBreakdownChart
-                        data={programme.topics.map((topic) => ({
-                          topic: topic.lessonTitle,
-                          accuracy: topic.accuracy,
-                        }))}
+                        data={programme.topics.map((topic, i) => {
+                          const isDupe = programme.topics.filter((t) => t.lessonTitle === topic.lessonTitle).length > 1
+                          const uniqueTitle = isDupe && topic.lessonId ? `${topic.lessonTitle} (#${topic.lessonId})` : isDupe ? `${topic.lessonTitle} (${i + 1})` : topic.lessonTitle
+                          return {
+                            topic: uniqueTitle,
+                            accuracy: topic.accuracy,
+                          }
+                        })}
                         categoryKey="topic"
                         valueKey="accuracy"
                         unit="%"
@@ -1323,15 +1327,19 @@ export default function DepartmentHeadDashboardPage() {
                         {programme.certificationTitle}
                       </p>
                       <BarBreakdownChart
-                        data={programme.assessments.map((exam) => ({
-                          exam: exam.title,
-                          averageScore: exam.averageScore ?? 0,
-                          passRate: exam.passRate,
-                          passedAttempts: exam.passedAttempts,
-                          attempts: exam.attempts,
-                          learners: exam.learners,
-                          passingScore: exam.passingScore,
-                        }))}
+                        data={programme.assessments.map((exam, i) => {
+                          const isDupe = programme.assessments.filter((e) => e.title === exam.title).length > 1
+                          const uniqueTitle = isDupe && exam.examId ? `${exam.title} (#${exam.examId})` : isDupe ? `${exam.title} (${i + 1})` : exam.title
+                          return {
+                            exam: uniqueTitle,
+                            averageScore: exam.averageScore ?? 0,
+                            passRate: exam.passRate,
+                            passedAttempts: exam.passedAttempts,
+                            attempts: exam.attempts,
+                            learners: exam.learners,
+                            passingScore: exam.passingScore,
+                          }
+                        })}
                         categoryKey="exam"
                         valueKey="averageScore"
                         unit="%"
@@ -1621,7 +1629,7 @@ export default function DepartmentHeadDashboardPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => setCoAuthoritiesOpen(true)}
-                    className="h-8 gap-1.5 text-xs font-semibold"
+                    className="min-h-[44px] sm:min-h-0 sm:h-8 gap-1.5 text-xs font-semibold"
                   >
                     <UserPlus className="size-3.5" aria-hidden="true" />
                     Manage Co-Authorities
@@ -2388,7 +2396,7 @@ export default function DepartmentHeadDashboardPage() {
               onValueChange={setSelectedProgramId}
               disabled={programs.length === 0}
             >
-              <SelectTrigger className="h-9 w-full bg-background" id="dept-header-program-picker">
+              <SelectTrigger className="min-h-[44px] sm:min-h-0 sm:h-9 w-full bg-background" id="dept-header-program-picker">
                 <SelectValue placeholder="Select Program" />
               </SelectTrigger>
               <SelectContent className="z-50">
@@ -2440,7 +2448,7 @@ export default function DepartmentHeadDashboardPage() {
               const el = document.getElementById("dept-period-comparison")
               if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
             }}
-            className="gap-1.5 h-9 justify-center w-full sm:w-auto"
+            className="gap-1.5 min-h-[44px] sm:min-h-0 sm:h-9 justify-center w-full sm:w-auto text-xs sm:text-sm"
             id="dept-header-period-comparison-btn"
             title="Jump to period comparison analysis"
           >
@@ -2458,7 +2466,7 @@ export default function DepartmentHeadDashboardPage() {
             variant="outline"
             size="sm"
             onClick={() => setCoAuthoritiesOpen(true)}
-            className="gap-2 h-9 justify-center w-full sm:w-auto"
+            className="gap-2 min-h-[44px] sm:min-h-0 sm:h-9 justify-center w-full sm:w-auto text-xs sm:text-sm"
             id="dept-header-co-authorities-btn"
           >
             <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -2476,7 +2484,7 @@ export default function DepartmentHeadDashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
+            className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
             disabled={statsQuery.isLoading || statsQuery.isError}
           >

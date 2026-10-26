@@ -9,17 +9,29 @@ import "./dashboard-board.css"
 
 function useContainerWidth() {
   const ref = useRef(null)
-  const [width, setWidth] = useState(0)
+  const [width, setWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      return Math.max(320, window.innerWidth - 32)
+    }
+    return 0
+  })
 
   useEffect(() => {
     const element = ref.current
     if (!element) return undefined
 
+    const update = () => {
+      const measured = element.offsetWidth || (typeof window !== "undefined" ? window.innerWidth - 32 : 320)
+      if (measured > 0) {
+        setWidth(Math.round(measured))
+      }
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       setWidth(Math.round(entry?.contentRect?.width ?? element.offsetWidth))
     })
     observer.observe(element)
-    setWidth(element.offsetWidth)
+    update()
 
     return () => observer.disconnect()
   }, [])
@@ -84,30 +96,51 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
   }, [tiles, layout, byId])
 
   const layouts = useMemo(() => {
-    // Generate stacked mobile layout for sm, xs, and xxs
+    let mobileY = 0
     const mobileLayout = currentLayout.map((item) => {
       const tile = byId.get(item.i)
-      // On mobile, grant extra height row-span for dense tiles so their content does not get clipped
-      const extraHeight =
-        item.i === "dept-progress" || item.i === "dept-section-breakdown" || item.i === "dept-hard-topics" || item.i === "dept-hard-assessments"
-          ? 1
-          : 0
-      return {
+      const extraHeight = item.i === "dept-section-breakdown" ? 1 : item.i === "dept-progress" ? 1 : 0
+      const h = Math.max(item.h, (tile?.row ?? 1) + extraHeight)
+      const layoutItem = {
         i: item.i,
         x: 0,
-        y: Infinity, // Let react-grid-layout auto-flow vertically
+        y: mobileY,
         w: 1,
-        h: Math.max(item.h, (tile?.row ?? 1) + extraHeight),
+        h,
       }
+      mobileY += h
+      return layoutItem
     })
 
+    let smCol0Y = 0
+    let smCol1Y = 0
     const smLayout = currentLayout.map((item) => {
+      const w = Math.min(item.w, 2)
+      const h = item.h
+      let x = 0
+      let y = 0
+      if (w === 2) {
+        y = Math.max(smCol0Y, smCol1Y)
+        x = 0
+        smCol0Y = y + h
+        smCol1Y = y + h
+      } else {
+        if (smCol0Y <= smCol1Y) {
+          x = 0
+          y = smCol0Y
+          smCol0Y += h
+        } else {
+          x = 1
+          y = smCol1Y
+          smCol1Y += h
+        }
+      }
       return {
         i: item.i,
-        x: item.x % 2,
-        y: Infinity,
-        w: Math.min(item.w, 2),
-        h: item.h,
+        x,
+        y,
+        w,
+        h,
       }
     })
 
@@ -132,15 +165,15 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
       {width === 0 ? (
         <div className="h-96" aria-hidden="true" />
       ) : (
-    <Responsive
-      width={width}
-      className={`rebyu-board ${editing ? "is-editing" : ""}`}
-      layouts={layouts}
-      breakpoints={BREAKPOINTS}
-      cols={COLS}
-      rowHeight={ROW_HEIGHT}
-      margin={MARGIN}
-      containerPadding={[0, 0]}
+      <Responsive
+        width={width}
+        className={`rebyu-board ${editing ? "is-editing" : ""}`}
+        layouts={layouts}
+        breakpoints={BREAKPOINTS}
+        cols={COLS}
+        rowHeight={width < 640 ? 140 : ROW_HEIGHT}
+        margin={width < 640 ? [12, 12] : MARGIN}
+        containerPadding={[0, 0]}
       draggableHandle=".rebyu-board-handle"
       isDraggable={editing}
       isResizable={editing}
