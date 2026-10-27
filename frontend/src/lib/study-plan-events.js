@@ -59,6 +59,53 @@ function studyDaysPerWeek(value) {
   return match ? Number(match[0]) : 5
 }
 
+const WEEKDAY_WORDS = [
+  ["sun", 0], ["mon", 1], ["tue", 2], ["wed", 3], ["thu", 4], ["fri", 5], ["sat", 6],
+]
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+/**
+ * Reads the free-text "Anything else" note for the few things the scheduler can act on:
+ * specific weekdays, a study time, short sessions, and skipping the weekly catch-up.
+ */
+export function parseStudyPreferences(text) {
+  const note = String(text ?? "").toLowerCase()
+  if (!note.trim()) return null
+
+  const days = new Set()
+  for (const [word, day] of WEEKDAY_WORDS) {
+    if (new RegExp(`\\b${word}(day|s|\\.)?\\b|\\b${word}[a-z]*day\\b`).test(note)) days.add(day)
+  }
+  if (/\bweekends? only\b|\bonly (on )?weekends?\b/.test(note)) { days.clear(); days.add(0); days.add(6) }
+  const weekdaysOnly = days.size === 0 && /\bweekdays?( only)?\b|\bno weekends?\b|\bnot on weekends?\b/.test(note)
+
+  let time = null
+  const clock = /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/.exec(note)
+  if (clock) {
+    const hours = (Number(clock[1]) % 12) + (clock[3].startsWith("p") ? 12 : 0)
+    if (Number(clock[1]) <= 12 && hours < 24) time = `${String(hours).padStart(2, "0")}:${clock[2] ?? "00"}`
+  } else if (/\bmornings?\b/.test(note)) time = "07:00"
+  else if (/\bafternoons?\b/.test(note)) time = "14:00"
+  else if (/\bevenings?\b|\bnights?\b/.test(note)) time = "19:00"
+
+  const shortSessions = /\bshort(er)? (study )?(sessions?|blocks?)\b|\bbreaks?\b|\blimited time\b|\bbusy\b/.test(note)
+  const noCatchUp = /\bno (weekly )?catch[- ]?up\b|\bwithout (a )?catch[- ]?up\b|\bskip (the )?catch[- ]?up\b/.test(note)
+
+  if (!days.size && !weekdaysOnly && !time && !shortSessions && !noCatchUp) return null
+  return { days: days.size ? [...days].sort() : null, weekdaysOnly, time, shortSessions, noCatchUp }
+}
+
+export function describeStudyPreferences(prefs) {
+  if (!prefs) return []
+  const lines = []
+  if (prefs.days) lines.push(`Study on ${prefs.days.map((day) => WEEKDAY_NAMES[day]).join(", ")}`)
+  else if (prefs.weekdaysOnly) lines.push("Weekdays only")
+  if (prefs.time) lines.push(`Sessions at ${clockLabel(prefs.time)}`)
+  if (prefs.shortSessions) lines.push("Shorter sessions, at most 2 lessons a day")
+  if (prefs.noCatchUp) lines.push("No weekly catch-up")
+  return lines
+}
+
 function toLesson(row, masteryByLesson) {
   if (typeof row === "string") {
     return { lessonId: null, middleCategoryId: null, title: row.trim(), completed: false, mastery: null }
@@ -93,14 +140,20 @@ export function planStudy({
   curriculum = null,
   masteryByLesson = {},
   readiness = null,
+  preferences = null,
 }) {
+  const prefs = typeof preferences === "string" ? parseStudyPreferences(preferences) : preferences
+  if (prefs?.time) studyTime = prefs.time
   const exactTime = clockLabel(studyTime) ? String(studyTime).trim().padStart(5, "0") : null
   const at = exactTime ?? studyWindowTimes[studyWindow] ?? DEFAULT_STUDY_TIME
   const timeLabel = exactTime ? clockLabel(exactTime) : studyWindow
   const technique = selectedTechniqueInfo?.id ?? null
   const startDate = new Date(`${calendarStart}T00:00:00`)
   const examDate = new Date(`${targetExamDate}T00:00:00`)
-  const perWeek = studyDaysPerWeek(studyDays)
+  const perWeek = prefs?.days ? prefs.days.length : studyDaysPerWeek(studyDays)
+  const studyOn = prefs?.days ? new Set(prefs.days) : null
+  const maxLessonsPerDay = prefs?.shortSessions ? 2 : MAX_LESSONS_PER_DAY
+  const sessionMinutes = (minutes) => (prefs?.shortSessions && minutes ? Math.max(10, Math.round((minutes * 0.6) / 5) * 5) : minutes)
   const totalDays = daysBetween(startDate, examDate)
 
   const examEvent = {
@@ -157,7 +210,11 @@ export function planStudy({
     let weekly = 0
     for (let dayIndex = 0; dayIndex < totalDays; dayIndex += 1) {
       const weekday = cursor.getDay()
-      const isStudy = perWeek === 7 || (weekday !== 0 && weekly < perWeek)
+      const isStudy = studyOn
+        ? studyOn.has(weekday)
+        : perWeek === 7 && !prefs?.weekdaysOnly
+          ? true
+          : weekday !== 0 && !(prefs?.weekdaysOnly && weekday === 6) && weekly < perWeek
       studyFlags.push(isStudy)
       if (isStudy) weekly += 1
       if (weekday === 6) weekly = 0
@@ -168,12 +225,12 @@ export function planStudy({
   const consolidationDays = Math.min(READINESS_DAYS[readiness] ?? 7, Math.floor(totalDays * 0.4))
   const learningEndIndex = Math.max(1, totalDays - consolidationDays)
   const learningStudyDays = Math.max(1, studyFlags.slice(0, learningEndIndex).filter(Boolean).length)
-  const lessonsPerDay = Math.min(MAX_LESSONS_PER_DAY, Math.max(1, Math.ceil(toStudy.length / learningStudyDays)))
+  const lessonsPerDay = Math.min(maxLessonsPerDay, Math.max(1, Math.ceil(toStudy.length / learningStudyDays)))
   const studyGap =
     lessonsPerDay > 1 ? 1 : Math.min(3, Math.max(1, Math.floor(learningStudyDays / Math.max(1, toStudy.length))))
   const warning =
-    toStudy.length > learningStudyDays * MAX_LESSONS_PER_DAY
-      ? `${toStudy.length} lessons do not fit before your readiness date even at ${MAX_LESSONS_PER_DAY} a day, so some run into review time. Add study days or choose a later exam date.`
+    toStudy.length > learningStudyDays * maxLessonsPerDay
+      ? `${toStudy.length} lessons do not fit before your readiness date even at ${maxLessonsPerDay} a day, so some run into review time. Add study days or choose a later exam date.`
       : null
 
   const events = []
@@ -248,7 +305,7 @@ export function planStudy({
             type: "review",
             title: `Final review: ${lesson.title}`,
             detail: "A light last look at one of your weakest topics. No new material and no late night -- rest matters more now.",
-            minutes: 20,
+            minutes: sessionMinutes(20),
             ...lessonFields(lesson),
           })
         )
@@ -267,7 +324,7 @@ export function planStudy({
               (lesson.mastery != null && lesson.mastery < WEAK_MASTERY
                 ? `One of your weakest topics (${Math.round(lesson.mastery)}% mastery). `
                 : "") + (LESSON_DETAIL[technique] ?? "Work through this lesson and its practice questions."),
-            minutes: LESSON_MINUTES[technique] ?? 40,
+            minutes: sessionMinutes(LESSON_MINUTES[technique] ?? 40),
             ...lessonFields(lesson),
           })
 
@@ -286,7 +343,7 @@ export function planStudy({
             type: "quiz",
             title: `Recall quiz: ${recalled.title}`,
             detail: "Answer questions on yesterday's lesson without looking at notes. Only check the lesson after you have answered.",
-            minutes: 15,
+            minutes: sessionMinutes(15),
             ...lessonFields(recalled),
           })
         }
@@ -306,7 +363,7 @@ export function planStudy({
               technique === "active-recall"
                 ? "A lighter day: answer questions on a recent lesson from memory, then check what you missed."
                 : "A lighter day: reread your notes on a recent lesson and redo any questions you got wrong.",
-            minutes: 20,
+            minutes: sessionMinutes(20),
             ...lessonFields(lesson),
           })
         }
@@ -327,7 +384,7 @@ export function planStudy({
               technique === "active-recall"
                 ? "Test yourself on this topic from memory first, then reread only the parts you got wrong."
                 : "Go back over this topic and redo the questions you got wrong. Your readiness date has passed -- this is the time to fix weak spots.",
-            minutes: 25,
+            minutes: sessionMinutes(25),
             ...lessonFields(lesson),
           })
         )
@@ -356,14 +413,14 @@ export function planStudy({
             type: "review",
             title: `Review: ${entry.lesson.title}`,
             detail: `Flashcard review ${entry.round} of 3. Try to recall each answer before you flip the card.`,
-            minutes: 15,
+            minutes: sessionMinutes(15),
             ...lessonFields(entry.lesson),
           })
         }
       }
     }
 
-    if (weekday === 6 && perWeek < 7 && daysLeft > 1) {
+    if (weekday === 6 && perWeek < 7 && !prefs?.noCatchUp && daysLeft > 1) {
       events.push({
         id: `catch-up-${dayKey(current)}`,
         ...base(current),

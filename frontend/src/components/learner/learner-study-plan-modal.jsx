@@ -51,10 +51,19 @@ export default function LearnerStudyPlanCalendarPage() {
     staleTime: 30_000,
   })
 
-  const activePlans = useMemo(
-    () => (planQuery.data ?? []).filter((row) => row?.status === "ACTIVE" && row?.schedule),
-    [planQuery.data]
-  )
+  // A certification-only plan the overall plan already schedules would show every task twice.
+  const activePlans = useMemo(() => {
+    const active = (planQuery.data ?? []).filter((row) => row?.status === "ACTIVE" && row?.schedule)
+    const overallPlan = active.find((row) => row.certificationId == null)
+    const covered = new Set((overallPlan?.schedule?.certificationIds ?? []).map(String))
+    return active.filter(
+      (row) =>
+        row === overallPlan ||
+        row.certificationId == null ||
+        !covered.has(String(row.certificationId)) ||
+        String(row.createdAt ?? "") > String(overallPlan?.createdAt ?? "")
+    )
+  }, [planQuery.data])
 
   const events = useMemo(
     () =>
@@ -100,9 +109,10 @@ export default function LearnerStudyPlanCalendarPage() {
     return starts.length ? starts.reduce((a, b) => (b < a ? b : a)) : null
   }, [activePlans])
 
+  // Open on today once the plan is under way; only jump ahead for a plan that starts later.
   useEffect(() => {
     if (movedToPlan || !earliestStart) return
-    setViewDate(new Date(`${earliestStart}T00:00:00`))
+    if (earliestStart > dateKey(new Date())) setViewDate(new Date(`${earliestStart}T00:00:00`))
     setMovedToPlan(true)
   }, [earliestStart, movedToPlan])
 

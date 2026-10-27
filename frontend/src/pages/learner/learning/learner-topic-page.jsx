@@ -1382,14 +1382,14 @@ export default function LearnerTopicPage() {
       !liveTutorOpen &&
       Boolean(activeLessonId) &&
       sections.length > 0 &&
-      !lessonFinished &&
       !knowledgeCheck.offer,
     onRush: (since) => {
       if (liveTutorOpen) return
       const rushed = [...readAtRef.current]
         .filter(([, at]) => at >= since)
         .map(([key]) => key)
-      if (rushed.length > 0) {
+      // A finished lesson stays finished; skimming it still counts toward the challenge.
+      if (rushed.length > 0 && !lessonFinished) {
         setReadSections((current) => {
           const nextSet = new Set(current)
           rushed.forEach((key) => nextSet.delete(key))

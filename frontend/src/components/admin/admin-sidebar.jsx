@@ -6,6 +6,7 @@ import { NavProjects } from "@/components/nav-projects"
 import { adminGroups } from "@/components/navigation/portal-navigation.jsx"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { defaultAvatarFor } from "@/lib/avatar-presets.js"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar"
 import { useSidebar } from "@/components/ui/sidebar-context"
@@ -62,7 +63,7 @@ export function AdminAppSidebar({ displayName, email, avatarUrl, onLogout, ...pr
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip="Account menu" aria-label="Open account menu">
                   <Avatar className="size-8 rounded-lg">
-                    {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
+                    <AvatarImage src={avatarUrl ?? defaultAvatarFor(email || displayName)} alt="" className="bg-[#FDF1D6] object-cover" />
                     <AvatarFallback className="rounded-lg">{initials(displayName, email)}</AvatarFallback>
                   </Avatar>
                   <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

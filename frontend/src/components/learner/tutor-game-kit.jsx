@@ -109,12 +109,12 @@ export function FlipCard({ flipped, onFlip, front, back, frontLabel = "Question"
         <span className="tg-flip-inner">
           <span className="tg-face tg-face-front">
             <span className="tg-kicker">{frontLabel}</span>
-            <span className="text-lg font-extrabold sm:text-xl">{front}</span>
+            <span className="text-lg font-extrabold @md:text-xl">{front}</span>
             <span className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><FontAwesomeIcon icon={faRepeat} className="size-3" aria-hidden="true" />Tap or press Space to flip</span>
           </span>
           <span className="tg-face tg-face-back">
             <span className="text-[11px] font-extrabold uppercase tracking-widest opacity-80">{backLabel}</span>
-            <span className="text-base font-bold sm:text-lg">{back}</span>
+            <span className="text-base font-bold @md:text-lg">{back}</span>
           </span>
         </span>
       </button>

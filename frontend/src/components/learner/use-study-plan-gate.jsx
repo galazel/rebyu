@@ -107,12 +107,16 @@ export function useStudyPlanGate() {
     openOverallStudyPlan(path)
   }
 
-  function openOverallStudyPlan(next = null) {
+  async function openOverallStudyPlan(next = null) {
+    const initialPlan = await queryClient
+      .fetchQuery({ queryKey: [STUDY_PLAN_QUERY_KEY, "overall"], queryFn: getOverallStudyPlan, staleTime: 60_000 })
+      .catch(() => null)
     setPlanFor({
       certificationId: null,
       overall: true,
       title: OVERALL_CERTIFICATION_LABEL,
       next: typeof next === "string" ? next : null,
+      initialPlan: initialPlan?.planId ? initialPlan : null,
     })
   }
 
@@ -135,6 +139,7 @@ export function useStudyPlanGate() {
             lockedCertification={planFor.overall ? undefined : planFor.title}
             certificationId={planFor.overall ? null : planFor.certificationId}
             overall={Boolean(planFor.overall)}
+            initialPlan={planFor.initialPlan}
             generating={savePlanMutation.isPending}
             onPlanGenerated={(plan) => savePlanMutation.mutate(plan)}
           />

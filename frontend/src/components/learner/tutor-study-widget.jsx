@@ -63,7 +63,7 @@ export function TutorStudyWidget({ data }) {
         </div>
         <Link to="/learner/library" className="tg-pill inline-flex items-center gap-1 hover:underline"><BookOpen className="size-3" />{data.library?.id != null ? "Saved" : "Library"}</Link>
       </header>
-      <div className="p-4 sm:p-5">
+      <div className="@container p-3 @md:p-5">
         <div className="mb-4 flex items-center gap-3">
           <div className="flex-1"><ProgressBar value={mode === "quiz" ? answered : reviewedCount} total={items.length} label={mode === "quiz" ? "Questions answered" : "Cards reviewed"} /></div>
           <span className="tg-pill">{mode === "quiz" ? `${right} correct` : `${knownCount} known`}</span>
@@ -74,7 +74,7 @@ export function TutorStudyWidget({ data }) {
             : mode === "quiz" ? (
             <>
               <div className="mb-4 rounded-2xl bg-[var(--tg-softer)] p-4 text-lg font-extrabold text-foreground ring-1 ring-[var(--tg-line)]"><Text>{item.front}</Text></div>
-              {item.options.length ? <div className="grid gap-2.5 sm:grid-cols-2" role="group" aria-label="Answer choices">
+              {item.options.length ? <div className="grid gap-2.5 @md:grid-cols-2" role="group" aria-label="Answer choices">
                 {item.options.map((option, optionIndex) => {
                   const correct = picked != null && optionIndex === item.correctIndex
                   const wrong = picked != null && picked === optionIndex && !correct

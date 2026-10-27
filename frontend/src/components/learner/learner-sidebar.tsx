@@ -14,6 +14,7 @@ import {
 } from "@/components/icons"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { defaultAvatarFor } from "@/lib/avatar-presets.js"
 import { BrandLogo } from "@/components/brand-logo"
 import { AiUsageSummary } from "@/components/learner/ai-usage.jsx"
 import { NavProjects } from "@/components/nav-projects"
@@ -155,7 +156,7 @@ export function LearnerAppSidebar({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton size="lg" tooltip="Account menu" aria-label="Open account menu">
                   <Avatar className="size-8 rounded-lg">
-                    {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
+                    <AvatarImage src={avatarUrl ?? defaultAvatarFor(email || displayName)} alt="" className="bg-[#FDF1D6] object-cover" />
                     <AvatarFallback className="rounded-lg">{initials(displayName, email)}</AvatarFallback>
                   </Avatar>
                   <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { deleteMyAvatar, getMyAwards, updateMyProfile, uploadMyAvatar } from "@/services/learnerService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
+import { AVATAR_PRESETS, defaultAvatarFor, presetBackground, presetToPngFile } from "@/lib/avatar-presets.js"
 import { apiMessage } from "@/services/base"
 import { base } from "@/services/base"
 import { AuthedImage } from "@/lib/authed-media.jsx"
@@ -222,6 +223,25 @@ export default function LearnerAccountPage() {
       toast.success("Profile picture updated.")
     } catch (error) {
       toast.error(apiMessage(error, "The picture could not be uploaded."))
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  const [presetOpen, setPresetOpen] = useState(false)
+  const defaultAvatar = defaultAvatarFor(learner?.learnerId ?? user?.email ?? fullName)
+
+  async function onChoosePreset(preset) {
+    setAvatarBusy(true)
+    try {
+      const file = await presetToPngFile(preset)
+      const { avatarKey: nextKey } = await uploadMyAvatar(file)
+      setFreshAvatarUrl(URL.createObjectURL(file))
+      if (nextKey) queryClient.invalidateQueries()
+      setPresetOpen(false)
+      toast.success("Avatar updated.")
+    } catch (error) {
+      toast.error(apiMessage(error, "The avatar could not be saved."))
     } finally {
       setAvatarBusy(false)
     }
@@ -819,8 +839,8 @@ export default function LearnerAccountPage() {
               className="group relative block rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               aria-label={avatarUrl ? "Change your profile picture" : "Upload a profile picture"}
             >
-              <Avatar className="size-14 border border-border shadow-sm sm:size-24">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
+              <Avatar className="size-14 border border-border bg-[#FDF1D6] shadow-sm sm:size-24">
+                <AvatarImage src={avatarUrl ?? defaultAvatar} alt="" className="object-cover" />
                 <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary sm:text-2xl">{initials(fullName)}</AvatarFallback>
               </Avatar>
 
@@ -850,16 +870,51 @@ export default function LearnerAccountPage() {
             <p className="truncate font-heading text-lg font-semibold leading-tight tracking-tight sm:text-2xl">{fullName}</p>
             <p className="truncate text-xs text-muted-foreground sm:mt-1 sm:text-base">@{learner?.username || "learner"}</p>
             <div className="mt-1.5 flex min-w-0 items-center gap-2 sm:mt-3"><Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs">Learner</Badge><span className="truncate text-xs text-muted-foreground sm:text-sm">{user?.email || "Learner account"}</span></div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 sm:mt-2">
+            <Dialog open={presetOpen} onOpenChange={setPresetOpen}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={avatarBusy}
+                  className="text-xs font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                >
+                  Choose an avatar
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Choose an avatar</DialogTitle>
+                  <DialogDescription>Pick a character, or upload your own photo by tapping your picture.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
+                  {AVATAR_PRESETS.map((preset, index) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      disabled={avatarBusy}
+                      onClick={() => onChoosePreset(preset)}
+                      className="aspect-square overflow-hidden rounded-full border border-border transition hover:scale-105 hover:ring-2 hover:ring-primary focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                      style={{ background: presetBackground(index) }}
+                      aria-label={`Use avatar ${index + 1}`}
+                    >
+                      <img src={preset.src} alt="" className="size-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+                {avatarBusy ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Saving avatar...</p> : null}
+              </DialogContent>
+            </Dialog>
             {avatarUrl ? (
               <button
                 type="button"
                 onClick={onRemoveAvatar}
                 disabled={avatarBusy}
-                className="mt-1.5 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground sm:mt-2"
+                className="text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
               >
                 Remove photo
               </button>
             ) : null}
+            </div>
           </div>
         </div>
 

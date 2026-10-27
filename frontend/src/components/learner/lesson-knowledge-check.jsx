@@ -44,6 +44,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const outboxRef = useRef([])
   const inFlightRef = useRef(false)
   const pendingRef = useRef(Promise.resolve())
+  const failedRef = useRef(false)
 
   useEffect(() => {
     if (!open) {
@@ -59,6 +60,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       outboxRef.current = []
       inFlightRef.current = false
       pendingRef.current = Promise.resolve()
+      failedRef.current = false
       return
     }
     if (preparedAttempt) {
@@ -89,12 +91,15 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         }
       })
       .catch((caught) => {
+        // Keep the answers so "Try again" resends them instead of waiting forever for the next item.
+        outboxRef.current.unshift(...batch)
+        failedRef.current = true
         setError(caught)
         setPhase("error")
       })
       .finally(() => {
         inFlightRef.current = false
-        pump()
+        if (!failedRef.current) pump()
       })
     pendingRef.current = pendingRef.current.then(() => request.catch(() => null))
   }
@@ -106,7 +111,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
 
   function start() {
     if (attempt) {
-      setPhase("playing")
+      failedRef.current = false
+      setError(null)
+      setPhase(result ? "result" : "playing")
+      pump()
       return
     }
     if (mintingRef.current) return
@@ -171,6 +179,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       const before = await snapshotRewards(queryClient)
       try {
         await pendingRef.current
+        if (outboxRef.current.length > 0) throw new Error("Some answers were not saved yet. Try again to resend them.")
         const submitted = await submitAssessmentAttempt(attempt.assessmentAttemptId, learnerId, [])
         setResult(submitted)
         setPhase("result")

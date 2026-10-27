@@ -8,13 +8,19 @@ export function parseSkimLessons(raw) {
   } catch { return [] }
 }
 
+// The count is only cleared once a challenge is actually shown (see skimChallengeShown);
+// a lesson with too few questions, a cooldown or a failed request keeps it, so the next
+// skimmed lesson tries again instead of the learner silently starting over from zero.
 export function countSkimLesson(lessons, lessonId) {
   const lesson = Number(lessonId)
   const previous = parseSkimLessons(JSON.stringify(lessons))
-  if (!Number.isSafeInteger(lesson) || lesson <= 0 || previous.includes(lesson)) return { lessons: previous, challenge: false }
-  const next = [...previous, lesson]
-  return next.length >= SKIM_LESSON_THRESHOLD ? { lessons: [], challenge: true } : { lessons: next, challenge: false }
+  if (!Number.isSafeInteger(lesson) || lesson <= 0) return { lessons: previous, challenge: false }
+  if (previous.includes(lesson)) return { lessons: previous, challenge: previous.length >= SKIM_LESSON_THRESHOLD }
+  const next = [...previous, lesson].slice(-SKIM_LESSON_THRESHOLD)
+  return { lessons: next, challenge: next.length >= SKIM_LESSON_THRESHOLD }
 }
+
+export const skimChallengeShown = () => []
 
 // Nested chat, inputs and scrollable lesson widgets are not page-reading gestures.
 export function isLessonScrollGesture(event, root) {

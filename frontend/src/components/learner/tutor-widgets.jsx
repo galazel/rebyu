@@ -87,7 +87,7 @@ function Frame({ kind, type, title, badge, children, saved }) {
   const counts = typeof badge === "string" && /^(\d+)\/(\d+)$/.exec(badge)
   const progress = counts && Number(counts[2]) ? Number(counts[1]) / Number(counts[2]) : null
   return (
-      <section className={`tg-frame my-3 w-full ${categoryClass(type)}`} data-tutor-widget={type}>
+      <section className={`tg-frame @container my-3 w-full min-w-0 ${categoryClass(type)}`} data-tutor-widget={type}>
         <header className="tg-head flex flex-wrap items-center gap-3 px-4 py-3">
           <span className="tg-badge-icon"><GameIcon type={type} /></span>
           <span className="min-w-0 flex-1">
@@ -100,7 +100,7 @@ function Frame({ kind, type, title, badge, children, saved }) {
           </span>
           {progress != null ? <span className="tg-progress"><span style={{ width: `${progress * 100}%` }} /></span> : null}
         </header>
-        <div className="p-4">{children}</div>
+        <div className="p-3 @sm:p-4">{children}</div>
       </section>
   )
 }
@@ -201,12 +201,12 @@ function MatchingWidget({ data }) {
   const colorOf = (i) => PAIR_COLORS[i % PAIR_COLORS.length]
   const curve = (a, b) => { const mid = (a.x + b.x) / 2; return `M${a.x} ${a.y} C${mid} ${a.y} ${mid} ${b.y} ${b.x} ${b.y}` }
   const termOf = (match) => Object.keys(links).find((t) => links[t] === match)
-  const badge = "relative flex min-h-12 w-full items-center gap-2.5 rounded-full border-2 bg-card py-1.5 text-left text-sm font-bold shadow-[0_3px_0_var(--tg-line)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)]"
+  const badge = "relative flex min-h-12 w-full min-w-0 items-center gap-2 rounded-2xl border-2 bg-card py-1.5 text-left text-xs leading-snug font-bold [overflow-wrap:anywhere] hyphens-auto @md:gap-2.5 @md:rounded-full @md:text-sm shadow-[0_3px_0_var(--tg-line)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)]"
   const dot = "absolute top-1/2 size-4 -translate-y-1/2 rounded-full border-[3px] border-card shadow ring-2"
   return (
       <Frame kind="Match the pairs" type="matching" title={data.title} badge={`${linkedCount}/${data.pairs.length}`} saved={data}>
         <p className="mb-4 text-xs font-bold text-muted-foreground">Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</p>
-        <div ref={box} className="relative grid grid-cols-2 gap-x-10 gap-y-3 sm:gap-x-20" >
+        <div ref={box} className="relative grid grid-cols-2 gap-x-5 gap-y-2.5 @md:gap-x-12 @xl:gap-x-20" >
           <svg className="pointer-events-none absolute inset-0 z-10 overflow-visible" width={dots.w} height={dots.h} aria-hidden="true">
             {Object.entries(links).map(([t, m]) => {
               const a = dots.left[t], b = dots.right[matches.indexOf(m)]
@@ -225,9 +225,9 @@ function MatchingWidget({ data }) {
                     <button type="button" aria-pressed={from === i} aria-label={`${p.term}${linked ? `, linked to ${links[i]}` : ""}`}
                             onClick={() => { if (dragged.current) { dragged.current = false; return } if (from === i) setFrom(null); else if (linked && from == null) unlink(i); else setFrom(i) }}
                             onPointerDown={(e) => startDrag(e, i)}
-                            className={`${badge} touch-none pl-1.5 pr-6 ${state}`}
+                            className={`${badge} touch-none pl-2.5 pr-4 @md:pl-1.5 @md:pr-6 ${state}`}
                             style={{ borderColor: from === i || linked ? colorOf(i) : "var(--tg-line)", background: from === i ? `color-mix(in oklab, ${colorOf(i)} 14%, var(--card))` : undefined }}>
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full text-xs font-black text-white" style={{ background: colorOf(i) }}>{String.fromCharCode(65 + (i % 26))}</span>
+                      <span className="hidden size-8 shrink-0 place-items-center rounded-full text-xs @md:grid font-black text-white" style={{ background: colorOf(i) }}>{String.fromCharCode(65 + (i % 26))}</span>
                       <span className="min-w-0 flex-1">{p.term}</span>
                       <span data-dot="left" className={`${dot} -right-2`} style={{ background: colorOf(i), "--tw-ring-color": colorOf(i) }} />
                     </button>
@@ -245,7 +245,7 @@ function MatchingWidget({ data }) {
                     <button type="button" data-match-index={j} disabled={from == null && t == null}
                             aria-label={`${m}${t != null ? `, linked to ${data.pairs[t].term}` : ""}`}
                             onClick={() => from != null && link(from, m)}
-                            className={`${badge} pl-6 pr-3 !font-semibold disabled:opacity-100 ${from != null ? "cursor-pointer hover:-translate-y-0.5 hover:border-[var(--tg)]" : ""} ${state}`}
+                            className={`${badge} pl-4 pr-2.5 !font-semibold @md:pl-6 @md:pr-3 disabled:opacity-100 ${from != null ? "cursor-pointer hover:-translate-y-0.5 hover:border-[var(--tg)]" : ""} ${state}`}
                             style={{ borderColor: c ?? "var(--tg-line)", background: c ? `color-mix(in oklab, ${c} 10%, var(--card))` : undefined }}>
                       <span data-dot="right" className={`${dot} -left-2`} style={{ background: c ?? "var(--card)", "--tw-ring-color": c ?? "var(--tg-line)" }} />
                       <span className="min-w-0 flex-1">{m}</span>
@@ -427,7 +427,7 @@ function TableWidget({ data }) {
 function CardsWidget({ data }) {
   return (
       <Frame kind="Examples" type="cards" title={data.title}>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 @md:grid-cols-2">
           {data.cards.map((card, i) => {
             const tone = TONES[i % TONES.length]
             const Icon = CARD_ICONS[card.icon] ?? Sparkles
@@ -636,7 +636,7 @@ function ExplorerWidget({ data }) {
               </label>
           ))}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 @sm:grid-cols-2">
           {data.outputs.map((o, i) => {
             let value
             try { value = evaluate(o.formula, scope) } catch { value = NaN }
