@@ -39,6 +39,10 @@ QUESTION_STYLES = [
     ("Q12.", re.compile(r"^Q\s?(\d{1,3})\s?[.:)]\s*")),
     ("Question 12", re.compile(r"^(?:Question|Item|No\.?)\s+(\d{1,3})\s*[.:)\-]?\s*", re.I)),
     ("12.", re.compile(r"^(\d{1,3})\s?[.)]\s+(?=\S)")),
+    # These forms are common in school, professional and translated papers.
+    # They have no relationship to an AM/PM sitting label.
+    ("12:", re.compile(r"^(\d{1,3})\s*:\s+(?=\S)")),
+    ("(12)", re.compile(r"^\((\d{1,3})\)\s+(?=\S)")),
 ]
 
 BARE_HEADING = re.compile(r"^(\d{1,3})\s+(?=[A-Z])")
@@ -479,8 +483,8 @@ def _without_running_lines(blocks, page_count):
 
 
 CHOICE_LINE = re.compile(r"^\(?[a-hA-H][.)]\s+\S")
-QUESTION_LINE = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item|No\.?)\s+\d{1,3}|\d{1,3}\s?[.)]\s+\S)", re.I)
-LONE_HEADING = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]?|(?:Question|Item|No\.?)\s+\d{1,3}\s*[.:)]?|\d{1,3}\s?[.)])$", re.I)
+QUESTION_LINE = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item|No\.?)\s+\d{1,3}\b|\(?\d{1,3}\)?\s*(?:[.):]|\s)\s*\S)", re.I)
+LONE_HEADING = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]?|(?:Question|Item|No\.?)\s+\d{1,3}\s*[.:)]?|\(?\d{1,3}\)?\s?[.):])$", re.I)
 TEXTUAL_FIGURES = {"code", "formula"}
 
 

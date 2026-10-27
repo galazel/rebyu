@@ -2,6 +2,7 @@ package com.capstone.rebyu.user.service;
 
 import com.capstone.rebyu.common.InvitationAcceptanceException;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.department.entity.Department;
@@ -247,6 +248,7 @@ public class LearnerService {
                         .status(InstitutionCertificationLearner.Status.active)
                         .build();
         enrollment = institutionCertificationLearnerRepository.save(enrollment);
+        ensureDirectCertificationEnrollment(learner, institutionCert.getCertification());
         orgEnrollmentProgressService.sync(enrollment);
 
         if (learner.getUser() != null && institutionCert.getCertification() != null) {
@@ -309,6 +311,23 @@ public class LearnerService {
                 institutionCert.getCertification().getCertificationId(),
                 institutionCert.getCertification().getTitle(),
                 enrollment.getInstitutionCertLearnerId());
+    }
+
+    /**
+     * An accepted institutional invitation grants a lasting learner certification.
+     * The institution assignment remains separate and can later be removed without
+     * revoking that certification enrollment.
+     */
+    private void ensureDirectCertificationEnrollment(Learner learner, com.capstone.rebyu.certification.entity.Certification certification) {
+        learnerCertificationRepository
+                .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+                        learner.getLearnerId(), certification.getCertificationId(), LearnerCertification.Status.active)
+                .orElseGet(() -> learnerCertificationRepository.save(LearnerCertification.builder()
+                        .learner(learner)
+                        .certification(certification)
+                        .enrolledAt(LocalDateTime.now())
+                        .status(LearnerCertification.Status.active)
+                        .build()));
     }
 
     private void restoreDepartmentSlot(Department group) {

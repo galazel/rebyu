@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { AiUsageSummary } from "@/components/learner/ai-usage.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -175,7 +174,6 @@ export default function LearnerSubscriptionPage() {
         <StatusBanner tone="feather" icon={CheckIcon} title="REBYU Pro is active">
           {subscription?.cancelAtPeriodEnd ? "Access until " : "Renews "}
           {formatDate(subscription?.currentPeriodEnd ?? entitlements.currentPeriodEnd)}.{" "}
-          <AiUsageSummary className="mt-3" />
         </StatusBanner>
       ) : entitlements.institutionalActive ? (
         <StatusBanner tone="feather" icon={CheckIcon} title="Pro through your institution">

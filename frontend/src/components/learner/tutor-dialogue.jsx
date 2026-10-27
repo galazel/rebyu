@@ -518,15 +518,22 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               message.role === "tutor" ? (
                 <div key={index} className="flex items-start gap-2.5">
                   <TutorDot />
-                  <div className="min-w-0 flex-1 pt-0.5 text-[15px] leading-7 text-rb-eel">
-                    {FORMAT_LABEL[message.format] ? (
-                      <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wide text-rb-hare">
-                        {FORMAT_LABEL[message.format]}
+                  <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-rb-swan bg-white px-4 py-3.5 text-[15px] leading-7 text-rb-eel shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+                        REBYU AI Tutor
                       </p>
-                    ) : null}
-                    <Markdown>{message.content}</Markdown>
+                      {FORMAT_LABEL[message.format] ? (
+                        <span className="rounded-full bg-rb-feather-wash px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-rb-feather-lip">
+                          {FORMAT_LABEL[message.format]}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="font-normal tracking-[0.002em] [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+                      <Markdown>{message.content}</Markdown>
+                    </div>
                     {message.options?.length ? (
-                      <div className="mt-3 grid gap-1.5">
+                      <div className="mt-4 grid gap-2">
                         {message.options.map((option, optionIndex) => {
                           const letter = String.fromCharCode(65 + optionIndex)
                           const isLatest = index === live.history.length - 1
@@ -537,7 +544,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                               type="button"
                               disabled={!isLatest || Boolean(busy) || Boolean(viewing) || live.complete || tutorExhausted}
                               onClick={() => send(`${letter}) ${option}`)}
-                              className={`flex items-start gap-2 rounded-[0.8rem] border-2 px-3 py-2 text-left text-sm transition-colors ${
+                              className={`flex items-start gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-sm leading-snug transition-colors ${
                                 chosen
                                   ? "border-rb-feather bg-rb-feather-wash/60"
                                   : "border-rb-swan bg-white enabled:hover:border-rb-feather/60 enabled:hover:bg-rb-feather-wash/30"
@@ -556,7 +563,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                 </div>
               ) : (
                 <div key={index} className="flex justify-end">
-                  <p className="max-w-[85%] whitespace-pre-wrap rounded-[1.1rem] rounded-br-md bg-rb-feather px-3.5 py-2.5 text-sm font-medium leading-relaxed text-white shadow-[var(--comic-shadow-sm)]">
+                  <p className="max-w-[85%] whitespace-pre-wrap rounded-[1.1rem] rounded-br-md bg-rb-feather px-3.5 py-2.5 text-sm font-medium leading-relaxed text-white shadow-[0_2px_10px_rgba(17,55,43,0.14)]">
                     {message.content}
                   </p>
                 </div>

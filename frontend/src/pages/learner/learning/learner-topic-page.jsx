@@ -45,6 +45,7 @@ import {
 } from "@/components/motion/rebyu-motion.jsx"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
+import { LiveTutor } from "@/components/learner/live-tutor.jsx"
 import { LessonSnipOverlay, SelectionAskButton } from "@/components/learner/lesson-snip.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
@@ -70,7 +71,6 @@ import {
 } from "@/services/learnerService.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getTopicReflection } from "@/services/reflectionService.js"
-import { LessonAudioPlayer } from "@/components/learner/lesson-audio-player.jsx"
 import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { cn } from "@/lib/utils"
@@ -722,6 +722,8 @@ function LessonView({
                   as="section"
                   key={section.key}
                   id={section.key}
+                  data-live-section-id={section.key}
+                  data-live-title={section.name}
                   data-snip-area
                   amount={0.05}
                   className={`relative flex min-h-[calc(100dvh-var(--lesson-header-h))] snap-start scroll-mt-[var(--lesson-header-h)] flex-col justify-center overflow-hidden px-4 py-14 sm:px-6 lg:px-8 ${tone.shell}`}
@@ -832,15 +834,6 @@ function LessonView({
       </div>
       </div>
 
-      {/* Stays pinned to the bottom of the screen while the lesson scrolls; the right
-          padding keeps it clear of the floating snip and tutor buttons. */}
-      {!loading && sections.length > 0 ? (
-        <div data-snip-chrome className="pointer-events-none sticky bottom-4 z-20 mt-6 pr-20 sm:pr-24">
-          <div className="pointer-events-auto mx-auto w-full max-w-3xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] rounded-full">
-            <LessonAudioPlayer sections={sections} lessonKey={lessonItem.id} />
-          </div>
-        </div>
-      ) : null}
     </article>
   )
 }
@@ -1125,6 +1118,7 @@ export default function LearnerTopicPage() {
   const [activeId, setActiveId] = useState(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
+  const [liveTutorOpen, setLiveTutorOpen] = useState(false)
   const readingRef = useRef(null)
   const [snipping, setSnipping] = useState(false)
   const [tutorSnippet, setTutorSnippet] = useState(null)
@@ -1169,6 +1163,47 @@ export default function LearnerTopicPage() {
     () => new Map((data?.lessons ?? []).map((lesson) => [String(lesson.lessonId), lesson])),
     [data?.lessons],
   )
+
+  const requestedLessonId = searchParams.get("lesson")
+  const requestedLesson = requestedLessonId ? lessonById.get(String(requestedLessonId)) : null
+
+  useEffect(() => {
+    if (!requestedLesson) return
+
+    const actualCertificationId = requestedLesson.certificationId
+    const actualMiddleCategoryId = requestedLesson.middleCategoryId
+    const isEnrolledInActualCertification = (data?.enrolledCertifications ?? []).some(
+      (item) => String(item.certificationId) === String(actualCertificationId),
+    )
+
+    // Repair links saved before an overall plan retained the event's own
+    // certification. Do not redirect to content the learner cannot access.
+    if (
+      !isEnrolledInActualCertification ||
+      actualCertificationId == null ||
+      actualMiddleCategoryId == null ||
+      (String(actualCertificationId) === String(certificationId) &&
+        String(actualMiddleCategoryId) === String(middleCategoryId))
+    ) {
+      return
+    }
+
+    navigate(
+      `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`,
+      { replace: true },
+    )
+  }, [
+    certificationId,
+    data?.enrolledCertifications,
+    middleCategoryId,
+    navigate,
+    requestedLesson,
+    requestedLessonId,
+  ])
+
+  useEffect(() => {
+    setActiveId(null)
+  }, [certificationId, middleCategoryId, requestedLessonId])
 
   const takenExamIds = useMemo(
     () =>
@@ -1328,7 +1363,7 @@ export default function LearnerTopicPage() {
   const knowledgeCheck = useSkimChallenge({
     learnerId: data?.learnerId,
     lessonId: activeLessonId,
-    enabled: Boolean(data?.learnerId),
+    enabled: Boolean(data?.learnerId) && !liveTutorOpen,
   })
 
   useEffect(() => {
@@ -1341,17 +1376,20 @@ export default function LearnerTopicPage() {
 
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
+    lessonRootRef: readingRef,
     resetKey: activeLessonId,
     enabled:
+      !liveTutorOpen &&
       Boolean(activeLessonId) &&
       sections.length > 0 &&
-      !lessonFinished &&
       !knowledgeCheck.offer,
     onRush: (since) => {
+      if (liveTutorOpen) return
       const rushed = [...readAtRef.current]
         .filter(([, at]) => at >= since)
         .map(([key]) => key)
-      if (rushed.length > 0) {
+      // A finished lesson stays finished; skimming it still counts toward the challenge.
+      if (rushed.length > 0 && !lessonFinished) {
         setReadSections((current) => {
           const nextSet = new Set(current)
           rushed.forEach((key) => nextSet.delete(key))
@@ -1535,7 +1573,7 @@ export default function LearnerTopicPage() {
     )
   }
 
-  const tutorVisible = tutorOpen && active?.kind === "lesson"
+  const tutorVisible = tutorOpen && !liveTutorOpen && active?.kind === "lesson"
 
   // A closed outline takes no room at all; the icon in each view's top bar reopens it.
   const outlineColumn = outlineCollapsed ? "" : "340px "
@@ -1699,6 +1737,7 @@ export default function LearnerTopicPage() {
                 learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
                 learnerId={data?.learnerId}
                 onClose={() => setTutorOpen(false)}
+                onStartLive={() => { setTutorOpen(false); setLiveTutorOpen(true) }}
                 pendingSnippet={tutorSnippet}
                 onSnippetTaken={() => setTutorSnippet(null)}
                 onStartSnip={() => setSnipping(true)}
@@ -1715,7 +1754,7 @@ export default function LearnerTopicPage() {
 
       {createPortal(
         <AnimatePresence>
-          {!tutorVisible && !railOpen && active?.kind === "lesson" ? (
+          {!tutorVisible && !liveTutorOpen && !railOpen && active?.kind === "lesson" ? (
             <motion.button
               type="button"
               onClick={() => setTutorOpen(true)}
@@ -1735,6 +1774,11 @@ export default function LearnerTopicPage() {
         document.body,
       )}
 
+      {liveTutorOpen && active?.kind === "lesson" ? createPortal(
+        <LiveTutor key={activeLessonId} lessonId={activeLessonId} lessonName={active?.name} lessonStructure={lessonQuery.data?.lessonComponentStructure} lessonRootRef={readingRef} onExit={() => setLiveTutorOpen(false)} />,
+        document.body,
+      ) : null}
+
       <Sheet open={railOpen} onOpenChange={setRailOpen}>
         <SheetContent side="left" className="rebyu-ds p-0">
           <SheetTitle className="sr-only">Topic outline</SheetTitle>
@@ -1751,6 +1795,7 @@ export default function LearnerTopicPage() {
             learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
             learnerId={data?.learnerId}
             onClose={() => setTutorOpen(false)}
+            onStartLive={() => { setTutorOpen(false); setLiveTutorOpen(true) }}
             pendingSnippet={tutorSnippet}
             onSnippetTaken={() => setTutorSnippet(null)}
             onStartSnip={() => setSnipping(true)}
@@ -1786,7 +1831,7 @@ export default function LearnerTopicPage() {
       ) : null}
 
       <LessonKnowledgeCheck
-        open={Boolean(knowledgeCheck.offer)}
+        open={!liveTutorOpen && Boolean(knowledgeCheck.offer)}
         lessonId={activeLessonId}
         learnerId={data?.learnerId}
         itemCount={knowledgeCheck.offer?.itemCount}

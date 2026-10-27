@@ -39,6 +39,24 @@ public class NotificationService {
         pushAfterCommit(user.getUserId(), toDto(saved));
     }
 
+    /**
+     * Creates at most one notification with this title for a user after the given
+     * instant. Used by reminder jobs so a restart or repeated scheduler tick does
+     * not fill a learner's inbox with duplicates.
+     */
+    public boolean notifyOnceSince(User user, String title, String body, String href,
+                                   OffsetDateTime since) {
+        if (user == null || user.getUserId() == null) {
+            return false;
+        }
+        if (notificationRepository.existsByUser_UserIdAndTitleAndCreatedAtGreaterThanEqual(
+                user.getUserId(), title, since)) {
+            return false;
+        }
+        notify(user, title, body, href);
+        return true;
+    }
+
     private void pushAfterCommit(Long userId, NotificationDto dto) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             streamService.push(userId, dto);

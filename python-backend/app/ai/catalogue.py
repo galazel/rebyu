@@ -161,9 +161,10 @@ TASK_INFO: dict[str, dict] = {
         "usedFor": ["Reading afternoon papers, other formats and scanned PDFs on the Import from PDF page"],
         "vision": True,
         "recommended": [
-            ("google/gemini-2.5-flash", "Accurate page reading at low cost"),
+            ("anthropic/claude-sonnet-5.5", "Most accurate across layouts (default)"),
+            ("anthropic/claude-opus-5.5", "Strongest, costs twice as much"),
             ("google/gemini-3.5-flash", "Newer, sharper vision"),
-            ("anthropic/claude-sonnet-5", "Most accurate, costs more"),
+            ("google/gemini-2.5-flash", "Accurate page reading at low cost"),
             ("openai/gpt-5-mini", "Alternative"),
             ("google/gemma-4-31b-it:free", "Free, but often rate-limited"),
         ],

@@ -20,6 +20,7 @@ import {
   startPracticeAttempt,
   submitPracticeAnswer,
 } from "@/services/practiceService"
+import { IconButton } from "@/components/learner/tutor-game-kit.jsx"
 
 const MCQ_SECONDS = 20
 const RECALL_SECONDS = 30
@@ -222,6 +223,7 @@ export default function LearnerPracticeAttemptPage() {
         <ArenaHeader
           title={studySet.title}
           subtitle={isFlashcard ? "Recall round" : "Quiz round"}
+          tool={isFlashcard ? "flashcards" : "quiz"}
           position={index + 1}
           total={studySet.items.length}
           onLeave={() => navigate(-1)}
@@ -348,14 +350,14 @@ export default function LearnerPracticeAttemptPage() {
       ) : null}
 
       <div className="mt-auto flex justify-end py-6">
-        <Button
-          size="lg"
+        <IconButton
+          icon={isLast ? "check" : "next"}
+          primary
           disabled={!locked}
           onClick={advance}
-          className="min-w-40 font-rb-display font-extrabold"
-        >
-          {isLast ? "Finish" : "Next"}
-        </Button>
+          label={isLast ? "Finish round" : "Next question"}
+          className="!size-14"
+        />
       </div>
     </ArenaShell>
   )

@@ -52,6 +52,19 @@ def test_six_and_eight_choices():
     assert [len(q["options"]) for q in questions] == [8, 6]
 
 
+def test_colon_and_parenthesized_question_numbers_are_read():
+    colon = read([
+        text("1: First? A. one B. two", [0.1, 0.1, 0.9, 0.2]),
+        text("2: Second? A. three B. four", [0.1, 0.2, 0.9, 0.3]),
+    ], q="12:")
+    parens = read([
+        text("(1) First? A. one B. two", [0.1, 0.1, 0.9, 0.2]),
+        text("(2) Second? A. three B. four", [0.1, 0.2, 0.9, 0.3]),
+    ], q="(12)")
+    assert [q["num"] for q in colon] == ["1", "2"]
+    assert [q["num"] for q in parens] == ["1", "2"]
+
+
 def test_answer_key_heading_joined_with_answers():
     body, key = _answer_key([text("1. Q? A. a B. b", [0, 0, 1, 0.1]),
                              text("ANSWER KEY 1. B 2. D 3. A", [0, 0.9, 1, 1])])

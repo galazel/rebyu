@@ -1,4 +1,6 @@
 import { TrendingUp, TrendingDown } from "@/components/icons"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import { faTrophy } from "@fortawesome/free-solid-svg-icons"
 import { MasteryIndicator } from './mastery-indicator'
 
 export function MasteryChangeDisplay({
@@ -87,8 +89,8 @@ export function MasteryChangeDisplay({
 
       {levelBefore !== levelAfter && (
         <div className="mt-4">
-          <p className="text-sm font-medium text-foreground mb-2">
-            🎉 Achievement Unlocked!
+          <p className="text-sm font-medium text-foreground mb-2 inline-flex items-center gap-1.5">
+            <FontAwesomeIcon icon={faTrophy} className="size-4 text-amber-500" aria-hidden="true" />Achievement Unlocked!
           </p>
           <p className="text-sm text-muted-foreground">
             You've progressed from{' '}

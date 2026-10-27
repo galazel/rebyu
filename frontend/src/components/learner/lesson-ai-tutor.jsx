@@ -3,11 +3,12 @@ import { AiLimitNotice, AiUsageRing, isBucketExhausted, useAiUsage } from "@/com
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
   ArrowRight,
+  ArrowUp,
   BookOpenCheck,
   Crop,
   ImageIcon,
@@ -16,9 +17,11 @@ import {
   Loader2,
   History,
   MessageCircle,
+  Pause,
+  Play,
   PlayCircle,
   Plus,
-  SendHorizontal,
+  Radio,
   SquarePen,
   Sparkles,
   X,
@@ -51,7 +54,11 @@ import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
 import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
+import { LearningToolsPicker } from "@/components/learner/learning-tools-picker.jsx"
+import { friendlyActivityRequest } from "@/lib/friendly-activity-request.js"
+import { tutorActivityScope } from "@/lib/tutor-widget-progress.js"
 import { MicButton } from "@/components/learner/mic-button.jsx"
+import { LiveTutor, LiveTutorVoiceOrb } from "@/components/learner/live-tutor.jsx"
 
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
@@ -77,6 +84,7 @@ function trackRequest(sessionId, entry) {
 }
 
 class StreamUnavailable extends Error {}
+class StreamCancelled extends Error {}
 
 async function streamTutorAnswer(body, entry) {
   const token = await currentAccessToken()
@@ -90,8 +98,10 @@ async function streamTutorAnswer(body, entry) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
+      signal: entry.controller?.signal,
     })
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw new StreamCancelled()
     throw new StreamUnavailable()
   }
   if (response.status >= 400 && response.status < 500 && response.status !== 404) {
@@ -148,7 +158,14 @@ async function streamTutorAnswer(body, entry) {
   }
 
   for (;;) {
-    const { value, done } = await reader.read()
+    let chunk
+    try {
+      chunk = await reader.read()
+    } catch (error) {
+      if (error?.name === "AbortError") throw new StreamCancelled()
+      throw error
+    }
+    const { value, done } = chunk
     if (done) break
     buffered += decoder.decode(value, { stream: true })
     let match
@@ -597,7 +614,7 @@ function SnippetPreview({ snippet, onDark = false }) {
   )
 }
 
-function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
+export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup, persistenceScope }) {
   const isLearner = message.role === "user"
 
   const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-tl-md"
@@ -621,7 +638,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
             ) : null}
 
             <Bubble
-                variant="secondary"
+                variant={isLearner ? "secondary" : "ghost"}
                 align={isLearner ? "end" : "start"}
                 className={isLearner ? "!max-w-[85%]" : "!w-full !max-w-full"}
             >
@@ -633,13 +650,17 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
-                {message.text ? <div className="text-[15px] font-medium leading-7 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
+                {message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
+                  isLearner
+                    ? "font-medium text-white"
+                    : "font-normal text-rb-eel [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink"
+                } [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.text}
+                    {isLearner ? friendlyActivityRequest(message.text) : message.text}
                   </ReactMarkdown>
                 </div> : null}
 
-                {!isLearner ? <TutorWidgets widgets={message.widgets} /> : null}
+                {!isLearner ? <TutorWidgets widgets={message.widgets} persistenceScope={persistenceScope} /> : null}
                 {message.action ? <StudyAidActionCard action={message.action} /> : null}
                 {message.resources?.length ? <TutorResources resources={message.resources} /> : null}
               </BubbleContent>
@@ -667,10 +688,13 @@ export function LessonAiTutor({
                             learnerName,
                             learnerId,
                             onClose,
+                            onStartLive,
                             pendingSnippet = null,
                             onSnippetTaken,
                             onStartSnip,
                           }) {
+  const queryClient = useQueryClient()
+  const [toolsOpen, setToolsOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState("")
   const [pending, setPending] = useState(false)
@@ -680,8 +704,10 @@ export function LessonAiTutor({
   const [streamText, setStreamText] = useState("")
   const [shownLength, setShownLength] = useState(0)
   const [finishedReply, setFinishedReply] = useState(null)
+  const [streamPaused, setStreamPaused] = useState(false)
   const [attachment, setAttachment] = useState(null)
   const [dialogueOpen, setDialogueOpen] = useState(false)
+  const [liveTutorOpen, setLiveTutorOpen] = useState(false)
   const [chatVersion, setChatVersion] = useState(0)
   const [chatListOpen, setChatListOpen] = useState(false)
   const draftRef = useRef(null)
@@ -751,10 +777,12 @@ export function LessonAiTutor({
       setStreamText("")
       setShownLength(0)
       setFinishedReply(null)
+      setStreamPaused(false)
     }
   }, [lessonId, learnerId, tutorLocked, chatVersion])
 
   useEffect(() => {
+    if (streamPaused) return undefined
     if (shownLength >= streamText.length) {
       if (finishedReply) showReply(finishedReply)
       return undefined
@@ -768,6 +796,9 @@ export function LessonAiTutor({
   }, [streamText, shownLength, finishedReply])
 
   function showReply(message) {
+    if (message.widgets?.some((widget) => widget.library?.id != null)) {
+      queryClient.invalidateQueries({ queryKey: ["library-items"] })
+    }
     setMessages((current) => [...current, message])
     setPending(false)
     setGenerating(null)
@@ -775,6 +806,7 @@ export function LessonAiTutor({
     setStreamText("")
     setShownLength(0)
     setFinishedReply(null)
+    setStreamPaused(false)
   }
 
   useEffect(() => {
@@ -790,6 +822,7 @@ export function LessonAiTutor({
     setWaitingSince(entry.startedAt)
     setStreamText(entry.text ?? "")
     setShownLength((entry.text ?? "").length)
+    setStreamPaused(false)
     entry.onDelta = (text) => setStreamText(text)
     entry.listener = (message) => {
       if (entry.text) {
@@ -831,7 +864,10 @@ export function LessonAiTutor({
       ...(snippet?.quote ? { quote: snippet.quote } : {}),
       ...(snippet?.image ? { image: snippet.image } : {}),
     }
-    const entry = { kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "" }
+    const entry = {
+      kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "",
+      controller: new AbortController(),
+    }
 
     const askOnce = () =>
         base(AI_TUTOR_ENDPOINT, { method: "POST", data: body }).then((response) => {
@@ -853,14 +889,24 @@ export function LessonAiTutor({
           widgets: widgets?.length ? widgets : undefined,
           createdAt: Date.now(),
         }))
-        .catch((error) => ({
-          id: createTutorMessageId("error"),
-          role: "assistant",
-          text: entry.text.trim()
-              ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
-              : getTutorErrorMessage(error),
-          createdAt: Date.now(),
-        }))
+        .catch((error) => {
+          if (error instanceof StreamCancelled) {
+            return {
+              id: createTutorMessageId("assistant"),
+              role: "assistant",
+              text: entry.text.trim() || "Reply stopped.",
+              createdAt: Date.now(),
+            }
+          }
+          return {
+            id: createTutorMessageId("error"),
+            role: "assistant",
+            text: entry.text.trim()
+                ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
+                : getTutorErrorMessage(error),
+            createdAt: Date.now(),
+          }
+        })
 
     // Each reply counts against the tutor limits: refresh usage once it lands.
     entry.promise.finally(() => aiUsage.refresh())
@@ -870,6 +916,13 @@ export function LessonAiTutor({
   function handleSubmit(event) {
     event.preventDefault()
     sendTutorMessage(draft)
+  }
+
+  function stopTutorResponse() {
+    const entry = inFlight.get(sessionId)
+    if (!entry || entry.kind !== "chat") return
+    entry.controller?.abort()
+    toast.message(entry.text.trim() ? "Tutor reply stopped." : "Tutor request cancelled.")
   }
 
 
@@ -908,7 +961,13 @@ export function LessonAiTutor({
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
         <header className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            {liveTutorOpen ? (
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
+                <LiveTutorVoiceOrb className="size-8" />
+              </span>
+            ) : (
+              <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            )}
             <p className="font-rb-display text-sm font-extrabold text-white">REBYU AI Tutor</p>
           </div>
           <TactileButton
@@ -938,21 +997,40 @@ export function LessonAiTutor({
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
         <header className="relative flex h-16 shrink-0 items-center justify-between overflow-hidden bg-rb-feather px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            {liveTutorOpen ? (
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
+                <LiveTutorVoiceOrb className="size-8" />
+              </span>
+            ) : (
+              <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            )}
 
             <div className="min-w-0">
               <p className="font-rb-display text-sm font-extrabold leading-tight text-white">
-                REBYU AI Tutor
+                {liveTutorOpen ? "REBYU Live Tutor" : "REBYU AI Tutor"}
               </p>
               <p className="flex items-center gap-1.5 truncate text-xs font-bold text-white/80">
-                <span className="size-1.5 shrink-0 rounded-full bg-rb-feather" aria-hidden="true" />
-                {lessonName ?? "This lesson"}
+                <span className={`size-1.5 shrink-0 rounded-full ${liveTutorOpen ? "bg-rb-fox" : "bg-rb-feather"}`} aria-hidden="true" />
+                {liveTutorOpen ? "Live voice & chat" : lessonName ?? "This lesson"}
               </p>
             </div>
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            {!dialogueOpen ? (
+            {liveTutorOpen ? (
+              <TactileButton
+                variant="ghost"
+                size="sm"
+                className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
+                style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+                onClick={() => setLiveTutorOpen(false)}
+                aria-label="Return to tutor chat"
+                title="Return to tutor chat"
+              >
+                <MessageCircle className="size-4" aria-hidden="true" />
+              </TactileButton>
+            ) : null}
+            {!dialogueOpen && !liveTutorOpen ? (
               <TactileButton
                   variant="ghost"
                   size="sm"
@@ -967,7 +1045,7 @@ export function LessonAiTutor({
                 <History className="size-4" aria-hidden="true" />
               </TactileButton>
             ) : null}
-            {!dialogueOpen ? (
+            {!dialogueOpen && !liveTutorOpen ? (
               <TactileButton
                   variant="ghost"
                   size="sm"
@@ -998,7 +1076,7 @@ export function LessonAiTutor({
           </div>
         </header>
 
-        {chatListOpen && !dialogueOpen ? (
+        {chatListOpen && !dialogueOpen && !liveTutorOpen ? (
             <ChatList
                 learnerId={learnerId}
                 lessonId={lessonId}
@@ -1014,6 +1092,15 @@ export function LessonAiTutor({
                   setChatListOpen(false)
                   setChatVersion((value) => value + 1)
                 }}
+            />
+        ) : liveTutorOpen ? (
+            <LiveTutor
+              lessonId={lessonId}
+              lessonName={lessonName}
+              messages={messages}
+              pending={pending || Boolean(generating)}
+              onSend={sendTutorMessage}
+              onExit={() => setLiveTutorOpen(false)}
             />
         ) : dialogueOpen ? (
             <TutorDialogue
@@ -1133,6 +1220,7 @@ export function LessonAiTutor({
                           >
                             <GeminiTutorMessage
                                 message={message}
+                                persistenceScope={tutorActivityScope(sessionId, messages, index)}
                                 learnerName={learnerName}
                                 isFirstInGroup={isFirstInGroup}
                                 isLastInGroup={isLastInGroup}
@@ -1181,14 +1269,15 @@ export function LessonAiTutor({
             </MessageScrollerProvider>
         )}
 
-        {dialogueOpen || chatListOpen ? null : (
+        {dialogueOpen || chatListOpen || liveTutorOpen ? null : (
         <form
             onSubmit={handleSubmit}
-            className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
+            className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-3"
         >
           <AiLimitNotice className="mb-2" />
+          <div data-tutor-composer className="min-w-0 rounded-[calc(var(--radius-rb-control,10px)+8px)] border border-border bg-card p-3 text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
           {attachment ? (
-              <div className="mb-2 flex items-start gap-2 rounded-xl border-2 border-rb-swan bg-rb-snow p-2">
+              <div className="mb-3 flex items-start gap-2 rounded-[var(--radius-rb-control,10px)] border border-border bg-muted/40 p-2.5">
                 {attachment.image ? (
                     <img
                         src={attachment.image}
@@ -1220,14 +1309,26 @@ export function LessonAiTutor({
                 </button>
               </div>
           ) : null}
-          <div className="flex items-end gap-1.5 rounded-2xl border-2 border-rb-swan bg-rb-snow p-1.5 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
+            <textarea
+                ref={draftRef}
+                aria-label="Message your tutor"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={tutorExhausted ? "AI limit reached—see when it resets above"
+                    : attachment ? "Ask about this snippet…" : "Ask your tutor anything…"}
+                disabled={Boolean(generating) || tutorExhausted}
+                rows={2}
+                className="field-sizing-content block max-h-40 min-h-14 w-full resize-none overflow-y-auto appearance-none border-0 bg-transparent px-1 py-1 text-sm font-normal leading-6 text-foreground shadow-none outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 disabled:opacity-60"
+            />
+          <div className="mt-2 flex items-center justify-between gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <TactileButton
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon shrink-0"
+                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
                     disabled={pending || Boolean(generating)}
                     aria-label="Create study aid"
                 >
@@ -1238,51 +1339,123 @@ export function LessonAiTutor({
                   )}
                 </TactileButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="w-64">
+              <DropdownMenuContent
+                align="start"
+                side="top"
+                className="w-72 !rounded-2xl !border-rb-swan !bg-rb-snow !p-2 shadow-[0_14px_32px_rgba(20,30,24,0.18)]"
+              >
+                <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-rb-hare">
+                  Learning tools
+                </p>
                 {onStartSnip ? (
                   <>
-                    <DropdownMenuItem onSelect={() => onStartSnip()}>
-                      <Crop className="mr-2 size-4" />
-                      <span className="flex-1">Snip part of the lesson</span>
+                    <DropdownMenuItem
+                      onSelect={() => onStartSnip()}
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                    >
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip">
+                        <Crop className="size-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-rb-eel">Snip part of the lesson</span>
+                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                          Ask about a specific section
+                        </span>
+                      </span>
                     </DropdownMenuItem>
                     {hasConversation ? <DropdownMenuSeparator /> : null}
                   </>
                 ) : null}
+                <DropdownMenuItem disabled={tutorExhausted} onSelect={() => setToolsOpen(true)} className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip"><BookOpenCheck className="size-4" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-rb-eel">Practice & games</span><span className="mt-0.5 block text-xs leading-4 text-rb-wolf">Quizzes, matching, word games and scenarios</span></span>
+                </DropdownMenuItem>
                 {hasConversation ? (
-                  <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
-                    <MessageCircle className="mr-2 size-4" />
-                    <span className="flex-1">Guided dialogue</span>
-                  </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => setDialogueOpen(true)}
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                    >
+                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-fox-wash text-rb-fox">
+                        <MessageCircle className="size-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-bold text-rb-eel">Guided dialogue</span>
+                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                          Practise with tutor-led questions
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem
+                  onSelect={() => onStartLive ? onStartLive() : setLiveTutorOpen(true)}
+                  className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5"
+                  aria-label="Open live tutor"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-cardinal/10 text-rb-cardinal">
+                    <Radio className="size-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-rb-eel">Live tutor</span>
+                    <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                      Talk, dictate, and chat with your tutor
+                    </span>
+                  </span>
+                </DropdownMenuItem>
                 {/* AI usage lives on the ring beside the send button, not here too. */}
               </DropdownMenuContent>
             </DropdownMenu>
-            <textarea
-                ref={draftRef}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={tutorExhausted ? "AI limit reached -- see when it resets above"
-                    : attachment ? "Ask about this, or just send" : "Ask anything about this lesson…"}
-                disabled={pending || Boolean(generating) || tutorExhausted}
-                rows={1}
-                className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
-            />
-            <MicButton value={draft} onChange={setDraft} disabled={pending || Boolean(generating)} />
+            <LearningToolsPicker open={toolsOpen} onOpenChange={setToolsOpen} onGenerate={sendTutorMessage} disabled={pending || tutorExhausted} />
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {pending ? (
+              <>
+                <TactileButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
+                    onClick={() => setStreamPaused((current) => !current)}
+                    aria-label={streamPaused ? "Resume displaying tutor reply" : "Pause displaying tutor reply"}
+                    title={streamPaused ? "Resume reply" : "Pause reply"}
+                >
+                  {streamPaused ? <Play className="size-3.5" aria-hidden="true" /> : <Pause className="size-3.5" aria-hidden="true" />}
+                </TactileButton>
+              </>
+            ) : (
+              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} className="!rounded-[var(--radius-rb-control,10px)]" />
+            )}
+            {pending ? (
+              <TactileButton
+                type="button"
+                variant="feather"
+                size="sm"
+                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                onClick={(event) => {
+                  event.preventDefault()
+                  stopTutorResponse()
+                }}
+                aria-label="Stop tutor reply"
+                title="Stop reply"
+              >
+                <span className="size-3 rounded-[2px] bg-current" aria-hidden="true" />
+              </TactileButton>
+            ) : (
             <TactileButton
                 type="submit"
                 variant="feather"
                 size="sm"
-                className="rb-btn-icon shrink-0"
-                disabled={pending || Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
+                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                disabled={Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
                 aria-label="Send message"
             >
-              {pending || generating ? (
+              {generating ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               ) : (
-                  <SendHorizontal className="size-4" aria-hidden="true" />
+                  <ArrowUp className="size-4" aria-hidden="true" />
               )}
             </TactileButton>
+            )}
+            </div>
+          </div>
           </div>
 
           <div className="mt-1.5 flex items-center gap-2 px-2">

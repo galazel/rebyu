@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import CertificationCard from "../../components/certifications/certification-card"
 import CertificationFormDrawer from "@/components/certifications/certification-form-drawer"
+import { CertificationsPageSkeleton } from "@/components/admin/certifications-page-skeleton.jsx"
 
 import { getAllCertifications } from "../../services/certificationService"
 import { markGenerationQueued, useActiveGenerations } from "@/hooks/use-active-generations"
@@ -18,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { CertificationSkeletonCard } from "../../components/certifications/certification-skeleton-card"
 import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 
 const CONTENT_FILTERS = [
@@ -95,10 +95,6 @@ function Certifications() {
     })
   }
 
-  if (isLoading) {
-    return <CertificationSkeletonCard size={8} />
-  }
-
   if (isError) {
     return (
         <section className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -118,6 +114,8 @@ function Certifications() {
         </section>
     )
   }
+
+  if (isLoading) return <CertificationsPageSkeleton />
 
   return (
       <section className="flex flex-col gap-6">

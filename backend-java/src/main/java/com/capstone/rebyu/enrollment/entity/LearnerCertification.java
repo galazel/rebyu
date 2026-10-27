@@ -35,8 +35,8 @@ public class LearnerCertification {
     @JoinColumn(name = "certification_id", nullable = false)
     private Certification certification;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_detail_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "order_detail_id", unique = true)
     private LearnerOrderDetail orderDetail;
 
     @Column(name = "enrolled_at", nullable = false)

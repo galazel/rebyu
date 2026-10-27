@@ -31,7 +31,17 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.tutor.tutor_agent import STREAMING_SYSTEM_PROMPT
 from app.ai import tasks
 from app.ai.streaming import astream_with_fallback
-from app.ai.tutor_widgets import MAX_WIDGETS, TOOL_RULES, TOOLS, normalize, requested_tool
+from app.ai.tutor_widgets import (
+    MAX_QUIZ_QUESTIONS,
+    MIN_QUIZ_QUESTIONS,
+    MAX_WIDGETS,
+    TOOL_RULES,
+    TOOLS,
+    normalize,
+    requested_activity_count,
+    activity_token_budget,
+    requested_tool,
+)
 from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.graphs.tutor.nodes import _earlier_turns, build_tutor_messages, with_quote
 from app.graphs.tutor.workflow import get_tutor_graph
@@ -148,6 +158,13 @@ BREVITY = (
 )
 
 
+def quiz_count_reply() -> str:
+    return (
+        f"I can make a quiz with {MIN_QUIZ_QUESTIONS} to {MAX_QUIZ_QUESTIONS} questions. "
+        "Choose a number in that range (for example, 10), and I'll create it from this lesson."
+    )
+
+
 def _resource_query(request: str, earlier: list, quote: str | None = None) -> str | None:
     """What to search for, or None for no search.
 
@@ -199,6 +216,14 @@ async def stream_tutor_answer(
             {"type": "image_url", "image_url": {"url": image}},
         ])
     profile = [SystemMessage(content=learner_profile)] if learner_profile else []
+    quiz_count = requested_activity_count(request)
+    quiz_size_instruction = (
+        [SystemMessage(content=(
+            f"Generate exactly {quiz_count} distinct items for the requested activity. "
+            "For a story count decision nodes, not endings; for simulations and two-truths count rounds. "
+            "Never return fewer items, pad with duplicates, or change the requested activity."))]
+        if quiz_count is not None and MIN_QUIZ_QUESTIONS <= quiz_count <= MAX_QUIZ_QUESTIONS else []
+    )
     messages = [
         SystemMessage(content=STREAMING_SYSTEM_PROMPT + TOOL_RULES),
         *turn[:-1],
@@ -208,11 +233,22 @@ async def stream_tutor_answer(
         *profile,
         SystemMessage(content=scope_check(lesson_name)),
         SystemMessage(content=BREVITY),
+        *quiz_size_instruction,
         question,
     ]
 
     if lesson_context and not image and not quote and not asks_for_resources(request)             and not await _in_lesson_scope(request, lesson_name, lesson_context, earlier):
         reply = out_of_scope_reply(lesson_name)
+        yield {"type": "delta", "text": reply}
+        await append_messages(session_id, [
+            {"role": "user", "content": request},
+            {"role": "assistant", "content": reply},
+        ])
+        yield {"type": "done"}
+        return
+
+    if quiz_count is not None and not MIN_QUIZ_QUESTIONS <= quiz_count <= MAX_QUIZ_QUESTIONS:
+        reply = f"Learning activities have {MIN_QUIZ_QUESTIONS} to {MAX_QUIZ_QUESTIONS} items. Please choose a number in that range."
         yield {"type": "delta", "text": reply}
         await append_messages(session_id, [
             {"role": "user", "content": request},
@@ -231,7 +267,11 @@ async def stream_tutor_answer(
         if isinstance(piece, str):
             answer += piece
             return {"type": "delta", "text": piece}
-        widget = normalize(piece["name"], piece["args"])
+        if quiz_count is not None and piece["name"] != requested_tool(request):
+            return None
+        widget = normalize(piece["name"], piece["args"], expected_count=quiz_count)
+        if widget is None and quiz_count is not None and piece["name"] == requested_tool(request):
+            raise ValueError("Generated activity did not meet its requested size or quality requirements")
         if widget is None or len(widgets) >= MAX_WIDGETS:
             logger.info("Dropped an unusable %s call on %s", piece["name"], session_id)
             return None
@@ -244,7 +284,8 @@ async def stream_tutor_answer(
             # map...) gets that tool forced; the fallback models often skip it otherwise.
             forced = None if image else requested_tool(request)
             async for piece in astream_with_fallback(
-                messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR, tools=TOOLS, tool_choice=forced
+                messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR, tools=TOOLS, tool_choice=forced,
+                **({"max_tokens": activity_token_budget(requested_tool(request), quiz_count)} if quiz_count is not None else {})
             ):
                 if event := take(piece):
                     yield event
@@ -261,9 +302,11 @@ async def stream_tutor_answer(
                 *profile,
                 SystemMessage(content=scope_check(lesson_name)),
                 SystemMessage(content=BREVITY),
+                *quiz_size_instruction,
                 HumanMessage(content=asked),
             ]
-            async for piece in astream_with_fallback(text_only, task=tasks.TUTOR, tools=TOOLS):
+            async for piece in astream_with_fallback(text_only, task=tasks.TUTOR, tools=TOOLS,
+                    **({"max_tokens": activity_token_budget(requested_tool(request), quiz_count)} if quiz_count is not None else {})):
                 if event := take(piece):
                     yield event
     except BaseException:
@@ -271,6 +314,10 @@ async def stream_tutor_answer(
             search.cancel()
         raise
 
+    if quiz_count is not None and not widgets:
+        if search:
+            search.cancel()
+        raise ValueError("The requested activity was not generated; no activity was saved")
     resources = await search if search else []
     if resources:
         yield {"type": "resources", "resources": resources}

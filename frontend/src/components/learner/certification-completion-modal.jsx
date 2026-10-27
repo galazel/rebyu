@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
+import { faStar } from "@fortawesome/free-solid-svg-icons"
 import {
   Bar,
   BarChart,
@@ -95,8 +96,11 @@ function CompletionStamp({ hasBadgeImage, certificationId, award }) {
       </text>
       <path id="btmArc" d="M 22,90 A 68,68 0 0,0 158,90" fill="none" />
       <text fontSize="9" fontWeight="600" fill="#b6e8c9" letterSpacing="2" fontFamily="sans-serif">
-        <textPath href="#btmArc" startOffset="50%" textAnchor="middle">★ WELL DONE ★</textPath>
+        <textPath href="#btmArc" startOffset="50%" textAnchor="middle">WELL DONE</textPath>
       </text>
+      {[[40, 134], [140, 134]].map(([x, y]) => (
+        <path key={x} d={faStar.icon[4]} fill="#b6e8c9" transform={`translate(${x - 5} ${y - 5}) scale(${10 / 576})`} />
+      ))}
     </svg>
   )
 }

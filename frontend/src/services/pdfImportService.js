@@ -16,6 +16,14 @@ export function readDocumentPage(page) {
     })
 }
 
+export function checkQuestions(questions) {
+    return base("ai/past-papers/check", {
+        method: "POST",
+        data: { questions },
+        timeout: 300000,
+    })
+}
+
 export function readDocumentLayout(file) {
     const formData = new FormData()
     formData.append("file", file)

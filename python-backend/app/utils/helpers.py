@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from uuid import uuid4
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -85,6 +86,22 @@ async def close_checkpointer() -> None:
                 _checkpointer = None
                 _checkpointer_pool = None
                 logger.info("Async Postgres checkpointer pool closed")
+
+
+@asynccontextmanager
+async def locked_checkpointer(thread_id: str):
+    """Serialize a live turn across workers, using one pooled connection throughout.
+
+    The saver uses the SAME borrowed connection as the advisory lock, avoiding
+    pool starvation/deadlock when several concurrent threads need checkpoints.
+    """
+    await get_checkpointer()
+    async with _checkpointer_pool.connection() as conn:
+        await conn.execute("SELECT pg_advisory_lock(hashtextextended(%s, 0))", (thread_id,))
+        try:
+            yield AsyncPostgresSaver(conn=conn)
+        finally:
+            await conn.execute("SELECT pg_advisory_unlock(hashtextextended(%s, 0))", (thread_id,))
 
 def create_id():
     return str(uuid4())

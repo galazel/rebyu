@@ -72,6 +72,11 @@ export function PlayerCardTile({ portalData }) {
     staleTime: 60_000,
     retry: false,
   })
+  const levelQuery = useQuery({
+    queryKey: ["learner-review-level"],
+    queryFn: () => base("learners/me/review-level"),
+    staleTime: 60_000,
+  })
 
   const streak = Number(streakQuery.data?.currentStreak) || 0
   const best = Number(streakQuery.data?.bestStreak) || 0
@@ -81,7 +86,8 @@ export function PlayerCardTile({ portalData }) {
   })
   const keptToday = week[6]?.kept ?? false
   const goal = nextGoal(streak)
-  const xp = Number(portalData?.totalXp) || 0
+  const xp = Number(levelQuery.data?.xp ?? portalData?.totalXp) || 0
+  const level = levelQuery.data
 
   return (
     <BentoTile
@@ -122,7 +128,7 @@ export function PlayerCardTile({ portalData }) {
           <Stat value={streak} label="current" ink={streak > 0 ? FLAME : "white"} />
           <Stat value={keptToday ? "done" : `${hoursLeftToday()}h left`} label="today" />
           <Stat value={goal ?? "-"} label="next goal" />
-          <Stat value={xp.toLocaleString()} label="total xp" />
+          <Stat value={level ? `Lv. ${level.levelNumber}` : xp.toLocaleString()} label={level?.title ?? "total xp"} />
         </div>
 
         <div className="flex grow basis-[230px] items-end justify-between gap-1">

@@ -63,6 +63,10 @@ TUTOR_RULES = """
 
     Rules:
     - Explain concepts clearly and accurately, grounded in the current lesson.
+    - Think silently before answering: identify the learner's intent, check the
+      lesson evidence, choose the most useful interactive tool when one fits,
+      and check all quantities or constraints. Do not reveal hidden reasoning;
+      present only the concise explanation, steps, or activity that helps the learner.
     - When the learner is working through a problem, guide them one step at
       a time rather than solving everything at once.
     - If no lesson content was provided and the question depends on one, ask

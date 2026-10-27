@@ -93,25 +93,16 @@ public class AiChatController {
     public ChatResponse chat(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
         Long learnerId = meteredLearner(user);
-        if (learnerId != null) generationQuota.requireAvailable(learnerId, AiGenerationQuotaService.Bucket.TUTOR);
-        storeSnip(request, user);
-        ChatResponse response = aiChatService.chat(request);
-        // Only a delivered reply counts.
-        if (learnerId != null) generationQuota.record(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT);
-        return response;
+        java.util.function.Supplier<ChatResponse> reply = () -> { storeSnip(request, user); return aiChatService.chat(request); };
+        return learnerId == null ? reply.get() : generationQuota.authorizeTutor(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT, reply);
     }
 
     @PostMapping(value = "/tutor/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
         Long learnerId = meteredLearner(user);
-        if (learnerId != null) {
-            generationQuota.requireAvailable(learnerId, AiGenerationQuotaService.Bucket.TUTOR);
-            // Counted when the reply starts: a stream has no single success point.
-            generationQuota.record(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT);
-        }
         storeSnip(request, user);
-        return aiChatService.streamChat(request, user.learnerId());
+        return aiChatService.streamChat(request, learnerId);
     }
 
     /** The signed-in learner's past chats for one lesson; the prefix is built here, never taken from the client. */

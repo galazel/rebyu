@@ -40,7 +40,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { planStudy } from "@/lib/study-plan-events.js"
+import { describeStudyPreferences, parseStudyPreferences, planStudy } from "@/lib/study-plan-events.js"
 
 const readinessOptions = [
     "Ready 1 week before the exam",
@@ -492,8 +492,15 @@ export function StudyPlanContent({
     certificationId,
     overall = false,
     generating = false,
+    initialPlan = null,
 }) {
     const { data } = useOutletContext()
+    // "Update plan" re-opens the saved schedule rather than a blank form.
+    const saved = initialPlan?.schedule ?? null
+    const today = toDateKey(new Date())
+    const pick = (value, options, fallback) => (options.includes(value) ? value : fallback)
+    const savedStart = (value) => (value && value > today ? value : today)
+    const savedEnd = (value) => (value && value > today ? value : null)
 
     const certificationOptions = useMemo(
         () => (data?.certifications ?? [])
@@ -502,7 +509,9 @@ export function StudyPlanContent({
         [data?.certifications]
     )
 
-    const [chosenCertificationIds, setChosenCertificationIds] = useState(null)
+    const [chosenCertificationIds, setChosenCertificationIds] = useState(() =>
+        Array.isArray(saved?.certificationIds) ? saved.certificationIds.map(String) : null
+    )
 
     const enrolledCertifications = useMemo(() => {
         if (!overall) {
@@ -536,7 +545,16 @@ export function StudyPlanContent({
     }
 
 
-    const [certificationDates, setCertificationDates] = useState({})
+    const [certificationDates, setCertificationDates] = useState(() =>
+        Object.fromEntries(
+            (Array.isArray(saved?.certificationPlans) ? saved.certificationPlans : [])
+                .filter((entry) => entry?.certificationId != null && savedEnd(entry.targetExamDate))
+                .map((entry) => [
+                    String(entry.certificationId),
+                    { calendarStart: savedStart(entry.calendarStart), targetExamDate: entry.targetExamDate },
+                ])
+        )
+    )
 
     function datesFor(id) {
         return certificationDates[id] ?? { calendarStart, targetExamDate }
@@ -577,15 +595,17 @@ export function StudyPlanContent({
         : lockedCertification
 
     const [certification, setCertification] = useState(certificationLabel ?? "")
-    const [courseGoal, setCourseGoal] = useState("Complete a full reviewer")
-    const [targetExamDate, setTargetExamDate] = useState(() => toDateKey(addDays(new Date(), 90)))
-    const [targetReadiness, setTargetReadiness] = useState(readinessOptions[1])
-    const [examPriority, setExamPriority] = useState(priorityOptions[0])
-    const [calendarStart, setCalendarStart] = useState(() => toDateKey(new Date()))
-    const [studyDays, setStudyDays] = useState(studyDaysOptions[2])
-    const [studyWindow, setStudyWindow] = useState(studyWindowOptions[2])
-    const [selectedTechnique, setSelectedTechnique] = useState("spaced-repetition")
-    const [studyPreferences, setStudyPreferences] = useState("")
+    const [courseGoal, setCourseGoal] = useState(() => saved?.courseGoal || "Complete a full reviewer")
+    const [targetExamDate, setTargetExamDate] = useState(() => savedEnd(saved?.targetExamDate) ?? toDateKey(addDays(new Date(), 90)))
+    const [targetReadiness, setTargetReadiness] = useState(() => pick(saved?.targetReadiness, readinessOptions, readinessOptions[1]))
+    const [examPriority, setExamPriority] = useState(() => pick(saved?.examPriority, priorityOptions, priorityOptions[0]))
+    const [calendarStart, setCalendarStart] = useState(() => savedStart(saved?.calendarStart))
+    const [studyDays, setStudyDays] = useState(() => pick(saved?.studyDays, studyDaysOptions, studyDaysOptions[2]))
+    const [studyWindow, setStudyWindow] = useState(() => saved?.studyWindow || studyWindowOptions[2])
+    const [selectedTechnique, setSelectedTechnique] = useState(() =>
+        studyTechniques.some((item) => item.id === saved?.selectedTechniqueInfo?.id) ? saved.selectedTechniqueInfo.id : "spaced-repetition"
+    )
+    const [studyPreferences, setStudyPreferences] = useState(() => saved?.studyPreferences ?? "")
     const [generatedPlan, setGeneratedPlan] = useState(null)
     const [viewDate, setViewDate] = useState(() => new Date())
 
@@ -687,6 +707,9 @@ export function StudyPlanContent({
               .reduce((latest, value) => (value > latest ? value : latest), "") || "—"
         : targetExamDate
 
+    const parsedPreferences = useMemo(() => parseStudyPreferences(studyPreferences), [studyPreferences])
+    const preferenceLines = describeStudyPreferences(parsedPreferences)
+
     const pacePreview = useMemo(() => {
         const entries = overall
             ? selectedCertificationIds.map((id) => ({
@@ -710,6 +733,7 @@ export function StudyPlanContent({
                     studyTime: entry.studyTime ?? null,
                     selectedTechniqueInfo,
                     readiness: targetReadiness,
+                    preferences: parsedPreferences,
                     curriculum: curriculumFor(data?.lessons, entry.certificationId, overall ? null : certification),
                     masteryByLesson: entry.mastery,
                     priorityTopics: overall ? [] : priorityTopics,
@@ -718,7 +742,7 @@ export function StudyPlanContent({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [overall, selectedCertificationIds, certificationDates, calendarStart, targetExamDate, studyDays, studyWindow,
         selectedTechniqueInfo, targetReadiness, data?.lessons, overallPriorities.masteryByCertification, singleMastery,
-        priorityTopics, certification, certificationId, enrolledCertifications])
+        priorityTopics, certification, certificationId, enrolledCertifications, parsedPreferences])
 
     function handleGeneratePlan() {
         if (noCertificationsSelected) {
@@ -751,6 +775,7 @@ export function StudyPlanContent({
                       studyTime: entry.studyTime ?? null,
                       selectedTechniqueInfo,
                       readiness: targetReadiness,
+                      preferences: parsedPreferences,
                       curriculum: curriculumFor(data?.lessons, entry.certificationId),
                       masteryByLesson:
                           overallPriorities.masteryByCertification[String(entry.certificationId)] ?? {},
@@ -770,6 +795,7 @@ export function StudyPlanContent({
                   studyWindowTimes: STUDY_WINDOW_TIMES,
                   selectedTechniqueInfo,
                   readiness: targetReadiness,
+                  preferences: parsedPreferences,
                   curriculum: curriculumFor(data?.lessons, certificationId, certification),
                   masteryByLesson: singleMastery,
                   priorityTopics,
@@ -790,14 +816,14 @@ export function StudyPlanContent({
             ? certificationPlans
                   .map((entry) => entry.calendarStart)
                   .filter(Boolean)
-                  .reduce((earliest, value) => (value < earliest ? value : earliest), calendarStart)
+                  .reduce((earliest, value) => (!earliest || value < earliest ? value : earliest), "") || calendarStart
             : calendarStart
 
         const planTargetExamDate = overall
             ? certificationPlans
                   .map((entry) => entry.targetExamDate)
                   .filter(Boolean)
-                  .reduce((latest, value) => (value > latest ? value : latest), targetExamDate)
+                  .reduce((latest, value) => (value > latest ? value : latest), "") || targetExamDate
             : targetExamDate
 
         const nextPlan = {
@@ -1140,9 +1166,16 @@ export function StudyPlanContent({
                         className="mt-4 min-h-28 resize-none rounded-2xl"
                     />
 
-                    <p className="mt-2 text-right text-xs text-muted-foreground">
-                        {studyPreferences.length} / 500
-                    </p>
+                    <div className="mt-2 flex items-start justify-between gap-3 text-xs text-muted-foreground">
+                        <p className="min-w-0">
+                            {preferenceLines.length
+                                ? <>Applied to your schedule: <span className="font-semibold text-foreground">{preferenceLines.join(" · ")}</span></>
+                                : studyPreferences.trim()
+                                    ? "Saved with your plan. Mention days (e.g. Monday, Friday), a time (e.g. 7 PM), short sessions, or no catch-up to change the schedule."
+                                    : null}
+                        </p>
+                        <p className="shrink-0">{studyPreferences.length} / 500</p>
+                    </div>
                 </section>
 
                 <div className="flex justify-end">
@@ -1250,9 +1283,11 @@ export function StudyPlanGenerator({
     certificationId,
     overall,
     generating,
+    initialPlan,
 }) {
     return (
         <StudyPlanContent
+            initialPlan={initialPlan}
             onPlanGenerated={onPlanGenerated}
             lockedCertification={lockedCertification}
             certificationId={certificationId}

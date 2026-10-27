@@ -252,6 +252,60 @@ function MistakeCard({ mistake, onToggleReviewed, isPending }) {
   )
 }
 
+// Mirrors the loaded layout (stats, filters, search row, cards) so nothing jumps.
+function MistakeBankSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading your mistake bank">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="space-y-3 rounded-rb-card border-2 border-border bg-card p-5">
+            <Skeleton className="size-9 rounded-full" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-12" />
+            <Skeleton className="h-3 w-full" />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-border pb-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-8 w-20 rounded-md" />
+        ))}
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_200px]">
+        <Skeleton className="h-9 rounded-md" />
+        <Skeleton className="h-9 rounded-md" />
+        <Skeleton className="h-9 rounded-md" />
+      </div>
+
+      <ol className="space-y-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <li key={index} className="rounded-rb-card border-2 border-border bg-card p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex gap-2">
+                <Skeleton className="h-5 w-24 rounded-full" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-20" />
+            </div>
+            <Skeleton className="mt-4 h-4 w-11/12" />
+            <Skeleton className="mt-2 h-4 w-3/4" />
+            <Skeleton className="mt-3 h-3 w-1/2" />
+            <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
+              <Skeleton className="h-16 rounded-rb-tile" />
+              <Skeleton className="h-16 rounded-rb-tile" />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Skeleton className="h-8 w-32 rounded-md" />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 export default function LearnerMistakeBankPage() {
   return (
     <ProGate
@@ -392,14 +446,7 @@ function MistakeBankContent() {
       </div>
 
       {mistakesQuery.isLoading ? (
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-32 rounded-rb-card" />
-            ))}
-          </div>
-          <Skeleton className="h-64 w-full rounded-rb-card" />
-        </div>
+        <MistakeBankSkeleton />
       ) : mistakes.length === 0 ? (
         <LearnerEmptyState
           icon={ListChecks}

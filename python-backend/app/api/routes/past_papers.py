@@ -205,6 +205,35 @@ async def read_page_route(request: ReadPageRequest):
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
 
 
+class CheckOption(BaseModel):
+    key: str
+    text: str = ""
+
+
+class CheckQuestion(BaseModel):
+    id: str
+    stem: str = ""
+    context: str | None = None
+    options: list[CheckOption] = Field(default_factory=list, max_length=12)
+    answer: str | None = None
+
+
+class CheckRequest(BaseModel):
+    questions: list[CheckQuestion] = Field(default_factory=list, max_length=400)
+
+
+@router.post("/check")
+async def check_route(request: CheckRequest):
+    """A second AI opinion on each read question: the answer it judges
+    correct and repairs for misread wording. Writes nothing."""
+    from app.papers.answer_checker import check_questions
+
+    try:
+        return await check_questions([q.model_dump() for q in request.questions])
+    except RuntimeError as error:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
+
+
 class DuplicatesRequest(BaseModel):
     certificationId: int
     stems: list[str] = Field(default_factory=list, max_length=1000)

@@ -64,12 +64,12 @@ const LEARNER_TAB_LABELS = {
   "/learner/community": "Circle",
 }
 
-const adminGroups = [
+export const adminGroups = [
   {
     label: "Overview",
-    icon: LayoutDashboard,
+    icon: BarChart3,
     items: [
-      { label: "Platform overview", href: "/admin/dashboard", icon: LayoutDashboard },
+      { label: "Platform overview", href: "/admin/dashboard", icon: BarChart3 },
     ],
   },
   {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { categoryClass, GameIcon } from "@/components/learner/tutor-game-kit.jsx"
 
 
 export const ANSWER_TILES = [
@@ -143,16 +144,17 @@ export function AnswerTile({ index, label, selected, state, disabled, onSelect }
 
 export function ArenaShell({ children, header }) {
   return (
-    <main className="flex min-h-dvh flex-col bg-[linear-gradient(160deg,#1B1F3B_0%,#2A1F5B_45%,#12142B_100%)] px-4 py-4 text-white sm:px-6">
+    <main className="tg-cat-recall flex min-h-dvh flex-col bg-[linear-gradient(160deg,#1B1F3B_0%,#2A1F5B_45%,#12142B_100%)] px-4 py-4 text-white sm:px-6">
       {header}
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>
     </main>
   )
 }
 
-export function ArenaHeader({ title, subtitle, position, total, onLeave, right }) {
+export function ArenaHeader({ title, subtitle, position, total, onLeave, right, tool }) {
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center gap-4 pb-4">
+    <header className="mx-auto w-full max-w-5xl pb-4">
+     <div className="flex items-center gap-4">
       <button
         type="button"
         onClick={onLeave}
@@ -160,6 +162,8 @@ export function ArenaHeader({ title, subtitle, position, total, onLeave, right }
       >
         Leave
       </button>
+
+      {tool ? <span className={`tg-badge-icon ${categoryClass(tool)}`}><GameIcon type={tool} /></span> : null}
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-rb-display font-extrabold">{title}</p>
@@ -171,6 +175,12 @@ export function ArenaHeader({ title, subtitle, position, total, onLeave, right }
       </span>
 
       {right}
+     </div>
+      {total ? (
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Round progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={position}>
+            <span className="block h-full rounded-full bg-[linear-gradient(90deg,#5fb2ff,#b07cff,#ff8aa8)] transition-[width] duration-500" style={{ width: `${(position / total) * 100}%` }} />
+          </div>
+      ) : null}
     </header>
   )
 }

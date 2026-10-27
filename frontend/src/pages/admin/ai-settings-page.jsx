@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { apiMessage } from "@/services/base.js"
 import { chooseAiModel, getAiSettings, resetAiModel } from "@/services/aiSettingsService.js"
+import { LiveTutorSettingsCard } from "@/components/admin/live-tutor-settings.jsx"
 
 const money = (value) =>
   value === null || value === undefined ? "—" : `$${Number(value).toFixed(2)}`
@@ -47,6 +48,7 @@ export default function AiSettingsPage() {
         </p>
       </div>
 
+      <LiveTutorSettingsCard />
       {query.isLoading ? (
         <div className="grid gap-4">
           <Skeleton className="h-36 w-full" />
@@ -87,7 +89,7 @@ function CreditsCard({ credits, providers }) {
         <div>
           <h2 className="text-base font-semibold">OpenRouter credits</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Every AI feature runs through OpenRouter. Paid models draw from this balance; free models do not, but are
+            Chat and content-generation features run through OpenRouter; Live Tutor uses ElevenLabs above. Paid models draw from this balance; free models do not, but are
             often rate-limited.
           </p>
         </div>

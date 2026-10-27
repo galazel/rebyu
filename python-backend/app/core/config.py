@@ -128,12 +128,14 @@ class Settings(BaseSettings):
     ai_tagging_temperature: float = 0.0
 
     ai_extraction_provider: str = "openrouter"
-    ai_extraction_model: str = "google/gemini-2.5-flash"
-    ai_extraction_fallbacks: str = (
-        "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,"
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,qwen/qwen3.8-27b:free"
-    )
-    ai_extraction_max_tokens: int = 4000
+    # Import is AI-only, so the page reader must be strong: paid models only,
+    # no free rate-limited fallbacks that return half-read pages.
+    ai_extraction_model: str = "anthropic/claude-sonnet-5.5"
+    ai_extraction_fallbacks: str = "anthropic/claude-sonnet-5,google/gemini-3.5-flash"
+    # Judging whether an answer key is wrong is reasoning, not reading: the
+    # strongest model first. Text only, so the per-paper cost stays small.
+    ai_paper_check_models: str = "anthropic/claude-opus-5.5,anthropic/claude-sonnet-5.5,google/gemini-3.5-flash"
+    ai_extraction_max_tokens: int = 8000
     ai_extraction_temperature: float = 0.0
 
     curriculum_min_majors: int = 3

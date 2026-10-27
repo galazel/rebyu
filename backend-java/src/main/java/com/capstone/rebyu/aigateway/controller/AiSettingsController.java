@@ -2,6 +2,8 @@ package com.capstone.rebyu.aigateway.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.aigateway.service.ElevenLabsSettingsService;
+import com.capstone.rebyu.aigateway.entity.LiveTutorSettings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -40,6 +42,19 @@ public class AiSettingsController {
 
     private final @Qualifier("aiWebClient") WebClient aiWebClient;
     private final CognitoAuthService auth;
+    private final ElevenLabsSettingsService liveTutor;
+
+    @GetMapping("/live-tutor")
+    public Map<String, Object> liveTutor(@AuthenticationPrincipal Jwt jwt) {
+        requireAdmin(jwt);
+        return liveTutor.overview();
+    }
+
+    @PutMapping("/live-tutor")
+    public LiveTutorSettings updateLiveTutor(@AuthenticationPrincipal Jwt jwt, @RequestBody ElevenLabsSettingsService.Update request) {
+        var user = requireAdmin(jwt);
+        return liveTutor.update(request, user.email());
+    }
 
     @GetMapping
     public Map<String, Object> read(@AuthenticationPrincipal Jwt jwt) {
@@ -100,7 +115,7 @@ public class AiSettingsController {
         }
         CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
         String role = user == null || user.role() == null ? "" : user.role().trim().toUpperCase(Locale.ROOT);
-        if (!role.contains("ADMIN")) {
+        if (!"ADMIN".equals(role)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "AI settings are restricted to administrators.");
         }
         return user;

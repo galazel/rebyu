@@ -191,6 +191,63 @@ def test_the_diagnostic_has_one_item_per_lesson_including_existing_ones():
     assert nodes.diagnostic_exam_count_for(state) == 5
 
 
+def test_diagnostic_coverage_rejects_duplicate_or_wrong_lesson_refs():
+    """Matching the requested count must not let a lesson be silently skipped."""
+    from app.graphs.certification import nodes
+
+    lessons = [("Planning", None), ("Delivery", None), ("Review", None)]
+    selected, missing = nodes._diagnostic_items_by_lesson(
+        [
+            _draft("Planning item 1").model_copy(update={"lesson_ref": "planning"}),
+            _draft("Planning item 2").model_copy(update={"lesson_ref": "Planning"}),
+            _draft("Other item").model_copy(update={"lesson_ref": "Unrelated"}),
+        ],
+        lessons,
+    )
+
+    assert [question.lesson_ref for question in selected] == ["planning"]
+    assert missing == ["Delivery", "Review"]
+
+
+async def test_diagnostic_regenerates_only_lessons_missing_from_ai_output(monkeypatch):
+    from app.graphs.certification import nodes
+
+    monkeypatch.setattr(get_settings(), "question_batch_size", 3, raising=False)
+    monkeypatch.setattr(nodes, "written_stems", lambda state: [])
+    monkeypatch.setattr(nodes, "researched_question_types", lambda state, fallback: "MCQ")
+    calls = []
+
+    async def fake_question_agent(scope, context, prompt, *, count, existing_stems):
+        calls.append((count, prompt))
+        if len(calls) == 1:
+            return QuestionBatch(scope=scope, questions=[
+                _draft("Planning one").model_copy(update={"lesson_ref": "Planning"}),
+                _draft("Planning two").model_copy(update={"lesson_ref": "Planning"}),
+                _draft("Wrong lesson").model_copy(update={"lesson_ref": "Elsewhere"}),
+            ])
+        return QuestionBatch(scope=scope, questions=[
+            _draft("Delivery").model_copy(update={"lesson_ref": "Delivery"}),
+            _draft("Review").model_copy(update={"lesson_ref": "Review"}),
+        ])
+
+    monkeypatch.setattr(nodes, "invoke_question_agent", fake_question_agent)
+    state = _state()
+    state["curriculum"]["majorCategories"] = [{
+        "name": "Major",
+        "middleCategories": [{"name": "Middle", "lessons": [
+            {"name": "Planning"}, {"name": "Delivery"}, {"name": "Review"},
+        ]}],
+    }]
+
+    result = await nodes.generate_diagnostic_exam_node(state)
+
+    assert [item["lesson_ref"] for item in result["diagnostic_exam"]["questions"]] == [
+        "Planning", "Delivery", "Review",
+    ]
+    assert [count for count, _prompt in calls] == [3, 2]
+    assert "replacement diagnostic questions" in calls[1][1]
+
+
 async def test_a_missing_item_count_is_looked_up(monkeypatch):
     from app.agents.certification.exam_format_agent import ExamFormat
     from app.graphs.certification import nodes

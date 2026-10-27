@@ -11,7 +11,7 @@ Nothing is invented. The model is told to copy text verbatim and to mark a
 question `unclear` rather than guess, and the reply is validated: a figure id
 that was not offered, or an option key that is not a letter, is dropped.
 
-The model is the EXTRACTION task's (Gemini 2.5 Flash on OpenRouter, free
+The model is the EXTRACTION task's (Claude Sonnet 5.5 on OpenRouter, paid Gemini
 vision models as fallbacks). Each model in the chain is tried in turn.
 """
 
@@ -41,12 +41,47 @@ Return ONLY this JSON object, no prose, no markdown fence:
     "continuesFromPreviousPage": true | false,
     "stem": "<the question text, verbatim>",
     "options": [{"key": "a", "text": "<verbatim, empty if the option is a picture>",
-                 "figureId": "<id of the figure that IS this option, or null>"}],
+                 "figureId": "<id of the figure that IS this option, or null>",
+                 "imageBox": {"top": 0-1, "bottom": 0-1, "left": 0-1, "right": 0-1} or null}],
+    "type": "mcq" | "short_answer" | "descriptive" | "programming" | "diagram",
+    "parentId": "<id of the main question this is a sub-question of, or null>",
+    "context": "<shared scenario/passage/table text the sub-question depends on, verbatim, or null>",
+    "hasImage": true | false,
     "answer": "<option key if the page states it, else null>",
+    "answerText": "<for a written question, the model answer if the page prints it, else null>",
     "figureIds": ["<ids of figures that belong to this question>"],
+    "imageBoxes": [{"top": 0.0-1.0, "bottom": 0.0-1.0, "left": 0.0-1.0, "right": 0.0-1.0}],
     "unclear": true | false}
  ],
- "answers": {"<id>": "<option key>"}}
+ "answers": {"<id>": "<option key, or for a written question the model answer text>"}}
+
+type -- analyse what the candidate must produce:
+  mcq           picks one of printed choices (a-d, 1-4, an answer group)
+  short_answer  writes a word, number, term or one short line; no choices
+  descriptive   writes sentences / an explanation / an essay
+  programming   writes or completes code
+  diagram       draws a diagram (UML, ERD, flowchart, network ...)
+  A question with choices is always mcq.
+
+sub-questions
+  When a main question (e.g. "Question 3", "Q1") has parts (1), (2), a), b),
+  i, ii ..., return each part as its own question with id "<main>-<part>"
+  ("3-1", "3-2", "1-a") and parentId "<main>". Put the shared scenario,
+  passage, code or table the parts depend on in "context" of EVERY part, so
+  each part can be answered alone. Do not also return the main question
+  unless it is itself answered.
+
+hasImage
+  true when the question cannot be understood without a picture, diagram,
+  chart, table drawn as an image, or code screenshot on the page; then list
+  the matching figure ids in figureIds. When a picture the question needs is
+  NOT in the listed figures (always the case on a scanned page), give its
+  box in imageBoxes as fractions of the page (0 = top/left, 1 = bottom/right),
+  tight around the picture only -- not the question text or the choices.
+  When the CHOICES themselves are pictures (circuits, graphs, diagrams) and
+  no listed figure is that choice, give each choice its own imageBox around
+  just that picture (exclude the "a)" label) and leave its text "". Never
+  put choice pictures in the question's imageBoxes.
 
 ids
   A plain numbered question: its number, "12".
@@ -96,6 +131,18 @@ KEY_RE = re.compile(r"^[a-zA-Z]$")
 MODEL_TIMEOUT = 60
 
 
+def _box(box):
+    """A picture's position as page fractions, or None when it is not a sane box."""
+    try:
+        top, bottom = float(box["top"]), float(box["bottom"])
+        left, right = float(box.get("left", 0)), float(box.get("right", 1))
+    except (KeyError, TypeError, ValueError):
+        return None
+    if 0 <= top < bottom <= 1 and 0 <= left < right <= 1 and bottom - top >= 0.015:
+        return {"top": top, "bottom": bottom, "left": left, "right": right}
+    return None
+
+
 def _parse(body, figure_ids):
     body = (body or "").strip()
     if body.startswith("```"):
@@ -127,9 +174,23 @@ def _parse(body, figure_ids):
                 "key": key,
                 "text": str(option.get("text") or "").strip(),
                 "figureId": figure if figure in figure_ids else None,
+                "imageBox": _box(option.get("imageBox")),
             })
         answer = str(item.get("answer") or "").strip().strip("()").lower() or None
+        qtype = str(item.get("type") or "").strip().lower()
+        if options:
+            qtype = "mcq"
+        elif qtype not in ("short_answer", "descriptive", "programming", "diagram"):
+            qtype = "mcq"
+        parent = str(item.get("parentId") or "").strip() or None
+        boxes = [b for b in map(_box, item.get("imageBoxes") or []) if b]
         questions.append({
+            "type": qtype,
+            "parentId": parent,
+            "context": str(item.get("context") or "").strip() or None,
+            "hasImage": bool(item.get("hasImage")) or bool(item.get("figureIds")) or bool(boxes),
+            "imageBoxes": boxes[:4],
+            "answerText": str(item.get("answerText") or "").strip() or None,
             "id": str(item["id"]).strip(),
             "continuesFromPreviousPage": bool(item.get("continuesFromPreviousPage")),
             "stem": str(item.get("stem") or "").strip(),
@@ -139,13 +200,14 @@ def _parse(body, figure_ids):
             "unclear": bool(item.get("unclear")),
         })
 
-    answers = {}
-    for key, value in (data.get("answers") or {}).items():
-        value = str(value or "").strip().strip("()").lower()
-        value = value.split("/")[0].strip()
+    answers, answer_texts = {}, {}
+    for key, raw in (data.get("answers") or {}).items():
+        value = str(raw or "").strip().strip("()").lower().split("/")[0].strip()
         if KEY_RE.match(value):
             answers[str(key).strip()] = value
-    return {"pageKind": kind, "questions": questions, "answers": answers}
+        elif str(raw or "").strip():
+            answer_texts[str(key).strip()] = str(raw).strip()
+    return {"pageKind": kind, "questions": questions, "answers": answers, "answerTexts": answer_texts}
 
 
 async def read_page(image_base64, text, figures, previous_id=None, open_ids=None):

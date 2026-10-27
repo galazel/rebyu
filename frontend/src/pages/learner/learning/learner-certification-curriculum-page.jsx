@@ -222,22 +222,26 @@ const ROAD_LABEL_GAP = 16
 const ROAD_WIDE_MIN_WIDTH =
   2 * (Math.max(...PATH_OFFSETS.map(Math.abs)) + NODE_W / 2 + ROAD_LABEL_GAP + ROAD_LABEL_W) + 40
 
-function useIsNarrowViewport() {
-  const query = `(max-width: ${ROAD_WIDE_MIN_WIDTH - 1}px)`
-  const [narrow, setNarrow] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(query).matches
-  )
+function useRoadLayout() {
+  const [container, setContainer] = useState(null)
+  const [narrow, setNarrow] = useState(true)
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined
-    const media = window.matchMedia(query)
-    const onChange = (event) => setNarrow(event.matches)
-    setNarrow(media.matches)
-    media.addEventListener("change", onChange)
-    return () => media.removeEventListener("change", onChange)
-  }, [query])
+    if (!container) return undefined
+    const update = () => {
+      const style = window.getComputedStyle(container)
+      const availableWidth = container.clientWidth
+        - parseFloat(style.paddingLeft)
+        - parseFloat(style.paddingRight)
+      setNarrow(availableWidth < ROAD_WIDE_MIN_WIDTH)
+    }
+    const observer = new ResizeObserver(update)
+    observer.observe(container)
+    update()
+    return () => observer.disconnect()
+  }, [container])
 
-  return narrow
+  return { narrow, containerRef: setContainer }
 }
 
 function PathTrail({ items, start = 0 }) {
@@ -798,7 +802,7 @@ function CurriculumSkeleton() {
 export default function LearnerCertificationCurriculumPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const narrowRoad = useIsNarrowViewport()
+  const { narrow: narrowRoad, containerRef: roadContainerRef } = useRoadLayout()
   const { certificationId } = useParams()
   const { data } = useOutletContext()
 
@@ -1159,7 +1163,7 @@ export default function LearnerCertificationCurriculumPage() {
         showCalendar={diagnosticDone && hasPlan}
       />
 
-      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
+      <main ref={roadContainerRef} className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
         {curriculum.majors.length === 0 ? (
           <LearnerEmptyState
             icon={BookOpen}

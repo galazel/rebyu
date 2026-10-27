@@ -12,6 +12,7 @@ import com.capstone.rebyu.community.repository.CommunityPostRow;
 import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
+import com.capstone.rebyu.gamification.repository.NotificationPreferenceRepository;
 import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
 import com.capstone.rebyu.learningtools.repository.LearnerLibraryItemRepository;
 import com.capstone.rebyu.user.entity.Learner;
@@ -50,6 +51,7 @@ class CommunityServiceTest {
     private CommunityPostViewRepository postViewRepository;
     private CommunityPostReportRepository reportRepository;
     private LearnerCommunityNotificationRepository notificationRepository;
+    private NotificationPreferenceRepository notificationPreferenceRepository;
     private LearnerLibraryItemRepository libraryItemRepository;
     private LearnerRepository learnerRepository;
     private S3StorageService s3StorageService;
@@ -66,12 +68,13 @@ class CommunityServiceTest {
         postViewRepository = mock(CommunityPostViewRepository.class);
         reportRepository = mock(CommunityPostReportRepository.class);
         notificationRepository = mock(LearnerCommunityNotificationRepository.class);
+        notificationPreferenceRepository = mock(NotificationPreferenceRepository.class);
         libraryItemRepository = mock(LearnerLibraryItemRepository.class);
         learnerRepository = mock(LearnerRepository.class);
         s3StorageService = mock(S3StorageService.class);
         service = new CommunityService(postRepository, circleRepository, circleMemberRepository, commentRepository,
                 postLikeRepository, savedPostRepository, postViewRepository, reportRepository, notificationRepository,
-                libraryItemRepository, learnerRepository, s3StorageService);
+                notificationPreferenceRepository, libraryItemRepository, learnerRepository, s3StorageService);
 
         when(postRepository.save(any(CommunityPost.class))).thenAnswer(inv -> inv.getArgument(0));
     }

@@ -2,7 +2,7 @@ import { AlertCircle, TrendingUp, Zap, BookOpen, CheckCircle, Clock } from "@/co
 
 export const PRIORITY_CONFIG = {
   CRITICAL_PRIORITY: {
-    label: '🔴 Critical',
+    label: 'Critical',
     mastery: 'Lowest mastery',
     bgColor: 'bg-rb-cardinal-wash',
     textColor: 'text-rb-cardinal-lip',
@@ -10,7 +10,7 @@ export const PRIORITY_CONFIG = {
     description: 'Focus here first',
   },
   HIGH_PRIORITY: {
-    label: '🟠 High Priority',
+    label: 'High Priority',
     mastery: 'Low mastery',
     bgColor: 'bg-rb-fox-wash',
     textColor: 'text-rb-fox-lip',
@@ -18,7 +18,7 @@ export const PRIORITY_CONFIG = {
     description: 'Important to review',
   },
   MEDIUM_PRIORITY: {
-    label: '🟡 Medium',
+    label: 'Medium',
     mastery: 'Middling mastery',
     bgColor: 'bg-rb-bee-wash',
     textColor: 'text-rb-bee-ink',
@@ -26,7 +26,7 @@ export const PRIORITY_CONFIG = {
     description: 'Good to practice',
   },
   LOW_PRIORITY: {
-    label: '🔵 Low',
+    label: 'Low',
     mastery: 'Good mastery',
     bgColor: 'bg-rb-macaw-wash',
     textColor: 'text-rb-macaw-lip',
@@ -34,7 +34,7 @@ export const PRIORITY_CONFIG = {
     description: 'Optional review',
   },
   STRONG: {
-    label: '✅ Mastered',
+    label: 'Mastered',
     mastery: 'Highest mastery',
     bgColor: 'bg-rb-feather-wash',
     textColor: 'text-rb-feather-ink',
@@ -42,21 +42,21 @@ export const PRIORITY_CONFIG = {
     description: 'Nothing to review here',
   },
   ON_TRACK: {
-    label: '⭐ On Track',
+    label: 'On Track',
     bgColor: 'bg-rb-polar',
     textColor: 'text-rb-wolf',
     icon: Clock,
     description: 'Making good progress',
   },
   NOT_ENOUGH_DATA: {
-    label: '❓ Insufficient Data',
+    label: 'Insufficient Data',
     bgColor: 'bg-rb-polar',
     textColor: 'text-rb-hare',
     icon: Clock,
     description: 'Take more assessments',
   },
   NEEDS_REASSESSMENT: {
-    label: '🔄 Reassess',
+    label: 'Reassess',
     bgColor: 'bg-rb-beetle-wash',
     textColor: 'text-rb-beetle-lip',
     icon: Clock,

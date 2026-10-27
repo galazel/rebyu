@@ -2,7 +2,7 @@
 
 Generated from the live PostgreSQL schema (Supabase, `public` schema) and the JPA entities in `backend-java/src/main/java/com/capstone/rebyu`, so field names, data types, nullability and keys are exactly what the database holds. The LangGraph checkpoint tables (`checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations`) belong to the Python AI service's workflow engine and are not listed; the BKT service's own tables live in the separate `bkt` schema.
 
-92 tables.
+102 tables.
 
 ---
 
@@ -96,12 +96,44 @@ The USER_DASHBOARD_LAYOUTS table: how one person has arranged one dashboard.  Ke
 | date_updated | — | TIMESTAMP | Yes | Date and time the certification was last updated. |
 | description | NOT NULL | TEXT | No | Full description of the certification. |
 | exam_structure | — | JSONB | Yes | Structure of the real certification exam (number of items, question types, notes), as JSON; written by the AI curriculum planner. |
-| industry | — | VARCHAR(255) | Yes | Industry the certification belongs to. |
 | status | — | SMALLINT | Yes | Lifecycle state: 0 = PUBLISHED, 1 = DRAFT. Defaults to DRAFT. |
+| department | — | VARCHAR(255) | Yes | Department (college) the certification belongs to, used to match it to an institution's departments. |
 | title | UNIQUE, NOT NULL | VARCHAR(150) | No | Title of the certification. |
 | badge_image_key | — | VARCHAR(500) | Yes | Storage (S3) key of the certification's badge image; null until an admin uploads one. |
 
 The CERTIFICATIONS table stores the review programs offered by the platform. One certification contains many major categories and is referenced by exams, enrollments, orders, awards, and institution allocations.
+
+### DATA DICTIONARY OF CERTIFICATION_EXAM_FORMATS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| certification_id | PK, FK → CERTIFICATIONS | BIGINT | No | Certification whose real exam this describes (one-to-one). |
+| total_items | — | INTEGER | Yes | Number of items on the real exam. |
+| duration_minutes | — | INTEGER | Yes | Time limit of the real exam in minutes. |
+| passing_score | — | NUMERIC(5,2) | Yes | Score needed to pass the real exam. |
+| question_types | — | VARCHAR(200) | Yes | Question types the real exam uses. |
+| coverage | — | TEXT | Yes | Topics the real exam covers. |
+| notes | — | TEXT | Yes | Further notes on the exam format. |
+| source | — | VARCHAR(1000) | Yes | Where the format details were taken from. |
+| origin | — | VARCHAR(20) | Yes | Who wrote the record: the AI curriculum planner or an admin. |
+| updated_at | — | TIMESTAMP | Yes | Date and time the record was last updated. |
+
+The CERTIFICATION_EXAM_FORMATS table stores the structure of the real certification exam, one row per certification, used to shape mock exams.
+
+### DATA DICTIONARY OF CERTIFICATION_EXAM_SECTIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| exam_section_id | PK, identity | BIGINT | No | Unique identifier for an exam section. |
+| certification_id | FK → CERTIFICATIONS, NOT NULL | BIGINT | No | Certification whose exam this section is part of. |
+| display_order | NOT NULL | INTEGER | No | Position of the section within the exam. |
+| name | NOT NULL | VARCHAR(200) | No | Name of the section, such as Subject A or the Technology field. |
+| total_items | — | INTEGER | Yes | Number of items in the section. |
+| duration_minutes | — | INTEGER | Yes | Time limit of the section when it is timed separately. |
+| question_types | — | VARCHAR(200) | Yes | Question types used in the section. |
+| notes | — | TEXT | Yes | Further notes on the section. |
+
+The CERTIFICATION_EXAM_SECTIONS table stores one part of a real certification exam, such as FE's Subject A and Subject B, with its own item count and time limit. Many sections belong to one certification.
 
 ### DATA DICTIONARY OF MAJOR_CATEGORIES
 
@@ -122,7 +154,40 @@ The MAJOR_CATEGORIES table stores the top-level curriculum divisions of a certif
 | title | NOT NULL | VARCHAR(150) | No | Title of the middle category. |
 | major_category_id | FK → MAJOR_CATEGORIES, NOT NULL | BIGINT | No | Major category this middle category belongs to. |
 
-The MIDDLE_CATEGORIES table stores the second-level curriculum divisions. One middle category contains many lessons.
+The MIDDLE_CATEGORIES table stores the second-level curriculum divisions. One middle category contains many lessons and has at most one reflection.
+
+### DATA DICTIONARY OF MIDDLE_REFLECTIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| reflection_id | PK, identity | BIGINT | No | Unique identifier for a reflection. |
+| middle_category_id | FK → MIDDLE_CATEGORIES, UNIQUE, NOT NULL | BIGINT | No | Topic (middle category) the reflection belongs to; one per topic. |
+| title | NOT NULL | VARCHAR(255) | No | Title of the reflection. |
+| scenario | NOT NULL | TEXT | No | Scenario the learner reflects on. |
+| prompt | NOT NULL | TEXT | No | Question the learner answers. |
+| parts | NOT NULL | JSONB | No | Parts the answer must address, as a JSON list. Defaults to []. |
+| rubric | NOT NULL | JSONB | No | Grading criteria (title, description, zero-point and one-point descriptors), as JSON. Defaults to []. |
+| pass_percent | NOT NULL | INTEGER | No | Score percent needed to pass. Defaults to 80. |
+| created_at | NOT NULL | TIMESTAMP | No | Date and time the record was created. |
+| updated_at | NOT NULL | TIMESTAMP | No | Date and time the record was last updated. |
+
+The MIDDLE_REFLECTIONS table stores a topic's self-reflection: the practice assignment a learner writes before the topic's exam. Written by the certification generator or back-filled on first open. One reflection has many submissions.
+
+### DATA DICTIONARY OF REFLECTION_SUBMISSIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| submission_id | PK, identity | BIGINT | No | Unique identifier for a submission. |
+| reflection_id | FK → MIDDLE_REFLECTIONS, NOT NULL | BIGINT | No | Reflection that was answered. |
+| learner_id | FK → LEARNERS, NOT NULL | BIGINT | No | Learner who submitted the answer. |
+| answer | NOT NULL | TEXT | No | Text the learner wrote. |
+| score_percent | NOT NULL | NUMERIC(5,2) | No | Score the answer earned, as a percent. |
+| passed | NOT NULL | BOOLEAN | No | Whether the score met the reflection's pass percent. |
+| feedback | — | TEXT | Yes | Overall AI feedback on the answer. |
+| grades | NOT NULL | JSONB | No | Points earned and feedback per rubric criterion, as JSON. Defaults to []. |
+| submitted_at | NOT NULL | TIMESTAMP | No | Date and time the answer was submitted. |
+
+The REFLECTION_SUBMISSIONS table stores one graded attempt at a reflection. Attempts are unlimited; the best one counts.
 
 ### DATA DICTIONARY OF LESSONS
 
@@ -168,8 +233,20 @@ The LESSON_VIDEOS table stores videos embedded inside lesson content. Many video
 | kind | NOT NULL | VARCHAR(40) | No | List the option belongs to, such as industry or institution type. |
 | label | NOT NULL | VARCHAR(150) | No | Text shown for the option. |
 | sort_order | NOT NULL | INTEGER | No | Position of the option within its list. |
+| code | — | VARCHAR(40) | Yes | Short code of the option, such as BSIT for a degree program. |
+| description | — | VARCHAR(500) | Yes | Longer description of the option. |
+| category | — | VARCHAR(150) | Yes | Grouping of the option; for degree programs, the college code. |
 
 The REFERENCE_OPTIONS table stores one entry of a stored pick-list: an industry a certification belongs to, a department name an institution can group learners under. These were constants in the frontend; stored, an admin can add to them without a release and every select reads the same list.
+
+### DATA DICTIONARY OF REFERENCE_OPTION_CERTIFICATIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| reference_option_id | FK → REFERENCE_OPTIONS, NOT NULL | BIGINT | No | Option (such as a degree program) the certification is linked to. |
+| certification_id | NOT NULL | BIGINT | No | Certification linked to that option. |
+
+The REFERENCE_OPTION_CERTIFICATIONS table links a pick-list option, such as a degree program, to its certifications. Many certifications can be linked to one option.
 
 ---
 
@@ -189,7 +266,6 @@ The REFERENCE_OPTIONS table stores one entry of a stored pick-list: an industry 
 | lesson_id | FK → LESSONS, NOT NULL | BIGINT | No | Lesson the question belongs to. |
 | owner_department_id | FK → DEPARTMENTS | BIGINT | Yes | Group that owns the question; null for official, platform-wide questions. |
 | parent_question_id | FK → QUESTIONS | BIGINT | Yes | Parent question when this row is a sub-question (e.g. critical-thinking sets). |
-| difficulty_source | — | VARCHAR(20) | Yes | How the difficulty level was set: by the generator, by an author, or calibrated from learner responses. |
 
 The QUESTIONS table stores every question in the question bank. One question owns many choices, optional type-specific configs (text, programming, diagram), rubric criteria, and may parent sub-questions.
 
@@ -780,7 +856,6 @@ The AI_GENERATION_USAGE table stores one study aid the AI tutor generated for a 
 |---|---|---|---|---|
 | institution_id | PK, identity | BIGINT | No | Unique identifier for an institution. |
 | address | — | TEXT | Yes | Physical address of the institution. |
-| industry | NOT NULL | VARCHAR(100) | No | Industry the institution operates in. |
 | institution_name | UNIQUE, NOT NULL | VARCHAR(150) | No | Registered name of the institution. |
 | is_verified | NOT NULL | BOOLEAN | No | Whether the institution has passed verification. Defaults to false. |
 | joined_at | — | TIMESTAMP | Yes | Date and time the institution was onboarded. |
@@ -963,9 +1038,56 @@ The INSTITUTION_FILES table stores the metadata of files an institution has uplo
 | used_slots | NOT NULL | INTEGER | No | Learner slots the group has assigned. Defaults to 0. |
 | created_by | FK → USERS, NOT NULL | BIGINT | No | User who created the group. |
 | institution_id | FK → INSTITUTIONS, NOT NULL | BIGINT | No | Institution that owns the group. |
-| institution_cert_id | FK → INSTITUTION_CERTIFICATES, NOT NULL | BIGINT | No | Reference to the institution certificate this record belongs to. |
 
-The DEPARTMENTS table stores learner groupings inside an institution's certification allocation. One group has many authorities and many assignees.
+The DEPARTMENTS table stores learner groupings inside an institution. A department covers many institution certifications (through DEPARTMENT_CERTIFICATIONS) and has many authorities, programs, and assignees.
+
+### DATA DICTIONARY OF DEPARTMENT_CERTIFICATIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| department_id | FK → DEPARTMENTS, NOT NULL | BIGINT | No | Department covering the certification. |
+| institution_cert_id | FK → INSTITUTION_CERTIFICATES, NOT NULL | BIGINT | No | Institution certification the department covers. |
+
+The DEPARTMENT_CERTIFICATIONS table links a department to every certification the institution holds from the same college.
+
+### DATA DICTIONARY OF DEPARTMENT_PROGRAMS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| program_id | PK, identity | BIGINT | No | Unique identifier for a degree program. |
+| department_id | FK → DEPARTMENTS, NOT NULL | BIGINT | No | Department the program belongs to. |
+| program_name | NOT NULL | VARCHAR(150) | No | Name of the program, such as BS Information Technology. |
+| program_code | — | VARCHAR(30) | Yes | Short code of the program, such as BSIT. |
+| description | — | TEXT | Yes | Description of the program. |
+| created_at | NOT NULL | TIMESTAMP | No | Date and time the program was created. |
+| status | NOT NULL | VARCHAR(20) | No | Program state: active or archived. Defaults to active. |
+
+The DEPARTMENT_PROGRAMS table stores the degree programs (BSIT, BSCS, ...) inside a department. One program has many sections.
+
+### DATA DICTIONARY OF DEPARTMENT_PROGRAM_CERTIFICATIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| program_id | FK → DEPARTMENT_PROGRAMS, NOT NULL | BIGINT | No | Program allowed to take the certification. |
+| institution_cert_id | FK → INSTITUTION_CERTIFICATES, NOT NULL | BIGINT | No | Institution certification the program's sections may take. |
+
+The DEPARTMENT_PROGRAM_CERTIFICATIONS table links a program to the certifications its sections may take, chosen from the department's own.
+
+### DATA DICTIONARY OF DEPARTMENT_HEAD_INVITATIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| department_head_invitation_id | PK, identity | BIGINT | No | Unique identifier for an invitation. |
+| department_id | FK → DEPARTMENTS, NOT NULL | BIGINT | No | Department the invitee will head. |
+| email | NOT NULL | VARCHAR(254) | No | E-mail address the invitation was sent to. |
+| code | UNIQUE, NOT NULL | VARCHAR(20) | No | Invitation code the invitee redeems. |
+| invited_by | FK → USERS, NOT NULL | BIGINT | No | User who sent the invitation. |
+| status | NOT NULL | VARCHAR(20) | No | Invitation state: PENDING, REDEEMED, or CANCELLED. |
+| created_at | NOT NULL | TIMESTAMP | No | Date and time the invitation was created. |
+| expires_at | NOT NULL | TIMESTAMP | No | Date and time the invitation expires. |
+| redeemed_at | — | TIMESTAMP | Yes | Date and time the invitation was redeemed. |
+
+The DEPARTMENT_HEAD_INVITATIONS table stores invitations to become a department head. Many invitations can belong to one department.
 
 ### DATA DICTIONARY OF DEPARTMENT_HEAD_ASSIGNMENTS
 
@@ -1019,6 +1141,8 @@ The DEPARTMENT_ANNOUNCEMENTS table stores a message a group's leader posts to th
 |---|---|---|---|---|
 | section_id | PK, identity | BIGINT | No | Unique identifier for an institution section. |
 | department_id | FK → DEPARTMENTS, NOT NULL | BIGINT | No | Reference to the department this record belongs to. |
+| institution_cert_id | FK → INSTITUTION_CERTIFICATES | BIGINT | Yes | Department certification the section is for; its learners are enrolled in it. |
+| program_id | FK → DEPARTMENT_PROGRAMS | BIGINT | Yes | Program the section belongs to; null for sections made before programs existed. |
 | section_name | NOT NULL | VARCHAR(150) | No | Name of the section within the group. |
 | description | — | TEXT | Yes | Description of the section. |
 | created_by | FK → USERS | BIGINT | Yes | Reference to the user this record belongs to. |
@@ -1300,6 +1424,21 @@ The LEARNER_PRACTICE_ATTEMPTS table: tUTOR_QUIZ | COMMUNITY_QUIZ | FLASHCARD_REC
 | source_question_id | FK → QUESTIONS, NOT NULL | BIGINT | No | Reference to the question this record belongs to. |
 
 The LEARNER_REVIEW_ITEMS table stores one thing the learner is keeping in memory, and when it next needs testing. The scheduling state behind spaced repetition, held per learner per question. REBYU had none of this: LearnerMistakeReview is a "I ticked this off" marker with a timestamp and nothing else, and the flashcard self-rating (AGAIN|HARD|GOOD|EASY) was stored but never read by anything — an SM-2 grade with no SM-2 behind it.
+
+
+### DATA DICTIONARY OF LESSON_DIALOGUE_SESSIONS
+
+| Field Name | Constraints | Data Type | Allow Nulls | Description |
+|---|---|---|---|---|
+| session_id | PK, identity | BIGINT | No | Unique identifier for a dialogue session. |
+| learner_id | NOT NULL | BIGINT | No | Learner who held the dialogue. |
+| lesson_id | NOT NULL | BIGINT | No | Lesson the dialogue was about. |
+| topics | — | JSONB | Yes | Talking points the AI tutor covered, as a JSON list. |
+| history | — | JSONB | Yes | Full transcript of the dialogue, as JSON. |
+| summary | — | JSONB | Yes | Summary of the dialogue, as JSON. |
+| completed_at | NOT NULL | TIMESTAMP | No | Date and time the dialogue was finished. |
+
+The LESSON_DIALOGUE_SESSIONS table stores one finished guided dialogue with the AI tutor on a lesson: its talking points, the transcript, and the summary. A learner can have many sessions per lesson.
 
 ---
 

@@ -39,6 +39,11 @@ public class LearnerToolsController {
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 
+    @GetMapping("/library/activities/{id}")
+    public Map<String, Object> activity(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {
+        return tutorLibrary.activity(me(jwt), id);
+    }
+
     /** A mind map the AI tutor drew and saved to the learner's Library. */
     @GetMapping("/library/mind-maps/{id}")
     public Map<String, Object> mindMap(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {
@@ -117,21 +122,23 @@ public class LearnerToolsController {
         if ("flashcard".equals(type)) {
             var generatedSet = persistGeneratedFlashcards(
                     learnerId, lesson, request.lessonId(), aiResult);
-            generationQuota.record(learnerId, type);
-            return service.createLibraryItem(learnerId,
+            var item = service.createLibraryItem(learnerId,
                     new LearnerToolsService.LibraryRequest(type, generatedSet.title(),
                             "Generated from " + lesson + ". Open it to begin studying.",
                             "/learner/flashcards/" + generatedSet.id(),
                             generatedSet.certificationId(), request.lessonId()));
+            generationQuota.record(learnerId, type);
+            return item;
         }
 
         var generatedExam = persistGeneratedExam(learnerId, type, lesson, request.lessonId(), aiResult);
-        generationQuota.record(learnerId, type);
-        return service.createLibraryItem(learnerId,
+        var item = service.createLibraryItem(learnerId,
                 new LearnerToolsService.LibraryRequest(type, generatedExam.title(),
                         "Generated from " + lesson + ". Open it to begin an attempt.",
                         "/learner/assessments/" + generatedExam.examId(),
                         generatedExam.certificationId(), request.lessonId()));
+        generationQuota.record(learnerId, type);
+        return item;
     }
 
     private StudyPracticeService.StudySet persistGeneratedFlashcards(

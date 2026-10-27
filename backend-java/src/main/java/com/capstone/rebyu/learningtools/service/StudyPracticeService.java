@@ -10,7 +10,9 @@ import com.capstone.rebyu.assessment.repository.ExamRepository;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.learningtools.entity.GeneratedStudyItem;
@@ -43,6 +45,7 @@ public class StudyPracticeService {
     private final LearnerPracticeAnswerRepository answers;
     private final LessonRepository lessons;
     private final LearnerCertificationRepository enrollments;
+    private final InstitutionCertificationLearnerRepository institutionEnrollments;
     private final ExamRepository exams;
     private final ExamQuestionRepository examQuestions;
     private final ObjectMapper objectMapper;
@@ -249,9 +252,14 @@ public class StudyPracticeService {
         boolean community = "COMMUNITY".equals(setEntity.getSource());
 
         if (!community) {
-            boolean enrolled = enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+            boolean directEnrollment = enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                     learnerId, set.certificationId(), LearnerCertification.Status.active);
-            if (!enrolled) throw new IllegalArgumentException("Active certification enrollment is required");
+            boolean institutionEnrollment = institutionEnrollments
+                    .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                            learnerId, set.certificationId(), InstitutionCertificationLearner.Status.active);
+            if (!directEnrollment && !institutionEnrollment) {
+                throw new IllegalArgumentException("Active certification enrollment is required");
+            }
         }
 
         String sourceType = "FLASHCARD".equals(set.type())
