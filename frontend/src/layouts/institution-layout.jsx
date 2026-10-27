@@ -91,7 +91,7 @@ export default function InstitutionLayout() {
             />
 
 
-           <DropdownMenu>
+           <DropdownMenu modal={false}>
              <DropdownMenuTrigger asChild>
                <button
                  type="button"

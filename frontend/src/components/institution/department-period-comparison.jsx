@@ -12,8 +12,10 @@ import {
   UsersRoundIcon,
   ArrowRight,
   AlertCircle,
+  ChevronDown,
 } from "@/components/icons"
 import { BentoTile } from "@/components/commons/bento.jsx"
+import { CollapsedMetricCard } from "./collapsed-metric-card.jsx"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -459,38 +461,70 @@ export function PeriodComparisonTile({
   onComparisonTypeChange,
   isLoading = false,
   isError = false,
+  collapsible = false,
+  isCollapsed = false,
+  onToggleCollapse = null,
 }) {
   const [activeTab, setActiveTab] = useState("scorecard")
   const theme = useChartTheme()
 
-  // Chart data for visual trajectory
+  // Chart data for visual trajectory - must be defined before any early returns to avoid React Hook count mismatch
   const trajectoryData = useMemo(() => {
     return [
       {
         metric: "Avg Progress",
-        current: Math.round(deltas.averageProgress.current),
-        baseline: Math.round(deltas.averageProgress.previous),
+        current: Math.round(deltas?.averageProgress?.current ?? 0),
+        baseline: Math.round(deltas?.averageProgress?.previous ?? 0),
       },
       {
         metric: "Pass Rate",
-        current: Math.round(deltas.passRate.current),
-        baseline: Math.round(deltas.passRate.previous),
+        current: Math.round(deltas?.passRate?.current ?? 0),
+        baseline: Math.round(deltas?.passRate?.previous ?? 0),
       },
       {
         metric: "Avg Score",
-        current: Math.round(deltas.averageScore.current),
-        baseline: Math.round(deltas.averageScore.previous),
+        current: Math.round(deltas?.averageScore?.current ?? 0),
+        baseline: Math.round(deltas?.averageScore?.previous ?? 0),
       },
     ]
   }, [deltas])
 
+  if (isCollapsed) {
+    const avgDelta = deltas?.averageProgress?.delta ?? 0
+    const passDelta = deltas?.passRate?.delta ?? 0
+    const deltaSummary = `${avgDelta >= 0 ? "+" : ""}${Math.round(avgDelta)}% progress · ${passDelta >= 0 ? "+" : ""}${Math.round(passDelta)}% pass rate`
+
+    return (
+      <BentoTile col={6} row={1} className="!p-0" id="dept-period-comparison" isCollapsed>
+        <CollapsedMetricCard
+          icon={History}
+          kicker="Cohort Analytics"
+          title="Period-over-Period Performance Comparison"
+          description="Analyzes changes in completion velocity, assessment mastery, certification pass rates, and active momentum compared to previous terms."
+          previewMetric={`vs Baseline: ${deltaSummary}`}
+          previewAlert={avgDelta < 0 || passDelta < 0}
+          onExpand={onToggleCollapse}
+        />
+      </BentoTile>
+    )
+  }
+
   return (
-    <BentoTile col={6} row={3} className="!p-0" id="dept-period-comparison">
-      <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5 space-y-4">
+    <BentoTile
+      col={6}
+      row={6}
+      className="!p-0"
+      id="dept-period-comparison"
+      collapsible={collapsible}
+      onToggleCollapse={onToggleCollapse}
+    >
+      <div className="flex min-h-0 flex-1 flex-col p-3.5 sm:p-5 space-y-4">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3"
+        >
           <div className="flex items-center gap-2.5">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary border border-primary/20">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs transition-transform duration-200 group-hover/header:scale-105">
               <History className="size-4" aria-hidden="true" />
             </span>
             <div>
@@ -500,39 +534,37 @@ export function PeriodComparisonTile({
                 </span>
                 <Badge
                   variant="outline"
-                  className="h-4 px-1.5 text-[9px] font-extrabold uppercase tracking-widest border-primary/30 text-primary bg-primary/5"
+                  className="h-4 px-1.5 text-[9px] font-bold uppercase tracking-wider rounded-md border-primary/30 text-primary bg-primary/5"
                 >
                   Live Comparison
                 </Badge>
               </div>
-              <h2 className="text-sm font-extrabold text-foreground sm:text-base leading-tight">
+              <h2 className="text-sm font-semibold tracking-tight text-foreground sm:text-base leading-tight group-hover/header:text-primary transition-colors">
                 Period-over-Period Performance Comparison
               </h2>
             </div>
           </div>
 
-          {/* Mode Switcher & Date Tags */}
+          {/* Mode Switcher, Date Tags & Collapse Action */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 text-xs font-semibold">
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("previous_period")}
-                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${
-                  comparisonType === "previous_period"
+                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${comparisonType === "previous_period"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
-                Sequential ({comparisonRange.previous.baselineLabel})
+                Sequential ({comparisonRange?.previous?.baselineLabel ?? "Previous period"})
               </button>
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("prior_year")}
-                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${
-                  comparisonType === "prior_year"
+                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${comparisonType === "prior_year"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 Year-over-Year (YoY)
               </button>
@@ -541,94 +573,110 @@ export function PeriodComparisonTile({
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-[11px] font-medium text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md border border-border/50">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-foreground">Current:</span>
-                <span className="tabular-nums">{comparisonRange.current.formatted}</span>
+                <span className="tabular-nums">{comparisonRange?.current?.formatted ?? "—"}</span>
               </div>
               <ArrowRight className="hidden sm:inline-block size-3 text-muted-foreground/60" aria-hidden="true" />
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-foreground">Baseline:</span>
-                <span className="tabular-nums">{comparisonRange.previous.formatted}</span>
+                <span className="tabular-nums">{comparisonRange?.previous?.formatted ?? "—"}</span>
               </div>
             </div>
+
+            {collapsible && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleCollapse?.()
+                }}
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 sm:px-3.5 text-xs font-bold rounded-xl border border-border/80 bg-muted/70 text-foreground hover:bg-primary/15 hover:text-primary hover:border-primary/40 active:scale-95 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer shadow-xs"
+                aria-label="Collapse tile"
+                title="Collapse card"
+              >
+                <span>Collapse</span>
+                <ChevronDown className="size-3.5 rotate-180 transition-transform duration-200" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* 6 Metric Comparison Cards */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Avg Completion</span>
-              <PeriodDeltaBadge delta={deltas.averageProgress.delta} unit="%" />
+              <PeriodDeltaBadge delta={deltas?.averageProgress?.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {Math.round(deltas.averageProgress.current)}%
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {Math.round(deltas?.averageProgress?.current ?? 0)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{Math.round(deltas.averageProgress.previous)}%</strong>
+              Baseline: <strong className="text-foreground">{Math.round(deltas?.averageProgress?.previous ?? 0)}%</strong>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Pass Rate</span>
-              <PeriodDeltaBadge delta={deltas.passRate.delta} unit="%" />
+              <PeriodDeltaBadge delta={deltas?.passRate?.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {Math.round(deltas.passRate.current)}%
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {Math.round(deltas?.passRate?.current ?? 0)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{Math.round(deltas.passRate.previous)}%</strong>
+              Baseline: <strong className="text-foreground">{Math.round(deltas?.passRate?.previous ?? 0)}%</strong>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Average Score</span>
-              <PeriodDeltaBadge delta={deltas.averageScore.delta} unit="%" />
+              <PeriodDeltaBadge delta={deltas?.averageScore?.delta} unit="%" />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {Math.round(deltas.averageScore.current)}%
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {Math.round(deltas?.averageScore?.current ?? 0)}%
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{Math.round(deltas.averageScore.previous)}%</strong>
+              Baseline: <strong className="text-foreground">{Math.round(deltas?.averageScore?.previous ?? 0)}%</strong>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Graded Attempts</span>
-              <PeriodDeltaBadge delta={deltas.gradedAttempts.delta} />
+              <PeriodDeltaBadge delta={deltas?.gradedAttempts?.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {deltas.gradedAttempts.current.toLocaleString()}
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {(deltas?.gradedAttempts?.current ?? 0).toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{deltas.gradedAttempts.previous.toLocaleString()}</strong>
+              Baseline: <strong className="text-foreground">{(deltas?.gradedAttempts?.previous ?? 0).toLocaleString()}</strong>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Lessons Done</span>
-              <PeriodDeltaBadge delta={deltas.lessonsCompleted.delta} />
+              <PeriodDeltaBadge delta={deltas?.lessonsCompleted?.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {deltas.lessonsCompleted.current.toLocaleString()}
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {(deltas?.lessonsCompleted?.current ?? 0).toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{deltas.lessonsCompleted.previous.toLocaleString()}</strong>
+              Baseline: <strong className="text-foreground">{(deltas?.lessonsCompleted?.previous ?? 0).toLocaleString()}</strong>
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card p-2.5 sm:p-3 shadow-xs">
+          <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
               <span>Active Students</span>
-              <PeriodDeltaBadge delta={deltas.activeMembers.delta} />
+              <PeriodDeltaBadge delta={deltas?.activeMembers?.delta} />
             </div>
-            <div className="mt-1.5 flex items-baseline gap-1.5 font-rb-display text-lg sm:text-xl font-extrabold tabular-nums text-foreground">
-              {deltas.activeMembers.current.toLocaleString()}
+            <div className="mt-1.5 flex items-baseline gap-1.5 font-sans text-lg sm:text-xl font-bold tabular-nums text-foreground">
+              {(deltas?.activeMembers?.current ?? 0).toLocaleString()}
             </div>
             <div className="mt-1 text-[10px] text-muted-foreground tabular-nums">
-              Baseline: <strong className="text-foreground">{deltas.activeMembers.previous.toLocaleString()}</strong>
+              Baseline: <strong className="text-foreground">{(deltas?.activeMembers?.previous ?? 0).toLocaleString()}</strong>
             </div>
           </div>
         </div>
@@ -639,11 +687,10 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("scorecard")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
-                activeTab === "scorecard"
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${activeTab === "scorecard"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
+                }`}
             >
               <Award className="size-3.5" aria-hidden="true" />
               <span>Programme Scorecard</span>
@@ -652,11 +699,10 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("trajectory")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
-                activeTab === "trajectory"
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${activeTab === "trajectory"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
+                }`}
             >
               <BarChart3 className="size-3.5" aria-hidden="true" />
               <span>Visual Trajectory</span>
@@ -665,11 +711,10 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("momentum")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
-                activeTab === "momentum"
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${activeTab === "momentum"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
+                }`}
             >
               <UsersRoundIcon className="size-3.5" aria-hidden="true" />
               <span>Learner Momentum</span>
@@ -678,11 +723,10 @@ export function PeriodComparisonTile({
             <button
               type="button"
               onClick={() => setActiveTab("insights")}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${
-                activeTab === "insights"
+              className={`flex shrink-0 items-center gap-1.5 rounded-md px-3 py-2 min-h-[36px] text-xs font-bold transition-colors ${activeTab === "insights"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
+                }`}
             >
               <Sparkles className="size-3.5" aria-hidden="true" />
               <span>Executive Insights</span>
@@ -705,14 +749,14 @@ export function PeriodComparisonTile({
                 </div>
               ) : (
                 <table className="w-full text-xs" style={{ minWidth: 620 }}>
-                  <thead className="sticky top-0 z-10 bg-background">
-                    <tr className="border-b border-border/40 text-[11px] font-bold text-muted-foreground">
-                      <th className="py-2 text-left">Programme</th>
-                      <th className="py-2 text-center">Pass Rate (Current / Baseline)</th>
-                      <th className="py-2 text-center">Delta</th>
-                      <th className="py-2 text-center">Avg Score</th>
-                      <th className="py-2 text-center">Attempts</th>
-                      <th className="py-2 text-right pr-2">Trajectory</th>
+                  <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
+                    <tr className="border-b border-border/50 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="py-2.5 text-left">Programme</th>
+                      <th className="py-2.5 text-center">Pass Rate (Current / Baseline)</th>
+                      <th className="py-2.5 text-center">Delta</th>
+                      <th className="py-2.5 text-center">Avg Score</th>
+                      <th className="py-2.5 text-center">Attempts</th>
+                      <th className="py-2.5 text-right pr-2">Trajectory</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -904,13 +948,12 @@ export function PeriodComparisonTile({
                 insights.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`rounded-lg p-3 border text-xs space-y-1 ${
-                      item.type === "positive"
+                    className={`rounded-lg p-3 border text-xs space-y-1 ${item.type === "positive"
                         ? "bg-emerald-500/5 border-emerald-500/20"
                         : item.type === "warning"
                           ? "bg-amber-500/5 border-amber-500/20"
                           : "bg-muted/30 border-border/60"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-1.5 font-bold">
                       {item.type === "positive" ? (

@@ -6,11 +6,15 @@ import {
   AlertTriangle,
   Award,
   Building2,
+  Check,
   CheckCheck,
+  ChevronDown,
+  ChevronsUpDownIcon,
   ClipboardListIcon,
   CreditCard,
   Download,
   GraduationCap,
+  GripHorizontal,
   History,
   Layers,
   Loader2,
@@ -19,6 +23,7 @@ import {
   Pencil,
   PinIcon,
   Plus,
+  RotateCcw,
   Search,
   ShieldCheck,
   TargetIcon,
@@ -93,6 +98,7 @@ import {
   PeriodDeltaBadge,
   usePeriodComparison,
 } from "@/components/institution/department-period-comparison.jsx"
+import { CollapsedMetricCard } from "@/components/institution/collapsed-metric-card.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
@@ -201,39 +207,58 @@ function DashboardCardHeader({
   chip,
   action,
   className = "",
+  collapsible = false,
+  onToggleCollapse = null,
 }) {
   return (
     <div
-      className={`flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 ${className}`}
+      className={`border-b border-border/50 pb-2.5 mb-3 transition-all ${className}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        {Icon ? (
-          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-        ) : null}
-        <div className="min-w-0">
-          {kicker ? (
-            <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
-              {kicker}
-            </h3>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {Icon ? (
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs transition-transform duration-200 group-hover/header:scale-105">
+              <Icon className="size-4" aria-hidden="true" />
+            </span>
           ) : null}
-          <p className="truncate text-xs font-extrabold leading-snug text-foreground sm:text-sm">
-            {title}
-          </p>
-          {hint ? (
-            <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
-              {hint}
+          <div className="min-w-0">
+            {kicker ? (
+              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-primary dark:text-emerald-400">
+                {kicker}
+              </h3>
+            ) : null}
+            <p className="truncate text-xs font-semibold leading-snug text-foreground sm:text-sm font-sans tracking-tight group-hover/header:text-primary transition-colors">
+              {title}
             </p>
-          ) : null}
+            {hint ? (
+              <p className="mt-0.5 truncate text-[11px] font-normal text-muted-foreground font-sans">
+                {hint}
+              </p>
+            ) : null}
+          </div>
         </div>
+        {(chip || action || collapsible) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {chip}
+            {action}
+            {collapsible && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleCollapse?.()
+                }}
+                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 sm:px-3.5 text-xs font-bold rounded-xl border border-border/80 bg-muted/70 text-foreground hover:bg-primary/15 hover:text-primary hover:border-primary/40 active:scale-95 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer shadow-xs"
+                aria-label={`Collapse ${title}`}
+                title="Collapse card"
+              >
+                <span>Collapse</span>
+                <ChevronDown className="size-3.5 rotate-180 transition-transform duration-200" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
-      {(chip || action) && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {chip}
-          {action}
-        </div>
-      )}
     </div>
   )
 }
@@ -241,20 +266,20 @@ function DashboardCardHeader({
 function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null, className = "" }) {
   return (
     <div
-      className={`rounded-lg border p-2.5 transition-colors ${
+      className={`rounded-xl border p-2.5 sm:p-3.5 flex flex-col justify-between transition-all hover:border-border/80 ${
         alert
-          ? "border-rb-fox-lip/40 bg-rb-fox-lip/5 ring-1 ring-inset ring-rb-fox-lip/30"
-          : "border-border/70 bg-muted/30"
+          ? "border-amber-500/30 bg-amber-500/5 ring-1 ring-inset ring-amber-500/20"
+          : "border-border/60 bg-background/60 hover:bg-muted/30"
       } ${className}`}
     >
-      <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center justify-between gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span className="truncate">{label}</span>
         {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
       </div>
-      <div className="mt-1.5 flex items-baseline justify-between gap-1">
+      <div className="mt-1 flex items-baseline justify-between gap-1.5">
         <div
-          className={`font-rb-display tabular-nums ${
-            alert ? "text-xl font-black text-rb-fox-lip" : "text-lg font-bold text-foreground"
+          className={`font-sans tabular-nums text-xl sm:text-2xl font-bold tracking-tight ${
+            alert ? "text-amber-600 dark:text-amber-400" : "text-foreground"
           }`}
         >
           {value}
@@ -308,6 +333,74 @@ export default function DepartmentHeadDashboardPage() {
 
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
+
+  const allTileIds = useMemo(
+    () => [
+      "dept-progress",
+      "dept-programme-enrolment",
+      "dept-programme-table",
+      "dept-completion-spread",
+      "dept-hard-topics",
+      "dept-hard-assessments",
+      "dept-period-comparison",
+      "dept-section-breakdown",
+      "dept-co-authorities",
+      "dept-invoices",
+      "dept-announcements",
+      "dept-learner-table",
+    ],
+    []
+  )
+
+  const [collapsedTiles, setCollapsedTiles] = useState(() => {
+    try {
+      const saved = localStorage.getItem("rebyu:dept-head-collapsed-tiles-v2")
+      if (saved) return JSON.parse(saved)
+      const initial = {}
+      for (const id of allTileIds) {
+        initial[id] = true
+      }
+      return initial
+    } catch {
+      const initial = {}
+      for (const id of allTileIds) {
+        initial[id] = true
+      }
+      return initial
+    }
+  })
+
+  const toggleTileCollapse = useCallback((tileId) => {
+    setCollapsedTiles((prev) => {
+      const next = { ...prev, [tileId]: !prev[tileId] }
+      try {
+        localStorage.setItem("rebyu:dept-head-collapsed-tiles-v2", JSON.stringify(next))
+      } catch {
+        // no-op
+      }
+      return next
+    })
+  }, [])
+
+  const areAllCollapsed = useMemo(() => {
+    return allTileIds.length > 0 && allTileIds.every((id) => Boolean(collapsedTiles[id]))
+  }, [allTileIds, collapsedTiles])
+
+  const toggleAllCollapse = useCallback(() => {
+    setCollapsedTiles((prev) => {
+      const targetState = !allTileIds.every((id) => Boolean(prev[id]))
+      const next = {}
+      for (const id of allTileIds) {
+        next[id] = targetState
+      }
+      try {
+        localStorage.setItem("rebyu:dept-head-collapsed-tiles-v2", JSON.stringify(next))
+      } catch {
+        // no-op
+      }
+      return next
+    })
+  }, [allTileIds])
 
   const departmentsQuery = useQuery({
     queryKey: ["my-institution-groups"],
@@ -857,21 +950,21 @@ export default function DepartmentHeadDashboardPage() {
         ],
       },
       {
-        title: `Period-over-period comparison (${periodComp.comparisonRange.current.fromStr} to ${periodComp.comparisonRange.current.toStr} vs ${periodComp.comparisonRange.previous.fromStr} to ${periodComp.comparisonRange.previous.toStr})`,
+        title: `Period-over-period comparison (${periodComp?.comparisonRange?.current?.fromStr ?? ""} to ${periodComp?.comparisonRange?.current?.toStr ?? ""} vs ${periodComp?.comparisonRange?.previous?.fromStr ?? ""} to ${periodComp?.comparisonRange?.previous?.toStr ?? ""})`,
         columns: ["Metric", "Current Period", "Baseline Period", "Delta", "Direction"],
         rows: [
-          ["Average progress (%)", periodComp.deltas.averageProgress.current, periodComp.deltas.averageProgress.previous, periodComp.deltas.averageProgress.formattedDelta, periodComp.deltas.averageProgress.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Pass rate (%)", periodComp.deltas.passRate.current, periodComp.deltas.passRate.previous, periodComp.deltas.passRate.formattedDelta, periodComp.deltas.passRate.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Average score (%)", periodComp.deltas.averageScore.current, periodComp.deltas.averageScore.previous, periodComp.deltas.averageScore.formattedDelta, periodComp.deltas.averageScore.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Graded attempts", periodComp.deltas.gradedAttempts.current, periodComp.deltas.gradedAttempts.previous, periodComp.deltas.gradedAttempts.formattedDelta, periodComp.deltas.gradedAttempts.delta >= 0 ? "Increased" : "Decreased"],
-          ["Lessons completed", periodComp.deltas.lessonsCompleted.current, periodComp.deltas.lessonsCompleted.previous, periodComp.deltas.lessonsCompleted.formattedDelta, periodComp.deltas.lessonsCompleted.delta >= 0 ? "Increased" : "Decreased"],
-          ["Active students", periodComp.deltas.activeMembers.current, periodComp.deltas.activeMembers.previous, periodComp.deltas.activeMembers.formattedDelta, periodComp.deltas.activeMembers.delta >= 0 ? "Increased" : "Decreased"],
+          ["Average progress (%)", periodComp?.deltas?.averageProgress?.current ?? 0, periodComp?.deltas?.averageProgress?.previous ?? 0, periodComp?.deltas?.averageProgress?.formattedDelta ?? "—", (periodComp?.deltas?.averageProgress?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Pass rate (%)", periodComp?.deltas?.passRate?.current ?? 0, periodComp?.deltas?.passRate?.previous ?? 0, periodComp?.deltas?.passRate?.formattedDelta ?? "—", (periodComp?.deltas?.passRate?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Average score (%)", periodComp?.deltas?.averageScore?.current ?? 0, periodComp?.deltas?.averageScore?.previous ?? 0, periodComp?.deltas?.averageScore?.formattedDelta ?? "—", (periodComp?.deltas?.averageScore?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Graded attempts", periodComp?.deltas?.gradedAttempts?.current ?? 0, periodComp?.deltas?.gradedAttempts?.previous ?? 0, periodComp?.deltas?.gradedAttempts?.formattedDelta ?? "—", (periodComp?.deltas?.gradedAttempts?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
+          ["Lessons completed", periodComp?.deltas?.lessonsCompleted?.current ?? 0, periodComp?.deltas?.lessonsCompleted?.previous ?? 0, periodComp?.deltas?.lessonsCompleted?.formattedDelta ?? "—", (periodComp?.deltas?.lessonsCompleted?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
+          ["Active students", periodComp?.deltas?.activeMembers?.current ?? 0, periodComp?.deltas?.activeMembers?.previous ?? 0, periodComp?.deltas?.activeMembers?.formattedDelta ?? "—", (periodComp?.deltas?.activeMembers?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
         ],
       },
       {
         title: "Programme period comparison",
         columns: ["Programme", "Current Pass Rate (%)", "Baseline Pass Rate (%)", "Delta Pass Rate", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
-        rows: periodComp.certificationsComparison.map((c) => [
+        rows: (periodComp?.certificationsComparison ?? []).map((c) => [
           c.title,
           c.currentPassRate,
           c.prevPassRate,
@@ -989,16 +1082,33 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-progress",
         col: 3,
-        row: 2,
-        x: 0,
-        y: 0,
-        element: (
-          <BentoTile tone="plain" col={3} row={2}>
+        row: collapsedTiles["dept-progress"] ? 1 : 4,
+        element: collapsedTiles["dept-progress"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={TargetIcon}
+              kicker="Curriculum Pacing"
+              title="Department Learning Progress"
+              description="Monitors overall lesson completion rates, graded activity attempts, and department syllabus progression benchmarks across all cohorts."
+              previewMetric={failed ? null : `${percent(summary.averageProgress)} done · ${percent(summary.passRate)} pass rate`}
+              onExpand={() => toggleTileCollapse("dept-progress")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            tone="plain"
+            col={3}
+            row={4}
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-progress")}
+          >
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Department Performance"
                 title="Department Progress & Pass Rate"
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-progress")}
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
@@ -1043,27 +1153,31 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
-                <span>
-                  <strong className="text-foreground tabular-nums">{totalEnrolled}</strong>{" "}
-                  enrolments on {programmes.length} programme
-                  {programmes.length === 1 ? "" : "s"}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                    <strong>{totalEnrolled}</strong> enrolments
+                  </span>
+                  <span>·</span>
+                  <span>{programmes.length} programme{programmes.length === 1 ? "" : "s"}</span>
                   {seatsTotal > 0 ? (
                     <>
-                      {" "}
-                      · <strong className="text-foreground tabular-nums">{seatsTotal}</strong> seats
+                      <span>·</span>
+                      <span className="tabular-nums"><strong>{seatsTotal}</strong> seats</span>
                     </>
                   ) : null}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <strong className="text-foreground tabular-nums">
-                    {failed ? "—" : count(summary.gradedAttempts)}
-                  </strong>{" "}
-                  graded attempts
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
+                    <strong className="text-foreground">
+                      {failed ? "—" : count(summary.gradedAttempts)}
+                    </strong>
+                    graded attempts
+                  </span>
                   {periodComp.deltas.gradedAttempts.delta !== 0 ? (
                     <PeriodDeltaBadge delta={periodComp.deltas.gradedAttempts.delta} size="xs" />
                   ) : null}
-                </span>
+                </div>
               </div>
             </div>
           </BentoTile>
@@ -1072,17 +1186,34 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-programme-enrolment",
         col: 3,
-        row: 2,
-        x: 3,
-        y: 0,
-        element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-programme-enrolment"] ? 1 : 4,
+        element: collapsedTiles["dept-programme-enrolment"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={GraduationCap}
+              kicker="Cohort Capacity"
+              title="Programme Enrolment & Capacity"
+              description="Tracks active student distribution across degree tracks, certificate programmes, and current department capacity limits."
+              previewMetric={`${totalEnrolled} enrolled · ${programmes.length} active programme${programmes.length === 1 ? "" : "s"}`}
+              onExpand={() => toggleTileCollapse("dept-programme-enrolment")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={3}
+            row={4}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-programme-enrolment")}
+          >
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Enrolment by Programme"
                 title="Who is on each certification"
                 hint="Your department's learners only — a programme nobody here is on is not listed."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-programme-enrolment")}
                 chip={
                   totalEnrolled > 0 ? (
                     <Badge
@@ -1095,12 +1226,12 @@ export default function DepartmentHeadDashboardPage() {
                 }
               />
               {programmes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground my-auto">
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="relative min-h-0 flex-1">
-                  <div className="-mx-2 overflow-x-auto overflow-y-auto px-2 min-h-0 h-full">
+                <div className="relative min-h-0 flex-1 my-auto py-2">
+                  <div className="-mx-2 overflow-x-auto overflow-y-hidden px-2 min-h-0 h-full">
                     <StackedBarChart
                       data={programmes.map((row) => ({
                         programme: row.title,
@@ -1123,6 +1254,21 @@ export default function DepartmentHeadDashboardPage() {
                   <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background/80 to-transparent sm:hidden" />
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                    <strong>{programmes.reduce((sum, r) => sum + (r.passed ?? 0), 0)}</strong> credentials awarded
+                  </span>
+                  <span>·</span>
+                  <span>{programmes.reduce((sum, r) => sum + (r.inProgress ?? 0), 0)} in progress</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
+                    {programmes.length} track{programmes.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
             </div>
           </BentoTile>
         ),
@@ -1130,24 +1276,41 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-programme-table",
         col: 3,
-        row: 2,
-        x: 0,
-        y: 2,
-        element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-programme-table"] ? 1 : 4,
+        element: collapsedTiles["dept-programme-table"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={Award}
+              kicker="Curriculum Health"
+              title="Programme Performance Scorecard"
+              description="Compares completion benchmarks, average graded scores, and curriculum health metrics across each academic programme."
+              previewMetric={failed ? null : `${percent(summary.averageScore)} avg score · ${totalEnrolled} learners`}
+              onExpand={() => toggleTileCollapse("dept-programme-table")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={3}
+            row={4}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-programme-table")}
+          >
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Award}
                 kicker="Programme Scorecard"
                 title="Seats, completion and marks"
                 hint="Your department's learners on each programme, with their marks."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-programme-table")}
               />
               {programmes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground my-auto">
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-x-auto overflow-y-auto pr-2">
+                <div className="-mr-2 min-h-0 flex-1 overflow-x-auto overflow-y-hidden pr-2 my-auto">
                   <table className="w-full text-xs" style={{ minWidth: 400 }}>
                     <thead className="sticky top-0 z-10 bg-background">
                       <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
@@ -1207,6 +1370,15 @@ export default function DepartmentHeadDashboardPage() {
                   </table>
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  {programmes.length} active programme{programmes.length === 1 ? "" : "s"}
+                </span>
+                <span className="text-muted-foreground">
+                  {totalEnrolled} total enrolled
+                </span>
+              </div>
             </div>
           </BentoTile>
         ),
@@ -1214,50 +1386,98 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-completion-spread",
         col: 3,
-        row: 2,
-        x: 3,
-        y: 2,
-        element: (
-          <BentoTile col={3} row={2}>
-            <DashboardCardHeader
+        row: collapsedTiles["dept-completion-spread"] ? 1 : 4,
+        element: collapsedTiles["dept-completion-spread"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
               icon={Layers}
-              kicker="Progress Distribution"
-              title="How far the cohort has got"
-              hint="Students per completion band — a headcount, not a share."
+              kicker="Learner Distribution"
+              title="Completion Spread & At-Risk Signal"
+              description="Visualizes student distribution across completion quartiles and identifies learners requiring proactive academic interventions."
+              previewMetric={needingSupport > 0 ? `${needingSupport} learner${needingSupport === 1 ? "" : "s"} need intervention` : "All learners on track"}
+              previewAlert={needingSupport > 0}
+              onExpand={() => toggleTileCollapse("dept-completion-spread")}
             />
-            {deptLearners.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No learners assigned to your department yet.
-              </p>
-            ) : (
-              <BarBreakdownChart
-                data={spread}
-                categoryKey="tier"
-                valueKey="learners"
-                horizontal={false}
-                height={186}
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={3}
+            row={4}
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-completion-spread")}
+          >
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={Layers}
+                kicker="Progress Distribution"
+                title="How far the cohort has got"
+                hint="Students per completion band — a headcount, not a share."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-completion-spread")}
               />
-            )}
+              {deptLearners.length === 0 ? (
+                <p className="text-sm text-muted-foreground my-auto">
+                  No learners assigned to your department yet.
+                </p>
+              ) : (
+                <div className="my-auto py-1">
+                  <BarBreakdownChart
+                    data={spread}
+                    categoryKey="tier"
+                    valueKey="learners"
+                    horizontal={false}
+                    height={186}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  {deptLearners.length} total students
+                </span>
+                <span className={needingSupport > 0 ? "font-semibold text-amber-600 dark:text-amber-400" : "text-muted-foreground"}>
+                  {needingSupport > 0 ? `${needingSupport} needing intervention` : "Cohort pacing healthy"}
+                </span>
+              </div>
+            </div>
           </BentoTile>
         ),
       },
       {
         id: "dept-hard-topics",
         col: 3,
-        row: 2,
-        x: 0,
-        y: 4,
-        element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-hard-topics"] ? 1 : 4,
+        element: collapsedTiles["dept-hard-topics"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={TargetIcon}
+              kicker="Teaching Signal"
+              title="Hardest Curriculum Topics"
+              description="Surfaces syllabus modules with lowest student pass rates and highest retry frequency to target remedial teaching."
+              previewMetric={hardestTopics.length > 0 ? `${hardestTopics.length} topic${hardestTopics.length === 1 ? "" : "s"} flagged for review` : "Curriculum pacing optimal"}
+              previewAlert={hardestTopics.length > 0}
+              onExpand={() => toggleTileCollapse("dept-hard-topics")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={3}
+            row={4}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-hard-topics")}
+          >
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
                 title="Topics the department is failing"
                 hint="Lowest accuracy across everyone's marked answers."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-hard-topics")}
               />
               {hardestTopics.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center">
+                <div className="flex flex-1 items-center justify-center my-auto">
                   <InstitutionEmptyState
                     icon={TargetIcon}
                     title="No topic data yet"
@@ -1265,7 +1485,7 @@ export default function DepartmentHeadDashboardPage() {
                   />
                 </div>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                <div className="space-y-5 min-w-0 my-auto py-2">
                   {hardestTopics.map((programme) => (
                     <div key={programme.certificationId}>
                       <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -1292,6 +1512,15 @@ export default function DepartmentHeadDashboardPage() {
                   ))}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  50% accuracy threshold benchmark
+                </span>
+                <span className="text-muted-foreground">
+                  Targeted for remedial review
+                </span>
+              </div>
             </div>
           </BentoTile>
         ),
@@ -1299,20 +1528,38 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-hard-assessments",
         col: 3,
-        row: 2,
-        x: 3,
-        y: 4,
-        element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-hard-assessments"] ? 1 : 4,
+        element: collapsedTiles["dept-hard-assessments"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={ClipboardListIcon}
+              kicker="Assessment Signal"
+              title="Hardest Assessments & Quizzes"
+              description="Identifies examinations and quizzes presenting the greatest hurdle to help instructors prepare focused review materials."
+              previewMetric={hardestAssessments.length > 0 ? `${hardestAssessments.length} assessment${hardestAssessments.length === 1 ? "" : "s"} flagged` : "All assessments on target"}
+              previewAlert={hardestAssessments.length > 0}
+              onExpand={() => toggleTileCollapse("dept-hard-assessments")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={3}
+            row={4}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-hard-assessments")}
+          >
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
                 title="Hardest assessments"
                 hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-hard-assessments")}
               />
               {hardestAssessments.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center">
+                <div className="flex flex-1 items-center justify-center my-auto">
                   <InstitutionEmptyState
                     icon={ClipboardListIcon}
                     title="No graded assessments"
@@ -1320,7 +1567,7 @@ export default function DepartmentHeadDashboardPage() {
                   />
                 </div>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                <div className="space-y-5 min-w-0 my-auto py-2">
                   {hardestAssessments.map((programme) => (
                     <div key={programme.certificationId}>
                       <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
@@ -1397,6 +1644,15 @@ export default function DepartmentHeadDashboardPage() {
                   ))}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  Sorted by lowest pass rate first
+                </span>
+                <span className="text-muted-foreground">
+                  {hardestAssessments.length} assessment{hardestAssessments.length === 1 ? "" : "s"} analyzed
+                </span>
+              </div>
             </div>
           </BentoTile>
         ),
@@ -1405,9 +1661,7 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-period-comparison",
         col: 6,
-        row: 3,
-        x: 0,
-        y: 11,
+        row: collapsedTiles["dept-period-comparison"] ? 1 : 6,
         element: (
           <PeriodComparisonTile
             comparisonRange={periodComp.comparisonRange}
@@ -1419,6 +1673,9 @@ export default function DepartmentHeadDashboardPage() {
             onComparisonTypeChange={setComparisonType}
             isLoading={periodComp.isLoading}
             isError={periodComp.isError}
+            collapsible
+            isCollapsed={Boolean(collapsedTiles["dept-period-comparison"])}
+            onToggleCollapse={() => toggleTileCollapse("dept-period-comparison")}
           />
         ),
       },
@@ -1426,17 +1683,34 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-section-breakdown",
         col: 6,
-        row: 2,
-        x: 0,
-        y: 14,
-        element: (
-          <BentoTile col={6} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-section-breakdown"] ? 1 : 5,
+        element: collapsedTiles["dept-section-breakdown"] ? (
+          <BentoTile col={6} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={Layers}
+              kicker="Cohort Management"
+              title="Section Breakdown & Cohort Progress"
+              description="Provides granular progress tracking, student distribution, and average performance comparison across assigned department sections."
+              previewMetric={`${sections.length} active section${sections.length === 1 ? "" : "s"} · ${deptLearners.length} enrolled`}
+              onExpand={() => toggleTileCollapse("dept-section-breakdown")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={6}
+            row={5}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-section-breakdown")}
+          >
+            <div className="flex min-h-0 flex-1 flex-col p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Layers}
                 kicker="Section Management"
                 title="Sections & Cohorts"
                 hint="Active classes, learner headcount, pending invitations, and benchmark progress."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-section-breakdown")}
                 action={
                   primaryDeptId ? (
                     <div className="flex items-center gap-2">
@@ -1460,184 +1734,217 @@ export default function DepartmentHeadDashboardPage() {
                 }
               />
               {sectionsQuery.isLoading ? (
-                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                  <p>Loading sections...</p>
-                </div>
-              ) : sectionsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">Section stats could not be loaded.</p>
-              ) : sections.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center text-sm text-muted-foreground">
-                  <Layers className="mb-2 size-8 text-muted-foreground/40" />
-                  <p>No sections created yet in this department.</p>
-                  <p className="text-xs text-muted-foreground/70 mb-3">
-                    Create classes or cohorts to organize learners into groups.
-                  </p>
-                  {primaryDeptId ? (
-                    <Button
-                      size="sm"
-                      onClick={() => setCreateSectionOpen(true)}
-                      className="gap-1.5"
-                    >
-                      <Plus className="size-3.5" aria-hidden="true" />
-                      Create first section
-                    </Button>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-                  {sections.map((section) => {
-                    const sectionLearners = deptLearners.filter(
-                      (l) => l.sectionId === section.sectionId
-                    )
-                    const totalInSection =
-                      section.learnerCount != null
-                        ? Number(section.learnerCount)
-                        : sectionLearners.length
-                    const progress = sectionLearners.length
-                      ? Math.round(
-                          sectionLearners.reduce(
-                            (sum, l) => sum + Number(l.averageProgress ?? 0),
-                            0
-                          ) / sectionLearners.length
-                        )
-                      : 0
-                    const scoredLearners = sectionLearners.filter(
-                      (l) => l.averageScore != null
-                    )
-                    const avgScore = scoredLearners.length
-                      ? Math.round(
-                          scoredLearners.reduce(
-                            (sum, l) => sum + Number(l.averageScore),
-                            0
-                          ) / scoredLearners.length
-                        )
-                      : null
-                    const pendingCount = Number(section.pendingInvitationCount ?? 0)
-
-                    return (
-                      <div
-                        key={section.sectionId}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
+                  <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                    <p>Loading sections...</p>
+                  </div>
+                ) : sectionsQuery.isError ? (
+                  <p className="text-sm text-muted-foreground">Section stats could not be loaded.</p>
+                ) : sections.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-6 text-center text-sm text-muted-foreground">
+                    <Layers className="mb-2 size-8 text-muted-foreground/40" />
+                    <p>No sections created yet in this department.</p>
+                    <p className="text-xs text-muted-foreground/70 mb-3">
+                      Create classes or cohorts to organize learners into groups.
+                    </p>
+                    {primaryDeptId ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setCreateSectionOpen(true)}
+                        className="gap-1.5"
                       >
-                        {/* Row 1 on mobile: section info + pending badge */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <Link
-                              to={`/institution/departments/${primaryDeptId}?tab=learners`}
-                              className="font-bold text-xs text-foreground hover:underline truncate"
-                            >
-                              {section.sectionName}
-                            </Link>
-                            {pendingCount > 0 ? (
+                        <Plus className="size-3.5" aria-hidden="true" />
+                        Create first section
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2 overscroll-contain">
+                    {sections.map((section) => {
+                      const sectionLearners = deptLearners.filter(
+                        (l) => l.sectionId === section.sectionId
+                      )
+                      const totalInSection =
+                        section.learnerCount != null
+                          ? Number(section.learnerCount)
+                          : sectionLearners.length
+                      const progress = sectionLearners.length
+                        ? Math.round(
+                            sectionLearners.reduce(
+                              (sum, l) => sum + Number(l.averageProgress ?? 0),
+                              0
+                            ) / sectionLearners.length
+                          )
+                        : 0
+                      const scoredLearners = sectionLearners.filter(
+                        (l) => l.averageScore != null
+                      )
+                      const avgScore = scoredLearners.length
+                        ? Math.round(
+                            scoredLearners.reduce(
+                              (sum, l) => sum + Number(l.averageScore),
+                              0
+                            ) / scoredLearners.length
+                          )
+                        : null
+                      const pendingCount = Number(section.pendingInvitationCount ?? 0)
+
+                      return (
+                        <div
+                          key={section.sectionId}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/30 hover:border-border/70"
+                        >
+                          {/* Row 1 on mobile: section info + pending badge */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Link
+                                to={`/institution/departments/${primaryDeptId}?tab=learners`}
+                                className="font-bold text-xs text-foreground hover:underline truncate"
+                              >
+                                {section.sectionName}
+                              </Link>
+                              {pendingCount > 0 ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="gap-1 border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 rounded-md"
+                                >
+                                  <MailIcon className="size-3" aria-hidden="true" />
+                                  {pendingCount} pending
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {section.programName ? `${section.programName} · ` : ""}
+                              {section.certificationTitle || "General"}
+                              {section.description ? ` · ${section.description}` : ""}
+                            </p>
+                          </div>
+
+                          {/* Row 2 on mobile: progress + chips + actions */}
+                          <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto">
+                            <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:w-36">
+                              <Progress value={progress} className="h-1.5 flex-1 rounded-full overflow-hidden" />
+                              <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
+                                {progress}%
+                              </span>
+                            </div>
+                            {progress >= 50 ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 rounded-md"
+                              >
+                                On Track
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] shrink-0 font-medium border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 rounded-md"
+                              >
+                                Needs Attention
+                              </Badge>
+                            )}
+                            {avgScore != null ? (
                               <Badge
                                 variant="secondary"
-                                className="gap-1 border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                className="text-[10px] shrink-0 font-medium tabular-nums bg-primary/10 text-primary border-primary/20 rounded-md"
                               >
-                                <MailIcon className="size-3" aria-hidden="true" />
-                                {pendingCount} pending
+                                avg {avgScore}%
                               </Badge>
                             ) : null}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground truncate">
-                            {section.programName ? `${section.programName} · ` : ""}
-                            {section.certificationTitle || "General"}
-                            {section.description ? ` · ${section.description}` : ""}
-                          </p>
-                        </div>
-
-                        {/* Row 2 on mobile: progress + chips + actions */}
-                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
-                          <div className="flex items-center gap-2 flex-1 sm:flex-initial sm:w-36">
-                            <Progress value={progress} className="h-1.5 flex-1" />
-                            <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
-                              {progress}%
-                            </span>
-                          </div>
-                          {avgScore != null ? (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] shrink-0 font-medium tabular-nums bg-primary/10 text-primary border-primary/20"
-                            >
-                              avg {avgScore}%
+                            <Badge variant="outline" className="text-[11px] shrink-0 rounded-md border-border/70">
+                              {count(totalInSection)} {totalInSection === 1 ? "student" : "students"}
                             </Badge>
-                          ) : null}
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {count(totalInSection)} {totalInSection === 1 ? "student" : "students"}
-                          </Badge>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                              <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
-                                Open
-                              </Link>
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-7 text-muted-foreground hover:text-foreground"
-                                  aria-label={`Actions for section ${section.sectionName}`}
-                                >
-                                  <MoreVertical className="size-3.5" aria-hidden="true" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-36">
-                                <DropdownMenuItem
-                                  onClick={() => setEditingSection(section)}
-                                  className="gap-2 text-xs"
-                                >
-                                  <Pencil className="size-3.5" aria-hidden="true" />
-                                  Rename
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setArchivingSection(section)}
-                                  className="gap-2 text-xs text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="size-3.5" aria-hidden="true" />
-                                  Archive
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs rounded-lg">
+                                <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
+                                  Open
+                                </Link>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-7 text-muted-foreground hover:text-foreground"
+                                    aria-label={`Actions for section ${section.sectionName}`}
+                                  >
+                                    <MoreVertical className="size-3.5" aria-hidden="true" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-36">
+                                  <DropdownMenuItem
+                                    onClick={() => setEditingSection(section)}
+                                    className="gap-2 text-xs"
+                                  >
+                                    <Pencil className="size-3.5" aria-hidden="true" />
+                                    Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setArchivingSection(section)}
+                                    className="gap-2 text-xs text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="size-3.5" aria-hidden="true" />
+                                    Archive
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                      )
+                    })}
+                  </div>
+                )
+              }
             </div>
           </BentoTile>
         ),
       },
       {
         id: "dept-co-authorities",
-        col: 6,
-        row: 2,
-        x: 0,
-        y: 10,
-        element: (
-          <BentoTile tone="plain" col={6} row={2}>
+        col: 3,
+        row: collapsedTiles["dept-co-authorities"] ? 1 : 4,
+        element: collapsedTiles["dept-co-authorities"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={ShieldCheck}
+              kicker="Faculty Leadership"
+              title="Co-Authorities & Pending Invitations"
+              description="Manages delegated faculty roles, collaborative curriculum authorities, and pending department invitation codes."
+              previewMetric={`${activeHeadAssignments.length} active authorit${activeHeadAssignments.length === 1 ? "y" : "ies"}`}
+              onExpand={() => toggleTileCollapse("dept-co-authorities")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            tone="plain"
+            col={3}
+            row={4}
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-co-authorities")}
+          >
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={ShieldCheck}
-                kicker="Delegation & Faculty Leadership"
-                title="Co-Authorities & Pending Invitations"
-                hint={`${activeHeadAssignments.length} active authority${activeHeadAssignments.length === 1 ? "" : "ies"} · ${pendingHeadInvitations.length} pending code invitation${pendingHeadInvitations.length === 1 ? "" : "s"}`}
+                kicker="Delegation & Leadership"
+                title="Co-Authorities"
+                hint={`${activeHeadAssignments.length} active · ${pendingHeadInvitations.length} pending`}
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-co-authorities")}
                 action={
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setCoAuthoritiesOpen(true)}
-                    className="min-h-[44px] sm:min-h-0 sm:h-8 gap-1.5 text-xs font-semibold"
+                    className="h-8 gap-1.5 text-xs font-semibold"
                   >
                     <UserPlus className="size-3.5" aria-hidden="true" />
-                    Manage Co-Authorities
+                    Manage
                   </Button>
                 }
               />
 
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2.5 my-auto">
                 <StatBox
                   label="Active Authorities"
                   value={count(activeHeadAssignments.length)}
@@ -1653,13 +1960,6 @@ export default function DepartmentHeadDashboardPage() {
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-muted-foreground"
                   }
-                />
-                <StatBox
-                  label="Assigned Department"
-                  value={overviewGroup?.departmentName || overviewGroup?.name || "Department"}
-                  icon={Building2}
-                  iconClass="text-sky-600 dark:text-sky-400"
-                  className="hidden sm:block"
                 />
               </div>
 
@@ -1679,7 +1979,7 @@ export default function DepartmentHeadDashboardPage() {
                         key={inv.invitationId || inv.email}
                         className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-2.5 py-1.5 text-xs border border-border/40"
                       >
-                        <span className="truncate font-mono text-[11px] font-medium text-foreground max-w-[200px] sm:max-w-[280px]">
+                        <span className="truncate font-mono text-[11px] font-medium text-foreground max-w-[160px] sm:max-w-[200px]">
                           {inv.email}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -1690,12 +1990,23 @@ export default function DepartmentHeadDashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3.5 py-2.5 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   <span className="truncate">
-                    No pending invitations. Faculty can co-manage curricula and assessments.
+                    No pending invitations on file.
                   </span>
                 </div>
               )}
+
+              <div className="flex items-center justify-between border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground">
+                <span className="truncate">{overviewGroup?.departmentName || overviewGroup?.name || "Department"}</span>
+                <button
+                  type="button"
+                  onClick={() => setCoAuthoritiesOpen(true)}
+                  className="font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  Manage invites →
+                </button>
+              </div>
             </div>
           </BentoTile>
         ),
@@ -1703,17 +2014,34 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-invoices",
         col: 3,
-        row: 2,
-        x: 0,
-        y: 12,
-        element: (
-          <BentoTile tone="plain" col={3} row={2}>
+        row: collapsedTiles["dept-invoices"] ? 1 : 4,
+        element: collapsedTiles["dept-invoices"] ? (
+          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={CreditCard}
+              kicker="Billing & Invoices"
+              title="Invoices & Billing Summary"
+              description="Summarizes partnership billing records, payment statuses, due dates, and pending institutional invoices."
+              previewMetric={`${invoices.length} invoice${invoices.length === 1 ? "" : "s"} on file`}
+              onExpand={() => toggleTileCollapse("dept-invoices")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            tone="plain"
+            col={3}
+            row={4}
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-invoices")}
+          >
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={CreditCard}
                 kicker="Billing & Payments"
                 title="Invoices Summary"
                 hint={`${invoices.length} total invoice${invoices.length === 1 ? "" : "s"}`}
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-invoices")}
                 action={
                   <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
                     <Link to="/institution/invoices">View all</Link>
@@ -1734,7 +2062,7 @@ export default function DepartmentHeadDashboardPage() {
                   <p className="mt-0.5">Your institution has no billing records yet.</p>
                 </div>
               ) : (
-                <div className="space-y-2 overflow-y-auto max-h-[220px] pr-1">
+                <div className="space-y-2 my-auto">
                   {invoices.slice(0, 5).map((inv) => {
                     const isPayable = inv.status !== "paid" && (inv.payable ?? true)
                     const isOverdue = inv.status === "overdue" || (inv.dueAt && new Date(inv.dueAt) < new Date() && inv.status !== "paid")
@@ -1800,8 +2128,8 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               )}
 
-              <div className="border-t border-border/50 pt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Invoices are issued on partnership approvals</span>
+              <div className="border-t border-border/50 pt-2 mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                <span>Invoices on partnership approvals</span>
                 <Link to="/institution/invoices" className="font-semibold text-primary hover:underline">
                   Go to Invoices →
                 </Link>
@@ -1812,18 +2140,35 @@ export default function DepartmentHeadDashboardPage() {
       },
       {
         id: "dept-announcements",
-        col: 3,
-        row: 2,
-        x: 3,
-        y: 12,
-        element: (
-          <BentoTile tone="plain" col={3} row={2}>
-            <div className="flex h-full flex-col justify-between gap-3">
+        col: 6,
+        row: collapsedTiles["dept-announcements"] ? 1 : 5,
+        element: collapsedTiles["dept-announcements"] ? (
+          <BentoTile col={6} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={PinIcon}
+              kicker="Department Communications"
+              title="Announcements & Quick-Compose"
+              description="Enables posting, pinning, and managing vital department bulletins, reminders, and updates for students and faculty."
+              previewMetric={`${announcements.length} active announcement${announcements.length === 1 ? "" : "s"}`}
+              onExpand={() => toggleTileCollapse("dept-announcements")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            tone="plain"
+            col={6}
+            row={5}
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-announcements")}
+          >
+            <div className="flex h-full flex-col justify-between gap-4">
               <DashboardCardHeader
                 icon={PinIcon}
                 kicker="Department Communications"
                 title="Announcements & Quick-Compose"
-                hint={`${announcements.length} announcement${announcements.length === 1 ? "" : "s"}`}
+                hint={`${announcements.length} announcement${announcements.length === 1 ? "" : "s"} · Direct bulletins to cohort`}
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-announcements")}
                 action={
                   <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
                     <Link to={`/institution/departments/${primaryDeptId}?tab=announcements`}>
@@ -1833,137 +2178,151 @@ export default function DepartmentHeadDashboardPage() {
                 }
               />
 
-              {/* Inline Quick Compose Form (Checklist 15.2) */}
-              <div className="rounded-lg border border-border/70 bg-muted/20 p-2.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-foreground">
-                    {editingAnnouncement ? "Edit Announcement" : "Quick Compose"}
-                  </span>
-                  {editingAnnouncement ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingAnnouncement(null)
-                        setAnnouncementTitle("")
-                        setAnnouncementBody("")
-                        setAnnouncementPinned(false)
-                      }}
-                      className="text-[10px] text-muted-foreground hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
-                </div>
-                <Input
-                  placeholder="Announcement title..."
-                  value={announcementTitle}
-                  onChange={(e) => setAnnouncementTitle(e.target.value)}
-                  className="h-7 text-xs bg-background"
-                  maxLength={200}
-                />
-                <Textarea
-                  placeholder="Share a message or reminder..."
-                  value={announcementBody}
-                  onChange={(e) => setAnnouncementBody(e.target.value)}
-                  rows={2}
-                  className="text-xs min-h-[48px] bg-background resize-none py-1.5"
-                />
-                <div className="flex items-center justify-between gap-2 pt-0.5">
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
-                    <Switch
-                      checked={announcementPinned}
-                      onCheckedChange={setAnnouncementPinned}
-                      className="scale-75"
-                    />
-                    <span>Pin to top</span>
-                  </label>
-                  <Button
-                    size="sm"
-                    className="h-7 px-3 text-xs"
-                    disabled={!announcementTitle.trim() || !announcementBody.trim() || saveAnnouncementMutation.isPending}
-                    onClick={() => saveAnnouncementMutation.mutate()}
-                  >
-                    {saveAnnouncementMutation.isPending ? (
-                      <Loader2 className="size-3 animate-spin mr-1" aria-hidden="true" />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-auto">
+                {/* Left: Inline Quick Compose Form */}
+                <div className="lg:col-span-5 rounded-xl border border-border/70 bg-muted/20 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">
+                      {editingAnnouncement ? "Edit Announcement" : "Quick Compose"}
+                    </span>
+                    {editingAnnouncement ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingAnnouncement(null)
+                          setAnnouncementTitle("")
+                          setAnnouncementBody("")
+                          setAnnouncementPinned(false)
+                        }}
+                        className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        Cancel
+                      </button>
                     ) : null}
-                    {editingAnnouncement ? "Save" : "Post"}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Recent Announcements List */}
-              <div className="space-y-1.5 overflow-y-auto max-h-[160px] pr-1">
-                {announcementsQuery.isLoading ? (
-                  <div className="space-y-1.5 py-1">
-                    <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
-                    <div className="h-8 w-full animate-pulse rounded bg-muted/50" />
                   </div>
-                ) : announcements.length === 0 ? (
-                  <p className="text-center text-xs text-muted-foreground py-2">
-                    No announcements posted for this department yet.
-                  </p>
-                ) : (
-                  sortedAnnouncements.slice(0, 3).map((item) => (
-                    <div
-                      key={item.departmentAnnouncementId}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-border/50 bg-card p-2 text-xs transition-colors hover:border-primary/30"
+                  <Input
+                    placeholder="Announcement title..."
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    className="h-8 text-xs bg-background"
+                    maxLength={200}
+                  />
+                  <Textarea
+                    placeholder="Share a message or reminder with department learners..."
+                    value={announcementBody}
+                    onChange={(e) => setAnnouncementBody(e.target.value)}
+                    rows={3}
+                    className="text-xs min-h-[64px] bg-background resize-none py-1.5"
+                  />
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                      <Switch
+                        checked={announcementPinned}
+                        onCheckedChange={setAnnouncementPinned}
+                        className="scale-75"
+                      />
+                      <span>Pin to top</span>
+                    </label>
+                    <Button
+                      size="sm"
+                      className="h-8 px-3.5 text-xs font-semibold"
+                      disabled={!announcementTitle.trim() || !announcementBody.trim() || saveAnnouncementMutation.isPending}
+                      onClick={() => saveAnnouncementMutation.mutate()}
                     >
-                      <div className="min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          {item.pinned ? (
-                            <Badge
-                              variant="secondary"
-                              className="gap-1 px-1 py-0 text-[10px] font-bold text-primary bg-primary/10 border-primary/20"
-                            >
-                              <PinIcon className="size-2.5" aria-hidden="true" />
-                              Pinned
-                            </Badge>
-                          ) : null}
-                          <p className="font-bold text-foreground truncate">{item.title}</p>
-                        </div>
-                        <p className="line-clamp-1 text-[11px] text-muted-foreground">{item.body}</p>
-                      </div>
+                      {saveAnnouncementMutation.isPending ? (
+                        <Loader2 className="size-3.5 animate-spin mr-1.5" aria-hidden="true" />
+                      ) : null}
+                      {editingAnnouncement ? "Save" : "Post"}
+                    </Button>
+                  </div>
+                </div>
 
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground">
-                            <MoreVertical className="size-3.5" aria-hidden="true" />
-                            <span className="sr-only">Announcement options</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditingAnnouncement(item)
-                              setAnnouncementTitle(item.title)
-                              setAnnouncementBody(item.body)
-                              setAnnouncementPinned(Boolean(item.pinned))
-                            }}
-                          >
-                            <Pencil className="mr-2 size-3.5" aria-hidden="true" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => pinAnnouncementMutation.mutate(item)}>
-                            <PinIcon className="mr-2 size-3.5" aria-hidden="true" />
-                            {item.pinned ? "Unpin" : "Pin"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => setDeletingAnnouncement(item)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 size-3.5" aria-hidden="true" />
-                            Archive
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ))
-                )}
+                {/* Right: Announcements Feed */}
+                <div className="lg:col-span-7 space-y-2">
+                  <div className="flex items-center justify-between px-0.5 text-xs font-semibold text-muted-foreground">
+                    <span>Recent Department Bulletins</span>
+                    <span>{announcements.length} total</span>
+                  </div>
+                  <div className="space-y-2 overflow-y-auto max-h-[220px] pr-1 overscroll-contain">
+                    {announcementsQuery.isLoading ? (
+                      <div className="space-y-2 py-1">
+                        <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
+                        <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
+                      </div>
+                    ) : announcements.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-xs text-muted-foreground border border-dashed border-border/70 rounded-xl">
+                        <PinIcon className="size-6 text-muted-foreground/40 mb-1.5" aria-hidden="true" />
+                        <p>No announcements posted for this department yet.</p>
+                      </div>
+                    ) : (
+                      sortedAnnouncements.slice(0, 5).map((item) => (
+                        <div
+                          key={item.departmentAnnouncementId}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 text-xs transition-colors hover:border-primary/30"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.pinned ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="gap-1 px-1.5 py-0 text-[10px] font-bold text-primary bg-primary/10 border-primary/20"
+                                >
+                                  <PinIcon className="size-2.5" aria-hidden="true" />
+                                  Pinned
+                                </Badge>
+                              ) : null}
+                              <p className="font-bold text-foreground truncate">{item.title}</p>
+                              {item.createdAt ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                  · {formatDate(item.createdAt)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="line-clamp-2 text-xs text-muted-foreground leading-relaxed">{item.body}</p>
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="size-7 shrink-0 text-muted-foreground hover:text-foreground">
+                                <MoreVertical className="size-3.5" aria-hidden="true" />
+                                <span className="sr-only">Announcement options</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingAnnouncement(item)
+                                  setAnnouncementTitle(item.title)
+                                  setAnnouncementBody(item.body)
+                                  setAnnouncementPinned(Boolean(item.pinned))
+                                }}
+                              >
+                                <Pencil className="mr-2 size-3.5" aria-hidden="true" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => pinAnnouncementMutation.mutate(item)}>
+                                <PinIcon className="mr-2 size-3.5" aria-hidden="true" />
+                                {item.pinned ? "Unpin" : "Pin"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeletingAnnouncement(item)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 size-3.5" aria-hidden="true" />
+                                Archive
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Mobile / Footer Link */}
-              <div className="border-t border-border/50 pt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <div className="border-t border-border/50 pt-2 mt-auto flex items-center justify-between text-xs text-muted-foreground">
                 <span>Pinned items display first</span>
                 <Link
                   to={`/institution/departments/${primaryDeptId}?tab=announcements`}
@@ -1979,17 +2338,35 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-learner-table",
         col: 6,
-        row: 2,
-        x: 0,
-        y: 15,
-        element: (
-          <BentoTile col={6} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
+        row: collapsedTiles["dept-learner-table"] ? 1 : 7,
+        element: collapsedTiles["dept-learner-table"] ? (
+          <BentoTile col={6} row={1} className="!p-0" isCollapsed>
+            <CollapsedMetricCard
+              icon={UsersRoundIcon}
+              kicker="Department Roster"
+              title="Student Roster & Conversation Flags"
+              description="Searchable student directory highlighting flagged learners, recent activity, mock exam scores, and direct analytics access."
+              previewMetric={`${deptLearners.length} enrolled learner${deptLearners.length === 1 ? "" : "s"} · ${needingSupport} flagged for support`}
+              previewAlert={needingSupport > 0}
+              onExpand={() => toggleTileCollapse("dept-learner-table")}
+            />
+          </BentoTile>
+        ) : (
+          <BentoTile
+            col={6}
+            row={7}
+            className="!p-0"
+            collapsible
+            onToggleCollapse={() => toggleTileCollapse("dept-learner-table")}
+          >
+            <div className="flex min-h-0 flex-1 flex-col p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Building2}
                 kicker="Department Roster"
                 title="Student roster & who needs a conversation"
                 hint="Anyone flagged sits at the top, with the reason beside their name."
+                collapsible
+                onToggleCollapse={() => toggleTileCollapse("dept-learner-table")}
               />
 
               {/* Dedicated filter bar: Search + Section + Status pills (Checklist 10.1) */}
@@ -2004,7 +2381,7 @@ export default function DepartmentHeadDashboardPage() {
                     placeholder="Search by student name or username..."
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
-                    className="h-8 pl-8 text-xs bg-background"
+                    className="h-9 sm:h-8 pl-8 text-xs bg-background/80 border-border/70 rounded-lg shadow-2xs"
                   />
                 </div>
 
@@ -2015,7 +2392,7 @@ export default function DepartmentHeadDashboardPage() {
                         value={selectedSectionFilter}
                         onValueChange={setSelectedSectionFilter}
                       >
-                        <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectTrigger className="h-9 sm:h-8 text-xs bg-background/80 border-border/70 rounded-lg shadow-2xs">
                           <SelectValue placeholder="All sections" />
                         </SelectTrigger>
                         <SelectContent>
@@ -2040,10 +2417,10 @@ export default function DepartmentHeadDashboardPage() {
                     <button
                       type="button"
                       onClick={() => setRosterStatusFilter("all")}
-                      className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                      className={`h-9 sm:h-8 min-h-[38px] sm:min-h-0 inline-flex items-center rounded-lg px-3 sm:px-2.5 text-xs font-semibold transition-all shadow-2xs ${
                         rosterStatusFilter === "all"
                           ? "bg-foreground text-background"
-                          : "text-muted-foreground hover:bg-muted"
+                          : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
                       All ({deptLearners.length})
@@ -2054,13 +2431,13 @@ export default function DepartmentHeadDashboardPage() {
                         onClick={() =>
                           setRosterStatusFilter(rosterStatusFilter === "flagged" ? "all" : "flagged")
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                        className={`h-9 sm:h-8 min-h-[38px] sm:min-h-0 inline-flex items-center gap-1.5 rounded-lg px-3 sm:px-2.5 text-xs font-semibold transition-all shadow-2xs ${
                           rosterStatusFilter === "flagged"
                             ? "border border-amber-500/50 bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/40"
-                            : "border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-500/20"
+                            : "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-500/20"
                         }`}
                       >
-                        <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                        <AlertTriangle className="size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                         <span>{flaggedCount} flagged</span>
                       </button>
                     ) : null}
@@ -2070,13 +2447,13 @@ export default function DepartmentHeadDashboardPage() {
                         onClick={() =>
                           setRosterStatusFilter(rosterStatusFilter === "dormant" ? "all" : "dormant")
                         }
-                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                        className={`h-9 sm:h-8 min-h-[38px] sm:min-h-0 inline-flex items-center gap-1.5 rounded-lg px-3 sm:px-2.5 text-xs font-semibold transition-all shadow-2xs ${
                           rosterStatusFilter === "dormant"
                             ? "border border-sky-500/50 bg-sky-500/20 text-sky-800 dark:text-sky-300 ring-1 ring-sky-500/40"
-                            : "border border-sky-500/20 bg-sky-500/10 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-500/20"
+                            : "border border-sky-500/30 bg-sky-500/10 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-500/20"
                         }`}
                       >
-                        <UsersRoundIcon className="size-3 shrink-0" aria-hidden="true" />
+                        <UsersRoundIcon className="size-3 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
                         <span>{dormantCount} dormant</span>
                       </button>
                     ) : null}
@@ -2087,7 +2464,7 @@ export default function DepartmentHeadDashboardPage() {
                           setRosterStatusFilter("all")
                           setRosterSearch("")
                         }}
-                        className="text-[11px] text-muted-foreground underline hover:text-foreground ml-1"
+                        className="h-9 sm:h-8 min-h-[38px] sm:min-h-0 inline-flex items-center text-[11px] font-semibold text-primary hover:underline ml-1"
                       >
                         Reset filters
                       </button>
@@ -2112,11 +2489,11 @@ export default function DepartmentHeadDashboardPage() {
                     aria-hidden="true"
                     className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent z-20"
                   />
-                  <div className="min-h-0 h-full overflow-x-auto">
+                  <div className="min-h-0 h-full overflow-x-auto overflow-y-auto touch-pan-x scrollbar-thin overscroll-contain">
                     <table className="w-full text-sm border-separate border-spacing-0" style={{ minWidth: 560 }}>
-                      <thead className="sticky top-0 bg-background z-10">
-                        <tr className="border-b border-border/40 text-xs font-semibold text-muted-foreground">
-                          <th className="py-2.5 pl-2 pr-3 text-left sticky left-0 bg-background z-20 border-r border-border/40 shadow-xs">
+                      <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                        <tr className="border-b border-border/50 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <th className="py-2.5 pl-3 pr-3 text-left sticky left-0 bg-background/95 backdrop-blur-sm z-20 border-r border-border/40 shadow-xs min-w-[140px] sm:min-w-[170px]">
                             Student Name
                           </th>
                           <th className="py-2.5 px-3 text-left">Section</th>
@@ -2185,17 +2562,22 @@ export default function DepartmentHeadDashboardPage() {
                                 key={learner.learnerId}
                                 className="border-b border-border/40 hover:bg-muted/40 transition-colors"
                               >
-                                <td className="py-2.5 pl-2 pr-3 sticky left-0 bg-background z-10 border-r border-border/40 shadow-xs">
-                                  <Link
-                                    to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
-                                    className="font-bold text-foreground hover:underline text-xs"
-                                  >
-                                    {learner.name || `Learner #${learner.learnerId}`}
-                                  </Link>
+                                <td className="py-2.5 pl-3 pr-3 sticky left-0 bg-background z-10 border-r border-border/40 shadow-xs min-w-[140px] sm:min-w-[170px]">
+                                  <div className="flex items-center gap-2.5">
+                                    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary font-bold text-[11px] border border-primary/15 shadow-2xs">
+                                      {(learner.name || "L").charAt(0).toUpperCase()}
+                                    </span>
+                                    <Link
+                                      to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
+                                      className="font-bold text-foreground hover:underline text-xs truncate max-w-[120px] sm:max-w-[170px]"
+                                    >
+                                      {learner.name || `Learner #${learner.learnerId}`}
+                                    </Link>
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3">
                                   {learner.sectionName ? (
-                                    <Badge variant="outline" className="text-[11px] font-medium border-border/80">
+                                    <Badge variant="outline" className="text-[10px] font-medium rounded-md px-2 py-0.5 bg-muted/40 border-border/60 text-foreground">
                                       {learner.sectionName}
                                     </Badge>
                                   ) : (
@@ -2213,19 +2595,19 @@ export default function DepartmentHeadDashboardPage() {
                                 </td>
                                 <td className="py-2.5 px-3">
                                   {learner.flag ? (
-                                    <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
-                                      <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-                                      <span className="truncate">{learner.flag}</span>
+                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                                      <AlertTriangle className="size-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                                      <span className="truncate max-w-[140px]">{learner.flag}</span>
                                     </span>
                                   ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
+                                    <span className="text-xs text-muted-foreground/60">—</span>
                                   )}
                                 </td>
                                 <td className="py-2.5 px-3">
                                   <div className="flex items-center gap-2 max-w-[140px]">
                                     <Progress
                                       value={Number(learner.averageProgress ?? 0)}
-                                      className="h-2 flex-1 rounded-full"
+                                      className="h-1.5 flex-1 rounded-full overflow-hidden"
                                     />
                                     <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
                                       {percent(learner.averageProgress)}
@@ -2260,7 +2642,7 @@ export default function DepartmentHeadDashboardPage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 text-muted-foreground hover:text-foreground"
+                                        className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:size-7 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer transition-colors"
                                       >
                                         <MoreVertical className="size-3.5" aria-hidden="true" />
                                         <span className="sr-only">Student actions</span>
@@ -2354,6 +2736,8 @@ export default function DepartmentHeadDashboardPage() {
     saveAnnouncementMutation.isPending,
     pinAnnouncementMutation.isPending,
     comparisonType,
+    collapsedTiles,
+    toggleTileCollapse,
   ])
 
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
@@ -2362,29 +2746,6 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Mobile Alert Banner (Item 2.1) */}
-      {alerts.length > 0 ? (
-        <button
-          type="button"
-          onClick={() => {
-            const el = document.getElementById("dept-alert-strip")
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-          }}
-          className={`sm:hidden w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold shadow-xs transition-colors ${
-            alerts.some((a) => a.severity === "critical")
-              ? "border-rose-500/50 bg-rose-500/10 text-rose-800 dark:text-rose-300 ring-1 ring-rose-500/30 animate-pulse"
-              : "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"
-          }`}
-        >
-          <div className="flex items-center gap-2 truncate">
-            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-            <span className="truncate">
-              {alerts.length} department alert{alerts.length === 1 ? "" : "s"} require attention
-            </span>
-          </div>
-          <span className="shrink-0 text-[11px] underline">View</span>
-        </button>
-      ) : null}
 
       {/* Controls & Header Navigation (Checklist 1) */}
       <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2.5">
@@ -2421,25 +2782,6 @@ export default function DepartmentHeadDashboardPage() {
 
         {/* Right semantic group: Action buttons & alerts */}
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 md:border-l md:border-border/30 md:pl-3">
-          {/* 1.3: Alert badge as first item in right-side group */}
-          {alerts.length > 0 ? (
-            <Badge
-              variant="outline"
-              className={`hidden sm:inline-flex h-9 px-3 gap-1.5 cursor-pointer font-bold transition-all rounded-full select-none ${
-                alerts.some((a) => a.severity === "critical")
-                  ? "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-2 ring-rose-500/40 ring-offset-1 hover:bg-rose-500/20 animate-pulse"
-                  : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-              }`}
-              onClick={() => {
-                const el = document.getElementById("dept-alert-strip")
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-              }}
-              title="Click to view alerts"
-            >
-              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-              <span>{alerts.length} Alert{alerts.length === 1 ? "" : "s"}</span>
-            </Badge>
-          ) : null}
 
           <Button
             variant="outline"
@@ -2482,6 +2824,19 @@ export default function DepartmentHeadDashboardPage() {
           </Button>
 
           <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm font-semibold text-foreground hover:bg-muted/70 transition-colors"
+            onClick={toggleAllCollapse}
+            aria-label={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
+            title={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
+          >
+            <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span>{areAllCollapsed ? "Expand all" : "Collapse all"}</span>
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
             className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
@@ -2493,28 +2848,105 @@ export default function DepartmentHeadDashboardPage() {
           </Button>
 
           <div className="flex items-center justify-center sm:justify-start">
-            <DashboardRearrangeControls
-              rearranging={layout.rearranging}
-              onStart={layout.startRearranging}
-              onFinish={layout.finishRearranging}
-              onCancel={layout.cancelRearranging}
-              onReset={layout.resetLayout}
-            />
+            {/* Desktop: standard inline controls */}
+            <div className="hidden sm:block">
+              <DashboardRearrangeControls
+                rearranging={layout.rearranging}
+                onStart={layout.startRearranging}
+                onFinish={layout.finishRearranging}
+                onCancel={layout.cancelRearranging}
+                onReset={layout.resetLayout}
+              />
+            </div>
+
+            {/* Mobile: clean non-expanding trigger button */}
+            <div className="sm:hidden w-full">
+              {layout.rearranging ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-full min-h-[44px] gap-2 text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                  onClick={layout.finishRearranging}
+                >
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <span>Editing layout</span>
+                  <Check className="size-3.5 ml-auto text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full min-h-[44px] gap-1.5 text-xs font-semibold text-foreground hover:bg-muted/70 transition-colors"
+                  onClick={layout.startRearranging}
+                  aria-label="Rearrange tiles"
+                >
+                  <GripHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span>Rearrange</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Sticky Rearrange Bottom Bar */}
+      {/* Mobile Sticky Rearrange Floating Card */}
       {layout.rearranging ? (
-        <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 flex items-center justify-between gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur shadow-lg animate-in slide-in-from-bottom-2">
-          <span className="text-xs font-semibold text-muted-foreground">Rearranging tiles</span>
-          <DashboardRearrangeControls
-            rearranging={layout.rearranging}
-            onStart={layout.startRearranging}
-            onFinish={layout.finishRearranging}
-            onCancel={layout.cancelRearranging}
-            onReset={layout.resetLayout}
-          />
+        <div
+          id="dept-mobile-rearrange-bar"
+          className="sm:hidden fixed bottom-3 inset-x-3 z-50 rounded-2xl border-2 border-border/80 bg-card/95 p-3.5 backdrop-blur-xl shadow-2xl shadow-slate-950/25 animate-in fade-in-0 slide-in-from-bottom-3 duration-200"
+          style={{ paddingBottom: "max(0.875rem, env(safe-area-inset-bottom))" }}
+        >
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+              </span>
+              <span className="text-xs font-bold text-foreground">Rearrange Mode Active</span>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => layout.resetLayout()}
+              className="h-8 min-h-[32px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/80 gap-1.5 rounded-lg border-border/80 cursor-pointer active:scale-95 transition-all"
+              title="Reset dashboard layout"
+            >
+              <RotateCcw className="size-3.5 text-muted-foreground" aria-hidden="true" />
+              <span>Reset</span>
+            </Button>
+          </div>
+
+          <p className="mt-2 text-[11px] text-muted-foreground leading-normal">
+            Drag tiles or use their arrow buttons to adjust order.
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={layout.cancelRearranging}
+              className="flex-1 min-h-[42px] text-xs font-semibold rounded-xl border-border bg-background hover:bg-muted/70 text-foreground"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={layout.finishRearranging}
+              className="flex-1 min-h-[42px] text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-1.5"
+            >
+              <Check className="size-4" aria-hidden="true" />
+              <span>Save Layout</span>
+            </Button>
+          </div>
         </div>
       ) : null}
 
@@ -2526,6 +2958,7 @@ export default function DepartmentHeadDashboardPage() {
         layout={layout.tileLayout}
         editing={layout.rearranging}
         onLayoutChange={layout.handleLayoutChange}
+        collapsedTiles={collapsedTiles}
       />
 
       {createSectionOpen && primaryDeptId ? (

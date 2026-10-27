@@ -65,7 +65,7 @@ export function NotificationBell({
       : items.filter((item) => item.read === false).length
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>

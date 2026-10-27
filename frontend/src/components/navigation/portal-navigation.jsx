@@ -264,9 +264,18 @@ function GroupDropdown({ group, pathname }) {
 
 function NavigationMenuItem({ item }) {
   const Icon = item.icon
+  const location = useLocation()
+  const isCurrent = location.pathname === item.href
+
+  const handleClick = () => {
+    if (isCurrent) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
+
   return (
     <DropdownMenuItem asChild>
-      <NavLink to={item.href} className="flex items-center gap-3 py-2.5">
+      <NavLink to={item.href} onClick={handleClick} className="flex items-center gap-3 py-2.5">
         <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>{item.label}</span>
       </NavLink>
@@ -355,7 +364,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
           </nav>
           <div className="flex flex-1 items-center justify-end gap-1.5 lg:flex-none">
             {groups.length > 0 ? (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
@@ -366,8 +375,21 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
                     <Menu className="size-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 p-2">
-                  {groups.map((group, index) => <div key={group.label}><DropdownMenuLabel>{group.label}</DropdownMenuLabel>{group.items.map((item) => <NavigationMenuItem key={item.href} item={item} />)}{index < groups.length - 1 ? <DropdownMenuSeparator /> : null}</div>)}
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={8}
+                  className="w-72 p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto"
+                >
+                  {groups.map((group, index) => (
+                    <div key={group.label}>
+                      <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                      {group.items.map((item) => (
+                        <NavigationMenuItem key={item.href} item={item} />
+                      ))}
+                      {index < groups.length - 1 ? <DropdownMenuSeparator /> : null}
+                    </div>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
