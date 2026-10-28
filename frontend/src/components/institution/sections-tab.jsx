@@ -496,27 +496,38 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
 }
 
 
-function SectionDialog({
+export function SectionDialog({
   open,
   onOpenChange,
   departmentId,
   section,
   institutionCertId,
   programId = null,
+  certifications = [],
 }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(section?.sectionName ?? "")
   const [description, setDescription] = useState(section?.description ?? "")
+  const availableCerts = Array.isArray(certifications) ? certifications : []
+  const initialCertId =
+    section?.institutionCertId ??
+    institutionCertId ??
+    (availableCerts.length > 0 ? availableCerts[0].institutionCertId : null)
+  const [selectedCertId, setSelectedCertId] = useState(initialCertId)
   const [error, setError] = useState("")
 
   const save = useMutation({
     mutationFn: () =>
       section
-        ? updateGroupSection(departmentId, section.sectionId, { sectionName: name.trim(), description })
+        ? updateGroupSection(departmentId, section.sectionId, {
+            sectionName: name.trim(),
+            description: description.trim() || null,
+            programId: section.programId ?? programId,
+          })
         : createGroupSection(departmentId, {
             sectionName: name.trim(),
-            description,
-            institutionCertId: programId != null ? null : institutionCertId,
+            description: description.trim() || null,
+            institutionCertId: programId != null ? null : selectedCertId,
             programId,
           }),
     onSuccess: () => {
@@ -533,7 +544,7 @@ function SectionDialog({
         <DialogHeader>
           <DialogTitle>{section ? "Rename section" : "New section"}</DialogTitle>
           <DialogDescription>
-            A section is a class or batch inside this department, such as “BSIT 3A” or “Batch 2026 · Morning”.
+            A section is a class or batch inside this department, such as "BSIT 3A" or "Batch 2026 - Morning".
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -548,6 +559,26 @@ function SectionDialog({
               autoFocus
             />
           </div>
+          {!section && programId == null && availableCerts.length > 1 ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="section-cert">Certification</Label>
+              <Select
+                value={selectedCertId != null ? String(selectedCertId) : undefined}
+                onValueChange={(val) => setSelectedCertId(Number(val))}
+              >
+                <SelectTrigger id="section-cert" className="w-full">
+                  <SelectValue placeholder="Choose a certification" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCerts.map((cert) => (
+                    <SelectItem key={cert.institutionCertId} value={String(cert.institutionCertId)}>
+                      {cert.title || cert.certificationTitle || "Certification"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="section-description">Description (optional)</Label>
             <Textarea
@@ -700,6 +731,7 @@ function SectionPanel({
   const isUnsectioned = section == null
   const title = isUnsectioned ? "Not in a section" : section.sectionName
   const pending = invitations.filter((inv) => inv.status === "PENDING")
+  const pendingCount = section?.pendingInvitationCount != null ? Number(section.pendingInvitationCount) : pending.length
 
   return (
     <Card className="overflow-hidden">
@@ -718,15 +750,26 @@ function SectionPanel({
             {isUnsectioned ? <UsersIcon className="size-4" /> : <Layers className="size-4" />}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-base font-semibold">{title}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-base font-semibold">{title}</p>
+              {pendingCount > 0 ? (
+                <Badge
+                  variant="secondary"
+                  className="gap-1 border-amber-500/20 bg-amber-500/10 text-[11px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                >
+                  <MailIcon className="size-3" aria-hidden="true" />
+                  {pendingCount} pending {pendingCount === 1 ? "invitation" : "invitations"}
+                </Badge>
+              ) : null}
+            </div>
             <p className="text-xs text-muted-foreground">
               {section?.certificationTitle
                 ? `${section.certificationTitle} · `
                 : section && programCertifications?.length
                   ? `${programCertifications.map((cert) => cert.title).join(", ")} · `
                   : ""}
-              {learners.length} learner{learners.length === 1 ? "" : "s"}
-              {pending.length ? ` · ${pending.length} invitation${pending.length === 1 ? "" : "s"} pending` : ""}
+              {section?.programName ? `${section.programName} · ` : ""}
+              {learners.length} {learners.length === 1 ? "learner" : "learners"}
               {section?.description ? ` · ${section.description}` : ""}
             </p>
           </div>
@@ -1159,6 +1202,7 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
           section={dialog.section}
           institutionCertId={current?.institutionCertId ?? null}
           programId={programId}
+          certifications={covered}
         />
       ) : null}
 

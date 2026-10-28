@@ -30,3 +30,6 @@ src/hooks/use-mobile.js
 src/hooks/use-mobile.d.ts
 src/lib/utils.js
 src/lib/utils.d.ts
+
+DEPARTMENT_HEAD_PAGE_CHECKLIST.local.md
+INSTITUTION_DASHBOARD_FUNCTIONALITIES.md
