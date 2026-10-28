@@ -30,9 +30,9 @@ function daysUntil(date) {
 
 function formatExamDate(date) {
   return date.toLocaleDateString(undefined, {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
-    month: "long",
+    month: "short",
     year: "numeric",
   })
 }
@@ -49,40 +49,41 @@ export function ExamCountdownTile({ certificationId }) {
 
   return (
     <BentoTile col={3} row={2}>
-      <BentoHeading
-        icon={CalendarDays}
-        kicker="Exam Day"
-        title="exam countdown"
-        hint="Days left against your plan's target date."
-      />
+      <BentoHeading icon={CalendarDays} kicker="Exam Day" title="Exam countdown" />
 
       {isLoading ? (
         <BentoSkeleton rows={1} />
       ) : !examDate ? (
         <div className="flex flex-1 flex-col justify-center">
-          <p className="text-sm font-medium text-foreground">No exam date yet</p>
-
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Create a study plan and the countdown starts from its target exam date.
+          <p className="text-sm font-semibold text-foreground">No exam date yet</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Set a target date in your study plan to start the countdown.
           </p>
         </div>
-      ) : (
+      ) : past ? (
         <div className="flex flex-1 flex-col justify-center">
-          <div className="flex items-baseline gap-2">
-            <span className="font-rb-display text-5xl font-black leading-none tabular-nums text-foreground">
-              {today ? "today" : Math.abs(days)}
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+            Your exam date has passed
+          </p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+            {formatExamDate(examDate)} · {Math.abs(days)} day{Math.abs(days) === 1 ? "" : "s"} ago
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Set a new date in your study plan.</p>
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <p className="leading-none">
+            <span className="font-rb-display text-4xl font-black tabular-nums text-foreground">
+              {today ? "Today" : days}
             </span>
-
             {today ? null : (
-              <span className="text-sm font-bold text-muted-foreground">
-                {Math.abs(days) === 1
-                  ? past ? "day ago" : "day to go"
-                  : past ? "days ago" : "days to go"}
+              <span className="ml-1.5 text-xs font-bold text-muted-foreground">
+                day{days === 1 ? "" : "s"} to go
               </span>
             )}
-          </div>
-
-          <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          </p>
+          <p className="flex items-center gap-1.5 text-right text-xs font-medium text-muted-foreground">
             <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
             {formatExamDate(examDate)}
           </p>

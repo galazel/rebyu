@@ -35,8 +35,8 @@ export function AdminAppSidebar({ displayName, email, avatarUrl, onLogout, ...pr
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="shrink-0 flex-row items-center border-b border-sidebar-border p-2 group-data-[collapsible=icon]:flex-col">
-        <SidebarMenu className="min-w-0 flex-1">
+      <SidebarHeader className="h-16 shrink-0 flex-row items-center border-b border-sidebar-border p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <SidebarMenu className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="REBYU admin portal">
               <NavLink to="/admin/dashboard" aria-label="REBYU admin portal home">

@@ -703,7 +703,7 @@ export default function LearnerProgressPage() {
       id: "player-card",
       x: 0,
       y: 0,
-      col: 6,
+      col: 2,
       row: 1,
       element: <PlayerCardTile portalData={data} />,
     },
@@ -836,8 +836,8 @@ export default function LearnerProgressPage() {
     {
       id: "exam-countdown",
       x: 2,
-      y: 3,
-      col: 1,
+      y: 0,
+      col: 2,
       row: 1,
       element: (
         <ExamCountdownTile certificationId={selectedCertificationId} />
@@ -1183,10 +1183,16 @@ export default function LearnerProgressPage() {
     <>
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="mr-auto flex flex-col items-start gap-2">
-            <h1 className="font-rb-display text-3xl leading-none text-foreground sm:text-4xl">
-              how&apos;s your studying going?
+          <div className="mr-auto min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Learner dashboard
+            </p>
+            <h1 className="mt-0.5 text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
+              My progress
             </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Your streak, exam readiness and what to study next for the selected certification.
+            </p>
           </div>
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (

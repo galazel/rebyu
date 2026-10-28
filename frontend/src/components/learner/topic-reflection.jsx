@@ -93,33 +93,45 @@ function Header({ position, total, title, backTo, onOpenOutline, outlineHidden }
 }
 
 function Assignment({ reflection, points }) {
+  const parts = reflection.parts ?? []
+
   return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-      <div className="min-w-0 flex-1 space-y-4 text-rb-eel">
-        <p className="rb-body-lg">
-          <strong>Scenario:</strong> {reflection.scenario}
-        </p>
-        <p className="rb-body-lg">
-          <strong>Prompt:</strong> {reflection.prompt}
-        </p>
-        <ul className="list-disc space-y-2 pl-6">
-          {(reflection.parts ?? []).map((part, index) => (
-            <li key={index} className="rb-body-lg">
-              {part}
-            </li>
-          ))}
-        </ul>
-        <p className="rb-body-lg">
-          Your answer should have <strong>{(reflection.parts ?? []).length} parts</strong> and you may answer in a list
-          or a short paragraph.
-        </p>
-      </div>
-      <div className="flex shrink-0 flex-row gap-2 sm:flex-col sm:items-end">
-        <span className="rounded-full bg-rb-polar px-3 py-1 text-sm font-extrabold text-rb-eel">{points}</span>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-macaw-wash px-3 py-1 text-sm font-extrabold text-rb-macaw-lip">
-          <Sparkles className="size-3.5" aria-hidden="true" /> AI-graded
+    <div className="space-y-5 text-rb-eel">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-rb-swan px-2.5 py-0.5 text-xs font-bold text-rb-wolf">{points}</span>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-macaw-wash px-2.5 py-0.5 text-xs font-bold text-rb-macaw-lip">
+          <Sparkles className="size-3" aria-hidden="true" /> AI-graded
         </span>
       </div>
+
+      <div className="rounded-xl border border-rb-swan bg-rb-polar/60 p-4">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-rb-wolf">Scenario</p>
+        <p className="mt-1 text-[15px] leading-7">{reflection.scenario}</p>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-rb-wolf">Your task</p>
+        <p className="mt-1 text-[15px] leading-7">{reflection.prompt}</p>
+      </div>
+
+      {parts.length ? (
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-rb-wolf">
+            Cover these {parts.length} parts
+          </p>
+          <ol className="mt-2 space-y-2">
+            {parts.map((part, index) => (
+              <li key={index} className="flex gap-3 rounded-xl border border-rb-swan bg-rb-snow p-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                  {index + 1}
+                </span>
+                <span className="text-sm leading-6">{part}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-xs text-rb-wolf">A list or a short paragraph is fine.</p>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -128,89 +140,84 @@ function Overview({ reflection, onStart, onViewFeedback, onContinue, examLabel }
   const latest = reflection.latest
   const best = reflection.best
   const passed = reflection.passed
+  const facts = [
+    { icon: CalendarDays, text: "About 8 minutes" },
+    { icon: RotateCcw, text: "Unlimited attempts" },
+    { icon: CheckCircle2, text: `${reflection.passPercent}% unlocks the exam` },
+    { icon: Sparkles, text: `AI-graded · ${(reflection.rubric ?? []).length}-point rubric` },
+  ]
 
   return (
-    <Reveal
-      variants={popIn}
-      amount={0}
-      className="mx-auto w-full max-w-6xl overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)]"
-    >
-      <div className="bg-rb-macaw-wash p-8 sm:p-12">
-        <p className="text-sm font-bold text-rb-macaw-lip">Practice assignment · self-reflection</p>
-        <h2 className="rb-display rb-display-sm mt-2">{reflection.title}</h2>
-        <p className="rb-body-lg mt-4 max-w-3xl">
-          You've worked through every lesson in this topic. Now step back and make it yours: recall a moment from
-          your own life where these ideas showed up, picture the real problems a professional solves with them, and
-          explain why the skill matters. Putting it in your own words is what turns what you read into what you
-          understand, and it's the best warm-up for {examLabel}.
+    <Reveal variants={popIn} amount={0} className="mx-auto w-full max-w-4xl space-y-4">
+      <section className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-5 sm:p-6">
+        <div className="mb-4 flex items-start gap-3 border-b border-rb-swan pb-4">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700">
+            <Sparkles className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Practice assignment · reflection</p>
+            <h2 className="text-lg font-extrabold leading-snug text-rb-eel sm:text-xl">{reflection.title}</h2>
+          </div>
+        </div>
+
+        <p className="max-w-3xl text-[15px] leading-7 text-rb-eel/90">
+          Put this topic in your own words: a moment where these ideas showed up in your life, a real problem a
+          professional solves with them, and why the skill matters. It's the best warm-up for {examLabel}.
         </p>
-        <div className="mt-7 flex flex-wrap items-center gap-4">
-          <TactileButton variant="macaw" onClick={onStart}>
+
+        <ul className="mt-4 flex flex-wrap gap-2">
+          {facts.map(({ icon: Icon, text }) => (
+            <li
+              key={text}
+              className="inline-flex items-center gap-1.5 rounded-full border border-rb-swan bg-rb-polar/60 px-3 py-1 text-xs font-semibold text-rb-wolf"
+            >
+              <Icon className="size-3.5" aria-hidden="true" /> {text}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-rb-card border-2 border-rb-swan bg-rb-snow p-5 sm:flex-row sm:items-center sm:p-6">
+        {latest ? (
+          <>
+            <div
+              className={`grid size-20 shrink-0 place-items-center rounded-2xl ${
+                passed ? "bg-rb-feather-wash text-rb-feather-ink" : "bg-rb-cardinal-wash text-rb-cardinal-lip"
+              }`}
+            >
+              <span className="rb-numeric text-2xl font-extrabold">{percentText(best?.scorePercent)}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-extrabold text-rb-eel">{passed ? "You passed" : "Not passed yet"}</p>
+              <p className="mt-0.5 text-sm text-rb-wolf">
+                Best score kept · {reflection.passPercent}% needed · submitted {formatDate(latest.submittedAt)}
+              </p>
+              <button
+                type="button"
+                onClick={onViewFeedback}
+                className="mt-1.5 text-sm font-bold text-rb-macaw-lip hover:underline"
+              >
+                View feedback
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="min-w-0 flex-1 text-sm text-rb-wolf">You haven't submitted this reflection yet.</p>
+        )}
+
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <TactileButton variant={passed && onContinue ? "ghost" : "macaw"} size="sm" onClick={onStart}>
             {latest ? "try again" : "start reflection"}
             <ArrowRight className="size-4" />
           </TactileButton>
           {passed && onContinue ? (
-            <TactileButton variant="fox" onClick={onContinue}>
+            <TactileButton variant="macaw" size="sm" onClick={onContinue}>
               go to {examLabel}
               <ArrowRight className="size-4" />
             </TactileButton>
           ) : null}
         </div>
-      </div>
-
-      <div className="grid gap-5 p-8 sm:p-12 lg:grid-cols-[minmax(0,1fr)_280px]">
-        {latest ? (
-          <div
-            className={`rounded-rb-card border-2 p-5 ${
-              passed ? "border-rb-feather bg-rb-feather-wash" : "border-rb-cardinal bg-rb-cardinal-wash"
-            }`}
-          >
-            <p className="font-extrabold text-rb-eel">{passed ? "You passed." : "You didn't pass yet."}</p>
-            <p className="mt-1 text-sm text-rb-eel">
-              To pass you need a grade of at least {reflection.passPercent}%. We keep your highest score.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <span
-                className={`rb-numeric text-3xl font-extrabold ${passed ? "text-rb-feather-ink" : "text-rb-cardinal-lip"}`}
-              >
-                {percentText(best?.scorePercent)}
-              </span>
-              <button
-                type="button"
-                onClick={onViewFeedback}
-                className="rounded-xl border-2 border-rb-swan bg-white px-3 py-1.5 text-sm font-extrabold text-rb-eel hover:bg-rb-polar"
-              >
-                view feedback
-              </button>
-            </div>
-            <p className="mt-3 text-xs text-rb-wolf">Submitted {formatDate(latest.submittedAt)}</p>
-          </div>
-        ) : (
-          <div className="rounded-rb-card border-2 border-dashed border-rb-swan p-5 text-rb-wolf">
-            You haven't submitted this reflection yet.
-          </div>
-        )}
-
-        <div className="rounded-rb-card border-2 border-rb-swan p-5">
-          <p className="font-extrabold text-rb-eel">What to expect</p>
-          <ul className="mt-3 space-y-2.5 text-sm text-rb-eel">
-            <li className="flex items-center gap-2.5">
-              <CalendarDays className="size-4 text-rb-wolf" aria-hidden="true" /> About 8 minutes
-            </li>
-            <li className="flex items-center gap-2.5">
-              <RotateCcw className="size-4 text-rb-wolf" aria-hidden="true" /> Unlimited attempts
-            </li>
-            <li className="flex items-center gap-2.5">
-              <CheckCircle2 className="size-4 text-rb-feather" aria-hidden="true" /> {reflection.passPercent}% unlocks
-              the exam
-            </li>
-            <li className="flex items-center gap-2.5">
-              <Sparkles className="size-4 text-rb-macaw-lip" aria-hidden="true" /> Graded by AI against a{" "}
-              {(reflection.rubric ?? []).length}-point rubric
-            </li>
-          </ul>
-        </div>
-      </div>
+      </section>
     </Reveal>
   )
 }
@@ -245,61 +252,58 @@ function Write({ reflection, middleId, onBack, onSubmitted }) {
       <button
         type="button"
         onClick={onBack}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-extrabold text-rb-macaw-lip hover:underline"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-extrabold text-rb-macaw-lip hover:underline"
       >
         <ArrowLeft className="size-4" aria-hidden="true" /> back
       </button>
 
-      <ol className="space-y-6">
-        <li className="flex gap-3">
-          <span className="font-extrabold text-rb-eel">1.</span>
-          <div className="min-w-0 flex-1 space-y-6">
-            <Assignment reflection={reflection} points={`${(reflection.rubric ?? []).length} points`} />
+      <section className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-5 sm:p-6">
+        <Assignment reflection={reflection} points={`${(reflection.rubric ?? []).length} points`} />
+      </section>
 
-            <label className="block">
-              <span className="sr-only">Your reflection</span>
-              <textarea
-                value={answer}
-                onChange={(event) => setAnswer(event.target.value.slice(0, MAX_CHARS))}
-                rows={10}
-                disabled={submit.isPending}
-                placeholder="Write your reflection here…"
-                className="w-full resize-y rounded-rb-card border-2 border-rb-swan bg-white p-4 text-base leading-relaxed text-rb-eel outline-none focus:border-rb-macaw disabled:opacity-70"
-              />
-              <span className="mt-1 block text-right text-xs text-rb-wolf">
-                {length} / {MAX_CHARS}
-              </span>
-            </label>
-          </div>
-        </li>
-      </ol>
+      <section className="mt-4 rounded-rb-card border-2 border-rb-swan bg-rb-snow p-5 sm:p-6">
+        <label className="block">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-rb-wolf">Your reflection</span>
+          <textarea
+            value={answer}
+            onChange={(event) => setAnswer(event.target.value.slice(0, MAX_CHARS))}
+            rows={10}
+            disabled={submit.isPending}
+            placeholder="Write in your own words. Draft is saved as you type."
+            className="mt-2 w-full resize-y rounded-xl border-2 border-rb-swan bg-white p-4 text-[15px] leading-7 text-rb-eel outline-none focus:border-rb-macaw disabled:opacity-70"
+          />
+        </label>
+        <div className="mt-1 flex justify-between text-xs text-rb-wolf">
+          <span>{tooShort ? `At least ${MIN_CHARS} characters` : "Ready to submit"}</span>
+          <span className="tabular-nums">
+            {length} / {MAX_CHARS}
+          </span>
+        </div>
 
-      <div className="mt-8 border-t-2 border-rb-swan pt-6">
-        <p className="font-extrabold text-rb-eel">Honor code</p>
-        <p className="mt-1 text-sm text-rb-wolf">
-          By submitting, you confirm this reflection is your own words and your own experience.
-        </p>
-        <TactileButton
-          variant="macaw"
-          className="mt-5"
-          disabled={tooShort || submit.isPending}
-          onClick={() => submit.mutate()}
-        >
-          {submit.isPending ? (
-            <>
-              <Loader2 className="size-4 animate-spin" /> grading…
-            </>
-          ) : (
-            <>
-              submit
-              <ArrowRight className="size-4" />
-            </>
-          )}
-        </TactileButton>
-        {tooShort ? (
-          <p className="mt-2 text-xs text-rb-wolf">Write at least {MIN_CHARS} characters to submit.</p>
-        ) : null}
-      </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-rb-swan pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-rb-wolf">
+            <strong className="text-rb-eel">Honor code:</strong> by submitting you confirm this is your own words and
+            experience.
+          </p>
+          <TactileButton
+            variant="macaw"
+            size="sm"
+            disabled={tooShort || submit.isPending}
+            onClick={() => submit.mutate()}
+          >
+            {submit.isPending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> grading…
+              </>
+            ) : (
+              <>
+                submit
+                <ArrowRight className="size-4" />
+              </>
+            )}
+          </TactileButton>
+        </div>
+      </section>
     </div>
   )
 }

@@ -136,11 +136,11 @@ export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) 
             </h3>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate font-rb-display text-sm font-extrabold lowercase">{title}</h2>
+            <h2 className="truncate text-xs font-extrabold leading-snug text-foreground first-letter:uppercase sm:text-sm">{title}</h2>
             {chip ?? null}
           </div>
           {hint ? (
-            <p className="mt-0.5 text-[11px] font-medium leading-snug text-muted-foreground">
+            <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground" title={typeof hint === "string" ? hint : undefined}>
               {hint}
             </p>
           ) : null}

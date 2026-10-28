@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import {
   Link,
   Navigate,
@@ -345,58 +346,139 @@ export function TopicBook({ state, face, lip, reading = false }) {
       <ellipse cx="66" cy="104" rx="54" ry="8" fill="rgb(0 0 0 / 0.12)" />
 
       {open ? (
-        <g transform="rotate(-6 66 66)" strokeLinejoin="round" strokeLinecap="round">
-          <path
-            d="M 4 42 C 28 36 50 38 66 48 C 82 38 104 36 128 42 L 129 90 C 106 84 84 86 66 96 C 48 86 26 84 3 90 Z"
-            fill={face}
-            stroke={BOOK_INK}
-            strokeWidth="2.5"
-          />
-          <path d="M 9 84 C 28 78 50 80 64 90 L 64 94 C 50 84 28 82 9 88 Z" fill="#e4ddcb" />
-          <path d="M 123 84 C 104 78 82 80 68 90 L 68 94 C 82 84 104 82 123 88 Z" fill="#e4ddcb" />
-          <path
-            d="M 64 44 C 50 34 28 32 9 38 L 9 84 C 28 78 50 80 64 90 Z"
-            fill="#fdfcf8"
-            stroke={BOOK_INK}
-            strokeWidth="2.5"
-          />
-          <path
-            d="M 68 44 C 82 34 104 32 123 38 L 123 84 C 104 78 82 80 68 90 Z"
-            fill="#fdfcf8"
-            stroke={BOOK_INK}
-            strokeWidth="2.5"
-          />
-          <path d="M 56 42 L 66 46 L 66 90 L 56 84 Z" fill="rgb(44 42 38 / 0.08)" />
-          <g stroke="#b3a88f" strokeWidth="2.4" fill="none">
-            <path d="M 18 46 C 30 42 44 43 55 49" />
-            <path d="M 18 55 C 30 51 44 52 55 58" />
-            <path d="M 18 64 C 28 61 38 61 48 65" />
-            <path d="M 18 73 C 30 69 44 70 55 76" />
-            <path d="M 77 49 C 88 43 102 42 114 46" />
-            <path d="M 77 58 C 88 52 102 51 114 55" />
-            <path d="M 84 65 C 94 61 104 61 114 64" />
-            <path d="M 77 76 C 88 70 102 69 114 73" />
+        <g strokeLinejoin="round" strokeLinecap="round" stroke={BOOK_INK} strokeWidth="2.5">
+          {/* cover behind the pages */}
+          <path d="M 10 34 L 62 30 L 66 34 L 70 30 L 122 34 L 122 92 L 70 96 L 66 100 L 62 96 L 10 92 Z" fill={face} />
+          {/* page stacks */}
+          <path d="M 16 32 Q 40 26 64 34 L 64 94 Q 40 86 16 90 Z" fill="#f4efe2" strokeWidth="2" />
+          <path d="M 116 32 Q 92 26 68 34 L 68 94 Q 92 86 116 90 Z" fill="#f4efe2" strokeWidth="2" />
+          {/* top pages */}
+          <path d="M 20 28 Q 42 22 64 30 L 64 90 Q 42 82 20 86 Z" fill="#fdfcf8" />
+          <path d="M 112 28 Q 90 22 68 30 L 68 90 Q 90 82 112 86 Z" fill="#fdfcf8" />
+          {/* spine gutter */}
+          <path d="M 64 30 L 68 30 L 68 92 L 64 92 Z" fill={lip} strokeWidth="1.5" />
+          {/* text lines on the left page */}
+          <g stroke="#c9bfa6" strokeWidth="2.2" fill="none">
+            <path d="M 28 40 Q 42 36 56 41" />
+            <path d="M 28 50 Q 42 46 56 51" />
+            <path d="M 28 60 Q 40 57 52 60" />
+            <path d="M 28 70 Q 42 66 56 71" />
           </g>
-          <path d="M 86 86 L 95 83 L 95 104 L 90.5 99 L 86 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
+          {/* text lines on the right page */}
+          <g stroke="#c9bfa6" strokeWidth="2.2" fill="none">
+            <path d="M 76 41 Q 90 36 104 40" />
+            <path d="M 76 51 Q 90 46 104 50" />
+            <path d="M 76 61 Q 88 57 100 60" />
+            <path d="M 76 71 Q 90 66 104 70" />
+          </g>
+          {/* ribbon */}
+          <path d="M 98 88 L 106 87 L 106 108 L 102 103 L 98 108 Z" fill="#e0506a" strokeWidth="2" />
         </g>
       ) : (
-        <g strokeLinejoin="round" strokeLinecap="round">
-          <path d="M 6 62 L 66 92 L 126 62 L 126 76 L 66 106 L 6 76 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
-          <path d="M 12 58 L 66 85 L 120 58 L 120 72 L 66 99 L 12 72 Z" fill="#f4efe2" stroke={BOOK_INK} strokeWidth="2" />
-          <g stroke="#d6ccb4" strokeWidth="1.2">
-            <path d="M 16 63 L 66 88" />
-            <path d="M 16 67 L 66 92" />
-            <path d="M 116 63 L 66 88" />
-            <path d="M 116 67 L 66 92" />
+        <g transform="rotate(-7 66 62)" strokeLinejoin="round" strokeLinecap="round" stroke={BOOK_INK} strokeWidth="2.5">
+          {/* page block peeking out on the right and bottom */}
+          <path d="M 40 22 L 104 22 Q 109 22 109 27 L 109 98 Q 109 103 104 103 L 40 103 Z" fill="#f4efe2" />
+          <g stroke="#d6ccb4" strokeWidth="1.2" fill="none">
+            <path d="M 104 30 L 104 96" />
+            <path d="M 100 30 L 100 98" />
           </g>
+          {/* cover */}
+          <rect x="30" y="17" width="70" height="82" rx="5" fill={face} />
+          {/* spine */}
+          <path d="M 30 22 Q 30 17 35 17 L 42 17 L 42 99 L 35 99 Q 30 99 30 94 Z" fill={lip} />
+          <g stroke="rgb(255 255 255 / 0.45)" strokeWidth="1.6" fill="none">
+            <path d="M 33 30 L 39 30" />
+            <path d="M 33 86 L 39 86" />
+          </g>
+          {/* title plate */}
+          <rect x="51" y="34" width="38" height="22" rx="3" fill="#fdfcf8" strokeWidth="2" />
+          <g stroke="#b3a88f" strokeWidth="2" fill="none">
+            <path d="M 57 42 L 83 42" />
+            <path d="M 57 49 L 76 49" />
+          </g>
+          {/* cover sheen */}
+          <path d="M 50 66 L 92 66" stroke="rgb(255 255 255 / 0.35)" strokeWidth="2" fill="none" />
+          <path d="M 50 72 L 84 72" stroke="rgb(255 255 255 / 0.35)" strokeWidth="2" fill="none" />
           {reading ? (
-            <path d="M 84 80 L 93 76 L 93 104 L 88.5 99 L 84 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
+            <path d="M 80 96 L 89 96 L 89 113 L 84.5 108 L 80 114 Z" fill="#e0506a" strokeWidth="2" />
           ) : null}
-          <path d="M 6 50 L 66 80 L 126 50 L 126 56 L 66 86 L 6 56 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
-          <path d="M 6 50 L 66 20 L 126 50 L 66 80 Z" fill={face} stroke={BOOK_INK} strokeWidth="2.5" />
-          <path d="M 44 50 L 70 37 L 88 46 L 62 59 Z" fill="rgb(255 255 255 / 0.4)" />
         </g>
       )}
+    </svg>
+  )
+}
+
+/* Exams drawn in the same inked style as the topic books: a clipboard with an
+   answer sheet for a unit exam, a rolled diploma with a ribbon seal for the
+   certification's final exam. `face`/`lip` carry the tone, or greys when locked. */
+export function ExamArt({ grand = false, face, lip, done = false, locked = false }) {
+  const paper = locked ? "#eceae4" : "#fdfcf8"
+  const line = locked ? "#cfcabd" : "#b3a88f"
+
+  if (grand) {
+    return (
+      <svg
+        className="absolute inset-0 size-full transition-transform duration-200 group-hover:-translate-y-1"
+        viewBox="0 0 132 116"
+        preserveAspectRatio="xMidYMax meet"
+        aria-hidden="true"
+      >
+        <ellipse cx="66" cy="106" rx="56" ry="8" fill="rgb(0 0 0 / 0.12)" />
+        <g strokeLinejoin="round" strokeLinecap="round" stroke={BOOK_INK} strokeWidth="2.5">
+          {/* diploma scroll */}
+          <path d="M 18 40 L 104 40 L 104 92 L 18 92 Z" fill={paper} />
+          <ellipse cx="18" cy="66" rx="8" ry="26" fill={lip} />
+          <ellipse cx="104" cy="66" rx="8" ry="26" fill={face} />
+          <ellipse cx="104" cy="66" rx="3" ry="11" fill={paper} strokeWidth="2" />
+          <g stroke={line} strokeWidth="2.4" fill="none">
+            <path d="M 32 54 L 90 54" />
+            <path d="M 32 64 L 80 64" />
+            <path d="M 32 74 L 70 74" />
+          </g>
+          {/* ribbon seal */}
+          <path d="M 76 84 L 70 108 L 78 103 L 84 110 L 86 86 Z" fill={lip} />
+          <path d="M 92 84 L 98 108 L 90 103 L 84 110 L 82 86 Z" fill={face} />
+          <circle cx="84" cy="80" r="13" fill={locked ? "#d8d4ca" : "#f5b72f"} />
+          <circle cx="84" cy="80" r="7" fill="none" stroke={locked ? "#b5b0a4" : "#c98a12"} strokeWidth="2" />
+          {done ? <path d="M 79 80 L 83 84 L 90 76" fill="none" stroke={BOOK_INK} strokeWidth="2.6" /> : null}
+        </g>
+      </svg>
+    )
+  }
+
+  return (
+    <svg
+      className="absolute inset-0 size-full transition-transform duration-200 group-hover:-translate-y-1"
+      viewBox="0 0 132 116"
+      preserveAspectRatio="xMidYMax meet"
+      aria-hidden="true"
+    >
+      <ellipse cx="66" cy="106" rx="46" ry="7" fill="rgb(0 0 0 / 0.12)" />
+      <g transform="rotate(-5 66 62)" strokeLinejoin="round" strokeLinecap="round" stroke={BOOK_INK} strokeWidth="2.5">
+        {/* board */}
+        <rect x="30" y="18" width="72" height="88" rx="7" fill={face} />
+        <rect x="36" y="26" width="60" height="74" rx="3" fill={paper} strokeWidth="2" />
+        {/* clip */}
+        <rect x="50" y="11" width="32" height="14" rx="4" fill={lip} />
+        <rect x="59" y="7" width="14" height="8" rx="3" fill={paper} strokeWidth="2" />
+        {/* answer rows: tick boxes and lines */}
+        {[42, 58, 74].map((y, row) => (
+          <g key={y}>
+            <rect x="43" y={y - 5} width="10" height="10" rx="2" fill={paper} strokeWidth="2" />
+            {(done || row < 1) && !locked ? (
+              <path d={`M 45 ${y} L 48 ${y + 3} L 52 ${y - 3}`} fill="none" stroke={lip} strokeWidth="2.4" />
+            ) : null}
+            <path d={`M 59 ${y} L ${row === 2 ? 78 : 88} ${y}`} stroke={line} strokeWidth="2.4" fill="none" />
+          </g>
+        ))}
+        <path d="M 43 90 L 70 90" stroke={line} strokeWidth="2.4" fill="none" />
+        {/* pencil */}
+        <g transform="rotate(38 96 86)">
+          <rect x="90" y="56" width="10" height="38" rx="2" fill="#f5b72f" strokeWidth="2" />
+          <path d="M 90 94 L 95 104 L 100 94 Z" fill="#f4e3c3" strokeWidth="2" />
+          <rect x="90" y="52" width="10" height="6" rx="1.5" fill="#e0506a" strokeWidth="2" />
+        </g>
+      </g>
     </svg>
   )
 }
@@ -510,6 +592,14 @@ function PathNode({ node, index, onSelect, onLocked }) {
                 lip={locked ? faces.lip : tone.lipVar}
                 reading={!locked && !done && node.progress > 0}
               />
+            ) : node.kind === "exam" ? (
+              <ExamArt
+                grand={Boolean(node.grand)}
+                face={locked ? faces.top : tone.faceVar}
+                lip={locked ? faces.lip : tone.lipVar}
+                done={done}
+                locked={locked}
+              />
             ) : (
               <Plinth
                 top={faces.top}
@@ -522,13 +612,22 @@ function PathNode({ node, index, onSelect, onLocked }) {
             )}
 
 
-            {bookish ? (
-              locked ? (
+            {bookish || node.kind === "exam" ? (
+              locked || (node.kind === "exam" && (done || retakeable)) ? (
                 <span
-                  className="absolute left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full bg-rb-snow text-rb-hare shadow-[0_2px_4px_rgb(0_0_0/0.18)]"
+                  className={`absolute left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full bg-rb-snow shadow-[0_2px_4px_rgb(0_0_0/0.18)] ${
+                    locked ? "text-rb-hare" : retakeable ? "text-rb-macaw" : "text-rb-leaf"
+                  }`}
                   style={{ top: dims.lift - 18 }}
+                  title={locked ? "Locked" : retakeable ? "Passed — you can retake it" : "Passed"}
                 >
-                  <Lock className="size-5" aria-hidden="true" />
+                  {locked ? (
+                    <Lock className="size-5" aria-hidden="true" />
+                  ) : retakeable ? (
+                    <RotateCcw className="size-5" aria-hidden="true" />
+                  ) : (
+                    <Check className="size-5" aria-hidden="true" />
+                  )}
                 </span>
               ) : null
             ) : (
@@ -536,61 +635,18 @@ function PathNode({ node, index, onSelect, onLocked }) {
               className={`absolute left-1/2 grid -translate-x-1/2 place-items-center drop-shadow-[0_6px_3px_rgb(0_0_0/0.18)] ${iconInk}`}
               style={{ top: 0, width: dims.w, height: dims.lift + dims.plinthH / 2 }}
             >
-              {node.grand ? (
-                <span className="relative grid place-items-center">
-                  <Icon className="size-14" aria-hidden="true" />
-
-                  {locked || retakeable || done ? (
-                    <span
-                      className={`absolute -bottom-1.5 -right-3 grid size-7 place-items-center rounded-full border-2 border-rb-snow bg-rb-snow shadow-[0_2px_4px_rgb(0_0_0/0.18)] ${
-                        locked
-                          ? "text-rb-hare"
-                          : retakeable
-                            ? "text-rb-macaw"
-                            : "text-rb-leaf"
-                      }`}
-                    >
-                      {locked ? (
-                        <Lock className="size-4" aria-hidden="true" />
-                      ) : retakeable ? (
-                        <RotateCcw className="size-4" aria-hidden="true" />
-                      ) : (
-                        <Check className="size-4" aria-hidden="true" />
-                      )}
-                    </span>
-                  ) : null}
-                </span>
-              ) : locked ? (
-                <Lock className="size-11" aria-hidden="true" />
-              ) : retakeable ? (
-                <RotateCcw className="size-11" aria-hidden="true" />
-              ) : done ? (
-                <Check className="size-12" aria-hidden="true" />
-              ) : (
-                <Icon className="size-11" aria-hidden="true" />
-              )}
-
-              {node.art && !locked ? (
-                <img
-                  src={node.art}
-                  alt=""
-                  className={`absolute object-contain ${node.grand ? "size-20" : "size-14"}`}
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none"
-                  }}
-                />
-              ) : null}
+              {locked ? <Lock className="size-11" aria-hidden="true" /> : <Icon className="size-11" aria-hidden="true" />}
             </span>
             )}
 
             {node.urgent && !locked ? (
-              <motion.span
-                className="absolute right-1 size-5 rounded-full bg-rb-cardinal ring-4 ring-rb-polar"
-                style={{ top: dims.lift - 4 }}
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                aria-hidden="true"
-              />
+              <span
+                className="absolute right-1 grid size-7 place-items-center rounded-full bg-rb-polar shadow-sm"
+                style={{ top: dims.lift - 6 }}
+                title={`${node.urgent} lesson${node.urgent === 1 ? "" : "s"} here need${node.urgent === 1 ? "s" : ""} review first (lowest mastery)`}
+              >
+                <PriorityBookmark tag="CRITICAL_PRIORITY" size={16} />
+              </span>
             ) : null}
           </button>
         </motion.div>
@@ -617,6 +673,11 @@ function PathNode({ node, index, onSelect, onLocked }) {
 
           {node.meta ? (
             <p className="mt-1 text-[12px] font-bold text-rb-wolf">{node.meta}</p>
+          ) : null}
+          {node.urgent && !locked ? (
+            <p className="mt-0.5 text-[11px] font-bold text-rb-cardinal-lip">
+              {node.urgent} to review first
+            </p>
           ) : null}
 
           {node.progress != null && node.progress > 0 && node.progress < 100 ? (
@@ -766,9 +827,10 @@ function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
       progress: total === 0 ? null : (middle.done / total) * 100,
       done,
       empty: total === 0,
-      urgent: middle.lessons.some(
+      // How many lessons here are the learner's lowest mastery (0 = no flag).
+      urgent: middle.lessons.filter(
         (lesson) => lesson.priorityTag === "CRITICAL_PRIORITY",
-      ),
+      ).length,
       index,
     }
   })
