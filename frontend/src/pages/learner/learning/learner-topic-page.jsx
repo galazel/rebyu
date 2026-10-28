@@ -1113,55 +1113,68 @@ function AssessmentView({
 
       </div>
 
-      <section className="relative overflow-hidden bg-rb-feather px-5 py-12 sm:px-10 lg:px-14">
-        <span aria-hidden="true" className="pointer-events-none absolute -left-16 -top-20 size-64 rounded-full bg-white/10" />
-        <span aria-hidden="true" className="pointer-events-none absolute -right-10 top-10 size-48 rounded-full bg-white/10" />
-        <span aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 size-72 rounded-full bg-white/5" />
-        <div className="relative w-full">
-          <Reveal amount={0.2}>
-            <p className="font-rb-display text-2xl font-extrabold text-white">Unit exam</p>
-            <p className="mt-1 text-sm font-bold text-white/80">
-              {exam.title} · {exam.totalQuestions} questions
-            </p>
-          </Reveal>
+      <div className="px-5 py-16 sm:px-10 lg:px-14">
+      <Reveal
+        variants={popIn}
+        amount={0}
+        className="mx-auto w-full max-w-6xl rounded-rb-card border-2 border-rb-swan bg-rb-snow p-8 shadow-[var(--comic-shadow-sm)] sm:p-12"
+      >
+        <p className="rb-display rb-display-sm">assessment</p>
 
-          <Reveal variants={popIn} amount={0} className="mt-6 rounded-rb-card border-2 border-rb-swan bg-rb-snow p-6 sm:p-8">
-            <LevelMeter standing={standing} latest={latest} best={best} taken={taken} />
+        <motion.span
+          className="mt-5 block h-1.5 rounded-full bg-rb-fox"
+          initial={{ width: 0 }}
+          animate={{ width: "6rem" }}
+          transition={{ duration: 0.5, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+          aria-hidden="true"
+        />
 
-            <p className="rb-body">
-              This exam measures your level across the whole topic. Reach proficiency {PROFICIENT_RATING} to pass —
-              unlimited chances, and your best sitting is the one that counts.
-            </p>
+        <p className="rb-body-lg mt-7">
+          This assessment measures your level across the whole topic. Reach proficiency{" "}
+          {PROFICIENT_RATING} to pass it — you have unlimited chances, and your best sitting is
+          the one that counts. Good luck!
+        </p>
 
-            <StandingBand standing={standing} latest={latest} best={best} goal="pass this assessment" />
+        <StandingBand standing={standing} latest={latest} best={best} goal="pass this assessment" />
 
-            <p className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-semibold text-rb-wolf">
-              <span className="inline-flex items-center gap-1.5"><ClipboardCheck className="size-4" aria-hidden="true" />{exam.totalQuestions} questions</span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5"><Clock className="size-4" aria-hidden="true" />{exam.durationMinutes ? `${exam.durationMinutes} min` : "Self-paced"}</span>
-              <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" aria-hidden="true" />Pass at {PROFICIENT_RATING}</span>
-            </p>
+        <ul className="mt-8 grid gap-3 sm:grid-cols-3">
+          {[
+            [ClipboardCheck, `${exam.totalQuestions} questions`],
+            [CheckCircle2, `proficiency ${PROFICIENT_RATING} to pass`],
+            [Clock, exam.durationMinutes ? `${exam.durationMinutes} minutes` : "Unlimited attempts"],
+          ].map(([Icon, label]) => (
+            <li
+              key={label}
+              className="flex items-center gap-3 rounded-rb-card border-2 border-rb-swan bg-rb-polar p-4"
+            >
+              <Icon className="size-5 shrink-0 text-rb-fox-lip" aria-hidden="true" />
+              <span className="text-sm font-bold text-rb-eel">{label}</span>
+            </li>
+          ))}
+        </ul>
 
-            <div className="mt-5 flex flex-col items-center gap-3">
-              <TactileButton asChild variant="macaw" size="lg">
-                <Link to={`/learner/assessments/${exam.examId}`} state={returnState(location)}>
-                  {taken ? "retake exam" : "start exam"}
-                  <ArrowRight className="size-4" />
-                </Link>
-              </TactileButton>
-              {taken ? (
-                <Link
-                  to={`/learner/assessments/${exam.examId}/history`}
-                  className="text-sm font-bold text-rb-macaw-lip underline decoration-dotted underline-offset-4 hover:text-rb-macaw"
-                >
-                  view past attempts
-                </Link>
-              ) : null}
-            </div>
-          </Reveal>
+        <div className="mt-9 flex flex-wrap items-center gap-4">
+          <TactileButton asChild variant="fox" className="w-fit">
+            <Link
+              to={`/learner/assessments/${exam.examId}`}
+              state={returnState(location)}
+            >
+              {taken ? "retake exam" : "start exam"}
+              <ArrowRight className="size-4" />
+            </Link>
+          </TactileButton>
+
+          {taken ? (
+            <Link
+              to={`/learner/assessments/${exam.examId}/history`}
+              className="text-sm font-bold text-rb-fox-lip underline decoration-dotted underline-offset-4 hover:text-rb-fox"
+            >
+              view past attempts
+            </Link>
+          ) : null}
         </div>
-      </section>
+      </Reveal>
+      </div>
     </div>
   )
 }
