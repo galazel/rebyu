@@ -92,6 +92,8 @@ public interface AssessmentAttemptAnswerRepository
             FROM assessment_attempt_answers a
             JOIN assessment_attempt_questions aq ON aq.attempt_question_id = a.attempt_question_id
             JOIN assessment_attempts t ON t.assessment_attempt_id = a.assessment_attempt_id
+            JOIN exams ex ON ex.exam_id = t.exam_id
+            JOIN exam_types et ON et.exam_type_id = ex.exam_type_id
             JOIN questions q ON q.question_id = aq.source_question_id
             JOIN lessons l ON l.lesson_id = q.lesson_id
             JOIN middle_categories m ON m.middle_category_id = l.middle_category_id
@@ -99,6 +101,7 @@ public interface AssessmentAttemptAnswerRepository
             JOIN certifications c ON c.certification_id = j.certification_id
             WHERE t.learner_id IN :learnerIds
               AND j.certification_id IN :certificationIds
+              AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
               AND t.submitted_at IS NOT NULL
               AND t.submitted_at >= :from AND t.submitted_at <= :to
               AND a.is_correct IS NOT NULL

@@ -47,7 +47,28 @@ public class DepartmentHeadAssignmentService {
         } else {
             authorities = departmentHeadAssignmentRepository.findAll();
         }
-        return authorities.stream().map(departmentHeadAssignmentMapper::toDto).toList();
+        List<DepartmentHeadAssignmentDto> dtos =
+                authorities.stream().map(departmentHeadAssignmentMapper::toDto).toList();
+        attachProfiles(authorities, dtos);
+        return dtos;
+    }
+
+    private void attachProfiles(List<DepartmentHeadAssignment> authorities, List<DepartmentHeadAssignmentDto> dtos) {
+        for (int i = 0; i < authorities.size(); i++) {
+            DepartmentHeadAssignment a = authorities.get(i);
+            if (a.getUser() == null || a.getDepartment() == null || a.getDepartment().getInstitution() == null) {
+                continue;
+            }
+            List<DepartmentHead> heads = departmentHeadRepository.findByInstitution_InstitutionIdAndUser_UserId(
+                    a.getDepartment().getInstitution().getInstitutionId(), a.getUser().getUserId());
+            if (!heads.isEmpty()) {
+                DepartmentHead head = heads.get(0);
+                DepartmentHeadAssignmentDto dto = dtos.get(i);
+                dto.setFirstName(head.getFirstName());
+                dto.setLastName(head.getLastName());
+                dto.setHeadRole(head.getHeadRole() != null ? head.getHeadRole().name() : null);
+            }
+        }
     }
 
     @Transactional(readOnly = true)

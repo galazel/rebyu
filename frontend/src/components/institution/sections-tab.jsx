@@ -504,6 +504,7 @@ export function SectionDialog({
   institutionCertId,
   programId = null,
   certifications = [],
+  programs = [],
 }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(section?.sectionName ?? "")
@@ -514,6 +515,11 @@ export function SectionDialog({
     institutionCertId ??
     (availableCerts.length > 0 ? availableCerts[0].institutionCertId : null)
   const [selectedCertId, setSelectedCertId] = useState(initialCertId)
+  const availablePrograms = !section && programId == null && Array.isArray(programs) ? programs : []
+  const [selectedProgramId, setSelectedProgramId] = useState(
+    availablePrograms.length === 1 ? availablePrograms[0].programId : null
+  )
+  const effectiveProgramId = programId ?? selectedProgramId
   const [error, setError] = useState("")
 
   const save = useMutation({
@@ -527,8 +533,8 @@ export function SectionDialog({
         : createGroupSection(departmentId, {
             sectionName: name.trim(),
             description: description.trim() || null,
-            institutionCertId: programId != null ? null : selectedCertId,
-            programId,
+            institutionCertId: effectiveProgramId != null ? null : selectedCertId,
+            programId: effectiveProgramId,
           }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
@@ -559,7 +565,34 @@ export function SectionDialog({
               autoFocus
             />
           </div>
-          {!section && programId == null && availableCerts.length > 1 ? (
+          {availablePrograms.length ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="section-program">Program</Label>
+              <Select
+                value={selectedProgramId != null ? String(selectedProgramId) : undefined}
+                onValueChange={(val) => {
+                  setSelectedProgramId(Number(val))
+                  setError("")
+                }}
+              >
+                <SelectTrigger id="section-program" className="w-full">
+                  <SelectValue placeholder="Choose the program this class belongs to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePrograms.map((program) => (
+                    <SelectItem key={program.programId} value={String(program.programId)}>
+                      {program.programCode ? `${program.programCode} · ` : ""}
+                      {program.programName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The section shows under this program on the Programs page and in its workspace.
+              </p>
+            </div>
+          ) : null}
+          {!section && effectiveProgramId == null && availableCerts.length > 1 ? (
             <div className="space-y-1.5">
               <Label htmlFor="section-cert">Certification</Label>
               <Select
@@ -603,6 +636,8 @@ export function SectionDialog({
           <Button
             onClick={() => {
               if (!name.trim()) return setError("Enter a section name.")
+              if (availablePrograms.length && selectedProgramId == null)
+                return setError("Choose the program this section belongs to.")
               return save.mutate()
             }}
             disabled={save.isPending}

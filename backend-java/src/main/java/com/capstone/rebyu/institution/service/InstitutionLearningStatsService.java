@@ -5,6 +5,7 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.LearnerAttemptStats;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.MonthlyTrendPointDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.TopicDifficultyDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationTopicsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationAssessmentsDto;
@@ -114,12 +115,24 @@ public class InstitutionLearningStatsService {
                     List.of());
         }
 
+        // Member and summary figures count only work on the certifications this
+        // institution licenses, so they agree with the per-certification rows.
+        Set<Long> certificationIds = institutionCerts.stream()
+                .map(InstitutionCertificate::getCertification)
+                .filter(java.util.Objects::nonNull)
+                .map(certification -> certification.getCertificationId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (certificationIds.isEmpty()) {
+            certificationIds = Set.of(-1L);
+        }
+
         Map<Long, LearnerAttemptStats> attemptStats = attemptRepository
-                .statsByLearnerIds(learnerIds, AssessmentAttempt.Status.SUBMITTED, start, end).stream()
+                .statsByLearnerIdsInCertifications(learnerIds, AssessmentAttempt.Status.SUBMITTED, start, end, certificationIds).stream()
                 .collect(Collectors.toMap(LearnerAttemptStats::getLearnerId, Function.identity()));
 
         Map<Long, Long> lessonsDone = completedLessonRepository
-                .lessonsCompletedByLearnerIds(learnerIds, start, end).stream()
+                .lessonsCompletedByLearnerIdsInCertifications(learnerIds, start, end, certificationIds).stream()
                 .collect(Collectors.toMap(LessonsDone::getLearnerId, LessonsDone::getLessonsCompleted));
 
         Map<Long, Learner> learnerById = learnerRepository.findByLearnerIdIn(learnerIds).stream()
@@ -145,18 +158,118 @@ public class InstitutionLearningStatsService {
                 .thenComparing(MemberLearningStatsDto::name,
                         Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        Set<Long> certificationIds = institutionCerts.stream()
-                .map(InstitutionCertificate::getCertification)
-                .filter(java.util.Objects::nonNull)
-                .map(certification -> certification.getCertificationId())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
         return new InstitutionLearningStatsDto(
                 summary(members, seatsTotal, seatsUsed),
                 members,
                 certificationStats,
                 hardestTopics(learnerIds, certificationIds, start, end),
-                hardestAssessments(learnerIds, certificationIds, start, end));
+                hardestAssessments(learnerIds, certificationIds, start, end),
+                monthlyTrend(learnerIds, certificationIds, start, end),
+                readinessDistribution(members));
+    }
+
+    private static final int MAX_TREND_MONTHS = 24;
+    private static final long DAILY_TREND_MAX_DAYS = 62;
+
+    /* The cohort's work across the selected window, bucketed by day for a
+       window of two months or less (a month or a week) and by month otherwise.
+       Each point's `month` is the bucket key: yyyy-MM-dd or yyyy-MM. An
+       open-ended window starts at the first month with work, capped to 24. */
+    private List<MonthlyTrendPointDto> monthlyTrend(
+            Collection<Long> learnerIds, Collection<Long> certificationIds,
+            LocalDateTime from, LocalDateTime to) {
+        var attempts = attemptRepository.attemptPoints(
+                learnerIds, AssessmentAttempt.Status.SUBMITTED, from, to, certificationIds);
+        var lessons = completedLessonRepository.completionPoints(learnerIds, from, to, certificationIds);
+
+        java.time.LocalDate today = java.time.LocalDate.now();
+        boolean bounded = !from.equals(ALL_TIME_START) && !to.equals(ALL_TIME_END);
+        boolean daily = bounded
+                && java.time.temporal.ChronoUnit.DAYS.between(from.toLocalDate(), to.toLocalDate()) < DAILY_TREND_MAX_DAYS;
+
+        List<String> keys = new ArrayList<>();
+        if (daily) {
+            java.time.LocalDate last = to.toLocalDate().isAfter(today) ? today : to.toLocalDate();
+            for (var d = from.toLocalDate(); !d.isAfter(last); d = d.plusDays(1)) keys.add(d.toString());
+        } else {
+            java.time.YearMonth first = from.equals(ALL_TIME_START) ? null : java.time.YearMonth.from(from);
+            java.time.YearMonth last = to.equals(ALL_TIME_END) ? null : java.time.YearMonth.from(to);
+            java.time.YearMonth now = java.time.YearMonth.now();
+            if (last == null || last.isAfter(now)) last = now;
+            if (first == null) {
+                first = java.util.stream.Stream.concat(
+                                attempts.stream().map(AssessmentAttemptRepository.AttemptPoint::getSubmittedAt),
+                                lessons.stream().map(LearnerCompletedLessonRepository.CompletionPoint::getCompletedAt))
+                        .filter(java.util.Objects::nonNull)
+                        .map(java.time.YearMonth::from)
+                        .min(Comparator.naturalOrder())
+                        .orElse(last);
+            }
+            if (first.plusMonths(MAX_TREND_MONTHS - 1L).isBefore(last)) first = last.minusMonths(MAX_TREND_MONTHS - 1L);
+            for (var m = first; !m.isAfter(last); m = m.plusMonths(1)) keys.add(m.toString());
+        }
+        if (keys.isEmpty()) return List.of();
+
+        java.util.function.Function<LocalDateTime, String> keyOf = daily
+                ? at -> at.toLocalDate().toString()
+                : at -> java.time.YearMonth.from(at).toString();
+
+        Map<String, long[]> counts = new LinkedHashMap<>();
+        Map<String, double[]> scores = new java.util.HashMap<>();
+        Map<String, Set<Long>> active = new java.util.HashMap<>();
+        for (String key : keys) {
+            counts.put(key, new long[4]); // attempts, passed, scored, lessons
+            scores.put(key, new double[1]);
+            active.put(key, new java.util.HashSet<>());
+        }
+        for (var a : attempts) {
+            if (a.getSubmittedAt() == null) continue;
+            String key = keyOf.apply(a.getSubmittedAt());
+            long[] c = counts.get(key);
+            if (c == null) continue;
+            c[0]++;
+            if (Boolean.TRUE.equals(a.getPassed())) c[1]++;
+            if (a.getPercentage() != null) {
+                c[2]++;
+                scores.get(key)[0] += a.getPercentage().doubleValue();
+            }
+            active.get(key).add(a.getLearnerId());
+        }
+        for (var l : lessons) {
+            if (l.getCompletedAt() == null) continue;
+            String key = keyOf.apply(l.getCompletedAt());
+            long[] c = counts.get(key);
+            if (c == null) continue;
+            c[3]++;
+            active.get(key).add(l.getLearnerId());
+        }
+        List<MonthlyTrendPointDto> out = new ArrayList<>();
+        counts.forEach((key, c) -> out.add(new MonthlyTrendPointDto(
+                key,
+                c[0],
+                c[2] == 0 ? null : (int) Math.round(scores.get(key)[0] / c[2]),
+                c[0] == 0 ? null : (int) Math.round(100.0 * c[1] / c[0]),
+                c[3],
+                active.get(key).size())));
+        return out;
+    }
+
+    /* Readiness band per learner, from marks and syllabus coverage together:
+       exam_ready needs a strong average AND most lessons done. */
+    private static Map<String, Long> readinessDistribution(List<MemberLearningStatsDto> members) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String band : List.of("needs_review", "developing", "nearly_ready", "exam_ready")) counts.put(band, 0L);
+        for (MemberLearningStatsDto m : members) {
+            int score = m.averageScore() == null ? 0 : m.averageScore();
+            double progress = m.averageProgress() == null ? 0 : m.averageProgress().doubleValue();
+            String band;
+            if (m.gradedAttempts() == 0 || score < 50) band = "needs_review";
+            else if (score >= 75 && progress >= 80) band = "exam_ready";
+            else if (score >= 60 && progress >= 50) band = "nearly_ready";
+            else band = "developing";
+            counts.merge(band, 1L, Long::sum);
+        }
+        return counts;
     }
 
     private List<InstitutionCertificate> seatRowsBehind(

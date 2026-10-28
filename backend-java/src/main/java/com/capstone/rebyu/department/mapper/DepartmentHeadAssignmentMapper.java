@@ -10,6 +10,10 @@ public interface DepartmentHeadAssignmentMapper {
     @Mapping(source = "department.departmentId", target = "departmentId")
     @Mapping(source = "user.userId", target = "userId")
     @Mapping(source = "assignedBy.userId", target = "assignedBy")
+    @Mapping(source = "user.email", target = "email")
+    @Mapping(target = "firstName", ignore = true)
+    @Mapping(target = "lastName", ignore = true)
+    @Mapping(target = "headRole", ignore = true)
     DepartmentHeadAssignmentDto toDto(DepartmentHeadAssignment entity);
 
     @Mapping(source = "departmentId", target = "department.departmentId")

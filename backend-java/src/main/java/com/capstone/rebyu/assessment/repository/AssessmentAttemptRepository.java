@@ -125,6 +125,51 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
+    /** {@link #statsByLearnerIds} limited to papers of the given certifications. */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT a.learnerId AS learnerId,
+                   COUNT(a) AS attempts,
+                   SUM(CASE WHEN a.passed = TRUE THEN 1 ELSE 0 END) AS passedAttempts,
+                   AVG(a.percentage) AS averageScore,
+                   MAX(a.submittedAt) AS lastSubmittedAt
+            FROM AssessmentAttempt a
+            WHERE a.learnerId IN :learnerIds AND a.status = :status
+              AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.submittedAt >= :from AND a.submittedAt <= :to
+              AND a.exam.certification.certificationId IN :certificationIds
+            GROUP BY a.learnerId
+            """)
+    List<LearnerAttemptStats> statsByLearnerIdsInCertifications(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds);
+
+    interface AttemptPoint {
+        Long getLearnerId();
+        java.time.LocalDateTime getSubmittedAt();
+        java.math.BigDecimal getPercentage();
+        Boolean getPassed();
+    }
+
+    /** Every graded attempt in the window, for bucketing into a month-by-month trend. */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT a.learnerId AS learnerId, a.submittedAt AS submittedAt,
+                   a.percentage AS percentage, a.passed AS passed
+            FROM AssessmentAttempt a
+            WHERE a.learnerId IN :learnerIds AND a.status = :status
+              AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.submittedAt >= :from AND a.submittedAt <= :to
+              AND a.exam.certification.certificationId IN :certificationIds
+            """)
+    List<AttemptPoint> attemptPoints(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds);
+
     interface CertificationScoreRow {
         Long getCertificationId();
         Double getAverageScore();
@@ -139,6 +184,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
                    SUM(CASE WHEN a.passed = true THEN 1 ELSE 0 END) AS passedAttempts
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds
+              AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL
               AND a.submittedAt >= :from AND a.submittedAt <= :to
@@ -175,6 +221,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
                    COUNT(DISTINCT a.learnerId) AS learners
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds
+              AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
               AND a.exam.certification.certificationId IN :certificationIds
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL

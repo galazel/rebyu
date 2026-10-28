@@ -568,7 +568,7 @@ export default function InstitutionDepartmentWorkspacePage() {
         }
         subtitle={
           program
-            ? program.description || group?.departmentName
+            ? undefined
             : group?.departmentDescription || group?.description || "Your assigned group workspace."
         }
         actions={<Badge>{program ? "Program" : "Assigned department"}</Badge>}

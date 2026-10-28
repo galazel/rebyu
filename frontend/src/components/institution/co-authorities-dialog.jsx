@@ -289,7 +289,7 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
               Pending Invitations
             </p>
             <p className="text-2xl font-black text-foreground">
-              {invitationsQuery.isLoading ? "—" : pendingInvitations.length}
+              {!isOwner || invitationsQuery.isLoading ? "—" : pendingInvitations.length}
             </p>
           </div>
         </div>
@@ -530,8 +530,9 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
                 <TableBody>
                   {activeAuthorities.map((auth) => {
                     const profile = memberLookup.get(Number(auth.userId))
-                    const displayName = profile?.name ?? `User #${auth.userId}`
-                    const email = profile?.email ?? "—"
+                    const ownName = [auth.firstName, auth.lastName].filter(Boolean).join(" ").trim()
+                    const displayName = profile?.name ?? (ownName || auth.email || `User #${auth.userId}`)
+                    const email = profile?.email ?? auth.email ?? "—"
                     return (
                       <TableRow key={auth.departmentHeadAssignmentId}>
                         <TableCell className="text-xs font-semibold text-foreground">

@@ -39,6 +39,7 @@ import {
   getDepartmentHeadCodeInvitations,
   getDepartments,
   getGroupLearnerRoster,
+  getDepartmentPrograms,
   getGroupSections,
   getMyInstitutionInvoices,
 } from "@/services/institutionService.js"
@@ -95,6 +96,9 @@ const TrendingUpIconSafe = ({ className = "", "aria-hidden": ariaHidden }) => (
 
 /* #3 Readiness & Mastery Analytics: the four readiness bands, in the order the
    backend names them, with the labels a head reads them by. */
+// Average completion a section should reach; same 60% line the original section tile used.
+const SECTION_BENCHMARK = 60
+
 const READINESS_TIERS = [
   { band: "needs_review", label: "Needs review" },
   { band: "developing", label: "Developing" },
@@ -270,9 +274,35 @@ export default function DepartmentHeadDashboardPage() {
     [statsQuery.data]
   )
   const cohortPredictedPass = statsQuery.data?.cohortPredictedPass ?? 0
+  /* Points are days (yyyy-MM-dd) for a week or a month, months (yyyy-MM)
+     for a year or longer; the backend picks from the window's length. */
+  const monthlyTrend = useMemo(() => {
+    const rows = Array.isArray(statsQuery.data?.monthlyTrend) ? statsQuery.data.monthlyTrend : []
+    const daily = String(rows[0]?.month ?? "").length === 10
+    const spansYears = rows[0]?.month?.slice(0, 4) !== rows.at(-1)?.month?.slice(0, 4)
+    return rows.map((row) => {
+      const [year, month, day = 1] = String(row.month).split("-").map(Number)
+      const date = new Date(year, month - 1, day)
+      return {
+        ...row,
+        label: date.toLocaleDateString(
+          undefined,
+          daily
+            ? { month: "short", day: "numeric" }
+            : { month: "short", ...(spansYears ? { year: "2-digit" } : {}) }
+        ),
+      }
+    })
+  }, [statsQuery.data])
+  // The export's "mastery trend" sheet reads the same monthly series.
   const masteryTrend = useMemo(
-    () => (Array.isArray(statsQuery.data?.masteryTrend) ? statsQuery.data.masteryTrend : []),
-    [statsQuery.data]
+    () =>
+      monthlyTrend.map((row) => ({
+        week: row.month,
+        cohortMastery: row.averageScore,
+        benchmark: SECTION_BENCHMARK,
+      })),
+    [monthlyTrend]
   )
   const benchmarks = useMemo(
     () => (Array.isArray(statsQuery.data?.benchmarks) ? statsQuery.data.benchmarks : []),
@@ -308,6 +338,14 @@ export default function DepartmentHeadDashboardPage() {
       }
       if (daysSince != null && daysSince >= STALE_DAYS) {
         return `No activity in ${daysSince} days`
+      }
+      // A learner who already earned every assigned credential is done; a low
+      // lifetime attempt average from practice runs is not a reason to call them.
+      const finished =
+        Number(member.assignedCertifications ?? 0) > 0 &&
+        Number(member.completedCertifications ?? 0) >= Number(member.assignedCertifications)
+      if (finished) {
+        return null
       }
       if (member.averageScore != null && member.averageScore < 50) {
         return `Averaging ${member.averageScore}% across ${member.gradedAttempts} attempt${member.gradedAttempts === 1 ? "" : "s"}`
@@ -356,7 +394,8 @@ export default function DepartmentHeadDashboardPage() {
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
     queryFn: () => getDepartmentHeadCodeInvitations(primaryDeptId),
-    enabled: primaryDeptId != null,
+    // Only the institution owner may list invitation codes; anyone else gets 403.
+    enabled: primaryDeptId != null && isOwner,
     retry: 1,
   })
   const headAssignmentsQuery = useQuery({
@@ -378,6 +417,11 @@ export default function DepartmentHeadDashboardPage() {
     [headAssignmentsQuery.data]
   )
 
+  const deptProgramsQuery = useQuery({
+    queryKey: ["department-programs", primaryDeptId],
+    queryFn: () => getDepartmentPrograms(primaryDeptId),
+    enabled: primaryDeptId != null,
+  })
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", primaryDeptId],
     queryFn: () => getGroupSections(primaryDeptId),
@@ -589,13 +633,8 @@ export default function DepartmentHeadDashboardPage() {
     [deptLearners]
   )
 
-  const needingSupport = useMemo(
-    () =>
-      deptLearners.filter(
-        (member) => member.activeCertifications > 0 && Number(member.averageProgress ?? 0) < 30
-      ).length,
-    [deptLearners]
-  )
+  // Same definition as the roster's "flagged" pill and the alert strip.
+  const needingSupport = flaggedCount
 
   const buildCsv = () =>
     toCsv([
@@ -609,11 +648,13 @@ export default function DepartmentHeadDashboardPage() {
         rows: [
           ["Students", deptLearners.length],
           ["Average completion (%)", summary.averageProgress],
-          ["Pass rate (%)", summary.passRate],
+          ["Attempt pass rate (%)", summary.passRate],
           ["Average score (%)", summary.averageScore],
           ["Graded attempts", summary.gradedAttempts],
           ["Lessons completed", summary.lessonsCompleted],
-          ["Needing support", needingSupport],
+          ["Needing support (flagged)", needingSupport],
+          ["Dormant (no activity in 14+ days)", dormantCount],
+          ["Sections", sections.length],
           ["Seats used", summary.seatsUsed],
           ["Seats total", summary.seatsTotal],
         ],
@@ -632,7 +673,7 @@ export default function DepartmentHeadDashboardPage() {
       },
       {
         title: "Programme period comparison",
-        columns: ["Programme", "Current Pass Rate (%)", "Baseline Pass Rate (%)", "Delta Pass Rate", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
+        columns: ["Programme", "Current Certified (%)", "Baseline Certified (%)", "Delta Certified", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
         rows: periodComp.certificationsComparison.map((c) => [
           c.title,
           c.currentPassRate,
@@ -689,55 +730,54 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
-        title: "Cohort mastery by lesson",
-        columns: ["Lesson", "Category", "Cohort mastery (%)", "Band", "Learners assessed"],
-        rows: cohortMastery.map((row) => [
-          row.lessonTitle, row.categoryTitle, row.cohortMastery, row.band, row.learnersAssessed,
-        ]),
-      },
-      {
-        title: "Weak areas",
-        columns: ["Lesson", "Accuracy (%)", "Correct", "Incorrect", "Answered", "Severity", "Learners"],
-        rows: weakAreas.map((row) => [
-          row.lessonTitle, row.accuracyRate, row.correctCount, row.incorrectCount,
-          row.answeredCount, row.severity, row.learners,
-        ]),
-      },
-      {
         title: "Readiness distribution",
         columns: ["Band", "Students"],
         rows: readinessDistribution.map((row) => [row.tier, row.learners]),
       },
       {
-        title: "Predicted pass",
-        columns: ["Learner", "Readiness (%)", "Predicted pass (%)", "Band"],
-        rows: predictedPass.map((row) => [
-          row.name, row.readinessScore, row.predictedPassProbability, row.band,
+        title: `Over time (${monthlyTrend[0]?.month?.length === 10 ? "by day" : "by month"})`,
+        columns: ["Period", "Graded attempts", "Avg score (%)", "Pass rate (%)", "Lessons done", "Active students"],
+        rows: monthlyTrend.map((row) => [
+          row.month, row.gradedAttempts, row.averageScore, row.passRate, row.lessonsCompleted, row.activeLearners,
         ]),
-      },
-      {
-        title: "Mastery trend",
-        columns: ["Week", "Cohort mastery (%)", "Benchmark (%)"],
-        rows: masteryTrend.map((row) => [row.week, row.cohortMastery, row.benchmark]),
       },
       {
         title: "Sections",
-        columns: ["Section", "Learners", "Finished", "Avg completion (%)"],
-        rows: groupStats.map((group) => [
-          group.departmentName, group.learners, group.completedLearners,
-          Math.round(Number(group.averageProgress ?? 0)),
-        ]),
+        columns: ["Section", "Program", "Certification", "Students", "Finished", "Need help", "Avg completion (%)", "Pending invites"],
+        rows: sections.map((section) => {
+          const members = deptLearners.filter((l) => l.sectionId === section.sectionId)
+          const finished = members.filter(
+            (l) =>
+              Number(l.assignedCertifications ?? 0) > 0 &&
+              Number(l.completedCertifications ?? 0) >= Number(l.assignedCertifications)
+          ).length
+          return [
+            section.sectionName,
+            section.programName ?? "",
+            section.certificationTitle ||
+              (deptProgramsQuery.data ?? []).find((p) => p.programId === section.programId)?.certifications?.map((c) => c.title).join(" / ") ||
+              "",
+            Number(section.learnerCount ?? members.length),
+            finished,
+            members.filter((l) => l.flag).length,
+            members.length
+              ? Math.round(members.reduce((sum, l) => sum + Number(l.averageProgress ?? 0), 0) / members.length)
+              : 0,
+            Number(section.pendingInvitationCount ?? 0),
+          ]
+        }),
       },
       {
         title: "Roster",
         columns: [
-          "Learner", "Needs attention", "Completion (%)", "Lessons",
-          "Attempts", "Avg score (%)",
+          "Learner", "Section", "Needs attention", "Completion (%)", "Lessons",
+          "Attempts", "Avg score (%)", "Last activity",
         ],
         rows: deptLearners.map((learner) => [
-          learner.name, learner.flag,
+          learner.name, learner.sectionName ?? "Unassigned", learner.flag ?? "",
           Math.round(Number(learner.averageProgress ?? 0)),
           learner.lessonsCompleted, learner.gradedAttempts, learner.averageScore,
+          learner.lastActivityAt ? String(learner.lastActivityAt).slice(0, 10) : "",
         ]),
       },
     ])
@@ -998,6 +1038,68 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
+        id: "dept-monthly-trend",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 6,
+        element: (
+          <BentoTile col={6} row={2}>
+            <DashboardCardHeader
+              icon={TrendingUpIconSafe}
+              kicker="Over Time"
+              title="How the department worked across the period"
+              hint="Follows the date picker at the top: a year shows months, a month or week shows days."
+            />
+            {monthlyTrend.every((row) => !row.gradedAttempts && !row.lessonsCompleted) ? (
+              <p className="text-sm text-muted-foreground">No graded work or finished lessons in this period.</p>
+            ) : (
+              <div className="grid min-w-0 gap-6 md:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Marks (%)</p>
+                  <TrendLineChart
+                    data={monthlyTrend}
+                    xKey="label"
+                    height={200}
+                    unit="%"
+                    dot
+                    series={[
+                      { key: "averageScore", name: "Average score" },
+                      { key: "passRate", name: "Pass rate" },
+                    ]}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Activity (count)</p>
+                  <TrendLineChart
+                    data={monthlyTrend}
+                    xKey="label"
+                    height={200}
+                    dot
+                    domain={[
+                      0,
+                      Math.max(
+                        1,
+                        Math.ceil(
+                          Math.max(
+                            ...monthlyTrend.map((row) => Math.max(row.gradedAttempts, row.lessonsCompleted))
+                          ) * 1.15
+                        )
+                      ),
+                    ]}
+                    series={[
+                      { key: "gradedAttempts", name: "Graded attempts" },
+                      { key: "lessonsCompleted", name: "Lessons done" },
+                      { key: "activeLearners", name: "Active students" },
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
+          </BentoTile>
+        ),
+      },
+      {
         id: "dept-hard-topics",
         col: 3,
         row: 2,
@@ -1135,17 +1237,17 @@ export default function DepartmentHeadDashboardPage() {
       {
         id: "dept-section-breakdown",
         col: 6,
-        row: 1,
+        row: 2,
         x: 0,
         y: 14,
         element: (
-          <BentoTile col={6} row={1} className="!p-0">
+          <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <DashboardCardHeader
                 icon={Layers}
                 kicker="Section Management"
                 title="Sections & Cohorts"
-                hint="Active classes, learner headcount, pending invitations, and benchmark progress."
+                hint="Click a class to see its students in the roster below. Manage opens it to add or move students."
                 action={
                   primaryDeptId ? (
                     <div className="flex items-center gap-2">
@@ -1157,12 +1259,6 @@ export default function DepartmentHeadDashboardPage() {
                       >
                         <Plus className="size-3.5" aria-hidden="true" />
                         New section
-                      </Button>
-                      <Button asChild size="sm" variant="ghost" className="h-7 text-xs gap-1">
-                        <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
-                          <Layers className="size-3.5" aria-hidden="true" />
-                          Manage in workspace
-                        </Link>
                       </Button>
                     </div>
                   ) : null
@@ -1211,20 +1307,44 @@ export default function DepartmentHeadDashboardPage() {
                         )
                       : 0
                     const pendingCount = Number(section.pendingInvitationCount ?? 0)
+                    const finishedCount = sectionLearners.filter(
+                      (l) =>
+                        Number(l.assignedCertifications ?? 0) > 0 &&
+                        Number(l.completedCertifications ?? 0) >= Number(l.assignedCertifications)
+                    ).length
+                    const needHelpCount = sectionLearners.filter((l) => l.flag).length
+                    const gap = SECTION_BENCHMARK - progress
+                    const showInRoster = () => {
+                      setSelectedSectionFilter(String(section.sectionId))
+                      setRosterStatusFilter("all")
+                      document
+                        .getElementById("dept-learner-table")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
 
                     return (
                       <div
                         key={section.sectionId}
-                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5 transition-colors hover:bg-muted/40"
+                        role="button"
+                        tabIndex={0}
+                        title="Show this class in the roster below"
+                        onClick={(event) => {
+                          if (!event.target.closest("a")) showInRoster()
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            showInRoster()
+                          }
+                        }}
+                        className="cursor-pointer space-y-2 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0 flex-1 sm:min-w-[180px]">
                           <div className="flex items-center gap-2">
-                            <Link
-                              to={`/institution/departments/${primaryDeptId}?tab=learners`}
-                              className="font-bold text-xs text-foreground hover:underline truncate"
-                            >
+                            <span className="font-bold text-sm text-foreground truncate">
                               {section.sectionName}
-                            </Link>
+                            </span>
                             {pendingCount > 0 ? (
                               <Badge
                                 variant="secondary"
@@ -1237,26 +1357,53 @@ export default function DepartmentHeadDashboardPage() {
                           </div>
                           <p className="text-[11px] text-muted-foreground truncate">
                             {section.programName ? `${section.programName} · ` : ""}
-                            {section.certificationTitle || "General"}
+                            {section.certificationTitle ||
+                              (deptProgramsQuery.data ?? [])
+                                .find((program) => program.programId === section.programId)
+                                ?.certifications?.map((cert) => cert.title)
+                                .join(", ") ||
+                              "General"}
                             {section.description ? ` · ${section.description}` : ""}
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2 w-32">
-                            <Progress value={progress} className="h-1.5 flex-1" />
-                            <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
-                              {progress}%
-                            </span>
-                          </div>
-                          <Badge variant="outline" className="text-xs shrink-0">
-                            {count(totalInSection)} {totalInSection === 1 ? "student" : "students"}
-                          </Badge>
+                        <div className="flex items-center gap-1">
                           <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                            <Link to={`/institution/departments/${primaryDeptId}?tab=learners`}>
-                              Open
+                            <Link
+                              to={`/institution/departments/${primaryDeptId}?tab=learners${section.programId ? `&programId=${section.programId}` : ""}`}
+                            >
+                              Manage
                             </Link>
                           </Button>
+                        </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Progress value={progress} className="h-2 flex-1" />
+                          <span className="w-10 text-right text-xs font-bold tabular-nums text-foreground">
+                            {progress}%
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span>
+                            <strong className="text-foreground tabular-nums">{count(totalInSection)}</strong>{" "}
+                            {totalInSection === 1 ? "student" : "students"}
+                          </span>
+                          <span>
+                            <strong className="text-foreground tabular-nums">{finishedCount}</strong> finished
+                          </span>
+                          <span className={needHelpCount ? "text-amber-700 dark:text-amber-400" : undefined}>
+                            <strong className="tabular-nums">{needHelpCount}</strong> need help
+                          </span>
+                          <span
+                            className={`ml-auto font-semibold ${totalInSection > 0 && gap <= 0 ? "text-rb-leaf" : "text-muted-foreground"}`}
+                          >
+                            {totalInSection === 0
+                              ? "No students yet"
+                              : gap <= 0
+                                ? `On track (goal ${SECTION_BENCHMARK}%)`
+                                : `${gap} pts below the ${SECTION_BENCHMARK}% goal`}
+                          </span>
                         </div>
                       </div>
                     )
@@ -1280,7 +1427,7 @@ export default function DepartmentHeadDashboardPage() {
                 icon={ShieldCheck}
                 kicker="Delegation & Faculty Leadership"
                 title="Co-Authorities & Pending Invitations"
-                hint={`${activeHeadAssignments.length} active authority${activeHeadAssignments.length === 1 ? "" : "ies"} · ${pendingHeadInvitations.length} pending code invitation${pendingHeadInvitations.length === 1 ? "" : "s"}`}
+                hint={`${activeHeadAssignments.length} active ${activeHeadAssignments.length === 1 ? "authority" : "authorities"}${isOwner ? ` · ${pendingHeadInvitations.length} pending code invitation${pendingHeadInvitations.length === 1 ? "" : "s"}` : ""}`}
                 action={
                   <Button
                     size="sm"
@@ -1303,7 +1450,7 @@ export default function DepartmentHeadDashboardPage() {
                 />
                 <StatBox
                   label="Pending Invitations"
-                  value={count(pendingHeadInvitations.length)}
+                  value={isOwner ? count(pendingHeadInvitations.length) : "—"}
                   icon={MailIcon}
                   iconClass={
                     pendingHeadInvitations.length > 0
@@ -1347,7 +1494,7 @@ export default function DepartmentHeadDashboardPage() {
         col: 6,
         row: 2,
         x: 0,
-        y: 15,
+        y: 16,
         element: (
           <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -1357,7 +1504,7 @@ export default function DepartmentHeadDashboardPage() {
                 title="Student roster & who needs a conversation"
                 hint="Anyone flagged sits at the top, with the reason beside their name."
                 action={
-                  sections.length > 0 ? (
+                  sections.length > 1 || selectedSectionFilter !== "all" || deptLearners.some((l) => l.sectionId == null) ? (
                     <div className="w-48">
                       <Select
                         value={selectedSectionFilter}
@@ -1585,6 +1732,7 @@ export default function DepartmentHeadDashboardPage() {
     predictedPass,
     cohortPredictedPass,
     masteryTrend,
+    monthlyTrend,
     benchmarkRows,
     readinessTarget,
     benchmarks,
@@ -1610,6 +1758,7 @@ export default function DepartmentHeadDashboardPage() {
     periodComp.certificationsComparison,
     periodComp.learnerMomentum,
     periodComp.insights,
+    deptProgramsQuery.data,
     periodComp.comparisonRange,
     periodComp.isLoading,
     periodComp.isError,
@@ -1722,6 +1871,7 @@ export default function DepartmentHeadDashboardPage() {
           departmentId={primaryDeptId}
           institutionCertId={overviewGroup?.institutionCertId ?? null}
           certifications={overviewGroup?.certifications ?? []}
+          programs={Array.isArray(deptProgramsQuery.data) ? deptProgramsQuery.data : []}
         />
       ) : null}
 
