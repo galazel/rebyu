@@ -20,10 +20,17 @@ try {
   const url = `${server.resolvedUrls.local[0]}__progress_test`
   await page.goto(url)
   await page.waitForSelector('input[aria-label="Blank 1"]')
-  const click = (text) => page.evaluate((text) => [...document.querySelectorAll("button")].find((button) => button.textContent.trim() === text).click(), text)
+  // Step buttons are icon-only: match visible text, then the exact accessible label, then a label prefix ("Next" → "Next question").
+  const click = (text) => page.evaluate((text) => {
+    const buttons = [...document.querySelectorAll("button")]
+    const label = (button) => button.getAttribute("aria-label") ?? ""
+    const target = buttons.find((button) => button.textContent.trim() === text) ?? buttons.find((button) => label(button) === text) ?? buttons.find((button) => label(button).startsWith(text))
+    if (!target) throw new Error(`No button labelled "${text}"`)
+    target.click()
+  }, text)
   await page.$eval('[aria-label="Answer choices"] button', (button) => button.click())
   await click("Show hint")
-  await page.click('[aria-label="Flip to see the answer"]')
+  await page.click('[aria-label*="Flip to see the"]')
   await click("Got it")
   await click("Fixed")
   await click("Rent")
@@ -39,7 +46,7 @@ try {
   const snapshot = () => page.evaluate(() => ({ text: document.getElementById("root").innerText, answers: [...document.querySelectorAll('[aria-label="Answer choices"] button:disabled')].length, blank: document.querySelector('input[aria-label="Blank 1"]').value, slider: document.querySelector('input[type="range"]').value, stored: JSON.stringify(Object.fromEntries(Object.keys(localStorage).filter((key) => key.startsWith("rebyu:tutor-progress:")).sort().map((key) => [key, JSON.parse(localStorage.getItem(key))]))) }))
   const before = await snapshot()
   assert.match(before.text, /1\/1/)
-  assert.match(before.text, /1\/2 known/)
+  assert.match(before.text, /1 known · 1 of 2 reviewed/)
   assert.match(before.text, /Answer: Three/)
   await page.reload()
   await page.waitForSelector('input[aria-label="Blank 1"]')
