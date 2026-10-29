@@ -3563,3 +3563,23 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
   transition: background-color 0.15s ease;
 }
 .rb-post-gallery-dots span[data-on] { background: #fff; }
+
+/* The live tutor dock owns the bottom-left corner; stack the pomodoro timer above it. */
+body:has([aria-label="Live tutor across lesson screen"]) .rebyu-pomodoro-pill {
+  left: 1.5rem;
+  bottom: 13rem;
+  width: min(340px, calc(100vw - 2rem));
+  translate: 0 0;
+  transform: none;
+}
+
+/* Wide screens: give the live tutor dock (left) and chat (right) their own gutters
+   so the lesson reflows between them instead of sitting underneath. */
+@media (min-width: 1280px) {
+  body:has([aria-label="Live tutor across lesson screen"]) {
+    padding-left: 370px;
+  }
+  body:has([data-live-chat]) {
+    padding-right: 400px;
+  }
+}

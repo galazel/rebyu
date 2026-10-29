@@ -25,7 +25,7 @@ import {
   getMyStudyPlans,
   setStudyPlanTaskStatus,
 } from "@/services/studyPlanService.js"
-import { startPomodoro } from "@/lib/pomodoro-store.js"
+import { startPomodoro, usePomodoro } from "@/lib/pomodoro-store.js"
 import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 
 const EVENT_META = {
@@ -69,6 +69,8 @@ function actionFor(event) {
 export function TodaysPlanTile({ onCreatePlan }) {
   const navigate = useNavigate()
   const location = useLocation()
+  // Only one pomodoro at a time: hide Start while a session is running.
+  const pomodoro = usePomodoro()
   const [mock, setMock] = useState({ building: null, error: null })
 
   const plansQuery = useQuery({
@@ -267,13 +269,18 @@ export function TodaysPlanTile({ onCreatePlan }) {
                         </button>
                       ) : null}
 
-                      {action?.lesson && kind === "lesson" && event.technique === "pomodoro" ? (
+                      {action?.lesson && event.technique === "pomodoro" && !pomodoro ? (
                         <button
                           type="button"
                           onClick={() => {
+                            const { lessonId, middleCategoryId, certificationId: certId } = action.lesson
                             startPomodoro({
                               title: event.lessonTitle ?? event.title,
-                              lessonId: event.lessonId ?? null,
+                              lessonId: lessonId ?? null,
+                              href:
+                                middleCategoryId && certId
+                                  ? `/learner/learning/${certId}/topics/${middleCategoryId}?lesson=${lessonId}`
+                                  : null,
                               planId: event.planId ?? null,
                               eventId: event.id ?? null,
                             })

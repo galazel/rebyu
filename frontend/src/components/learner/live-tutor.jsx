@@ -43,6 +43,16 @@ export function LiveTutorVoiceOrb({ className = "" }) {
 
 export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef, messages = [], pending = false, onExit }) {
   const aiUsage = useAiUsage()
+
+  // The tutor drives the page in live mode: lock learner scrolling (wheel, keys,
+  // scrollbar) while its own scrollIntoView/scrollTo calls still move the page.
+  // The chat panel keeps its own scroll area.
+  useEffect(() => {
+    const root = document.documentElement
+    const previous = root.style.overflow
+    root.style.overflow = "hidden"
+    return () => { root.style.overflow = previous }
+  }, [])
   const [chatOpen, setChatOpen] = useState(false)
   const [handRaised, setHandRaised] = useState(false)
   const [textOnly, setTextOnly] = useState(false)
@@ -187,9 +197,9 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
     const root = lessonRootRef?.current
     if (!root) return
     let scrollTimer
-    function report(type, detail) {
+    function report(type, detail, { tellTutor = true } = {}) {
       contextRef.current = { ...contextRef.current, [type]: detail }
-      conversationRef.current?.sendContextualUpdate(JSON.stringify({ type, detail, instruction: "Quiet context update. Do not interrupt the lesson unless the learner asks about this item. Images are metadata only; do not claim to see pixels." }))
+      if (tellTutor) conversationRef.current?.sendContextualUpdate(JSON.stringify({ type, detail, instruction: "Silent background context, not a learner message. Never reply to, acknowledge or comment on it (no \"take a look around\" or similar). Use it only if the learner later asks about this item. Images are metadata only; do not claim to see pixels." }))
       saveCheckpoint(type)
     }
     function scroll() {
@@ -198,7 +208,11 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
         const markers = [...root.querySelectorAll("[data-read-section]")]
         const visible = markers.filter((node) => node.getBoundingClientRect().top < window.innerHeight * 0.65).at(-1)
         const sectionId = visible?.getAttribute("data-read-section")
-        if (sectionId && contextRef.current.lesson_section_changed?.sectionId !== sectionId) report("lesson_section_changed", { sectionId, origin: actionsRef.current?.isTutorNavigation() ? "tutor" : "student" })
+        if (sectionId && contextRef.current.lesson_section_changed?.sectionId !== sectionId) {
+          const origin = actionsRef.current?.isTutorNavigation() ? "tutor" : "student"
+          // The tutor already knows where it scrolled; only the learner's own moves are news.
+          report("lesson_section_changed", { sectionId, origin }, { tellTutor: origin === "student" })
+        }
       }, 500)
     }
     function select() {
@@ -406,7 +420,16 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
       controllerRef.current?.dispose()
       setChatOpen(true)
       if (!useTextOnly && isMicrophoneError(error)) {
-        toast.info("Microphone unavailable", { description: "Switched to typing. Use the chat box to talk to your tutor." })
+        const blocked = error?.name === "NotAllowedError" || error?.name === "SecurityError" || /permission denied/i.test(String(error?.message ?? ""))
+        const busy = error?.name === "NotReadableError"
+        toast.info(blocked ? "Microphone blocked" : busy ? "Microphone in use" : "Microphone unavailable", {
+          description: blocked
+            ? "Your browser blocked the mic for this site. Click the icon left of the address bar, allow Microphone, then press Use voice. Typing works meanwhile."
+            : busy
+              ? "Another app or tab is using your mic. Close it, then press Use voice. Typing works meanwhile."
+              : "No microphone was found. Switched to typing; use the chat box to talk to your tutor.",
+          duration: blocked ? 10000 : undefined,
+        })
         setTimeout(() => { if (!disposedRef.current) startLiveSession(true) }, 0)
         return null
       }
@@ -447,7 +470,13 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
     conversationRef.current?.sendContextualUpdate(JSON.stringify(raised
       ? { type: "hand_raised", instruction: "The learner raised their hand to ask a question. Finish your current sentence, stop teaching, and briefly invite their question (for example: 'Yes? What's your question?'). Then wait for it. Do not continue the lesson plan until they have asked it." }
       : { type: "hand_lowered", instruction: "The learner lowered their hand. Continue the lesson where you left off." }), { contextId: "hand_raised" })
-    if (raised) conversationRef.current?.sendUserActivity()
+    if (raised) {
+      // A contextual update never cuts off speech already playing. Drop the queued
+      // audio now (output is private in the SDK types, so guard it), then send a
+      // real learner turn so the agent stops generating and invites the question.
+      conversationRef.current?.output?.interrupt?.()
+      conversationRef.current?.sendUserMessage("[Learner raised hand] I have a question.")
+    }
   }
 
   function togglePause() {
@@ -505,19 +534,19 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
     : teachingState === "COMPLETED" ? "Lesson and recitation complete"
     : "Preparing the next teaching step"
   const dot = status === "error" ? "bg-red-400" : paused || handRaised ? "bg-amber-300" : status === "connected" ? "bg-emerald-300" : "bg-white/50"
-  const pill = "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition disabled:opacity-50"
+  const pill = "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
 
   return (
     <section className="rebyu-ds pointer-events-none fixed inset-0 z-[65]" style={{ background: "transparent" }} aria-label="Live tutor across lesson screen">
       <div aria-hidden="true" className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-violet-400/30 to-transparent blur-lg" />
       <div aria-hidden="true" className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-cyan-300/30 to-transparent blur-lg" />
-      <div className="pointer-events-auto absolute bottom-24 left-1/2 flex w-[min(92vw,600px)] -translate-x-1/2 flex-col items-center rounded-2xl border border-white/15 bg-[#102a25]/90 px-5 pb-3 pt-2.5 text-center text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:bottom-6">
+      <div className="pointer-events-auto absolute bottom-24 left-4 flex w-[min(calc(100vw-2rem),340px)] flex-col items-center rounded-2xl border border-white/15 bg-[#102a25]/90 px-3.5 pb-2.5 pt-2 text-center text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:bottom-6 sm:left-6">
         <div className="flex w-full items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/60">Live tutor · {lessonName}</p>
-          {usesLeft != null ? <p className="shrink-0 text-[11px] text-white/55" title="Shared with tutor chat. Failed connections are not charged.">{usesLeft} AI uses left</p> : null}
+          <p className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.14em] text-white/60">Live tutor · {lessonName}</p>
+          {usesLeft != null ? <p className="shrink-0 text-[10px] text-white/55" title="Shared with tutor chat. Failed connections are not charged.">{usesLeft} AI uses left</p> : null}
         </div>
 
-        <div className="mt-1 flex h-9 w-full items-center justify-center gap-[clamp(2px,0.5vw,6px)]" role="img" aria-label="Live audio waveform">
+        <div className="mt-0.5 flex h-6 w-full items-center justify-center gap-[clamp(2px,0.5vw,6px)]" role="img" aria-label="Live audio waveform">
           {waveform.map((height, index) => (
             <span key={index} aria-hidden="true" className={`w-[clamp(3px,0.45vw,5px)] rounded-full bg-gradient-to-t transition-[height] duration-100 ${mode === "speaking" ? "from-violet-300 via-white to-cyan-200" : "from-emerald-300 via-white to-emerald-100"}`}
               style={{ height: `${height}%` }} />
@@ -530,14 +559,14 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
         </p>
 
         {caption && !chatOpen ? (
-          <p className="mt-1.5 line-clamp-2 max-w-[52ch] text-sm leading-6 text-white/90" aria-live="polite">“{caption}”</p>
+          <p className="mt-1.5 line-clamp-2 max-w-[48ch] text-xs leading-5 text-white/90" aria-live="polite">“{caption}”</p>
         ) : null}
 
-        <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
           {status === "connected" ? (
             <button type="button" onClick={toggleHand} disabled={paused} aria-pressed={handRaised} title={handRaised ? "Lower hand" : "Raise hand to ask a question"}
               className={`${pill} ${handRaised ? "bg-amber-300 text-[#102a25] hover:bg-amber-200" : "bg-white/15 hover:bg-white/25"}`}>
-              <FontAwesomeIcon icon={faHand} className="size-4" aria-hidden="true" />{handRaised ? "Lower hand" : "Raise hand"}
+              <FontAwesomeIcon icon={faHand} className="size-3.5" aria-hidden="true" />{handRaised ? "Lower hand" : "Raise hand"}
             </button>
           ) : null}
           {status === "connected" ? (
@@ -547,18 +576,18 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
           ) : null}
           {textOnly || status === "error" || (!started && autoStartedRef.current) ? (
             <button type="button" onClick={() => startLiveSession(false)} disabled={status === "connecting"} className={`${pill} bg-emerald-400 text-[#102a25] hover:bg-emerald-300`}>
-              <Mic className="size-4" />{textOnly ? "Use voice" : "Reconnect voice"}
+              <Mic className="size-3.5" />{textOnly ? "Use voice" : "Reconnect voice"}
             </button>
           ) : null}
           <button type="button" onClick={() => setChatOpen((open) => !open)} aria-pressed={chatOpen} className={`${pill} ${chatOpen ? "bg-white text-[#102a25]" : "bg-white/15 hover:bg-white/25"}`}>
-            <MessageCircle className="size-4" />Chat
+            <MessageCircle className="size-3.5" />Chat
           </button>
-          <button type="button" onClick={exitLive} aria-label="End live lesson" title="End live lesson" className="rounded-full bg-red-400/20 p-2.5 text-red-100 hover:bg-red-400/35"><X className="size-4" /></button>
+          <button type="button" onClick={exitLive} aria-label="End live lesson" title="End live lesson" className="rounded-full bg-red-400/20 p-2 text-red-100 hover:bg-red-400/35"><X className="size-4" /></button>
         </div>
       </div>
 
       {chatOpen ? (
-        <div className="pointer-events-auto absolute bottom-44 right-6 flex max-h-[45dvh] xl:bottom-6 w-[min(360px,calc(100vw-48px))] flex-col overflow-hidden rounded-3xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl">
+        <div data-live-chat className="pointer-events-auto absolute bottom-44 right-6 flex max-h-[45dvh] xl:bottom-6 xl:top-28 xl:max-h-none w-[min(360px,calc(100vw-48px))] flex-col overflow-hidden rounded-3xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center justify-between border-b border-rb-swan px-4 py-3 text-sm font-bold text-rb-eel">Live chat<button type="button" onClick={() => setChatOpen(false)} aria-label="Close live chat" className="rounded-full p-1 hover:bg-rb-polar"><X className="size-4" /></button></div>
           <div ref={feedRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3" aria-live="polite">
             {shownMessages.filter((message) => message.text?.trim()).map((message) => <div key={message.id} className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === "user" ? "ml-auto bg-rb-feather text-white" : "bg-rb-polar text-rb-eel"}`}>{message.text}</div>)}

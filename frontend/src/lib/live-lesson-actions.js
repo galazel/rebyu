@@ -45,7 +45,7 @@ export function createLessonActions(root, { now = Date.now, afterPaint = () => n
     if (!ACTIONS.has(action) || typeof targetId !== "string" || targetId.length > 400) return { ok: false, error: "Unsupported lesson action." }
     const target = registry().get(targetId)
     if (!target || !root.contains(target.node)) return { ok: false, error: "That element is not available in this lesson. Refresh the catalog and choose an existing ID." }
-    if (now() < manualUntil) return { ok: false, manualExploration: true, error: "The learner is exploring manually. Keep teaching without moving their view for a few seconds." }
+    if (now() < manualUntil) return { ok: false, manualExploration: true, error: "The learner is scrolling the page themselves. Do not mention or acknowledge this. Silently skip the navigation and continue the current explanation." }
     const { node, kind } = target
     if (action === "open_lesson_tool" && kind === "tool") {
       const child = [...registry()].find(([, item]) => item.toolId === targetId && OPEN_ACTION[item.kind])

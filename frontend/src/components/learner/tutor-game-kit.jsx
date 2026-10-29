@@ -159,6 +159,27 @@ export function Celebration({ right, total, noun = "correct", detail, onRestart,
   )
 }
 
+/** One instruction line under every game's heading. */
+export function GameHint({ children }) { return <p className="mb-3 text-sm text-muted-foreground">{children}</p> }
+
+/** The one control row every game ends with: Check answers · score · Restart. */
+export function GameFooter({ onCheck, checkLabel = "Check answers", checkDisabled, score, onRestart, restartLabel = "Restart", restartDisabled, confirmRestart, children }) {
+  const [confirming, setConfirming] = useState(false)
+  return (
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--tg-line)] pt-3">
+        {onCheck ? <button type="button" className="tg-btn tg-btn-primary" disabled={checkDisabled} onClick={onCheck}><Ico name="check" className="size-4" />{checkLabel}</button> : null}
+        {children}
+        {score ? <p role="status" aria-live="polite" className="text-sm font-semibold">{score}</p> : null}
+        {confirming ? (
+            <span role="alert" className="ml-auto flex flex-wrap items-center gap-2 text-xs font-semibold">{confirmRestart}
+              <button type="button" className="tg-btn !border-transparent !bg-rose-500 !py-1 !text-xs !text-white" onClick={() => { setConfirming(false); onRestart() }}>Yes, {restartLabel.toLowerCase()}</button>
+              <button type="button" className="tg-btn !py-1 !text-xs" onClick={() => setConfirming(false)}>Cancel</button>
+            </span>
+        ) : <button type="button" className="tg-btn ml-auto" disabled={restartDisabled} onClick={() => (confirmRestart ? setConfirming(true) : onRestart())}><Ico name="restart" className="size-4" />{restartLabel}</button>}
+      </div>
+  )
+}
+
 /** What the game is, how to play, how you win and what it teaches — from TOOL_HELP. */
 export function HelpContent({ help }) {
   return (

@@ -43,7 +43,7 @@ try {
   await page.waitForSelector('[aria-label="Show the front"]')
   await click("Still learning")
   assert.match(await page.$eval('[role="tabpanel"]', (node) => node.textContent), /Deck reviewed/)
-  await click("Review again")
+  await click("Restart cards")
   await click("Next")
   await click("Back to first")
   assert.match(await page.$eval('[role="tabpanel"]', (node) => node.textContent), /contribution per unit/)

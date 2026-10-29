@@ -8,13 +8,15 @@ The plan is built in code from the lesson's own sections (`LessonPlan`): a
 personal opener, then every teaching section, in order, split into at most
 `MAX_GROUPS` talking points. One question per talking point, and each turn is
 sent only the text of the sections it is about -- so the whole lesson is
-covered without ever sending the whole lesson. Question formats rotate through
-multiple choice, short answer and open explanation.
+covered without ever sending the whole lesson. Every question after the opener
+is an open-ended Feynman prompt -- explain, compare, apply, analogy, spot the
+mistake, or why -- answered in the learner's own plain words; the tutor then
+points out gaps and jargon. There are no quiz-style (choice or one-word) items.
 
 Three steps:
 * ``start``  -- welcome the learner and ask the personal opener;
-* ``reply``  -- mark the last answer (correct/incorrect for MCQ and short
-  answer), then ask the next talking point's question, or close the session;
+* ``reply``  -- give Feynman feedback on the last explanation, then ask the
+  next talking point's question, or close the session;
 * ``summary``-- strengths and areas for improvement for the whole session.
 """
 
@@ -52,12 +54,16 @@ _FRAMING = ("introduction", "learning objectives", "prerequisite", "key terms", 
             "what to expect on the certification", "exam focus", "certification exam")
 
 # The opener is always open; the lesson's talking points rotate through these.
-FORMATS = ("mcq", "truefalse", "fill", "short", "scenario", "compare", "explain")
+FORMATS = ("explain", "compare", "apply", "analogy", "misconception", "why")
 
 SYSTEM_PROMPT = """
     You are REBYU's tutor running a guided Dialogue about one lesson. It is a short,
     friendly conversation, not an exam: you ask ONE question at a time, the learner
     answers, and you help them articulate and refine what they understand.
+    It follows the Feynman technique: every answer is the learner explaining in
+    their own plain words, whatever the question style (explain, compare, apply,
+    analogy, spot the mistake, why). Never ask multiple-choice, true/false,
+    fill-in-the-blank or one-word questions.
 
     How to run it:
     - Ground every question in the lesson material you are given. Never introduce
@@ -307,8 +313,36 @@ _UNSAFE = re.compile(
 )
 
 
-def screen_answer(text: str) -> str | None:
-    """Why a learner message is plainly not an answer, or None if it may be one."""
+_UNSURE = re.compile(r"\b(i\s*(don'?t|do\s+not)\s*know|idk|not\s+sure|no\s+idea)\b", re.IGNORECASE)
+_MIN_EXPLAIN_WORDS = 5
+_MAX_ANSWER_CHARS = 1500
+# Asking the tutor to hand over the answer instead of explaining it.
+_BEGGING = re.compile(
+    r"\b(just\s+)?(tell|give|show)\s+me\s+(the\s+)?(answer|solution)\b|\bwhat('?s| is)\s+the\s+(right\s+|correct\s+)?answer\b",
+    re.IGNORECASE,
+)
+_KEY_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
+_KEY_POS = {key: (row, col) for row, keys in enumerate(_KEY_ROWS) for col, key in enumerate(keys)}
+
+
+def _keyboard_run(word: str) -> bool:
+    """Letters typed in a straight line along one keyboard row ("asdf", "poiu", "jkl")."""
+    pos = [_KEY_POS.get(ch) for ch in word.lower()]
+    if len(word) < 3 or None in pos or len({row for row, _ in pos}) != 1:
+        return False
+    steps = {b[1] - a[1] for a, b in zip(pos, pos[1:])}
+    return steps in ({1}, {-1})
+
+
+def _mashed(word: str) -> bool:
+    """A keyboard mash: no vowel ("fsd"), one letter repeated ("kkkk"), or a key run ("asdf")."""
+    return not re.search(r"[aeiouy]", word, re.I) or len(set(word.lower())) == 1 or _keyboard_run(word)
+
+
+def screen_answer(text: str, *, explanation: bool = False) -> str | None:
+    """Why a learner message is plainly not an answer, or None if it may be one.
+    ``explanation`` is set for Feynman turns, which need at least a short sentence;
+    an honest "I don't know" still passes so the summary can score it."""
     stripped = (text or "").strip()
     if _VULGAR.search(stripped):
         return "vulgar"
@@ -316,19 +350,36 @@ def screen_answer(text: str) -> str | None:
         return "injection"
     if _UNSAFE.search(stripped):
         return "unsafe"
+    if len(stripped) > _MAX_ANSWER_CHARS:
+        return "too_long"
+    if _BEGGING.search(stripped):
+        return "begging"
     words = re.findall(r"[a-zA-Z]{2,}", stripped)
-    if len(stripped) >= 6 and words and not any(re.search(r"[aeiouy]", w, re.I) for w in words):
+    if not words or all(_mashed(w) for w in words):
         return "gibberish"
-    if len(stripped) >= 6 and not words:
-        return "gibberish"
+    if explanation and len(words) < _MIN_EXPLAIN_WORDS and not _UNSURE.search(stripped):
+        return "too_short"
     return None
+
+
+def _copied(answer: str, material: str, run: int = 10) -> bool:
+    """True when the answer reuses a run of ``run`` consecutive words from the lesson."""
+    tokens = lambda text: re.findall(r"[a-z0-9]+", text.lower())
+    said, source = tokens(answer), " " + " ".join(tokens(material)) + " "
+    return any(f" {' '.join(said[i:i + run])} " in source for i in range(len(said) - run + 1))
 
 
 _REDIRECTS = {
     "vulgar": "Let's keep it respectful so we can focus on the lesson.",
     "injection": "I can only help you work through this lesson, so let's stay on track.",
     "unsafe": "I can't help with that, but I'm happy to keep going with the lesson.",
-    "gibberish": "I couldn't quite make that out.",
+    "gibberish": "I couldn't quite make that out -- try answering in a full sentence.",
+    "too_short": "Give it a bit more: explain it in a sentence or two, in plain words, as if teaching a friend.",
+    "copied": "That's the lesson's own wording. Put it in your own words -- that's how you find what you really understand.",
+    "repeat": "That's the same answer as before. Try saying it a different way, or type hint.",
+    "too_long": "That's a lot! Keep it to a few sentences -- the simplest explanation is the goal.",
+    "begging": "I won't give the answer away -- explaining it yourself is how it sticks. Type hint for a clue.",
+    "echo": "That's my question repeated back. Answer it in your own words instead.",
 }
 
 
@@ -396,8 +447,9 @@ class LessonPlan:
 
 
 def format_for(topic_index: int, history: list[DialogueMessage]) -> str:
-    """The opener is always open. After that, a random format that was not used
-    for either of the last two questions, so a session mixes several kinds."""
+    """The opener is always open. After that, a random open-ended Feynman format
+    that was not used for either of the last two questions, so a session mixes
+    several kinds of explaining -- never a quiz-style question."""
     if topic_index == 0:
         return "open"
     recent = [m.format for m in history if m.role == "tutor" and m.format][-2:]
@@ -405,23 +457,32 @@ def format_for(topic_index: int, history: list[DialogueMessage]) -> str:
     return random.choice(choices)
 
 
+# Varied so a session of Feynman prompts does not ask the same way every time.
+_FEYNMAN_ANGLES = (
+    "what it is, in the simplest words possible",
+    "why it matters -- what problem it solves",
+    "how it works, step by step",
+    "how it shows up in a real, everyday example",
+    "how it differs from the idea most easily confused with it",
+)
+
+
 _FORMAT_RULES = {
     "open": "Ask an open question the learner answers in 2-3 sentences of their own words.",
-    "explain": "Ask the learner to explain one concept from the material in their own words, as if "
-               "to a classmate who missed the lesson.",
-    "scenario": "Describe a short, concrete scenario (2 sentences) and ask what the learner would do or "
-                "which idea from the material applies, and why.",
-    "compare": "Ask the learner to compare two ideas from the material: one way they are alike or "
-               "connected, and one way they differ.",
-    "mcq": "Ask a multiple-choice question with exactly one correct option. Put the 4 options in "
-           "`options` (not in `reply`); make the wrong ones plausible.",
-    "truefalse": "Make one clear statement about the material that is either true or false (choose "
-                 "randomly; make false ones subtly wrong) and ask: True or false? Put exactly "
-                 "[\"True\", \"False\"] in `options`.",
-    "fill": "Write one sentence from the material with its key term replaced by _____ and ask the "
-            "learner to fill in the blank.",
-    "short": "Ask a short-answer question whose answer is a single term, number or short phrase "
-             "from the lesson. End with: Answer in a word or short phrase.",
+    "explain": "Use the Feynman technique: pick ONE concept from the material and ask the learner to "
+               "explain it in plain, simple words, as if teaching a friend who has never heard of it "
+               "-- no jargon unless they explain it too. Ask them to cover {angle}.",
+    "compare": "Pick two related ideas from the material and ask the learner to explain, in plain words, "
+               "one way they are alike or connected and one way they differ.",
+    "apply": "Describe a short, concrete, everyday scenario (2 sentences) where an idea from the material "
+             "applies, without naming the idea. Ask which idea is at work and to explain why, in plain words.",
+    "analogy": "Pick ONE concept from the material and ask the learner to invent their own everyday analogy "
+               "for it (\"it's like...\"), then say in one sentence where the analogy breaks down.",
+    "misconception": "Write a short explanation of ONE idea from the material, as a confused classmate "
+                     "might say it, containing exactly one clear mistake. Put it in quotes. Ask the learner "
+                     "to spot the mistake and explain the correct idea simply.",
+    "why": "Ask a cause-and-effect question about ONE idea from the material: why it matters, or what "
+           "would go wrong without it. The learner explains the reasoning in plain words.",
 }
 
 _CHOICE_FORMATS = {"mcq": 4, "truefalse": 2}
@@ -442,11 +503,10 @@ def _first_sentence(text: str) -> str:
 
 
 _FEEDBACK_RULE = (
-    "First respond to the learner's last answer in 1-2 sentences, judged by the session rubric "
-    "(accuracy, understanding, use of lesson terms, application). If the previous question had one "
-    "right answer (multiple choice, true/false, fill in the blank, short answer), say plainly whether "
-    "it was correct; if not, give the correct answer and one sentence why. For an open answer, name "
-    "what was right and the one thing that would raise it (a missing term, a reason, an example)."
+    "First give Feynman feedback on the learner's explanation in 1-3 sentences, judged by the session "
+    "rubric (accuracy, understanding, use of lesson terms, application): name what they explained "
+    "clearly; point out any gap, mistake, or term they used without explaining it; and show a simpler "
+    "or more accurate way to say the weakest part. Never just say correct or incorrect."
 )
 
 
@@ -493,7 +553,7 @@ async def _ask(plan: LessonPlan, topic_index: int, preamble: str,
     turn: DialogueTurn = await _invoke(_turn_agent, (
         f"{preamble}\n\n{_block('LESSON MATERIAL FOR THE NEXT QUESTION', plan.material(topic_index))}\n\n"
         f"The next question is for part {topic_index + 1} of {len(plan.topics)}: '{plan.topics[topic_index]}'. "
-        f"Base it only on that lesson material. {_FORMAT_RULES[fmt]}"
+        f"Base it only on that lesson material. {_FORMAT_RULES[fmt].format(angle=random.choice(_FEYNMAN_ANGLES))}"
     ))
     wanted = _CHOICE_FORMATS.get(fmt, 0)
     options = _distinct_options([str(o) for o in turn.options if o], wanted)
@@ -561,7 +621,16 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
             last.content = guard.text or last.content
         if last is not None and _is_hint_request(last.content):
             return await _hint(plan, max(0, answered), previous, topics)
-        reason = screen_answer(last.content) if last else None
+        reason = screen_answer(last.content, explanation=answered >= 2) if last else None
+        if not reason and last is not None and answered >= 2:
+            earlier = [m.content.strip().lower() for m in request.history[:-1]
+                       if m.role == "learner" and not m.ignored]
+            if last.content.strip().lower() in earlier:
+                reason = "repeat"
+            elif _copied(last.content, plan.material(answered - 1)):
+                reason = "copied"
+            elif previous is not None and _copied(last.content, previous.content, run=6):
+                reason = "echo"
         if reason:
             return _repeat_question(previous, _REDIRECTS[reason], topics, answered - 1)
         if answered >= len(topics):

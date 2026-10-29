@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js"
 import { LIVE_TEACHING_TOOLS } from "../src/lib/live-teaching-tools.js"
 
-let AGENT_ID = process.env.ELEVENLABS_LIVE_TUTOR_AGENT_ID || "agent_6001m5hrr384ef1tkgzt1p4s00zr"
+let AGENT_ID = process.env.ELEVENLABS_LIVE_TUTOR_AGENT_ID || "agent_5301m63q2q1qemt9rv668was1ctd"
 const env = readFileSync(new URL("../.env.local", import.meta.url), "utf8")
 const key = env.match(/^ELEVENLABS_API_KEY=(.+)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g, "")
 if (!key) throw new Error("Configure ELEVENLABS_API_KEY in .env.local first.")

@@ -5,12 +5,12 @@ import ReactMarkdown from "react-markdown"
 import { toast } from "sonner"
 import {
   ArrowLeft,
+  ArrowUp,
   CheckCircle2,
   ChevronDown,
   Loader2,
   MessageCircle,
   RotateCcw,
-  SendHorizontal,
   Sparkles,
 } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
@@ -19,14 +19,23 @@ import { MicButton } from "@/components/learner/mic-button.jsx"
 
 const ENDPOINT = "ai/tutor/dialogue"
 
+// Labels for question formats from sessions saved before the Feynman-only dialogue.
 const FORMAT_LABEL = {
   mcq: "multiple choice",
   truefalse: "true or false",
   fill: "fill in the blank",
   short: "short answer",
   scenario: "scenario",
-  compare: "compare",
-  explain: "explain it",
+}
+
+// The open-ended Feynman formats (python-backend tutor_dialogue.FORMATS): card title for each question.
+const FEYNMAN_TITLE = {
+  explain: "Explain it simply",
+  compare: "Compare the two",
+  apply: "Apply it",
+  analogy: "Make an analogy",
+  misconception: "Spot the mistake",
+  why: "Why does it matter?",
 }
 
 const FORMAT_PLACEHOLDER = {
@@ -35,8 +44,12 @@ const FORMAT_PLACEHOLDER = {
   fill: "Type the missing word…",
   short: "Answer in a word or short phrase…",
   scenario: "What would you do, and why?…",
+  explain: "Explain it simply, as if teaching a friend…",
   compare: "How are they alike, and how do they differ?…",
-  explain: "Explain it in your own words…",
+  apply: "Which idea is at work here, and why?…",
+  analogy: "It's like… and here's where the comparison breaks down…",
+  misconception: "What's the mistake, and what's the correct idea?…",
+  why: "Explain the reason in plain words…",
 }
 const EMPTY = { topics: [], history: [], topicIndex: 0, complete: false, summary: null }
 
@@ -137,6 +150,42 @@ function TopicTrack({ topics, topicIndex, complete }) {
       ) : null}
     </div>
   )
+}
+
+// The tutor ends each turn with the question alone, in bold, in its own paragraph.
+// Pull it out so the thing to answer gets its own card.
+function splitTurn(content) {
+  const paragraphs = String(content ?? "").replace(/\\n/g, "\n").split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean)
+  const last = paragraphs.at(-1) ?? ""
+  if (!/^\*\*[\s\S]+\*\*$/.test(last)) return { feedback: paragraphs.join("\n\n"), question: null }
+  return { feedback: paragraphs.slice(0, -1).join("\n\n"), question: last.replace(/^\*\*|\*\*$/g, "").trim() }
+}
+
+const FEYNMAN_STEPS = [
+  ["The tutor picks one idea", "and asks it a different way each time: explain, compare, apply, analogy, spot the mistake, or why."],
+  ["You explain it simply", "in plain words, as if teaching a friend who has never heard of it."],
+  ["You get gap feedback", "what was clear, what was missing or jargon, and a simpler way to say it."],
+]
+
+const FEYNMAN_TIPS = ["Use everyday words", "Say why it matters", "Give an example"]
+
+// Client copy of python-backend tutor_dialogue.screen_answer: catch plain non-answers
+// before they spend an AI request. The server repeats these checks (and more).
+const KEY_ROWS = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+function keyboardRun(word) {
+  const pos = [...word.toLowerCase()].map((ch) => { const row = KEY_ROWS.findIndex((keys) => keys.includes(ch)); return row < 0 ? null : [row, KEY_ROWS[row].indexOf(ch)] })
+  if (word.length < 3 || pos.includes(null) || new Set(pos.map(([row]) => row)).size !== 1) return false
+  const steps = new Set(pos.slice(1).map(([, col], i) => col - pos[i][1]))
+  return steps.size === 1 && (steps.has(1) || steps.has(-1))
+}
+const mashed = (word) => !/[aeiouy]/i.test(word) || new Set(word.toLowerCase()).size === 1 || keyboardRun(word)
+function answerProblem(text, explanation) {
+  const words = text.match(/[a-z]{2,}/gi) ?? []
+  if (text.length > 1500) return "That's a lot! Keep it to a few sentences — the simplest explanation is the goal."
+  if (/\b(just\s+)?(tell|give|show)\s+me\s+(the\s+)?(answer|solution)\b|\bwhat('?s| is)\s+the\s+(right\s+|correct\s+)?answer\b/i.test(text)) return "I won't give the answer away — explaining it yourself is how it sticks. Tap hint for a clue."
+  if (!words.length || words.every(mashed)) return "I couldn't make that out — try answering in a full sentence."
+  if (explanation && words.length < 5 && !/\b(i\s*(don'?t|do\s+not)\s*know|idk|not\s+sure|no\s+idea)\b/i.test(text)) return "Give it a bit more: explain it in a sentence or two, as if teaching a friend."
+  return null
 }
 
 function TutorDot() {
@@ -279,6 +328,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
   const [session, setSession] = useState(() => loadSession(key))
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(null)
+  const [guardNote, setGuardNote] = useState(null)
   const aiUsage = useAiUsage()
   const tutorExhausted = isBucketExhausted(aiUsage.bucket("tutor"))
   const endRef = useRef(null)
@@ -357,6 +407,10 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
   async function send(text) {
     const content = text.trim()
     if (!content || busy || session.complete) return
+    const lastTutor = [...session.history].reverse().find((message) => message.role === "tutor")
+    const problem = /hint/i.test(content) && content.length < 60 ? null : answerProblem(content, Boolean(FEYNMAN_TITLE[lastTutor?.format]))
+    if (problem) { setGuardNote(problem); return }
+    setGuardNote(null)
     const withAnswer = { ...session, history: [...session.history, { role: "learner", content }] }
     setSession(withAnswer)
     setDraft("")
@@ -454,18 +508,28 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
       <div className="min-h-0 flex-1 overflow-y-auto bg-rb-polar/40 px-3 py-4">
         {!started ? (
           <div className="space-y-4 text-sm leading-relaxed text-rb-eel">
-            <span className="grid size-12 place-items-center rounded-[1rem] bg-rb-feather text-white">
-              <MessageCircle className="size-6" aria-hidden="true" />
-            </span>
-            <p className="font-rb-display text-lg font-extrabold">Talk it through</p>
-            <p>
-              In this dialogue the tutor asks you a few questions about{" "}
-              <strong>{lessonName ?? "this lesson"}</strong>, one at a time. Answer in your own words; it will point
-              out what you got right, help you refine the rest, and finish with a summary of your strengths and what to
-              work on.
-            </p>
-            <p className="text-rb-wolf">
-              It takes about 10 minutes. Stuck? Just type <strong>hint</strong>.
+            <div className="flex items-start gap-3">
+              <span className="grid size-12 shrink-0 place-items-center rounded-[1rem] bg-rb-feather text-white">
+                <MessageCircle className="size-6" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-lip">Feynman technique</p>
+                <p className="font-rb-display text-lg font-extrabold leading-tight">Teach it back: {lessonName ?? "this lesson"}</p>
+              </div>
+            </div>
+            <p>If you can explain an idea simply, you understand it. If you can't, the gaps show you exactly what to review.</p>
+            <ol className="space-y-2">
+              {FEYNMAN_STEPS.map(([title, detail], index) => (
+                <li key={title} className="flex items-start gap-3 rounded-[0.9rem] border-2 border-rb-swan bg-white px-3 py-2.5">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rb-feather-wash text-xs font-extrabold text-rb-feather-ink">{index + 1}</span>
+                  <span className="min-w-0"><strong className="block text-rb-eel">{title}</strong><span className="text-xs text-rb-wolf">{detail}</span></span>
+                </li>
+              ))}
+            </ol>
+            <p className="flex flex-wrap gap-2 text-xs font-bold text-rb-wolf">
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">About 10 minutes</span>
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">Summary + rubric at the end</span>
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">Stuck? Tap hint</span>
             </p>
             <RubricGuide />
             <AiLimitNotice />
@@ -529,9 +593,22 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                         </span>
                       ) : null}
                     </div>
-                    <div className="font-normal tracking-[0.002em] [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
-                      <Markdown>{message.content}</Markdown>
-                    </div>
+                    {(() => {
+                      const { feedback, question } = splitTurn(message.content)
+                      return <>
+                        {feedback ? (
+                          <div className="font-normal tracking-[0.002em] [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+                            <Markdown>{feedback}</Markdown>
+                          </div>
+                        ) : null}
+                        {question ? (
+                          <div className={`${feedback ? "mt-3" : ""} rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/50 px-3.5 py-3`}>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">{FEYNMAN_TITLE[message.format] ?? "Your turn"}</p>
+                            <div className="mt-1 font-extrabold leading-snug text-rb-eel"><Markdown>{question}</Markdown></div>
+                          </div>
+                        ) : null}
+                      </>
+                    })()}
                     {message.options?.length ? (
                       <div className="mt-4 grid gap-2">
                         {message.options.map((option, optionIndex) => {
@@ -618,54 +695,69 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
       </div>
 
       {started && !live.complete && !viewing ? (
+        // Same composer as the normal tutor chat (lesson-ai-tutor.jsx), with hint in place of the + menu.
         <form
           onSubmit={(event) => {
             event.preventDefault()
             send(draft)
           }}
-          className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
+          className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-3"
         >
           <AiLimitNotice className="mb-2" />
-          <div className="flex items-end gap-1.5 rounded-2xl border-2 border-rb-swan bg-rb-snow p-1.5 shadow-[var(--comic-shadow-sm)] focus-within:border-rb-feather/60">
+          <div data-tutor-composer className="min-w-0 rounded-[calc(var(--radius-rb-control,10px)+8px)] border border-border bg-card p-3 text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
+            {FEYNMAN_TITLE[lastFormat] ? (
+              <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-rb-wolf">
+                {FEYNMAN_TIPS.map((tip) => <span key={tip} className="rounded-full bg-muted/60 px-2 py-0.5">{tip}</span>)}
+              </p>
+            ) : null}
             <textarea
+              aria-label="Your answer"
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => { setDraft(event.target.value); setGuardNote(null) }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault()
                   send(draft)
                 }
               }}
-              placeholder={tutorExhausted ? "AI limit reached -- see when it resets above" : FORMAT_PLACEHOLDER[lastFormat] ?? "Type your answer…"}
+              placeholder={tutorExhausted ? "AI limit reached—see when it resets above" : FORMAT_PLACEHOLDER[lastFormat] ?? "Type your answer…"}
               disabled={Boolean(busy) || tutorExhausted}
-              rows={1}
-              className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-2 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none placeholder:text-rb-hare focus:outline-none focus:ring-0"
+              rows={2}
+              className="field-sizing-content block max-h-40 min-h-14 w-full resize-none overflow-y-auto appearance-none border-0 bg-transparent px-1 py-1 text-sm font-normal leading-6 text-foreground shadow-none outline-none ring-0 placeholder:text-muted-foreground focus:outline-none focus:ring-0 disabled:opacity-60"
             />
-            <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy) || tutorExhausted} />
-            <TactileButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="shrink-0 !h-8 !rounded-full !px-3 text-xs"
-              disabled={Boolean(busy) || tutorExhausted}
-              onClick={() => send("I'm stuck — can I have a hint?")}
-            >
-              hint
-            </TactileButton>
-            <TactileButton
-              type="submit"
-              variant="feather"
-              size="sm"
-              className="rb-btn-icon shrink-0"
-              disabled={Boolean(busy) || !draft.trim() || tutorExhausted}
-              aria-label="Send answer"
-            >
-              {busy === "reply" ? <Loader2 className="size-4 animate-spin" /> : <SendHorizontal className="size-4" />}
-            </TactileButton>
+            {guardNote ? <p role="alert" className="mt-1 px-1 text-xs font-semibold text-rb-cardinal-lip">{guardNote}</p> : null}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <TactileButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 !h-9 !rounded-[var(--radius-rb-control,10px)] !px-3 !shadow-none text-xs"
+                disabled={Boolean(busy) || tutorExhausted}
+                onClick={() => send("I'm stuck — can I have a hint?")}
+              >
+                <Sparkles className="size-3.5" aria-hidden="true" /> hint
+              </TactileButton>
+              <div className="flex items-center gap-1.5">
+                {draft.trim() ? (
+                  <span className="text-[11px] font-medium text-muted-foreground">{draft.trim().split(/s+/).length} words · aim for 2–4 sentences</span>
+                ) : null}
+                <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy) || tutorExhausted} className="!rounded-[var(--radius-rb-control,10px)]" />
+                <TactileButton
+                  type="submit"
+                  variant="feather"
+                  size="sm"
+                  className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                  disabled={Boolean(busy) || !draft.trim() || tutorExhausted}
+                  aria-label="Send answer"
+                >
+                  {busy === "reply" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ArrowUp className="size-4" aria-hidden="true" />}
+                </TactileButton>
+              </div>
+            </div>
           </div>
-          <div className="mt-1.5 flex items-center gap-2">
-            <p className="flex-1 text-center text-[10px] font-medium text-rb-hare">
-              The dialogue is powered by AI — check for mistakes and don't share personal information.
+          <div className="mt-1.5 flex items-center gap-2 px-2">
+            <p className="flex-1 text-center text-[10px] leading-snug font-medium text-rb-hare">
+              REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
             </p>
             <AiUsageRing bucketKey="tutor" />
           </div>

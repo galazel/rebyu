@@ -15,7 +15,7 @@ import { SortingGame, WordGame, PuzzleGame, VisualGame, SpeedFlashcardsGame } fr
 import { BranchingStoryGame, SimulationGame, TwoTruthsLieGame } from "@/components/learner/decision-game-widgets.jsx"
 import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
 import { widgetProgressKey } from "@/lib/tutor-widget-progress.js"
-import { categoryClass, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
+import { categoryClass, GameFooter, GameHint, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
 import {
   ArrowDown,
   ArrowUp,
@@ -129,7 +129,7 @@ function Score({ right, total, onReset }) {
             <p className="text-sm font-medium text-muted-foreground">{line}</p>
           </div>
         </div>
-        <IconButton icon="restart" label="Try again" onClick={onReset} />
+        {onReset ? <IconButton icon="restart" label="Try again" onClick={onReset} /> : null}
       </div>
   )
 }
@@ -205,7 +205,7 @@ function MatchingWidget({ data }) {
   const dot = "absolute top-1/2 size-4 -translate-y-1/2 rounded-full border-[3px] border-card shadow ring-2"
   return (
       <Frame kind="Match the pairs" type="matching" title={data.title} badge={`${linkedCount}/${data.pairs.length}`} saved={data}>
-        <p className="mb-4 text-xs font-bold text-muted-foreground">Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</p>
+        <GameHint>Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</GameHint>
         <div ref={box} className="relative grid grid-cols-2 gap-x-5 gap-y-2.5 @md:gap-x-12 @xl:gap-x-20" >
           <svg className="pointer-events-none absolute inset-0 z-10 overflow-visible" width={dots.w} height={dots.h} aria-hidden="true">
             {Object.entries(links).map(([t, m]) => {
@@ -256,12 +256,8 @@ function MatchingWidget({ data }) {
             })}
           </ul>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <IconButton icon="check" primary label="Check matches" disabled={!linkedCount} onClick={() => setChecked(true)} />
-          <IconButton icon="restart" label="Reset" onClick={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
-        </div>
-        {checked && right < data.pairs.length ? <Feedback ok={false}>{right} of {data.pairs.length} lines are right -- re-draw the red ones.</Feedback> : null}
-        {checked && right === data.pairs.length ? <Score right={right} total={data.pairs.length} onReset={() => { setLinks({}); setChecked(false); setMatches(shuffled(data.pairs.map((p) => p.match))) }} /> : null}
+        <GameFooter onCheck={() => setChecked(true)} checkDisabled={!linkedCount} score={checked ? `${right} of ${data.pairs.length} lines right${right < data.pairs.length ? " — re-draw the red ones" : ""}` : `${linkedCount} of ${data.pairs.length} matched`} onRestart={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
+        {checked && right === data.pairs.length ? <Score right={right} total={data.pairs.length} /> : null}
       </Frame>
   )
 }
@@ -286,7 +282,7 @@ function OrderingWidget({ data }) {
   const right = order.filter((x, i) => x === data.items[i]).length
   return (
       <Frame kind="Put in order" type="ordering" title={data.title} saved={data}>
-        <p className="mb-3 text-xs font-bold text-muted-foreground">Drag the cards into order — or tap one card, then tap where it goes. The arrows work too.</p>
+        <GameHint>Drag the cards into order — or tap one card, then tap where it goes. The arrows work too.</GameHint>
         <ol className="space-y-2">
           {order.map((item, i) => {
             const ok = checked && item === data.items[i]
@@ -307,15 +303,8 @@ function OrderingWidget({ data }) {
             )
           })}
         </ol>
-        <div className="mt-3 flex gap-2">
-          <IconButton icon="check" primary label="Check order" onClick={() => setChecked(true)} />
-          <IconButton icon="shuffle" label="Shuffle" onClick={() => { setOrder(fresh()); setChecked(false) }} />
-        </div>
-        {checked ? (
-            <Feedback ok={right === order.length}>
-              {right === order.length ? data.explanation : `${right} of ${order.length} in the right place -- keep moving the red ones.`}
-            </Feedback>
-        ) : null}
+        <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${order.length} in the right place${right < order.length ? " — keep moving the red ones" : ""}` : `${order.length} cards to order`} onRestart={() => { setOrder(fresh()); setChecked(false) }} />
+        {checked && right === order.length ? <Feedback ok>{data.explanation}</Feedback> : null}
       </Frame>
   )
 }
@@ -329,6 +318,7 @@ function FillBlankWidget({ data }) {
   const right = data.blanks.filter(isRight).length
   return (
       <Frame kind="Fill in the blank" type="fill_blank" title={data.title} saved={data}>
+        <GameHint>Type the missing word in each blank, then check your answers.</GameHint>
         <ol className="space-y-3">
           {data.blanks.map((b, i) => {
             const [before, ...rest] = b.sentence.split("___")
@@ -351,11 +341,8 @@ function FillBlankWidget({ data }) {
             )
           })}
         </ol>
-        <div className="mt-3 flex gap-2">
-          <IconButton icon="check" primary label="Check answers" onClick={() => setChecked(true)} />
-          <IconButton icon="clear" label="Clear answers" onClick={() => { setValues({}); setChecked(false) }} />
-        </div>
-        {checked ? <Feedback ok={right === data.blanks.length}>{right} of {data.blanks.length} right.</Feedback> : null}
+        <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${data.blanks.length} right` : `${data.blanks.filter((_, i) => String(values[i] ?? "").trim()).length} of ${data.blanks.length} filled`} onRestart={() => { setValues({}); setChecked(false) }} />
+        {checked && right === data.blanks.length ? <Score right={right} total={data.blanks.length} /> : null}
       </Frame>
   )
 }
@@ -367,6 +354,7 @@ function TrueFalseWidget({ data }) {
   const right = data.claims.filter((c, i) => answers[i] === c.isTrue).length
   return (
       <Frame kind="Myth or fact" type="true_false" title={data.title} badge={`${answered}/${total}`} saved={data}>
+        <GameHint>Decide whether each statement is a fact or a myth.</GameHint>
         <ol className="space-y-4">
           {data.claims.map((c, i) => (
               <li key={i} className="rounded-2xl bg-[var(--tg-softer)] p-3">
@@ -391,7 +379,8 @@ function TrueFalseWidget({ data }) {
               </li>
           ))}
         </ol>
-        {answered === total ? <Score right={right} total={total} onReset={() => setAnswers({})} /> : null}
+        <GameFooter score={`${right} of ${answered} correct · ${answered} of ${total} answered`} onRestart={() => setAnswers({})} />
+        {answered === total ? <Score right={right} total={total} /> : null}
       </Frame>
   )
 }

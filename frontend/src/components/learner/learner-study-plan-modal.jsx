@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useSearchParams } from "react-router-dom"
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,17 @@ import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const OVERALL_LABEL = "All certifications"
+// One hue per certification. Green and red are reserved for done and missed tasks.
+const CERT_HUES = ["macaw", "beetle", "bee", "fox"]
+
+function hueStyle(hue) {
+  return { borderLeftColor: `var(--color-rb-${hue})`, backgroundColor: `var(--color-rb-${hue}-wash)` }
+}
+
+function certKey(event) {
+  return String(event?.certificationId ?? event?.certification ?? event?.planLabel ?? "plan")
+}
 
 function dateKey(date) {
   const year = date.getFullYear()
@@ -29,7 +41,8 @@ function buildMonth(viewDate) {
 }
 
 function labelFor(event) {
-  return event?.certification ?? event?.planLabel ?? "Study plan"
+  const label = event?.certification ?? event?.planLabel
+  return label && label !== OVERALL_LABEL ? label : "Study plan"
 }
 
 function formatDayLabel(value) {
@@ -43,6 +56,8 @@ export default function LearnerStudyPlanCalendarPage() {
   const { openOverallStudyPlan, studyPlanDialog } = useStudyPlanGate()
   const [viewDate, setViewDate] = useState(new Date())
   const [movedToPlan, setMovedToPlan] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const certFilter = searchParams.get("certification")
   const isDone = useStudyPlanDone()
 
   const planQuery = useQuery({
@@ -71,11 +86,42 @@ export default function LearnerStudyPlanCalendarPage() {
         (row.schedule?.events ?? []).map((event) => ({
           ...event,
           planId: row.planId,
+          certificationId: event.certificationId ?? row.certificationId ?? null,
           planLabel: row.schedule?.certification ?? row.goal ?? "Study plan",
         }))
       ),
     [activePlans]
   )
+
+  const certifications = useMemo(() => {
+    const map = new Map()
+    for (const event of events) {
+      const key = certKey(event)
+      const entry = map.get(key) ?? { key, label: labelFor(event), total: 0, done: 0 }
+      entry.total += 1
+      if (isDone(event)) entry.done += 1
+      map.set(key, entry)
+    }
+    return [...map.values()]
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((entry, index) => ({ ...entry, hue: CERT_HUES[index % CERT_HUES.length] }))
+  }, [events, isDone])
+
+  const hueByCert = useMemo(() => new Map(certifications.map((cert) => [cert.key, cert.hue])), [certifications])
+  const activeCert = certifications.find((cert) => cert.key === certFilter) ?? null
+  const visibleEvents = useMemo(
+    () => (activeCert ? events.filter((event) => certKey(event) === activeCert.key) : events),
+    [events, activeCert]
+  )
+
+  function selectCert(key) {
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      if (key) next.set("certification", key)
+      else next.delete("certification")
+      return next
+    }, { replace: true })
+  }
 
   const planRange = useMemo(() => {
     const starts = activePlans.map((row) => row.schedule?.calendarStart).filter(Boolean)
@@ -89,20 +135,21 @@ export default function LearnerStudyPlanCalendarPage() {
   }, [activePlans])
 
   const planSummary = useMemo(() => {
+    if (activeCert) return activeCert.label
     if (activePlans.length === 0) return "Personal study calendar"
     if (activePlans.length > 3) return `${activePlans.length} study plans`
     return activePlans
       .map((row) => row.schedule?.certification ?? row.goal ?? "Study plan")
       .join(" · ")
-  }, [activePlans])
+  }, [activePlans, activeCert])
 
   const days = useMemo(() => buildMonth(viewDate), [viewDate])
   const today = dateKey(new Date())
-  const eventsByDate = useMemo(() => events.reduce((result, event) => {
+  const eventsByDate = useMemo(() => visibleEvents.reduce((result, event) => {
     const key = event.dateKey ?? event.key
     if (key) (result[key] ??= []).push(event)
     return result
-  }, {}), [events])
+  }, {}), [visibleEvents])
 
   const earliestStart = useMemo(() => {
     const starts = activePlans.map((row) => row.schedule?.calendarStart).filter(Boolean)
@@ -172,6 +219,36 @@ export default function LearnerStudyPlanCalendarPage() {
           </div>
         </div>
 
+        {certifications.length > 0 ? (
+          <div role="group" aria-label="Filter by certification" className="mb-3 flex shrink-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <button
+              type="button"
+              aria-pressed={!activeCert}
+              onClick={() => selectCert(null)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${!activeCert ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground"}`}
+            >
+              All · {events.length}
+            </button>
+            {certifications.map((cert) => {
+              const selected = activeCert?.key === cert.key
+              return (
+                <button
+                  key={cert.key}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => selectCert(selected ? null : cert.key)}
+                  title={`${cert.done} of ${cert.total} tasks done`}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${selected ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground hover:border-foreground/40"}`}
+                >
+                  <span className="size-2 rounded-full" style={{ backgroundColor: `var(--color-rb-${cert.hue})` }} aria-hidden="true" />
+                  {cert.label}
+                  <span className={selected ? "text-background/70" : "text-muted-foreground"}>{cert.done}/{cert.total}</span>
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+
         <div className="flex min-h-0 flex-1 flex-col overflow-x-auto border-y border-border bg-card [scrollbar-width:thin]">
           <div className="flex min-h-0 min-w-[44rem] flex-1 flex-col">
             <div className="grid shrink-0 grid-cols-7 border-b border-border bg-muted">
@@ -195,18 +272,21 @@ export default function LearnerStudyPlanCalendarPage() {
                     <div className="mt-0.5 min-h-0 flex-1 space-y-0.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {dayEvents.map((event, index) => {
                         const done = isDone(event)
+                        const missed = !done && day.key < today
+                        const hue = done ? "feather" : missed ? "cardinal" : hueByCert.get(certKey(event)) ?? "macaw"
                         return (
                         <div
                           key={`${event.planId ?? ""}-${event.id ?? event.title}-${index}`}
-                          className={`border-l-2 px-1.5 py-0.5 text-[10px] font-medium leading-tight ${done ? "border-primary/40 bg-muted/50 text-muted-foreground" : "border-primary bg-primary/[0.06] text-foreground"}`}
-                          title={`${event.title} · ${labelFor(event)}${done ? " · Done" : ""}\n${describeEvent(event)}`}
+                          className={`rounded-r-sm border-l-[3px] px-1.5 py-0.5 text-[10px] font-medium leading-tight ${done ? "text-rb-feather-ink" : missed ? "text-rb-cardinal-lip" : "text-foreground"}`}
+                          style={hueStyle(hue)}
+                          title={`${event.title} · ${labelFor(event)}${done ? " · Done" : missed ? " · Missed" : ""}\n${describeEvent(event)}`}
                         >
                           <p className={`flex items-center gap-1 ${done ? "line-through decoration-muted-foreground/70" : ""}`}>
                             {done ? <Check className="size-2.5 shrink-0 text-primary" aria-label="Done" /> : null}
                             <span className="truncate">{event.title}</span>
                           </p>
 
-                          {activePlans.length > 1 ? (
+                          {certifications.length > 1 && !activeCert ? (
                             <p className="truncate text-[9px] font-normal text-muted-foreground">
                               {labelFor(event)}
                             </p>

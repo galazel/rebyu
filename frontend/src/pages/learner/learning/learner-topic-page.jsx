@@ -1243,17 +1243,15 @@ export default function LearnerTopicPage() {
   const requestedLessonId = searchParams.get("lesson")
   const requestedLesson = requestedLessonId ? lessonById.get(String(requestedLessonId)) : null
 
-  useEffect(() => {
-    if (!requestedLesson) return
-
+  // Repair links saved before an overall plan retained the event's own
+  // certification. Do not redirect to content the learner cannot access.
+  const repairHref = useMemo(() => {
+    if (!requestedLesson) return null
     const actualCertificationId = requestedLesson.certificationId
     const actualMiddleCategoryId = requestedLesson.middleCategoryId
     const isEnrolledInActualCertification = (data?.enrolledCertifications ?? []).some(
       (item) => String(item.certificationId) === String(actualCertificationId),
     )
-
-    // Repair links saved before an overall plan retained the event's own
-    // certification. Do not redirect to content the learner cannot access.
     if (
       !isEnrolledInActualCertification ||
       actualCertificationId == null ||
@@ -1261,21 +1259,14 @@ export default function LearnerTopicPage() {
       (String(actualCertificationId) === String(certificationId) &&
         String(actualMiddleCategoryId) === String(middleCategoryId))
     ) {
-      return
+      return null
     }
+    return `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`
+  }, [certificationId, data?.enrolledCertifications, middleCategoryId, requestedLesson, requestedLessonId])
 
-    navigate(
-      `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`,
-      { replace: true },
-    )
-  }, [
-    certificationId,
-    data?.enrolledCertifications,
-    middleCategoryId,
-    navigate,
-    requestedLesson,
-    requestedLessonId,
-  ])
+  useEffect(() => {
+    if (repairHref) navigate(repairHref, { replace: true })
+  }, [navigate, repairHref])
 
   useEffect(() => {
     setActiveId(null)
@@ -1594,6 +1585,8 @@ export default function LearnerTopicPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLessonId, readSectionsQuery.data])
 
+  if (repairHref) return <TopicPageSkeleton />
+
   if (!certification) {
     return (
       <LearnerEmptyState
@@ -1609,7 +1602,8 @@ export default function LearnerTopicPage() {
     )
   }
 
-  if (examsQuery.isLoading || examTypesQuery.isLoading || !curriculum) {
+  // A stale link is about to redirect; don't flash "Topic not found" first.
+  if (repairHref || examsQuery.isLoading || examTypesQuery.isLoading || !curriculum) {
     return <TopicPageSkeleton />
   }
 
