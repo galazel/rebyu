@@ -88,6 +88,17 @@ public class CommunityController {
 
     public record SharedPractice(Long id, Long studySetId, String status, int totalItems, String studyType) {}
 
+    /** A shared game/activity or mind map: copied into the viewer's Library, then opened there. */
+    @PostMapping("/posts/{postId}/open-shared")
+    public Map<String, String> openSharedLibraryItem(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
+        Long learnerId = me(jwt);
+        if (!service.isPostAuthor(postId, learnerId)) {
+            entitlements.requireLearnerEntitlement(
+                    learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.COMMUNITY_FULL_ACCESS, null);
+        }
+        return Map.of("route", service.openSharedLibraryItem(learnerId, postId));
+    }
+
     @PostMapping("/posts/{postId}/view")
     public Map<String, Long> recordView(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
         return Map.of("views", service.recordView(me(jwt), postId));

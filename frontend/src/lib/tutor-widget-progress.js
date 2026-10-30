@@ -1,3 +1,5 @@
+import { base } from "@/services/base"
+
 // Content identity excludes library links, which may be enriched only on live replies.
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical)
@@ -33,6 +35,65 @@ export function writeWidgetField(key, field, value) {
     let stored
     try { stored = JSON.parse(localStorage.getItem(key) ?? "null") } catch { stored = null }
     const previous = stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {}
-    localStorage.setItem(key, JSON.stringify({ ...previous, [field]: value }))
+    localStorage.setItem(key, JSON.stringify({ ...previous, [field]: value, _savedAt: Date.now() }))
+    scheduleSync(key)
   } catch { /* Storage may be disabled/full; keep the activity usable in memory. */ }
+}
+
+// ---- account sync ----
+// localStorage answers instantly; the learner's account keeps the same progress
+// so it is there on another browser or device, or after site data is cleared.
+
+const pendingSyncs = new Map()
+
+function scheduleSync(key) {
+  clearTimeout(pendingSyncs.get(key))
+  pendingSyncs.set(key, setTimeout(() => { pendingSyncs.delete(key); pushProgress(key) }, 700))
+}
+
+function pushProgress(key) {
+  let state
+  try { state = JSON.parse(localStorage.getItem(key) ?? "null") } catch { return undefined }
+  if (!state || typeof state !== "object" || Array.isArray(state)) return undefined
+  return base("learner-tools/activity-progress", { method: "PUT", data: { key, state } }).catch(() => {})
+}
+
+// Leaving the page should not lose the last few moves still waiting to sync.
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return
+    for (const [key, timer] of pendingSyncs) { clearTimeout(timer); pendingSyncs.delete(key); pushProgress(key) }
+  })
+}
+
+/** Every game in one Library item, or every game in one tutor chat. */
+export function progressPrefix(scope) {
+  const root = String(scope).includes(":activity-message:") ? String(scope).split(":activity-message:")[0] : scope
+  return `rebyu:tutor-progress:v1:${root}:`
+}
+
+/** Loads the account's saved progress for `scope` into localStorage before the
+ *  games render; whichever copy was saved last wins, and progress that exists
+ *  only in this browser is uploaded. */
+export async function hydrateProgress(scope) {
+  const prefix = progressPrefix(scope)
+  let server = {}
+  try { server = (await base(`learner-tools/activity-progress?prefix=${encodeURIComponent(prefix)}`)) ?? {} } catch { return false }
+  const onServer = new Set(Object.keys(server))
+  for (const [key, state] of Object.entries(server)) {
+    let local = null
+    try { local = JSON.parse(localStorage.getItem(key) ?? "null") } catch { local = null }
+    if (!local || (state?._savedAt ?? 0) >= (local._savedAt ?? 0)) {
+      try { localStorage.setItem(key, JSON.stringify(state)) } catch { /* storage full */ }
+    } else {
+      pushProgress(key)
+    }
+  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(prefix) && !onServer.has(key)) pushProgress(key)
+    }
+  } catch { /* storage unavailable */ }
+  return true
 }

@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react"
 
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   AnswerTile,
@@ -91,20 +90,15 @@ export function GeneratedQuizArena({
       header={
         <ArenaHeader
           title={attempt.assessmentTitle}
-          subtitle={`Generated quiz · attempt ${attempt.attemptNumber}`}
+          subtitle={`Practice quiz · attempt ${attempt.attemptNumber}`}
           position={currentIndex + 1}
           total={questions.length}
           onLeave={onLeave}
           right={
             <div className="flex items-center gap-4">
-              <div className="hidden text-right sm:block">
-                <p className="font-rb-display text-xl font-extrabold tabular-nums">
-                  {answeredCount}/{questions.length}
-                </p>
-                <p className="text-[11px] uppercase tracking-wide text-white/60">
-                  Answered
-                </p>
-              </div>
+              <span className="tg-pill hidden sm:inline">
+                {answeredCount}/{questions.length} answered
+              </span>
 
               <CountdownRing
                 remaining={remaining}
@@ -116,12 +110,16 @@ export function GeneratedQuizArena({
         />
       }
     >
-      <h1 className="py-6 text-center font-rb-display text-2xl leading-tight font-extrabold text-white sm:py-10 sm:text-4xl">
+      <p className="mb-4 text-sm text-muted-foreground">
+        Pick one answer before the timer runs out.
+      </p>
+
+      <h2 className="mb-6 rounded-2xl bg-[var(--tg-softer)] p-6 text-2xl leading-tight font-extrabold text-foreground ring-1 ring-[var(--tg-line)] sm:p-8 sm:text-3xl">
         {question.question}
-      </h1>
+      </h2>
 
       {isMultipleChoice(question) ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 text-left sm:grid-cols-2">
           {(question.choices ?? []).map((choice, choiceIndex) => (
             <AnswerTile
               key={choice.choiceId ?? choiceIndex}
@@ -150,14 +148,12 @@ export function GeneratedQuizArena({
           ))}
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white/10 p-6 backdrop-blur">
-          <p className="font-rb-display text-sm font-extrabold text-white/80">
-            Type your answer
-          </p>
+        <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[var(--tg-softer)] p-6 ring-1 ring-[var(--tg-line)]">
+          <p className="tg-kicker">Type your answer</p>
 
           <Input
             autoFocus
-            className="mt-4 h-14 border-white/30 bg-white/95 text-lg text-rb-eel"
+            className="mt-4 h-14 bg-card text-lg"
             value={answer?.learnerAnswer ?? ""}
             disabled={locked || isSubmitting}
             onChange={(event) =>
@@ -172,9 +168,9 @@ export function GeneratedQuizArena({
           />
 
           {!locked ? (
-            <Button type="button" className="mt-4 w-full" onClick={lock}>
+            <button type="button" className="tg-btn tg-btn-primary mt-4 w-full" onClick={lock}>
               Lock it in
-            </Button>
+            </button>
           ) : null}
         </div>
       )}
@@ -184,44 +180,44 @@ export function GeneratedQuizArena({
           {verdict ? (
             <>
               <p
-                className={`font-rb-display text-xl font-extrabold ${
-                  verdict.correct ? "text-rb-leaf" : "text-white"
+                className={`text-xl font-extrabold ${
+                  verdict.correct ? "text-emerald-600" : "text-rose-600"
                 }`}
               >
                 {verdict.correct ? "Correct" : "Not quite"}
               </p>
               {!verdict.correct && !verdict.answersReleased ? (
-                <p className="mt-1 text-sm text-white/70">
+                <p className="mt-1 text-sm text-muted-foreground">
                   This quiz keeps its answers until you finish.
                 </p>
               ) : null}
               {verdict.explanation ? (
-                <p className="mx-auto mt-2 max-w-2xl text-sm text-white/80">
+                <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
                   {verdict.explanation}
                 </p>
               ) : null}
             </>
           ) : checking ? (
-            <p className="text-sm text-white/70">Marking…</p>
+            <p className="text-sm text-muted-foreground">Marking…</p>
           ) : (
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-muted-foreground">
               Locked in. Every answer is marked when you finish the quiz.
             </p>
           )}
         </div>
       ) : null}
 
-      <div className="mt-auto flex items-center justify-between gap-4 py-6">
-        <p className="text-xs text-white/50">
+      <div className="mt-auto flex items-center justify-between gap-4 border-t border-[var(--tg-line)] pt-4">
+        <p className="text-xs text-muted-foreground">
           {remainingSeconds != null
             ? `${Math.floor(remainingSeconds / 60)}m left on the whole quiz`
             : ""}
         </p>
 
-        <Button
-          size="lg"
+        <button
+          type="button"
           disabled={!locked || checking || isSubmitting}
-          className="min-w-40 font-rb-display font-extrabold"
+          className="tg-btn tg-btn-primary min-w-40 !py-3 !text-base"
           onClick={() => {
             if (isLast) onFinish()
             else onIndexChange(currentIndex + 1)
@@ -234,7 +230,7 @@ export function GeneratedQuizArena({
                 ? "Marking..."
                 : "Finish"
               : "Next"}
-        </Button>
+        </button>
       </div>
     </ArenaShell>
   )

@@ -34,7 +34,7 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     void deletePostWithEngagement(@Param("postId") Long postId);
 
     @Query(value = """
-            SELECT p.post_id AS postId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
+            SELECT p.post_id AS postId, l.learner_id AS authorLearnerId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
               p.created_at AS createdAt, p.title AS title, p.body AS body, p.post_type AS postType, p.circle_id AS circleId,
               p.attachment_name AS attachmentName, p.attachment_type AS attachmentType, p.attachment_key AS attachmentKey,
               p.attachment_size AS attachmentSize, p.attachments_json AS attachmentsJson,
@@ -62,7 +62,7 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
                                  @Param("searchPattern") String searchPattern, @Param("savedOnly") boolean savedOnly);
 
     @Query(value = """
-            SELECT p.post_id AS postId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
+            SELECT p.post_id AS postId, l.learner_id AS authorLearnerId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
               p.created_at AS createdAt, p.title AS title, p.body AS body, p.post_type AS postType, p.circle_id AS circleId,
               p.attachment_name AS attachmentName, p.attachment_type AS attachmentType, p.attachment_key AS attachmentKey,
               p.attachment_size AS attachmentSize, p.attachments_json AS attachmentsJson,

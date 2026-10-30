@@ -1,7 +1,9 @@
 // Shared look for the AI tutor tools: each activity category has its own colour
 // (see styles/tutor-games.css) and icon, and the drag games share one
 // drag-and-drop helper that always has a click/tap fallback.
-import { useState } from "react"
+import { useContext, useEffect, useState } from "react"
+import { TutorWidgetProgressContext } from "@/hooks/useTutorWidgetProgress.js"
+import { writeWidgetField } from "@/lib/tutor-widget-progress.js"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { TOOL_HELP } from "@/lib/learning-tool-help.js"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
@@ -136,13 +138,27 @@ export function ProgressBar({ value, total, label }) {
   return <div className="tg-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={total} aria-valuenow={value}><span style={{ width: `${pct}%` }} /></div>
 }
 
-/** End-of-round results: trophy, score ring, stars and a restart button. */
-export function Celebration({ right, total, noun = "correct", detail, onRestart, restartLabel = "Play again" }) {
+/** End-of-round results: trophy, score ring, stars and a restart button.
+ *  The score is saved with the game's progress (the Library shows it), and
+ *  "Review answers" swaps the card for the finished game with its marks —
+ *  or calls `onReview` for games that review some other way; `reviewable={false}` hides it. */
+export function Celebration({ right, total, noun = "correct", detail, onRestart, restartLabel = "Play again", onReview, reviewable = true }) {
+  const progressKey = useContext(TutorWidgetProgressContext)
+  const [reviewing, setReviewing] = useState(false)
+  useEffect(() => { if (progressKey && total) writeWidgetField(progressKey, "_score", { right, total }) }, [progressKey, right, total])
   const pct = total ? right / total : 0
   const stars = pct === 1 ? 3 : pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0
   const ring = 2 * Math.PI * 34
+  if (reviewing) {
+    return (
+        <div role="status" className="tg-result mt-4 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <p className="text-sm font-extrabold">Score {right}/{total} <span className="font-semibold text-muted-foreground">· reviewing your answers</span></p>
+          <button type="button" className="tg-btn" onClick={() => setReviewing(false)}>Back to results</button>
+        </div>
+    )
+  }
   return (
-      <div role="status" className="tg-result flex animate-in fade-in zoom-in-95 flex-col items-center gap-3 px-4 py-6 text-center duration-500">
+      <div role="status" data-round-result className="tg-result flex animate-in fade-in zoom-in-95 flex-col items-center gap-3 px-4 py-6 text-center duration-500">
         <span className="tg-confetti text-5xl text-[var(--tg)]" aria-hidden="true"><Ico name={pct === 1 ? "trophy" : pct >= 0.7 ? "medal" : pct >= 0.4 ? "strong" : "book"} /></span>
         <p className="text-lg font-black">Completed!</p>
         <div className="relative grid size-24 place-items-center">
@@ -154,7 +170,10 @@ export function Celebration({ right, total, noun = "correct", detail, onRestart,
         </div>
         <p className="text-2xl tracking-widest text-amber-400" aria-label={`${stars} of 3 stars`}><Stars count={stars} /></p>
         <p className="text-sm font-semibold text-muted-foreground">{right} of {total} {noun}{detail ? ` · ${detail}` : ""}</p>
-        {onRestart ? <IconButton icon="restart" primary text={restartLabel} label={restartLabel} onClick={onRestart} /> : null}
+        <span className="flex flex-wrap justify-center gap-2">
+          {reviewable ? <IconButton icon="show" text="Review answers" label="Review answers" onClick={() => (onReview ? onReview() : setReviewing(true))} /> : null}
+          {onRestart ? <IconButton icon="restart" primary text={restartLabel} label={restartLabel} onClick={onRestart} /> : null}
+        </span>
       </div>
   )
 }
@@ -166,7 +185,7 @@ export function GameHint({ children }) { return <p className="mb-3 text-sm text-
 export function GameFooter({ onCheck, checkLabel = "Check answers", checkDisabled, score, onRestart, restartLabel = "Restart", restartDisabled, confirmRestart, children }) {
   const [confirming, setConfirming] = useState(false)
   return (
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--tg-line)] pt-3">
+      <div data-game-footer className="mt-4 flex flex-wrap items-center gap-3 border-t border-[var(--tg-line)] pt-3">
         {onCheck ? <button type="button" className="tg-btn tg-btn-primary" disabled={checkDisabled} onClick={onCheck}><Ico name="check" className="size-4" />{checkLabel}</button> : null}
         {children}
         {score ? <p role="status" aria-live="polite" className="text-sm font-semibold">{score}</p> : null}

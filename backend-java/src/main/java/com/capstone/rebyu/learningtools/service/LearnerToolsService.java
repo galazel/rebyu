@@ -33,7 +33,12 @@ public class LearnerToolsService {
             Long id, String kind, String title, String description, String route,
             String downloadUrl, Long certificationId, String certificationTitle,
             Long lessonId, String lessonTitle, String details,
-            OffsetDateTime createdAt, boolean ownedByMe) {}
+            OffsetDateTime createdAt, boolean ownedByMe,
+            // The tutor tool it came from (e.g. "sorting", "word_game"), so the Library
+            // can show that tool's own icon and name; null for non-tutor items.
+            String activityType, Long middleCategoryId,
+            // The last finished round in this item, from the learner's saved progress.
+            Integer scoreRight, Integer scoreTotal) {}
 
     public record Mistake(
             Long mistakeId, Long questionId, String question, String questionType, String difficulty,
@@ -43,8 +48,19 @@ public class LearnerToolsService {
 
     public List<LibraryItem> library(Long learnerId) {
         List<LibraryItem> items = new java.util.ArrayList<>(jdbc.query("""
-                SELECT i.*, c.title certification_title, l.name lesson_title
+                SELECT i.library_item_id, i.item_type, i.title, i.description, i.resource_url,
+                       i.certification_id, i.lesson_id, i.created_at,
+                       CASE WHEN i.content IS NOT NULL AND left(i.content, 1) = '{'
+                            THEN coalesce(i.content::jsonb->>'variant', i.content::jsonb->>'type') END activity_type,
+                       c.title certification_title, l.name lesson_title, l.middle_category_id,
+                       sp.score_right, sp.score_total
                 FROM learner_library_items i
+                LEFT JOIN LATERAL (
+                    SELECT p.score_right, p.score_total FROM learner_activity_progress p
+                    WHERE p.learner_id = i.learner_id AND p.score_total IS NOT NULL
+                      AND p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%'
+                    ORDER BY p.updated_at DESC LIMIT 1
+                ) sp ON true
                 LEFT JOIN certifications c ON c.certification_id = i.certification_id
                 LEFT JOIN lessons l ON l.lesson_id = i.lesson_id
                 WHERE i.learner_id = ?
@@ -84,8 +100,19 @@ public class LearnerToolsService {
                 request.title().trim(), blankToNull(request.description()), blankToNull(request.resourceUrl()));
 
         return jdbc.queryForObject("""
-                SELECT i.*, c.title certification_title, l.name lesson_title
+                SELECT i.library_item_id, i.item_type, i.title, i.description, i.resource_url,
+                       i.certification_id, i.lesson_id, i.created_at,
+                       CASE WHEN i.content IS NOT NULL AND left(i.content, 1) = '{'
+                            THEN coalesce(i.content::jsonb->>'variant', i.content::jsonb->>'type') END activity_type,
+                       c.title certification_title, l.name lesson_title, l.middle_category_id,
+                       sp.score_right, sp.score_total
                 FROM learner_library_items i
+                LEFT JOIN LATERAL (
+                    SELECT p.score_right, p.score_total FROM learner_activity_progress p
+                    WHERE p.learner_id = i.learner_id AND p.score_total IS NOT NULL
+                      AND p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%'
+                    ORDER BY p.updated_at DESC LIMIT 1
+                ) sp ON true
                 LEFT JOIN certifications c ON c.certification_id = i.certification_id
                 LEFT JOIN lessons l ON l.lesson_id = i.lesson_id
                 WHERE i.library_item_id = ?
@@ -171,7 +198,11 @@ public class LearnerToolsService {
                 row.getString("lesson_title"),
                 capitalize(kind),
                 row.getObject("created_at", OffsetDateTime.class),
-                true);
+                true,
+                row.getString("activity_type"),
+                (Long) row.getObject("middle_category_id"),
+                (Integer) row.getObject("score_right"),
+                (Integer) row.getObject("score_total"));
     }
 
     private LibraryItem mapSavedCommunityPost(ResultSet row, int rowNum) throws SQLException {
@@ -190,7 +221,11 @@ public class LearnerToolsService {
                 null,
                 attachmentName != null ? attachmentName : "Saved community post",
                 row.getObject("created_at", OffsetDateTime.class),
-                false);
+                false,
+                null,
+                null,
+                null,
+                null);
     }
 
     private Mistake mapMistake(ResultSet row, int rowNum) throws SQLException {

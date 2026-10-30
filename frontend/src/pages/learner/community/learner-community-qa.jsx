@@ -11,6 +11,7 @@ import {
     Home,
     Layers,
     Loader2,
+    Network,
     MessageCircle,
     MoreHorizontal,
     Plus,
@@ -30,6 +31,7 @@ import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { LevelBadge } from "@/components/learner/level-badge.jsx"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -76,6 +78,7 @@ import {
     uploadCommunityAttachment,
     shareCommunityStudyItem,
     startSharedCommunityPractice,
+    openSharedCommunityItem,
     recordCommunityPostView,
     reportCommunityPost,
     readCommunityFeedSnapshot,
@@ -95,11 +98,31 @@ const FEED_TABS = [
     { value: "discussion", label: "Discussions" },
     { value: "quiz", label: "Quizzes" },
     { value: "flashcard", label: "Flashcards" },
+    { value: "activity", label: "Games" },
+    { value: "mindmap", label: "Mind maps" },
     { value: "reviewer", label: "Reviewers" },
     { value: "circle", label: "Study circles" },
 ]
 
 const COMMUNITY_FEED_KEY = ["community-feed"]
+
+// Library kinds that can be shared from the Library (picked, not typed).
+const LIBRARY_SHARE_TYPES = ["quiz", "flashcard", "activity", "mindmap"]
+
+// Shared kinds the viewer opens as a copy in their own Library.
+const OPENED_SHARE_TYPES = ["activity", "mindmap"]
+
+const SHARE_TYPE_NOUNS = { quiz: "quiz", flashcard: "flashcards", activity: "game or activity", mindmap: "mind map" }
+
+const FEED_TAB_ICONS = {
+    "for-you": Home,
+    discussion: MessageCircle,
+    quiz: BookOpen,
+    flashcard: Layers,
+    activity: Sparkles,
+    mindmap: Network,
+    circle: UsersRound,
+}
 
 const REVIEWER_TYPES = ["notes", "docx"]
 
@@ -116,6 +139,8 @@ const POST_TYPE_LABELS = {
     discussion: "discussion",
     quiz: "practice set",
     flashcard: "flashcards",
+    activity: "game",
+    mindmap: "mind map",
     circle: "study circle",
     notes: "material",
     docx: "material",
@@ -433,6 +458,7 @@ function CommunityPost({
                            onJoinCircle,
                            onDelete,
                            onStartPractice,
+                           onOpenShared,
                            onReport,
                            onOpenAttachment,
                            onOpenCircle,
@@ -470,6 +496,7 @@ function CommunityPost({
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-foreground">{post.authorName}</span>
+                            <LevelBadge level={post.authorLevel} />
 
                             {post.ownedByMe ? (
                                 <Badge variant="outline" className={`h-5 rounded-full px-1.5 text-[10px] ${post.badgeClass}`}>
@@ -589,6 +616,18 @@ function CommunityPost({
                     />
                 ) : null}
 
+                {OPENED_SHARE_TYPES.includes(post.postType) ? (
+                    <PayloadTile
+                        icon={post.postType === "mindmap" ? Network : Sparkles}
+                        tone={post.postType === "mindmap" ? "bg-rb-macaw-wash text-rb-macaw-lip" : "bg-rb-bee-wash text-rb-bee-lip"}
+                        name={post.title}
+                        meta={`${POST_TYPE_LABELS[post.postType]} · from the AI tutor`}
+                        views={post.views}
+                        actionLabel={post.postType === "mindmap" ? "open" : "play"}
+                        onAction={() => onOpenShared(post.postId)}
+                    />
+                ) : null}
+
 
                 {linkedCircle && !linkedCircle.joined && !linkedCircle.owner ? (
                     <div className="mt-4 flex flex-col gap-3 rounded-rb-tile border-2 border-border bg-muted/40 p-3 sm:flex-row sm:items-center">
@@ -670,7 +709,10 @@ function CommunityPost({
                                         className="!size-7 !text-[0.625rem]"
                                     />
                                     <div className="min-w-0 rounded-2xl bg-muted px-3 py-1.5">
-                                        <p className="text-xs font-bold text-foreground">{comment.authorName}</p>
+                                        <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                                            {comment.authorName}
+                                            <LevelBadge level={comment.authorLevel} compact />
+                                        </p>
                                         <p className="whitespace-pre-wrap text-[0.8125rem] leading-5 text-muted-foreground">
                                             {comment.body}
                                         </p>
@@ -787,7 +829,7 @@ export default function Community() {
                 circles: Array.isArray(nextCircles) ? nextCircles : [],
                 certifications: Array.isArray(nextCertifications) ? nextCertifications : [],
                 studyItems: (Array.isArray(nextStudyItems) ? nextStudyItems : []).filter(
-                    (item) => ["quiz", "flashcard"].includes(item.kind)
+                    (item) => LIBRARY_SHARE_TYPES.includes(item.kind)
                 ),
             }
         },
@@ -945,6 +987,26 @@ export default function Community() {
         }
     }
 
+    async function openShared(postId) {
+        const ownPost = posts.some((post) => post.postId === postId && post.ownedByMe)
+        if (plan.isFree && !ownPost) {
+            promptUpgrade("Shared games and mind maps are a Pro feature")
+            return
+        }
+        countView(postId)
+        try {
+            const { route } = await openSharedCommunityItem(postId)
+            if (!ownPost) queryClient.invalidateQueries({ queryKey: ["library-items"] })
+            navigate(route)
+        } catch (error) {
+            if (isPremiumError(error)) {
+                promptUpgrade("Shared games and mind maps are a Pro feature")
+                return
+            }
+            toast.error(apiMessage(error, "This shared item could not be opened."))
+        }
+    }
+
     async function submitReport() {
         if (!reportPostId) return
         try {
@@ -1041,9 +1103,9 @@ export default function Community() {
     }
 
     async function publishPostRequest() {
-        if (["quiz", "flashcard"].includes(shareType)) {
+        if (LIBRARY_SHARE_TYPES.includes(shareType)) {
             if (!selectedStudyItemId) {
-                toast.error("Choose a generated study item to share.")
+                toast.error("Choose something from your Library to share.")
                 return
             }
             try {
@@ -1051,7 +1113,7 @@ export default function Community() {
                 setPosts((current) => [nextPost, ...current])
                 setSelectedStudyItemId("")
                 setComposerOpen(false)
-                toast.success("Study item shared with the community.")
+                toast.success("Shared with the community.")
             } catch (error) {
                 toast.error(apiMessage(error, "The study item could not be shared."))
             }
@@ -1232,15 +1294,7 @@ export default function Community() {
             <div className="sticky top-16 z-20 -mx-3 border-b border-border bg-background/95 px-3 pb-3 pt-2 backdrop-blur sm:-mx-5 sm:px-5 md:top-0 xl:hidden">
                 <div className="mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {FEED_TABS.map((tab, index) => {
-                                    const Icon = index === 0
-                                    ? Home
-                                    : tab.value === "circle"
-                                        ? UsersRound
-                                        : tab.value === "discussion"
-                                            ? MessageCircle
-                                            : tab.value === "quiz"
-                                                ? BookOpen
-                                                : FileText
+                                    const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
 
                                 return (
                                     <button
@@ -1306,10 +1360,12 @@ export default function Community() {
                             </div>
                         </button>
                         <div className="mt-3 flex items-center gap-2 border-t-2 border-border pt-3">
-                            <div className="grid w-full min-w-0 grid-cols-4 gap-1 [&>button]:min-w-0 [&>button]:px-2 [&>button>span]:min-w-0 [&>button>span]:truncate">
+                            <div className="grid w-full min-w-0 grid-cols-6 gap-1 [&>button]:min-w-0 [&>button]:px-2 [&>button>span]:min-w-0 [&>button>span]:truncate">
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4 text-rb-feather-lip sm:mr-2" /><span className="hidden sm:inline">Quiz</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Sparkles className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Layers className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("activity")} title="Share a game or activity from your Library"><Sparkles className="size-4 text-rb-bee-lip sm:mr-2" /><span className="hidden sm:inline">Game</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("mindmap")} title="Share a mind map from your Library"><Network className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Mind map</span></Button>
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
                             </div>
 
@@ -1322,7 +1378,7 @@ export default function Community() {
                             <div className="flex items-center justify-between gap-3 border-b-2 border-border pb-4">
                                 <div>
                                     <h2 className="font-rb-display text-sm font-extrabold lowercase">Create a post</h2>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">Ask a question, or share a generated quiz, flashcard set, or PDF/Word reviewer.</p>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">Ask a question, or share a quiz, flashcards, game or mind map from your Library, or a PDF/Word reviewer.</p>
                                 </div>
                                 <Button type="button" variant="ghost" size="icon-sm" onClick={() => { setComposerOpen(false); setAttachedFile(null) }} aria-label="Close post editor"><X /></Button>
                             </div>
@@ -1331,7 +1387,9 @@ export default function Community() {
                                 {[
                                     { value: "discussion", label: "Discussion", icon: MessageCircle },
                                     { value: "quiz", label: "Quiz", icon: BookOpen },
-                                    { value: "flashcard", label: "Flashcards", icon: Sparkles },
+                                    { value: "flashcard", label: "Flashcards", icon: Layers },
+                                    { value: "activity", label: "Game", icon: Sparkles },
+                                    { value: "mindmap", label: "Mind map", icon: Network },
                                     { value: "reviewer", label: "Reviewer", icon: FileText },
                                 ].map((type) => {
                                     const Icon = type.icon
@@ -1354,10 +1412,10 @@ export default function Community() {
                                         </SelectContent>
                                     </Select>
                                 ) : null}
-                                {["quiz", "flashcard"].includes(shareType) ? (
+                                {LIBRARY_SHARE_TYPES.includes(shareType) ? (
                                     <Select value={selectedStudyItemId} onValueChange={setSelectedStudyItemId}>
-                                        <SelectTrigger><SelectValue placeholder={`Choose generated ${shareType === "quiz" ? "quiz" : "flashcards"}`} /></SelectTrigger>
-                                        <SelectContent>{studyItems.filter((item) => item.kind === shareType).map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.title}</SelectItem>)}</SelectContent>
+                                        <SelectTrigger><SelectValue placeholder={`Choose a ${SHARE_TYPE_NOUNS[shareType]} from your Library`} /></SelectTrigger>
+                                        <SelectContent>{studyItems.filter((item) => item.kind === shareType).map((item) => <SelectItem key={item.id} value={String(item.id)}>{String(item.title || "").replace(/^[a-z ]+:\s*/, "")}</SelectItem>)}</SelectContent>
                                     </Select>
                                 ) : <><Input value={shareTitle} onChange={(event) => setShareTitle(event.target.value)} placeholder="An interesting title" /><Textarea value={shareDescription} onChange={(event) => setShareDescription(event.target.value)} placeholder="What do you want to discuss?" className="min-h-32 resize-y" /></>}
 
@@ -1379,7 +1437,7 @@ export default function Community() {
 
                             <div className="mt-4 flex justify-end gap-2 border-t-2 border-border pt-4">
                                 <Button type="button" variant="ghost"  onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</Button>
-                                <Button type="button"  onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (["quiz", "flashcard"].includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="mr-2 size-4" />Post</Button>
+                                <Button type="button"  onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (LIBRARY_SHARE_TYPES.includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="mr-2 size-4" />Post</Button>
                             </div>
                         </section>
                     ) : null}
@@ -1442,6 +1500,7 @@ export default function Community() {
                                     onToggleComments={toggleComments}
                                     onDelete={removePost}
                                     onStartPractice={startPractice}
+                                    onOpenShared={openShared}
                                     onReport={setReportPostId}
                                     onOpenAttachment={openAttachment}
                                     onOpenCircle={setActiveCircleId}
@@ -1478,15 +1537,7 @@ export default function Community() {
                         </p>
 
                         {FEED_TABS.map((tab, index) => {
-                            const Icon = index === 0
-                                ? Home
-                                : tab.value === "circle"
-                                    ? UsersRound
-                                    : tab.value === "discussion"
-                                        ? MessageCircle
-                                        : tab.value === "quiz"
-                                            ? BookOpen
-                                            : FileText
+                            const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
                             const active = !showSavedOnly && activeTab === tab.value
 
                             return (

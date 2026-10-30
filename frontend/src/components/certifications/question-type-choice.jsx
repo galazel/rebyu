@@ -43,10 +43,10 @@ export function QuestionTypeChoice({ value = [], onChange, disabled }) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">
+        <h3 className="rb-form-heading text-base font-semibold text-foreground">
           Question formats <span className="font-normal text-muted-foreground">(optional)</span>
         </h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           Tick what the real exam contains. Everything generated — lesson
           quizzes, unit exams, the diagnostic, the mock and the question bank —
           uses only these. Leave all unticked and the planner researches the

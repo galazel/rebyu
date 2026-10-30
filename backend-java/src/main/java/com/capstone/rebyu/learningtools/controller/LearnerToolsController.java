@@ -36,6 +36,22 @@ public class LearnerToolsController {
     private final StudyPracticeService studyPracticeService;
     private final ObjectMapper objectMapper;
     private final com.capstone.rebyu.learningtools.service.TutorLibraryService tutorLibrary;
+    private final com.capstone.rebyu.learningtools.service.ActivityProgressService activityProgress;
+
+    public record ProgressRequest(String key, Map<String, Object> state) {}
+
+    /** Saved progress in tutor games under one prefix (a Library item, or a tutor chat). */
+    @GetMapping("/activity-progress")
+    public Map<String, Object> activityProgress(@AuthenticationPrincipal Jwt jwt, @RequestParam String prefix) throws Exception {
+        return activityProgress.list(me(jwt), prefix);
+    }
+
+    /** Saves one game's progress (answers, moves, last score) to the learner's account. */
+    @PutMapping("/activity-progress")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void saveActivityProgress(@AuthenticationPrincipal Jwt jwt, @RequestBody ProgressRequest request) throws Exception {
+        activityProgress.save(me(jwt), request.key(), objectMapper.valueToTree(request.state()));
+    }
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 

@@ -14,8 +14,9 @@ import { TutorStudyWidget } from "@/components/learner/tutor-study-widget.jsx"
 import { SortingGame, WordGame, PuzzleGame, VisualGame, SpeedFlashcardsGame } from "@/components/learner/learning-game-widgets.jsx"
 import { BranchingStoryGame, SimulationGame, TwoTruthsLieGame } from "@/components/learner/decision-game-widgets.jsx"
 import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
-import { widgetProgressKey } from "@/lib/tutor-widget-progress.js"
-import { categoryClass, GameFooter, GameHint, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
+import { hydrateProgress, progressPrefix, widgetProgressKey } from "@/lib/tutor-widget-progress.js"
+import { useQuery } from "@tanstack/react-query"
+import { categoryClass, Celebration, GameFooter, GameHint, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
 import {
   ArrowDown,
   ArrowUp,
@@ -36,7 +37,7 @@ import {
   XCircle,
   Zap,
 } from "@/components/icons"
-import { Ico, Stars } from "@/components/learner/tutor-game-kit.jsx"
+import { Ico } from "@/components/learner/tutor-game-kit.jsx"
 
 registerCodeLanguages(SyntaxHighlighter)
 
@@ -110,26 +111,6 @@ function Feedback({ ok, children }) {
       <div className={`mt-2 flex gap-2 rounded-xl px-3 py-2 text-sm ${ok ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200" : "bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200"}`}>
         {ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <XCircle className="mt-0.5 size-4 shrink-0" />}
         <div className="min-w-0"><strong>{ok ? "Correct!" : "Not quite."}</strong> {children}</div>
-      </div>
-  )
-}
-
-function Score({ right, total, onReset }) {
-  const pct = total ? right / total : 0
-  const line = pct === 1 ? "Perfect -- you've got this!" : pct >= 0.7 ? "Good job!" : pct >= 0.4 ? "Getting there -- review the misses." : "Let's go over this again."
-  const stars = pct === 1 ? 3 : pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0
-  return (
-      <div role="status" className="tg-result mt-4 flex animate-in fade-in zoom-in-95 items-center justify-between gap-3 px-4 py-3 duration-300">
-        <div className="flex items-center gap-3">
-          <span className="tg-confetti text-4xl text-[var(--tg)]" aria-hidden="true"><Ico name={pct === 1 ? "trophy" : pct >= 0.7 ? "medal" : pct >= 0.4 ? "strong" : "book"} /></span>
-          <div>
-            <p className="flex items-baseline gap-2 text-2xl font-semibold tabular-nums text-foreground">{right}/{total}
-              <span className="text-lg tracking-tight text-amber-400" aria-label={`${stars} of 3 stars`}><Stars count={stars} /></span>
-            </p>
-            <p className="text-sm font-medium text-muted-foreground">{line}</p>
-          </div>
-        </div>
-        {onReset ? <IconButton icon="restart" label="Try again" onClick={onReset} /> : null}
       </div>
   )
 }
@@ -256,8 +237,8 @@ function MatchingWidget({ data }) {
             })}
           </ul>
         </div>
+        {checked && linkedCount === data.pairs.length ? <Celebration right={right} total={data.pairs.length} noun="lines right" /> : null}
         <GameFooter onCheck={() => setChecked(true)} checkDisabled={!linkedCount} score={checked ? `${right} of ${data.pairs.length} lines right${right < data.pairs.length ? " — re-draw the red ones" : ""}` : `${linkedCount} of ${data.pairs.length} matched`} onRestart={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
-        {checked && right === data.pairs.length ? <Score right={right} total={data.pairs.length} /> : null}
       </Frame>
   )
 }
@@ -303,6 +284,7 @@ function OrderingWidget({ data }) {
             )
           })}
         </ol>
+        {checked ? <Celebration right={right} total={order.length} noun="in the right place" /> : null}
         <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${order.length} in the right place${right < order.length ? " — keep moving the red ones" : ""}` : `${order.length} cards to order`} onRestart={() => { setOrder(fresh()); setChecked(false) }} />
         {checked && right === order.length ? <Feedback ok>{data.explanation}</Feedback> : null}
       </Frame>
@@ -341,8 +323,8 @@ function FillBlankWidget({ data }) {
             )
           })}
         </ol>
+        {checked && data.blanks.every((_, i) => String(values[i] ?? "").trim()) ? <Celebration right={right} total={data.blanks.length} noun="blanks right" /> : null}
         <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${data.blanks.length} right` : `${data.blanks.filter((_, i) => String(values[i] ?? "").trim()).length} of ${data.blanks.length} filled`} onRestart={() => { setValues({}); setChecked(false) }} />
-        {checked && right === data.blanks.length ? <Score right={right} total={data.blanks.length} /> : null}
       </Frame>
   )
 }
@@ -379,8 +361,8 @@ function TrueFalseWidget({ data }) {
               </li>
           ))}
         </ol>
+        {answered === total ? <Celebration right={right} total={total} /> : null}
         <GameFooter score={`${right} of ${answered} correct · ${answered} of ${total} answered`} onRestart={() => setAnswers({})} />
-        {answered === total ? <Score right={right} total={total} /> : null}
       </Frame>
   )
 }
@@ -664,7 +646,17 @@ export function TutorWidget({ widget, persistenceKey }) {
 
 export function TutorWidgets({ widgets, persistenceScope }) {
   const ref = useRef(null)
+  // Saved progress comes from the learner's account first, so a game reopens
+  // where it was left on any device. A failed load falls back to this browser.
+  const hydrated = useQuery({
+    queryKey: ["activity-progress", persistenceScope ? progressPrefix(persistenceScope) : null],
+    queryFn: () => hydrateProgress(persistenceScope),
+    enabled: Boolean(persistenceScope && widgets?.length),
+    staleTime: Infinity,
+    retry: 0,
+  })
   if (!widgets?.length) return null
+  if (hydrated.isLoading) return <div className="my-3 h-40 w-full animate-pulse rounded-[1.1rem] bg-muted/40" aria-label="Loading your progress" />
   return (
       <div ref={ref} className="w-full">
         {widgets.map((widget, i) => <TutorWidget key={i} widget={widget} persistenceKey={widgetProgressKey(persistenceScope, widget, i)} />)}

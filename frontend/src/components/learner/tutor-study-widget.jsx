@@ -70,8 +70,8 @@ export function TutorStudyWidget({ data }) {
           <span className="tg-pill">{mode === "quiz" ? `${right} correct` : `${knownCount} known`}</span>
         </div>
         <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${mode}`}>
-          {quizDone ? <Celebration right={right} total={items.length} />
-            : deckDone ? <Celebration right={knownCount} total={items.length} noun="known" detail={`${items.length - knownCount} still learning`} restartLabel="Review again" />
+          {quizDone ? <Celebration right={right} total={items.length} onReview={() => { setFinished(false); setPosition(0) }} />
+            : deckDone ? <Celebration right={knownCount} total={items.length} noun="known" detail={`${items.length - knownCount} still learning`} restartLabel="Review again" reviewable={false} />
             : mode === "quiz" ? (
             <>
               <div className="mb-4 rounded-2xl bg-[var(--tg-softer)] p-4 text-lg font-extrabold text-foreground ring-1 ring-[var(--tg-line)]"><Text>{item.front}</Text></div>

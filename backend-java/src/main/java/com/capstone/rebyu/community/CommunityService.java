@@ -20,6 +20,8 @@ import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
 import com.capstone.rebyu.gamification.repository.NotificationPreferenceRepository;
+import com.capstone.rebyu.gamification.service.CertificationReviewLevelService;
+import com.capstone.rebyu.gamification.service.CertificationReviewLevelService.LearnerLevel;
 import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
 import com.capstone.rebyu.learningtools.repository.LearnerLibraryItemRepository;
 import com.capstone.rebyu.user.entity.Learner;
@@ -47,7 +49,15 @@ public class CommunityService {
             List.of("discussion", "quiz", "flashcard", "quizzes", "notes", "docx");
 
     private static final List<String> VIEWABLE_POST_TYPES =
-            List.of("quiz", "flashcard", "quizzes", "notes", "docx");
+            List.of("quiz", "flashcard", "quizzes", "notes", "docx", "activity", "mindmap");
+
+    /** Library kinds a learner can share to the feed. */
+    static final List<String> SHAREABLE_LIBRARY_KINDS = List.of("quiz", "flashcard", "activity", "mindmap");
+
+    /** Shared kinds opened from a copy in the viewer's own Library (their pages are owner-only). */
+    private static final Map<String, String> COPIED_KIND_ROUTES = Map.of(
+            "activity", "/learner/activities/",
+            "mindmap", "/learner/mind-maps/");
 
     private final CommunityPostRepository postRepository;
     private final CommunityCircleRepository circleRepository;
@@ -62,6 +72,7 @@ public class CommunityService {
     private final LearnerLibraryItemRepository libraryItemRepository;
     private final LearnerRepository learnerRepository;
     private final S3StorageService s3StorageService;
+    private final CertificationReviewLevelService reviewLevels;
 
     static final int MAX_ATTACHMENTS = 10;
 
@@ -90,7 +101,7 @@ public class CommunityService {
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
             List<Attachment> attachments,
             long reactions, long comments, long saves, long views,
-            boolean liked, boolean saved, boolean ownedByMe) {}
+            boolean liked, boolean saved, boolean ownedByMe, LearnerLevel authorLevel) {}
 
     public record Circle(
             Long circleId, String initials, String name, String description, String topic,
@@ -99,14 +110,17 @@ public class CommunityService {
 
     public record Comment(
             Long commentId, Long postId, Long parentCommentId, String authorName,
-            String initials, String body, OffsetDateTime createdAt, boolean ownedByMe) {}
+            String initials, String body, OffsetDateTime createdAt, boolean ownedByMe, LearnerLevel authorLevel) {}
 
     public List<Post> posts(Long learnerId, String type, String search, boolean savedOnly) {
         String normalizedType = normalizeFilter(type, "for-you");
         String normalizedSearch = normalizeFilter(search, null);
         String searchPattern = normalizedSearch == null ? null : "%" + normalizedSearch.toLowerCase() + "%";
-        return postRepository.feed(learnerId, normalizedType, searchPattern, savedOnly).stream()
-                .map(CommunityService::mapPostRow)
+        List<CommunityPostRow> rows = postRepository.feed(learnerId, normalizedType, searchPattern, savedOnly);
+        Map<Long, LearnerLevel> levels = reviewLevels.levelsFor(
+                rows.stream().map(CommunityPostRow::getAuthorLearnerId).toList());
+        return rows.stream()
+                .map(row -> mapPostRow(row, levels.get(row.getAuthorLearnerId())))
                 .toList();
     }
 
@@ -118,7 +132,8 @@ public class CommunityService {
 
     private Post postById(Long learnerId, Long postId) {
         return postRepository.findRowById(postId, learnerId)
-                .map(CommunityService::mapPostRow)
+                .map(row -> mapPostRow(row, reviewLevels.levelsFor(
+                        java.util.Collections.singletonList(row.getAuthorLearnerId())).get(row.getAuthorLearnerId())))
                 .filter(p -> "VISIBLE".equals(p.postType()) || "VISIBLE".equals(getPostStatus(postId)))
                 .orElseThrow(() -> new EntityNotFoundException("Post not found: " + postId));
     }
@@ -179,8 +194,8 @@ public class CommunityService {
     public Post shareStudyItem(Long learnerId, Long libraryItemId, Long circleId) {
         if (circleId != null) requireCircleMember(learnerId, circleId);
         LearnerLibraryItem item = libraryItemRepository.findByLibraryItemIdAndLearner_LearnerId(libraryItemId, learnerId)
-                .filter(i -> List.of("quiz", "flashcard").contains(i.getItemType()))
-                .orElseThrow(() -> new IllegalArgumentException("Generated quiz or flashcards not found"));
+                .filter(i -> SHAREABLE_LIBRARY_KINDS.contains(i.getItemType()))
+                .orElseThrow(() -> new IllegalArgumentException("Library item not found or cannot be shared"));
         CommunityCircle circle = circleId == null ? null : circleRef(circleId);
         CommunityPost post = CommunityPost.builder()
                 .author(learnerRef(learnerId))
@@ -195,6 +210,43 @@ public class CommunityService {
     }
 
     public record SharedStudyTarget(String store, Long id, String studyType) {}
+
+    /**
+     * Opens a shared game/activity or mind map. Their pages only show the owner's
+     * own Library items, so a viewer gets a copy in their Library (once: opening
+     * the same post again reuses it) and the route to that copy.
+     */
+    @Transactional
+    public String openSharedLibraryItem(Long learnerId, Long postId) {
+        CommunityPost post = requirePostVisible(postId);
+        LearnerLibraryItem shared = post.getSharedLibraryItem();
+        String prefix = COPIED_KIND_ROUTES.get(post.getPostType());
+        if (prefix == null || shared == null || shared.getContent() == null) {
+            throw new IllegalArgumentException("This post has no game or mind map to open");
+        }
+        if (shared.getLearner().getLearnerId().equals(learnerId)) {
+            return prefix + shared.getLibraryItemId();
+        }
+        LearnerLibraryItem copy = libraryItemRepository.findByLearner_LearnerIdOrderByCreatedAtDesc(learnerId).stream()
+                .filter(item -> shared.getItemType().equals(item.getItemType())
+                        && shared.getTitle().equals(item.getTitle())
+                        && shared.getContent().equals(item.getContent()))
+                .findFirst()
+                .orElseGet(() -> {
+                    LearnerLibraryItem created = libraryItemRepository.save(LearnerLibraryItem.builder()
+                            .learner(learnerRef(learnerId))
+                            .certification(shared.getCertification())
+                            .lesson(shared.getLesson())
+                            .itemType(shared.getItemType())
+                            .title(shared.getTitle())
+                            .description("Shared in the community by " + fullName(shared.getLearner()).trim() + ".")
+                            .content(shared.getContent())
+                            .build());
+                    created.setResourceUrl(prefix + created.getLibraryItemId());
+                    return libraryItemRepository.save(created);
+                });
+        return prefix + copy.getLibraryItemId();
+    }
 
     private static final Map<String, String> STUDY_ROUTE_PREFIXES = Map.of(
             "/learner/assessments/", "EXAM",
@@ -393,8 +445,11 @@ public class CommunityService {
     @Transactional(readOnly = true)
     public List<Comment> comments(Long learnerId, Long postId) {
         requirePostVisible(postId);
-        return commentRepository.findByPostIdWithAuthors(postId).stream()
-                .map(c -> mapComment(c, learnerId))
+        List<CommunityComment> found = commentRepository.findByPostIdWithAuthors(postId);
+        Map<Long, LearnerLevel> levels = reviewLevels.levelsFor(
+                found.stream().map(c -> c.getAuthor().getLearnerId()).toList());
+        return found.stream()
+                .map(c -> mapComment(c, learnerId, levels.get(c.getAuthor().getLearnerId())))
                 .toList();
     }
 
@@ -411,7 +466,8 @@ public class CommunityService {
                 .parentComment(parent)
                 .body(request.body().trim())
                 .build();
-        Comment saved = mapComment(commentRepository.save(comment), learnerId);
+        Comment saved = mapComment(commentRepository.save(comment), learnerId,
+                reviewLevels.levelsFor(List.of(learnerId)).get(learnerId));
         notifyAuthor(post, learnerId, "New comment on your post",
                 fullName(author) + " commented on \"" + post.getTitle() + "\".", false);
         return saved;
@@ -533,7 +589,7 @@ public class CommunityService {
     }
 
 
-    private static Post mapPostRow(CommunityPostRow row) {
+    private static Post mapPostRow(CommunityPostRow row, LearnerLevel authorLevel) {
         return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()),
                 row.getAuthorAvatarKey(), row.getCommunity(),
                 row.getCreatedAt() == null ? null : row.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
@@ -542,7 +598,7 @@ public class CommunityService {
                 readAttachments(row.getAttachmentsJson()),
                 row.getReactions(),
                 row.getComments(), row.getSaves(), row.getViews(),
-                row.getLiked(), row.getSaved(), row.getOwnedByMe());
+                row.getLiked(), row.getSaved(), row.getOwnedByMe(), authorLevel);
     }
 
     static String writeAttachments(List<Attachment> files) {
@@ -573,12 +629,12 @@ public class CommunityService {
                 row.getMembers(), row.getJoined(), row.getOwner());
     }
 
-    private Comment mapComment(CommunityComment comment, Long viewerLearnerId) {
+    private Comment mapComment(CommunityComment comment, Long viewerLearnerId, LearnerLevel authorLevel) {
         String authorName = fullName(comment.getAuthor());
         return new Comment(comment.getCommentId(), comment.getPost().getPostId(),
                 comment.getParentComment() == null ? null : comment.getParentComment().getCommentId(),
                 authorName, initials(authorName), comment.getBody(), comment.getCreatedAt(),
-                viewerLearnerId.equals(comment.getAuthor().getLearnerId()));
+                viewerLearnerId.equals(comment.getAuthor().getLearnerId()), authorLevel);
     }
 
     private static String fullName(Learner learner) {

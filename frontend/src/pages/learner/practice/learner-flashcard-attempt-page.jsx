@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
-import { CircleAlert, Layers3, RefreshCw, Trophy } from "@/components/icons"
+import { CircleAlert, RefreshCw, Trophy } from "@/components/icons"
+import { GameIcon } from "@/components/learner/tutor-game-kit.jsx"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -31,10 +32,10 @@ function faceType(text) {
 }
 
 const RATINGS = [
-  ["AGAIN", "Again", "var(--color-rb-cardinal)"],
-  ["HARD", "Hard", "var(--color-rb-fox)"],
-  ["GOOD", "Good", "var(--color-rb-feather)"],
-  ["EASY", "Easy", "var(--color-rb-leaf)"],
+  ["AGAIN", "Again", "tg-conf-miss"],
+  ["HARD", "Hard", "tg-conf-hard"],
+  ["GOOD", "Good", "tg-conf-good"],
+  ["EASY", "Easy", "tg-conf-hit"],
 ]
 
 export default function LearnerFlashcardAttemptPage() {
@@ -101,21 +102,21 @@ export default function LearnerFlashcardAttemptPage() {
     const enrollmentWasRejected = openingError.toLowerCase().includes(ENROLLMENT_ACCESS_MESSAGE)
 
     return (
-      <ArenaShell>
-        <section className="m-auto w-full max-w-xl rounded-3xl bg-white/10 p-8 text-center backdrop-blur">
+      <ArenaShell tool="flashcards">
+        <section className="m-auto w-full max-w-xl text-center">
           <CircleAlert className="mx-auto size-14 text-rb-fox" />
 
-          <p className="mt-5 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/70">
+          <p className="tg-kicker mt-5">
             {enrollmentWasRejected ? "Enrollment verification issue" : "Flashcards unavailable"}
           </p>
 
-          <h1 className="mt-2 font-rb-display text-3xl font-extrabold text-white">
+          <h1 className="mt-2 text-2xl font-extrabold text-foreground">
             {enrollmentWasRejected
               ? "We couldn't verify your active enrollment."
               : "This flashcard set couldn't be opened."}
           </h1>
 
-          <p className="mt-4 text-sm leading-6 text-white/80">
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
             {enrollmentWasRejected
               ? "Your account is shown as enrolled, but the study service did not recognize the active enrollment it expects. This can happen for institution-assigned access and needs service-side verification before it can record this flashcard attempt."
               : openingError}
@@ -126,7 +127,7 @@ export default function LearnerFlashcardAttemptPage() {
               <RefreshCw className="mr-2 size-4" />
               Try again
             </Button>
-            <Button variant="outline" className="border-white/35 bg-transparent text-white hover:bg-white/10 hover:text-white" onClick={() => navigate("/learner/library")}>
+            <Button variant="outline" onClick={() => navigate("/learner/library")}>
               Back to library
             </Button>
           </div>
@@ -176,19 +177,17 @@ export default function LearnerFlashcardAttemptPage() {
 
   if (completion) {
     return (
-      <ArenaShell>
-        <section className="m-auto w-full max-w-xl rounded-3xl bg-white/10 p-8 text-center backdrop-blur">
-          <Trophy className="mx-auto size-14 text-rb-fox" />
+      <ArenaShell tool="flashcards">
+        <section className="tg-result m-auto w-full max-w-xl p-8 text-center">
+          <Trophy className="tg-confetti mx-auto size-14 text-[var(--tg)]" />
 
-          <p className="mt-5 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/70">
-            Flashcards complete
-          </p>
+          <p className="tg-kicker mt-5">Flashcards complete</p>
 
-          <h1 className="mt-2 font-rb-display text-5xl font-extrabold text-white">
+          <h1 className="mt-2 text-5xl font-black tabular-nums text-foreground">
             {Math.round(completion.percentage)}%
           </h1>
 
-          <p className="mt-3 text-white/80">You reviewed {completion.totalItems} cards.</p>
+          <p className="mt-3 text-muted-foreground">You reviewed {completion.totalItems} cards.</p>
 
           {completion.xpEarned > 0 ? (
             <p className="mt-2 font-semibold text-rb-macaw">+{completion.xpEarned} XP</p>
@@ -204,6 +203,7 @@ export default function LearnerFlashcardAttemptPage() {
 
   return (
     <ArenaShell
+      tool="flashcards"
       header={
         <ArenaHeader
           title={studySet.title}
@@ -218,82 +218,61 @@ export default function LearnerFlashcardAttemptPage() {
         />
       }
     >
+      <p className="mb-4 text-sm text-muted-foreground">
+        Recall the answer, flip the card, then rate how well you remembered it.
+      </p>
+
       <button
         type="button"
-        className="group mt-2 block w-full flex-1 [perspective:1400px]"
+        className={`tg-flip flex-1 ${flipped ? "is-flipped" : ""}`}
         onClick={() => setFlipped((value) => !value)}
+        aria-pressed={flipped}
         aria-label={flipped ? "Show the question" : "Reveal the answer"}
       >
-        <div
-          className={`relative h-full min-h-[22rem] w-full transition-transform duration-500 [transform-style:preserve-3d] ${
-            flipped ? "[transform:rotateY(180deg)]" : ""
-          }`}
-        >
-          <div className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-[2rem] bg-white p-8 text-center text-rb-eel shadow-2xl [backface-visibility:hidden]">
-            <Layers3 className="size-10 text-rb-feather" />
-
-            <p className="mt-6 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-rb-feather">
-              Question
-            </p>
-
-            <h1
-              className={`mt-4 font-rb-display leading-tight font-extrabold text-rb-eel ${faceType(
-                item.questionText
-              )}`}
-            >
+        <span className="tg-flip-inner h-full !min-h-[24rem]">
+          <span className="tg-face tg-face-front">
+            <span className="tg-badge-icon !size-12"><GameIcon type="flashcards" className="size-5" /></span>
+            <span className="tg-kicker">Question</span>
+            <span className={`font-extrabold leading-tight ${faceType(item.questionText)}`}>
               {item.questionText}
-            </h1>
+            </span>
+            <span className="mt-2 text-sm font-semibold text-muted-foreground">
+              Tap the card or press Space to reveal the answer
+            </span>
+          </span>
 
-            <p className="mt-8 text-sm font-medium text-muted-foreground">
-              Tap the card to reveal the answer
-            </p>
-          </div>
-
-          <div className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-[2rem] bg-rb-feather p-8 text-center text-white shadow-2xl [backface-visibility:hidden] [transform:rotateY(180deg)]">
-            <p className="font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/75">
-              Answer
-            </p>
-
-            <p
-              className={`mt-5 font-rb-display leading-snug font-extrabold ${faceType(
-                item.correctAnswer
-              )}`}
-            >
+          <span className="tg-face tg-face-back">
+            <span className="text-xs font-extrabold uppercase tracking-widest opacity-80">Answer</span>
+            <span className={`font-extrabold leading-snug ${faceType(item.correctAnswer)}`}>
               {item.correctAnswer || "Review this concept in the lesson."}
-            </p>
-
+            </span>
             {item.explanation ? (
-              <p className="mt-6 max-w-2xl text-sm leading-6 text-white/85">
-                {item.explanation}
-              </p>
+              <span className="max-w-2xl text-sm leading-6 opacity-90">{item.explanation}</span>
             ) : null}
-          </div>
-        </div>
+          </span>
+        </span>
       </button>
 
-      <div className="py-6">
-        <p className="pb-3 text-center font-rb-display text-xs font-extrabold uppercase tracking-wide text-white/60">
+      <div className="mt-6 border-t border-[var(--tg-line)] pt-4">
+        <p className="tg-kicker pb-3">
           {flipped ? "How well did you remember it?" : "Answer first, then rate your recall"}
         </p>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {RATINGS.map(([value, label, face]) => (
+          {RATINGS.map(([value, label, tone]) => (
             <button
               key={value}
               type="button"
               disabled={!flipped || saving}
               onClick={() => rateAndAdvance(value)}
-              style={{ background: face }}
-              className={`rounded-2xl px-4 py-5 font-rb-display text-lg font-extrabold text-white transition enabled:hover:-translate-y-0.5 disabled:opacity-35 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white ${
-                rating === value ? "ring-4 ring-white" : ""
-              }`}
+              className={`tg-conf ${tone} ${rating === value ? "ring-4 ring-[var(--tg)] ring-offset-2" : ""}`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        <p className="pt-3 text-center text-xs text-white/50">
+        <p className="pt-3 text-xs text-muted-foreground">
           {isLast ? "Rating the last card finishes the round." : "Rating moves you on."}
         </p>
       </div>

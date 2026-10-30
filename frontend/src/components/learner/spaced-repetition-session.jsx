@@ -17,11 +17,12 @@ import {
 
 const RECALL_SECONDS = 20
 
-const GRADE_FACES = {
-  AGAIN: "var(--color-rb-cardinal)",
-  HARD: "var(--color-rb-fox)",
-  GOOD: "var(--color-rb-feather)",
-  EASY: "var(--color-rb-leaf)",
+// The lesson game tools' recall-rating buttons (styles/tutor-games.css).
+const GRADE_TONES = {
+  AGAIN: "tg-conf-miss",
+  HARD: "tg-conf-hard",
+  GOOD: "tg-conf-good",
+  EASY: "tg-conf-hit",
 }
 
 function nextDueLabel(outcome) {
@@ -37,8 +38,8 @@ function nextDueLabel(outcome) {
 
 function Centered({ children }) {
   return (
-    <ArenaShell>
-      <section className="m-auto w-full max-w-lg rounded-3xl bg-white/10 p-8 text-center backdrop-blur">
+    <ArenaShell tool="flashcards">
+      <section className="m-auto w-full max-w-lg text-center">
         {children}
       </section>
     </ArenaShell>
@@ -104,8 +105,8 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
   if (state.status === "loading") {
     return (
       <Centered>
-        <Loader2 className="mx-auto size-8 animate-spin text-white" aria-hidden="true" />
-        <p className="mt-4 font-rb-display text-lg font-extrabold">Finding what is due</p>
+        <Loader2 className="mx-auto size-8 animate-spin text-[var(--tg)]" aria-hidden="true" />
+        <p className="mt-4 text-lg font-extrabold text-foreground">Finding what is due</p>
       </Centered>
     )
   }
@@ -113,13 +114,13 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
   if (state.status === "error") {
     return (
       <Centered>
-        <p className="font-rb-display text-xl font-extrabold">Could not load your review</p>
-        <p className="mt-2 text-sm leading-6 text-white/75">
+        <p className="text-xl font-extrabold text-foreground">Could not load your review</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
           {state.error?.response?.data?.message ?? state.error?.message ?? "Please try again."}
         </p>
         <Button
           variant="outline"
-          className="mt-6 border-white/40 bg-transparent text-white hover:bg-white/10"
+          className="mt-6"
           onClick={onDismiss}
         >
           Close
@@ -133,11 +134,11 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
   if (cards.length === 0) {
     return (
       <Centered>
-        <span className="mx-auto grid size-16 place-items-center rounded-full bg-white/15">
+        <span className="tg-badge-icon mx-auto !size-16">
           <Check className="size-8" aria-hidden="true" />
         </span>
-        <p className="mt-5 font-rb-display text-2xl font-extrabold">Nothing due</p>
-        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-white/75">
+        <p className="mt-5 text-2xl font-extrabold text-foreground">Nothing due</p>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
           You have no material waiting for review on this certification. Sit an
           assessment and what you miss will start appearing here.
         </p>
@@ -149,11 +150,11 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
   if (!card) {
     return (
       <Centered>
-        <span className="mx-auto grid size-16 place-items-center rounded-full bg-white/15">
+        <span className="tg-badge-icon mx-auto !size-16">
           <Check className="size-8" aria-hidden="true" />
         </span>
-        <p className="mt-5 font-rb-display text-2xl font-extrabold">Review complete</p>
-        <p className="mt-2 text-sm text-white/75">
+        <p className="mt-5 text-2xl font-extrabold text-foreground">Review complete</p>
+        <p className="mt-2 text-sm text-muted-foreground">
           {cards.length} {cards.length === 1 ? "card" : "cards"} reviewed.
           {dueCount > cards.length
             ? ` ${dueCount - cards.length} more still due — they'll be waiting next time.`
@@ -166,9 +167,12 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
 
   return (
     <ArenaShell
+      tool="flashcards"
       header={
         <ArenaHeader
           title="Spaced repetition"
+          tool="flashcards"
+          kind="Review"
           subtitle={card.lessonTitle ?? "Scheduled review"}
           position={index + 1}
           total={cards.length}
@@ -180,24 +184,22 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
       }
     >
       {seeded && index === 0 ? (
-        <p className="mx-auto max-w-2xl rounded-2xl bg-white/10 p-3 text-center text-xs leading-5 text-white/75">
+        <p className="mx-auto max-w-2xl rounded-2xl bg-[var(--tg-softer)] p-3 text-center text-xs leading-5 text-muted-foreground ring-1 ring-[var(--tg-line)]">
           Some of these are entering your review schedule for the first time, drawn
           from questions you have answered before.
         </p>
       ) : null}
 
       <div className="flex flex-1 flex-col justify-center py-6 text-center">
-        <p className="font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/60">
-          Recall this
-        </p>
+        <p className="tg-kicker">Recall this</p>
 
-        <h1 className="mx-auto mt-4 max-w-4xl font-rb-display text-2xl leading-tight font-extrabold text-white sm:text-4xl">
+        <h2 className="mx-auto mt-4 w-full rounded-2xl bg-[var(--tg-softer)] p-6 text-2xl leading-tight font-extrabold text-foreground ring-1 ring-[var(--tg-line)] sm:p-8 sm:text-3xl">
           {card.question}
-        </h1>
+        </h2>
 
         {revealed ? (
-          <div className="mx-auto mt-10 max-h-[45vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 text-rb-eel shadow-2xl sm:p-8">
-            <p className="font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-rb-feather">
+          <div className="tg-face tg-face-back mx-auto mt-6 max-h-[45vh] w-full animate-in fade-in zoom-in-95 overflow-y-auto duration-300 sm:p-8">
+            <p className="text-xs font-extrabold uppercase tracking-widest opacity-80">
               Answer
             </p>
             <p className="mt-3 text-xl leading-8 font-semibold sm:text-2xl">
@@ -206,18 +208,18 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
             </p>
           </div>
         ) : (
-          <Button
-            size="lg"
-            className="mx-auto mt-10 min-w-56 font-rb-display font-extrabold"
+          <button
+            type="button"
+            className="tg-btn tg-btn-primary mx-auto mt-6 min-w-56 !py-3 !text-base"
             onClick={reveal}
           >
             Show answer
-          </Button>
+          </button>
         )}
       </div>
 
-      <div className="py-6">
-        <p className="pb-3 text-center font-rb-display text-xs font-extrabold uppercase tracking-wide text-white/60">
+      <div className="border-t border-[var(--tg-line)] pt-4">
+        <p className="tg-kicker pb-3 text-center">
           {revealed ? "How well did you recall it?" : "Try to recall it before the clock runs out"}
         </p>
 
@@ -228,17 +230,16 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
               type="button"
               disabled={!revealed || grading}
               onClick={() => submitGrade(grade.id)}
-              style={{ background: GRADE_FACES[grade.id] }}
-              className="rounded-2xl px-4 py-4 text-white transition enabled:hover:-translate-y-0.5 disabled:opacity-35 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white"
+              className={`tg-conf !flex-col !gap-0 py-3 ${GRADE_TONES[grade.id] ?? "tg-conf-good"}`}
             >
-              <span className="block font-rb-display text-lg font-extrabold">{grade.label}</span>
+              <span className="block text-lg font-extrabold">{grade.label}</span>
               <span className="block text-xs opacity-85">{grade.hint}</span>
             </button>
           ))}
         </div>
 
         {lastOutcome && nextDueLabel(lastOutcome) ? (
-          <p className="pt-3 text-center text-xs text-white/50">
+          <p className="pt-3 text-center text-xs text-muted-foreground">
             Last card returns {nextDueLabel(lastOutcome)}.
           </p>
         ) : null}

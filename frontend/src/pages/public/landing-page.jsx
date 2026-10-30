@@ -3,32 +3,37 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   Activity,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   Award,
   BarChart3,
   BookOpen,
   Bookmark,
-  Brain,
   Briefcase,
   Building2,
-  ArrowLeft,
   Check,
   Code2,
   Cpu,
+  Crop,
   FileText,
   Flame,
   Gift,
   Heart,
+  History,
   Layers,
+  Loader2,
   Lock,
   Menu,
   MessageCircle,
   Medal,
+  Mic,
   Network,
+  Plus,
   Shield,
   ShieldCheck,
   Sparkles,
+  SquarePen,
   Star,
   Target,
   ChevronDown,
@@ -521,57 +526,6 @@ const CERTIFICATIONS = [
       "Clinical infection prevention & biomedical waste disposal",
       "Bedside personal care, bathing & comfort measures",
     ],
-  },
-];
-
-function olympicsOffset(index, activeIndex) {
-  let difference = index - activeIndex;
-  const total = OLYMPICS_MODES.length;
-  const midpoint = Math.floor(total / 2);
-  if (difference > midpoint) difference -= total;
-  if (difference < -midpoint) difference += total;
-  return difference;
-}
-
-const OLYMPICS_MODES = [
-  {
-    id: "codestrike",
-    name: "codestrike",
-    role: "Coding Skills",
-    format: "solo · 10 problems",
-    icon: Code2,
-    color: "#2f6b4f",
-    tag: "Practice",
-    accent: "linear-gradient(135deg, var(--color-rb-feather-lip), var(--color-rb-feather))",
-    blurb: "Ten stages of coding problems, judged against real unit tests and scored on time complexity.",
-    points: ["Live judge with split-screen tests", "Scored on Big-O efficiency", "Global and tier ranking"],
-    to: "/learner/challenges/codestrike",
-  },
-  {
-    id: "blueprint",
-    name: "blueprint arena",
-    role: "Design Skills",
-    format: "solo · 10 problems",
-    icon: Network,
-    color: "#248f4c",
-    tag: "Design",
-    accent: "linear-gradient(135deg, var(--color-rb-bee-lip), var(--color-rb-bee))",
-    blurb: "Ten stages of UML and system design on a drag-and-drop canvas, checked against structural rules.",
-    points: ["Pre-loaded architecture components", "Structural validation, not opinion", "Accuracy score and rank tier"],
-    to: "/learner/challenges/blueprint-arena",
-  },
-  {
-    id: "worldcup",
-    name: "champions cup",
-    role: "Exam Readiness",
-    format: "8 players · live bracket",
-    icon: Medal,
-    color: "#23a866",
-    tag: "Tournament",
-    accent: "linear-gradient(135deg, var(--color-rb-leaf-lip), var(--color-rb-leaf))",
-    blurb: "An eight-player bracket on one of your certification tracks — quarterfinals, semis, and a timed final.",
-    points: ["Live elimination bracket", "Timed final round", "Readiness score at the end"],
-    to: "/learner/challenges/world-cup",
   },
 ];
 
@@ -1391,258 +1345,82 @@ function CertificationSection() {
 }
 
 
-function OlympicsSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeMode = OLYMPICS_MODES[activeIndex];
-
-  const move = (direction) =>
-    setActiveIndex(
-      (current) => (current + direction + OLYMPICS_MODES.length) % OLYMPICS_MODES.length
-    );
-
-  return (
-    <section id="roadmap" className="scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
-      <div className="mx-auto max-w-[1280px]">
-        <div data-landing-reveal className="max-w-2xl">
-          <p className="rb-eyebrow">it olympics</p>
-          <WordReveal
-            as="h2"
-            className="rb-display rb-display-lg mt-3"
-            text="revision, but competitive."
-          />
-          <p className="rb-body-lg mt-4">
-            Three arenas built on the same question banks you study from. Two you can run solo any
-            time; the Champions Cup needs seven other people.
-          </p>
-        </div>
-      </div>
-
-      <div
-        data-landing-reveal
-        className="mx-auto mt-12 max-w-[1280px]"
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") move(-1);
-          if (event.key === "ArrowRight") move(1);
-        }}
-        tabIndex={0}
-        aria-label="Arena carousel"
-      >
-        <motion.div
-          className="relative h-[470px] cursor-grab active:cursor-grabbing sm:h-[490px]"
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.16}
-          onDragEnd={(_event, info) => {
-            const intent = info.offset.x + info.velocity.x * 0.12;
-            if (intent < -60) move(1);
-            else if (intent > 60) move(-1);
-          }}
-        >
-          {OLYMPICS_MODES.map((mode, index) => {
-            const position = olympicsOffset(index, activeIndex);
-            const isActive = position === 0;
-
-            return (
-              <motion.button
-                key={mode.id}
-                type="button"
-                onClick={() => (isActive ? undefined : setActiveIndex(index))}
-                className={`absolute inset-0 isolate m-auto h-[430px] w-[280px] overflow-hidden rounded-rb-card border-2 text-left [backface-visibility:hidden] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather sm:w-[320px] ${
-                  isActive
-                    ? "border-rb-feather shadow-[0_26px_65px_-18px_rgba(17,138,87,0.45)]"
-                    : "border-rb-swan shadow-[0_22px_55px_-18px_rgba(15,23,42,0.35)]"
-                }`}
-                style={{ zIndex: 10 - Math.abs(position) }}
-
-                initial={false}
-                animate={{
-                  x: position * 230,
-                  scale: isActive ? 1 : Math.abs(position) === 1 ? 0.82 : 0.66,
-                }}
-                transition={{ type: "spring", stiffness: 260, damping: 30, mass: 0.9 }}
-                whileHover={isActive ? undefined : { scale: 0.87 }}
-                aria-current={isActive ? "true" : undefined}
-                aria-label={`${mode.name}${isActive ? ", selected" : ", select"}`}
-              >
-                <div
-                  className="relative flex h-40 items-center justify-center overflow-hidden"
-                  style={{ background: mode.accent }}
-                >
-                  <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
-                    <span className="rounded-rb-pill bg-white/90 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-rb-eel backdrop-blur-sm">
-                      {mode.tag}
-                    </span>
-                    <span className="rounded-rb-pill bg-black/35 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-white backdrop-blur-sm">
-                      {mode.format}
-                    </span>
-                  </div>
-
-                  <div className="absolute -right-8 -top-8 size-28 rounded-full bg-white/10" />
-                  <div className="absolute -bottom-10 -left-7 size-32 rounded-full bg-white/10" />
-
-                  <span
-                    className={`grid size-24 place-items-center rounded-full bg-white/20 text-white transition-transform duration-500 ${
-                      isActive ? "scale-100" : "scale-90"
-                    }`}
-                  >
-                    <mode.icon className="size-12" strokeWidth={1.7} aria-hidden="true" />
-                  </span>
-                </div>
-
-                <div className="h-[286px] bg-white p-5 text-center">
-                  <p className="font-rb-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-rb-feather-lip">
-                    {mode.role}
-                  </p>
-                  <span className="rb-display rb-display-md mt-1 block">{mode.name}</span>
-                  <p className="mt-2 text-xs leading-5 text-rb-wolf">{mode.blurb}</p>
-
-                  <span className="mt-3 flex flex-col items-start gap-1.5">
-                    {mode.points.map((point) => (
-                      <span
-                        key={point}
-                        className="flex items-start gap-2 text-left text-[11px] font-semibold text-rb-eel"
-                      >
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-rb-feather-lip" aria-hidden="true" />
-                        {point}
-                      </span>
-                    ))}
-                  </span>
-
-                  <span
-                    className={`mx-auto mt-4 block h-1 rounded-full transition-all ${
-                      isActive ? "w-14 bg-rb-feather" : "w-6 bg-rb-swan"
-                    }`}
-                    aria-hidden="true"
-                  />
-                </div>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-
-        <div className="flex items-center justify-center gap-4">
-          <motion.button
-            type="button"
-            onClick={() => move(-1)}
-            aria-label="Previous arena"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 500, damping: 24 }}
-            className="grid size-11 place-items-center rounded-rb-pill border-2 border-rb-swan bg-rb-snow text-rb-eel transition-colors hover:border-rb-feather focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather"
-          >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </motion.button>
-
-          <div className="flex items-center gap-1.5" aria-hidden="true">
-            {OLYMPICS_MODES.map((mode, index) => (
-              <motion.span
-                key={mode.id}
-                className={`h-1.5 rounded-full ${
-                  index === activeIndex ? "bg-rb-feather" : "bg-rb-swan"
-                }`}
-                initial={false}
-                animate={{ width: index === activeIndex ? 28 : 6 }}
-                transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-              />
-            ))}
-          </div>
-
-          <motion.button
-            type="button"
-            onClick={() => move(1)}
-            aria-label="Next arena"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 500, damping: 24 }}
-            className="grid size-11 place-items-center rounded-rb-pill border-2 border-rb-swan bg-rb-snow text-rb-eel transition-colors hover:border-rb-feather focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather"
-          >
-            <ArrowRight className="size-5" aria-hidden="true" />
-          </motion.button>
-        </div>
-
-        <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
-          <div className="min-h-[3.75rem]">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeMode.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.22, ease: EASE }}
-              >
-                <p className="rb-display rb-display-md">{activeMode.name}</p>
-                <p className="mt-1 text-sm text-rb-wolf">{activeMode.format}</p>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <TactileButton asChild variant="feather">
-            <Link to="/register">
-              enter arena
-              <ArrowRight className="size-5" />
-            </Link>
-          </TactileButton>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
-const TUTOR_CHAT = [
+// Mirrors the real lesson tutor panel (lesson-ai-tutor.jsx) and its separate guided
+// dialogue screen (tutor-dialogue.jsx), played as two slides: learner turns are typed
+// into the composer and sent, tutor turns stream in.
+const TUTOR_DEMO = [
   {
+    screen: "chat",
     from: "learner",
-    parts: [{ text: "What's the difference between 2NF and 3NF?" }],
+    snip: "EMPLOYEE (emp_id, name, dept_id, dept_name)",
+    text: "Why isn't this table in 3NF?",
   },
   {
+    screen: "chat",
     from: "tutor",
+    kind: "text",
     parts: [
-      { text: "2NF removes " },
-      { text: "partial", strong: true },
-      { text: " dependencies on a composite key. 3NF goes further and removes " },
-      { text: "transitive", strong: true },
-      { text: " ones — where a non-key column depends on another non-key column." },
+      { text: "Because " },
+      { text: "dept_name", strong: true },
+      { text: " depends on " },
+      { text: "dept_id", strong: true },
+      { text: ", not on the key emp_id — a " },
+      { text: "transitive dependency", strong: true },
+      { text: ". Move it into a DEPARTMENT table and EMPLOYEE is in 3NF." },
     ],
-    footer: "Want to practise this before moving on?",
-    chips: ["make a quiz", "make flashcards"],
   },
+  { screen: "chat", from: "learner", text: "Create a quiz based on this lesson." },
+  { screen: "chat", from: "tutor", kind: "quiz" },
   {
-    from: "learner",
-    parts: [{ text: "make a quiz" }],
-  },
-  {
+    screen: "dialogue",
     from: "tutor",
-    parts: [
-      { text: "Built you a five-question quiz on normalization, drawn from this lesson." },
-    ],
-    action: { label: "take the quiz", icon: Zap },
+    kind: "dialogue",
+    label: "Explain it simply",
+    question: "What makes a table 3NF? Say it like I'm new to databases.",
   },
+  { screen: "dialogue", from: "learner", text: "Every column depends on the key and nothing else." },
   {
-    from: "learner",
-    parts: [{ text: "make flashcards too" }],
-  },
-  {
+    screen: "dialogue",
     from: "tutor",
-    parts: [
-      { text: "24 cards, same lesson — the terms you have missed most come up first." },
+    kind: "dialogue",
+    feedback: [
+      { text: "Good — that's the core idea. One gap: say what it rules out, a " },
+      { text: "non-key column depending on another non-key column", strong: true },
+      { text: "." },
     ],
-    action: { label: "open the deck", icon: Layers },
+    label: "Spot the mistake",
+    question: "“No partial dependencies means the table is already in 3NF.” What's wrong?",
   },
 ]
 
-const CHAT_TIMING = {
-  afterLearner: 800,
-  typingIndicator: 1200,
-  perCharacter: 16,
-  afterTutor: 1800,
-  beforeReplay: 3200,
+const DEMO_QUIZ = {
+  title: "Normalization — practice",
+  question: "Which dependency does 3NF remove?",
+  options: ["Partial", "Transitive", "Multivalued", "Join"],
+  answer: 1,
 }
 
-function messageLength(message) {
-  return message.parts.reduce((total, part) => total + part.text.length, 0)
+const DEMO_DIALOGUE_TOPICS = ["Normal forms", "Dependencies", "Decomposition"]
+const DEMO_FEYNMAN_TIPS = ["Use everyday words", "Say why it matters", "Give an example"]
+
+const DEMO_TIMING = {
+  emptyState: 2000,
+  perKeystroke: 32,
+  beforeSend: 450,
+  afterSend: 500,
+  thinking: 1100,
+  perCharacter: 14,
+  quizPick: 1500,
+  readPause: 2200,
+  slideIn: 700,
+  beforeNextSlide: 2500,
 }
 
-function TypedParts({ parts, revealed }) {
+function textLength(parts) {
+  return parts.reduce((total, part) => total + part.text.length, 0)
+}
+
+function TypedParts({ parts, revealed = Infinity }) {
   let consumed = 0
   return (
     <>
@@ -1661,166 +1439,435 @@ function TypedParts({ parts, revealed }) {
   )
 }
 
-function InkPen() {
+function DemoTutorAvatar() {
   return (
-    <span className="rb-ink-pen" aria-hidden="true">
-      <svg viewBox="0 0 120 20">
-        <polygon points="0,10 15,5.5 15,14.5" fill="#b8bec4" />
-        <circle cx="1.6" cy="10" r="1.6" fill="#2b4a3e" />
-        <rect x="15" y="5" width="16" height="10" rx="1" fill="#6f777f" />
-        <rect x="31" y="4" width="89" height="12" rx="3" fill="#8b939b" />
-        <rect x="31" y="6" width="89" height="3" rx="1.5" fill="#dfe3e6" opacity="0.85" />
-        <rect x="44" y="4" width="2.5" height="12" fill="#eef0f2" />
-        <rect x="50" y="4" width="2.5" height="12" fill="#eef0f2" />
-        <rect x="84" y="1.5" width="32" height="3.5" rx="1.75" fill="#5c636a" />
-      </svg>
+    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rb-feather text-white ring-2 ring-white">
+      <Sparkles className="size-4" aria-hidden="true" />
     </span>
   )
 }
 
-function TypingIndicator() {
+function DemoLearnerMessage({ message }) {
   return (
-    <div className="rb-ink-tutor">
-      <p>
-        <span className="rb-ink-dots">...</span>
-        <InkPen />
+    <div className="rb-pop-in flex justify-end">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-rb-feather px-3.5 py-2.5 text-white">
+        {message.snip ? (
+          <div className="mb-1.5 flex items-center gap-2 rounded-lg bg-white/15 px-2.5 py-1.5 text-xs font-semibold">
+            <Crop className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate font-mono">{message.snip}</span>
+          </div>
+        ) : null}
+        <p className="text-sm font-medium leading-6">{message.text}</p>
+      </div>
+    </div>
+  )
+}
+
+function DemoQuiz({ picked }) {
+  return (
+    <div className="w-full rounded-2xl border border-rb-swan bg-white p-4 shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex rounded-xl bg-rb-polar p-1 text-xs font-semibold">
+          <span className="rounded-lg bg-white px-2.5 py-1 text-rb-eel shadow-sm">Quiz</span>
+          <span className="px-2.5 py-1 text-rb-wolf">Flashcards</span>
+        </span>
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-rb-feather-lip">
+          <BookOpen className="size-3.5" aria-hidden="true" />
+          Saved to Library
+        </span>
+      </div>
+      <p className="mt-3 font-rb-display text-sm text-rb-eel">{DEMO_QUIZ.title}</p>
+      <p className="mt-2 text-sm font-bold leading-5 text-rb-eel">{DEMO_QUIZ.question}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {DEMO_QUIZ.options.map((option, index) => {
+          const correct = picked && index === DEMO_QUIZ.answer
+          return (
+            <span
+              key={option}
+              className={`flex items-center gap-2 rounded-xl border px-2.5 py-2 text-xs transition-colors duration-300 ${
+                correct ? "border-rb-feather/40 bg-rb-feather-wash text-rb-eel" : "border-rb-swan text-rb-eel"
+              }`}
+            >
+              {correct ? (
+                <Check className="size-4 shrink-0 text-rb-feather-lip" aria-hidden="true" />
+              ) : (
+                <span className="grid size-4 shrink-0 place-items-center rounded-full border border-rb-swan text-[9px] font-bold text-rb-wolf">
+                  {String.fromCharCode(65 + index)}
+                </span>
+              )}
+              {option}
+            </span>
+          )
+        })}
+      </div>
+      {picked ? (
+        <p className="rb-pop-in mt-2.5 rounded-xl bg-rb-feather-wash/60 px-3 py-2 text-xs text-rb-eel">
+          <strong>Correct!</strong> 3NF removes transitive dependencies.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function DemoChatTutorMessage({ message, revealed, quizPicked }) {
+  return (
+    <div className="rb-pop-in flex items-start gap-2.5">
+      <DemoTutorAvatar />
+      <div className="min-w-0 flex-1">
+        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">REBYU AI Tutor</p>
+        {message.kind === "quiz" ? (
+          <DemoQuiz picked={quizPicked} />
+        ) : (
+          <p className="text-sm leading-6 text-rb-eel [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink">
+            <TypedParts parts={message.parts} revealed={revealed} />
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DemoDialogueTutorMessage({ message, revealed }) {
+  const feedbackLength = message.feedback ? textLength(message.feedback) : 0
+
+  return (
+    <div className="rb-pop-in flex items-start gap-2.5">
+      <DemoTutorAvatar />
+      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-rb-swan bg-white px-3.5 py-3 text-sm leading-6 text-rb-eel shadow-[0_2px_10px_rgba(17,55,43,0.06)] [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink">
+        <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+          REBYU AI Tutor
+        </p>
+        {message.feedback ? (
+          <p>
+            <TypedParts parts={message.feedback} revealed={revealed} />
+          </p>
+        ) : null}
+        {revealed >= feedbackLength ? (
+          <div
+            className={`rb-pop-in ${message.feedback ? "mt-2.5" : ""} rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/50 px-3 py-2.5`}
+          >
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+              {message.label}
+            </p>
+            <p className="mt-0.5 font-extrabold leading-snug">{message.question}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function DemoThinking() {
+  return (
+    <div className="rb-pop-in flex items-center gap-2.5">
+      <DemoTutorAvatar />
+      <p className="flex items-center gap-2 rounded-[1.1rem] rounded-tl-md border-2 border-rb-swan bg-white px-3.5 py-2 text-xs font-bold text-rb-wolf">
+        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+        Thinking…
       </p>
     </div>
   )
 }
 
-function ChatBubble({ message, revealed, showChips }) {
-  const isLearner = message.from === "learner"
-  const writing = revealed < messageLength(message)
-
+function DemoComposer({ draft, placeholder, tips }) {
   return (
-    <div className={`rb-pop-in ${isLearner ? "rb-ink-learner" : "rb-ink-tutor"}`}>
-      <p>
-        <TypedParts parts={message.parts} revealed={revealed} />
-        {writing ? <InkPen /> : null}
-      </p>
-
-      {message.footer && showChips ? <p className="rb-ink-footer">{message.footer}</p> : null}
-
-      {message.chips && showChips ? (
-        <div className="mt-1 flex flex-wrap gap-3">
-          {message.chips.map((chip) => (
-            <span key={chip} className="rb-ink-box">
-              {chip}
+    <div className="shrink-0 border-t border-rb-swan bg-rb-snow px-3 pb-2 pt-3">
+      <div className="rounded-[18px] border border-rb-feather/40 bg-white p-3">
+        {tips ? (
+          <p className="mb-2 flex flex-wrap gap-1.5 text-[10px] font-bold text-rb-wolf">
+            {DEMO_FEYNMAN_TIPS.map((tip) => (
+              <span key={tip} className="rounded-full bg-rb-polar px-2 py-0.5">
+                {tip}
+              </span>
+            ))}
+          </p>
+        ) : null}
+        <p className={`min-h-6 text-sm ${draft ? "text-rb-eel" : "text-rb-hare"}`}>
+          {draft || placeholder}
+          {draft ? <span className="ml-px inline-block h-4 w-px translate-y-0.5 animate-pulse bg-rb-eel" /> : null}
+        </p>
+        <div className="mt-2 flex items-center justify-between" aria-hidden="true">
+          {tips ? (
+            <span className="rounded-[10px] border border-rb-swan px-2.5 py-1 text-xs font-bold text-rb-eel">hint</span>
+          ) : (
+            <Plus className="size-5 text-rb-eel" />
+          )}
+          <span className="flex items-center gap-3">
+            <Mic className="size-4 text-rb-wolf" />
+            <span
+              className={`grid size-9 place-items-center rounded-[10px] text-white transition-colors ${
+                draft ? "bg-rb-feather" : "bg-rb-feather/40"
+              }`}
+            >
+              <ArrowUp className="size-4" />
             </span>
-          ))}
+          </span>
         </div>
-      ) : null}
-
-      {message.action && showChips ? (
-        <span className="rb-pop-in rb-ink-action">
-          <message.action.icon className="size-4" aria-hidden="true" />
-          {message.action.label}
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </span>
-      ) : null}
+      </div>
+      <p className="mt-1.5 text-center text-[10px] font-medium text-rb-hare">
+        REBYU AI can make mistakes · check your lesson materials
+      </p>
     </div>
   )
+}
+
+function DemoChatEmpty() {
+  return (
+    <div className="m-auto flex flex-col items-center px-4 text-center">
+      <span className="grid size-14 place-items-center rounded-2xl bg-rb-feather text-white shadow-[0_8px_20px_-8px_rgba(17,55,43,0.5)]">
+        <Sparkles className="size-7" aria-hidden="true" />
+      </span>
+      <p className="mt-4 font-rb-display text-lg text-rb-eel">Hi Alex, ready to dig in?</p>
+      <p className="mt-1.5 max-w-[16rem] text-sm leading-6 text-rb-wolf">
+        Ask anything about <strong className="text-rb-eel">Normalization</strong> — I&apos;ll stick to
+        what&apos;s covered here.
+      </p>
+    </div>
+  )
+}
+
+function DemoDialogueBar({ part }) {
+  return (
+    <>
+      <div className="flex shrink-0 items-center gap-2 border-b-2 border-rb-swan bg-rb-polar/60 px-3 py-2">
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-extrabold text-rb-feather-lip">
+          <ArrowLeft className="size-3.5" aria-hidden="true" /> chat
+        </span>
+        <p className="text-xs font-extrabold uppercase tracking-wide text-rb-wolf">guided dialogue</p>
+      </div>
+      <div className="shrink-0 border-b-2 border-rb-swan bg-rb-snow px-3 py-2">
+        <p className="text-[11px] font-extrabold text-rb-eel">
+          Part {part + 1} of {DEMO_DIALOGUE_TOPICS.length}
+          <span className="font-bold text-rb-wolf"> · {DEMO_DIALOGUE_TOPICS[part]}</span>
+        </p>
+        <div className="mt-1.5 flex gap-1" aria-hidden="true">
+          {DEMO_DIALOGUE_TOPICS.map((topic, index) => (
+            <span
+              key={topic}
+              className={`h-1.5 flex-1 rounded-full ${
+                index < part ? "bg-rb-feather" : index === part ? "bg-rb-feather/40" : "bg-rb-swan"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+const DEMO_SLIDES = [
+  { id: "chat", label: "Tutor chat", icon: Sparkles },
+  { id: "dialogue", label: "Guided dialogue", icon: MessageCircle },
+]
+
+function slideSteps(slideIndex) {
+  return TUTOR_DEMO.filter((message) => message.screen === DEMO_SLIDES[slideIndex].id)
 }
 
 function TutorConversation() {
   const [reducedMotion, setReducedMotion] = useState(false)
-  const [done, setDone] = useState(0)
-  const [revealed, setRevealed] = useState(0)
+  const [slide, setSlide] = useState(0)
+  const [startSlide, setStartSlide] = useState(0)
+  const [shown, setShown] = useState(0)
+  const [revealed, setRevealed] = useState(Infinity)
+  const [quizPicked, setQuizPicked] = useState(false)
   const [thinking, setThinking] = useState(false)
+  const [draft, setDraft] = useState("")
+  const bodyRef = useRef(null)
 
   useEffect(() => {
     setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches)
   }, [])
 
   useEffect(() => {
-    if (reducedMotion) return undefined
+    if (reducedMotion) {
+      setSlide(startSlide)
+      setShown(slideSteps(startSlide).length)
+      setRevealed(Infinity)
+      setQuizPicked(true)
+      setThinking(false)
+      setDraft("")
+      return undefined
+    }
 
-    const current = TUTOR_CHAT[done]
+    let cancelled = false
+    const timers = new Set()
+    const pause = (ms) =>
+      new Promise((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+          timers.delete(timer)
+          if (cancelled) reject(new Error("stopped"))
+          else resolve()
+        }, ms)
+        timers.add(timer)
+      })
 
-    if (!current) {
-      const replay = window.setTimeout(() => {
-        setDone(0)
+    // Driven by elapsed time, not timer count, so a throttled tab skips ahead instead of crawling.
+    async function typeOut(total, msPerCharacter, onProgress) {
+      const startedAt = performance.now()
+      for (;;) {
+        const count = Math.min(total, Math.floor((performance.now() - startedAt) / msPerCharacter))
+        onProgress(count)
+        if (count >= total) return
+        await pause(30)
+      }
+    }
+
+    async function playSlide(slideIndex) {
+      const steps = slideSteps(slideIndex)
+      setSlide(slideIndex)
+      setShown(0)
+      setQuizPicked(false)
+      setThinking(false)
+      setDraft("")
+      await pause(slideIndex === 0 ? DEMO_TIMING.emptyState : DEMO_TIMING.slideIn)
+
+      for (let index = 0; index < steps.length; index += 1) {
+        const message = steps[index]
+
+        if (message.from === "learner") {
+          await typeOut(message.text.length, DEMO_TIMING.perKeystroke, (count) =>
+            setDraft(message.text.slice(0, count))
+          )
+          await pause(DEMO_TIMING.beforeSend)
+          setDraft("")
+          setShown(index + 1)
+          await pause(DEMO_TIMING.afterSend)
+          continue
+        }
+
+        setThinking(true)
+        await pause(DEMO_TIMING.thinking)
+        setThinking(false)
         setRevealed(0)
-      }, CHAT_TIMING.beforeReplay)
-      return () => window.clearTimeout(replay)
+        setShown(index + 1)
+
+        const parts = message.parts ?? message.feedback
+        if (parts) await typeOut(textLength(parts), DEMO_TIMING.perCharacter, setRevealed)
+        setRevealed(Infinity)
+
+        if (message.kind === "quiz") {
+          await pause(DEMO_TIMING.quizPick)
+          setQuizPicked(true)
+        }
+        await pause(DEMO_TIMING.readPause)
+      }
+
+      await pause(DEMO_TIMING.beforeNextSlide)
     }
 
-    if (current.from === "learner") {
-      setThinking(false)
-      setRevealed(messageLength(current))
-      const next = window.setTimeout(
-        () => setDone((n) => n + 1),
-        CHAT_TIMING.afterLearner
-      )
-      return () => window.clearTimeout(next)
+    async function play() {
+      for (let slideIndex = startSlide; !cancelled; slideIndex = (slideIndex + 1) % DEMO_SLIDES.length) {
+        await playSlide(slideIndex)
+      }
     }
 
-    setThinking(true)
-    setRevealed(0)
-    const total = messageLength(current)
-    let typer = null
-
-    const startTyping = window.setTimeout(() => {
-      setThinking(false)
-      typer = window.setInterval(() => {
-        setRevealed((count) => (count >= total ? count : count + 1))
-      }, CHAT_TIMING.perCharacter)
-    }, CHAT_TIMING.typingIndicator)
-
+    play().catch(() => {})
     return () => {
-      window.clearTimeout(startTyping)
-      if (typer) window.clearInterval(typer)
+      cancelled = true
+      timers.forEach((timer) => window.clearTimeout(timer))
     }
-  }, [done, reducedMotion])
+  }, [reducedMotion, startSlide])
 
   useEffect(() => {
-    if (reducedMotion) return undefined
-    const current = TUTOR_CHAT[done]
-    if (!current || current.from !== "tutor") return undefined
-    if (thinking || revealed < messageLength(current)) return undefined
+    const body = bodyRef.current
+    if (body) body.scrollTo({ top: body.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" })
+  }, [shown, revealed, quizPicked, thinking, slide, reducedMotion])
 
-    const next = window.setTimeout(
-      () => setDone((n) => n + 1),
-      CHAT_TIMING.afterTutor
-    )
-    return () => window.clearTimeout(next)
-  }, [done, revealed, thinking, reducedMotion])
-
-  const visible = reducedMotion ? TUTOR_CHAT : TUTOR_CHAT.slice(0, done + 1)
+  const steps = slideSteps(slide)
+  const inDialogue = DEMO_SLIDES[slide].id === "dialogue"
+  const dialoguePart = inDialogue && shown === steps.length && revealed === Infinity ? 1 : 0
 
   return (
-    <div data-landing-reveal className="rb-tutor-paper">
-      <div className="rb-tutor-head">
-        <Sparkles className="size-6 shrink-0 text-[#2b4a3e]" aria-hidden="true" />
-        <div className="min-w-0">
-          <div className="rb-tutor-name">rebyu tutor</div>
-          <div className="rb-tutor-sub">Databases · Normalization</div>
-        </div>
-
-        <span className="rb-tutor-stamp">in this lesson</span>
+    <div data-landing-reveal>
+      <div className="mb-3 flex justify-center gap-2" role="tablist" aria-label="Tutor demos">
+        {DEMO_SLIDES.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={slide === index}
+            onClick={() => {
+              setStartSlide(index)
+              setSlide(index)
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-rb-pill px-3.5 py-1.5 text-xs font-bold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather ${
+              slide === index
+                ? "bg-rb-feather text-white"
+                : "bg-white text-rb-eel ring-1 ring-rb-swan hover:ring-rb-feather"
+            }`}
+          >
+            <item.icon className="size-3.5" aria-hidden="true" />
+            {item.label}
+          </button>
+        ))}
       </div>
 
       <div
-        className="rb-tutor-body flex h-[392px] flex-col justify-end gap-2 overflow-hidden"
-        aria-live="polite"
-        aria-atomic="false"
+        className="flex h-[560px] flex-col overflow-hidden rounded-[1.25rem] border border-rb-swan bg-rb-snow shadow-[0_26px_65px_-24px_rgba(17,55,43,0.4)]"
+        aria-label="AI tutor demo"
       >
-        {visible.map((message, messageIndex) => {
-          const isLast = messageIndex === visible.length - 1
-          const settled = reducedMotion || !isLast
-          if (!settled && thinking && message.from === "tutor") {
-            return <TypingIndicator key={messageIndex} />
-          }
-          return (
-            <ChatBubble
-              key={messageIndex}
-              message={message}
-              revealed={settled ? messageLength(message) : revealed}
-              showChips={settled || revealed >= messageLength(message)}
+        <div className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-rb-feather-lip ring-2 ring-white/40">
+              <Sparkles className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-rb-display text-sm font-extrabold leading-tight text-white">REBYU AI Tutor</p>
+              <p className="truncate text-xs font-bold text-white/80">Normalization</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 text-white" aria-hidden="true">
+            <History className="size-4" />
+            <SquarePen className="size-4" />
+            <X className="size-4" />
+          </div>
+        </div>
+
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={slide}
+            className="flex min-h-0 flex-1 flex-col"
+            initial={{ opacity: 0, x: 48 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -48 }}
+            transition={{ duration: 0.35, ease: EASE }}
+          >
+            {inDialogue ? <DemoDialogueBar part={dialoguePart} /> : null}
+
+            <div
+              ref={bodyRef}
+              className={`flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 py-4 ${
+                inDialogue ? "bg-rb-polar/40" : ""
+              }`}
+              aria-live="polite"
+              aria-atomic="false"
+            >
+              {!inDialogue && shown === 0 ? <DemoChatEmpty /> : null}
+              {steps.slice(0, shown).map((message, index) => {
+                const messageRevealed = index === shown - 1 ? revealed : Infinity
+                if (message.from === "learner") return <DemoLearnerMessage key={index} message={message} />
+                return inDialogue ? (
+                  <DemoDialogueTutorMessage key={index} message={message} revealed={messageRevealed} />
+                ) : (
+                  <DemoChatTutorMessage
+                    key={index}
+                    message={message}
+                    revealed={messageRevealed}
+                    quizPicked={quizPicked}
+                  />
+                )
+              })}
+              {thinking ? <DemoThinking /> : null}
+            </div>
+
+            <DemoComposer
+              draft={draft}
+              placeholder={inDialogue ? "Explain it in your own words…" : "Ask about this lesson…"}
+              tips={inDialogue}
             />
-          )
-        })}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )
@@ -1846,15 +1893,18 @@ function AiTutorSection() {
             text="a tutor that sits with you in the lesson."
           />
           <p className="rb-body-lg mt-4 max-w-lg">
-            Stuck on something mid-lesson? Ask. The tutor explains the concept you are on, in the
-            lesson's own vocabulary — then turns it into a quiz or a flashcard deck so it sticks.
+            Stuck mid-lesson? Snip the part you mean and ask. The tutor knows which topics you are
+            weak at, answers with something you can do — not just a wall of text — and can teach
+            the lesson out loud.
           </p>
 
           <div className="mt-8 space-y-3">
             {[
-              [Brain, "Explains any concept while you are studying the lesson"],
-              [Zap, "Turns what you just read into a practice quiz"],
-              [Layers, "Builds a flashcard deck from the same lesson"],
+              [Crop, "Snip any part of the lesson and ask about exactly that"],
+              [Zap, "Answers with quizzes, diagrams, mind maps and lesson games"],
+              [MessageCircle, "Guided dialogue: explain it back, Feynman-style, and get feedback"],
+              [Mic, "Live voice tutor that teaches aloud — raise your hand to interrupt"],
+              [Bookmark, "Quizzes, flashcards and mind maps save to your Library"],
             ].map(([Icon, text]) => (
               <div key={text} className="flex items-start gap-3">
                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-snow text-rb-beetle-lip">
@@ -2300,7 +2350,6 @@ export default function LandingPage() {
           <AiTutorSection />
           {SHOW_COMMUNITY ? <CommunitySection /> : null}
         </FeaturesBand>
-        <OlympicsSection />
         <WeaknessSection />
         <AccessSection />
       </main>

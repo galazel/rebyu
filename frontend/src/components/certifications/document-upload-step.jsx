@@ -54,13 +54,13 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">
-          Reference documents <span className="font-normal text-muted-foreground">(optional)</span>
+        <h3 className="rb-form-heading text-base font-semibold text-foreground">
+          Reference documents <span className="font-normal text-muted-foreground">(required)</span>
         </h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           The syllabus, exam guide, past papers or notes this certification should be built from.
           Everything generated — the curriculum, lessons, questions and exams — is drawn from what
-          you upload here; leave it empty and the planner researches the certification itself.
+          you upload here, so add at least one document.
         </p>
       </div>
 

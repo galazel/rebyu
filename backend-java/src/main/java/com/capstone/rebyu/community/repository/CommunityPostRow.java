@@ -4,6 +4,7 @@ import java.time.Instant;
 
 public interface CommunityPostRow {
     Long getPostId();
+    Long getAuthorLearnerId();
     String getAuthorName();
     String getAuthorAvatarKey();
     String getCommunity();

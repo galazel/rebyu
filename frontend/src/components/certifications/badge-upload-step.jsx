@@ -53,10 +53,10 @@ export function BadgeUploadStep({ value, onChange, disabled, existingSrc = null,
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-foreground">
+        <h3 className="rb-form-heading text-base font-semibold text-foreground">
           Badge image <span className="font-normal text-muted-foreground">(optional)</span>
         </h3>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <p className="mt-1 text-sm text-muted-foreground">
           The emblem learners earn when they complete this certification, like a Credly or Cisco
           badge. Square artwork looks best.
         </p>

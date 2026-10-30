@@ -1652,6 +1652,13 @@ body {
   letter-spacing: 0.02em;
 }
 
+/* Section headings inside a form: same family as the field labels under them,
+   so only the drawer or page title uses the display face. */
+:is(h1, h2, h3, h4, h5, h6).rb-form-heading {
+  font-family: var(--font-institution-body) !important;
+  letter-spacing: normal;
+}
+
 :is(p, button, a, input, select, textarea, label, table, th, td, tr),
 span:not(.font-rb-display):not(.font-display):not(.font-heading),
 .font-rb-body,

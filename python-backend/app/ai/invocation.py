@@ -15,6 +15,7 @@ retry decorator of its own.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -510,35 +511,64 @@ async def invoke_question_agent(
         return QuestionBatch(scope=scope, questions=final)
 
     batches = math.ceil(count / size)
+    concurrency = max(1, get_settings().question_concurrency)
     questions: list = []
     seen = _known(prior_list)
-    for index in range(batches + _DEDUPE_TOPUP_ROUNDS):
-        wanted = min(size, count - len(questions))
-        if wanted <= 0:
-            break
+    calls = 0
+    # Waves of batches written at the same time. Each wave sees every stem
+    # from the waves before it; within a wave, each batch is pointed at its own
+    # stretch of the material so they overlap less, and any repeats are dropped
+    # by the shared `seen` check and replaced by the next wave.
+    while len(questions) < count and calls < batches + _DEDUPE_TOPUP_ROUNDS:
+        missing = count - len(questions)
+        width = min(concurrency, math.ceil(missing / size), batches + _DEDUPE_TOPUP_ROUNDS - calls)
+        wants = [missing // width + (1 if slot < missing % width else 0) for slot in range(width)]
+        avoid_clause = _avoid_clause(prior_list + [q.question for q in questions])
 
-        batched = (
-            f"This is batch {index + 1} of {batches} for this assessment.\n"
-            f"Generate exactly {wanted} questions in THIS response. Ignore any other "
-            f"question count mentioned below -- {wanted} is the count for this batch.\n\n"
-            f"{instructions}"
+        def batch_prompt(slot: int, wanted: int) -> str:
+            spread = (
+                f"{width} batches are being written at the same time; this is part {slot + 1} "
+                f"of {width}. Draw mainly on part {slot + 1} of {width} of the material, in "
+                "the order it is given, so the parts cover different topics.\n"
+                if width > 1 else ""
+            )
+            return (
+                f"This is batch {calls + slot + 1} of {batches} for this assessment.\n{spread}"
+                f"Generate exactly {wanted} questions in THIS response. Ignore any other "
+                f"question count mentioned below -- {wanted} is the count for this batch.\n\n"
+                f"{instructions}{avoid_clause}"
+            )
+
+        results = await asyncio.gather(
+            *(
+                invoke_agent(
+                    get_question_generation_agent,
+                    build_question_batch_prompt(scope, context, batch_prompt(slot, wanted)),
+                )
+                for slot, wanted in enumerate(wants)
+            ),
+            return_exceptions=True,
         )
-        avoid = prior_list + [q.question for q in questions]
-        batched += _avoid_clause(avoid)
+        calls += width
 
-        result = await invoke_agent(
-            get_question_generation_agent, build_question_batch_prompt(scope, context, batched)
+        failures = [result for result in results if isinstance(result, BaseException)]
+        if len(failures) == len(results):
+            raise failures[0]
+        for failure in failures:
+            logger.warning("A question batch for %.40s failed (%s); topping up instead", scope, failure)
+
+        fresh = sum(
+            _take_new(result.questions, seen, questions)
+            for result in results
+            if not isinstance(result, BaseException)
         )
-
-        fresh = _take_new(result.questions, seen, questions)
-
         logger.info(
-            "Question batch %d for %.40s: %d question(s), %d new, %d/%d total",
-            index + 1, scope, len(result.questions), fresh, len(questions), count,
+            "Question wave of %d for %.40s: %d new, %d/%d total",
+            width, scope, fresh, len(questions), count,
         )
         if fresh == 0:
             logger.warning(
-                "Stopping %.40s at %d/%d questions: a whole batch was duplicates",
+                "Stopping %.40s at %d/%d questions: a whole wave was duplicates",
                 scope, len(questions), count,
             )
             break

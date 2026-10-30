@@ -23,7 +23,7 @@ class TutorLibraryServiceTest {
 
     @Test void gameSavesItsFullContentAndOwnerScopedPlayableRoute() throws Exception {
         when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<ResultSetExtractor<Long>>any(), eq(246L))).thenReturn(4L);
-        when(tools.createLibraryItem(eq(9L), any())).thenReturn(new LearnerToolsService.LibraryItem(42L, "activity", "Word game", "", null, null, 4L, "IT", 246L, "Lesson", "Activity", null, true));
+        when(tools.createLibraryItem(eq(9L), any())).thenReturn(new LearnerToolsService.LibraryItem(42L, "activity", "Word game", "", null, null, 4L, "IT", 246L, "Lesson", "Activity", null, true, null, null, null, null));
         var widget = mapper.readTree("{\"type\":\"word_game\",\"variant\":\"hangman\",\"title\":\"Vocabulary\",\"words\":[{\"word\":\"COST\",\"clue\":\"An expense\"}]}");
         var saved = service.save(9L, 246L, "Costs", widget);
         assertEquals("/learner/activities/42", saved.route());

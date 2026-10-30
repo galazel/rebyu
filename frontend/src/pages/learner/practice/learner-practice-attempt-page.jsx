@@ -169,26 +169,22 @@ export default function LearnerPracticeAttemptPage() {
   if (completion) {
     return (
       <ArenaShell>
-        <section className="m-auto w-full max-w-xl rounded-3xl bg-white/10 p-8 text-center backdrop-blur">
-          <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-rb-fox text-white">
-            <Trophy className="size-10" />
-          </div>
+        <section className="tg-result m-auto w-full max-w-xl p-8 text-center">
+          <Trophy className="tg-confetti mx-auto size-14 text-[var(--tg)]" />
 
-          <p className="mt-6 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-white/70">
-            Practice complete
-          </p>
+          <p className="tg-kicker mt-5">Practice complete</p>
 
-          <h1 className="mt-2 font-rb-display text-5xl font-extrabold text-white">
+          <h1 className="mt-2 text-5xl font-black tabular-nums text-foreground">
             {Math.round(completion.percentage)}%
           </h1>
 
-          <p className="mt-3 text-white/80">
+          <p className="mt-3 text-muted-foreground">
             You got {completion.score} of {completion.totalItems} correct.
           </p>
 
-          <p className="mt-4 font-rb-display text-lg font-extrabold text-rb-fox">
+          <p className="mt-4 text-lg font-extrabold text-[var(--tg-ink)]">
             {score.toLocaleString()} speed points
-            <span className="ml-2 align-middle text-xs font-bold uppercase tracking-wide text-white/50">
+            <span className="ml-2 align-middle text-xs font-bold uppercase tracking-wide text-muted-foreground">
               this run only
             </span>
           </p>
@@ -200,7 +196,6 @@ export default function LearnerPracticeAttemptPage() {
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button
               variant="outline"
-              className="border-white/40 bg-transparent text-white hover:bg-white/10"
               onClick={() => navigate(`/learner/practice-review/${completion.id}`)}
             >
               Review answers
@@ -219,6 +214,7 @@ export default function LearnerPracticeAttemptPage() {
 
   return (
     <ArenaShell
+      tool={isFlashcard ? "flashcards" : "quiz"}
       header={
         <ArenaHeader
           title={studySet.title}
@@ -229,34 +225,33 @@ export default function LearnerPracticeAttemptPage() {
           onLeave={() => navigate(-1)}
           right={
             <div className="flex items-center gap-4">
-              <div className="hidden text-right sm:block">
-                <p className="font-rb-display text-xl font-extrabold tabular-nums">
-                  {score.toLocaleString()}
-                </p>
-                <p className="text-[11px] uppercase tracking-wide text-white/60">
-                  {streak > 1 ? `${streak} in a row` : "Points"}
-                </p>
-              </div>
+              <span className="tg-pill hidden sm:inline">
+                {score.toLocaleString()} {streak > 1 ? `· ${streak} in a row` : "points"}
+              </span>
               <CountdownRing remaining={remaining} total={seconds} paused={locked} />
             </div>
           }
         />
       }
     >
-      <h1 className="py-6 text-center font-rb-display text-2xl leading-tight font-extrabold text-white sm:py-10 sm:text-4xl">
+      <p className="mb-4 text-sm text-muted-foreground">
+        {isFlashcard ? "Type what you remember, then rate your recall." : "Pick one answer before the timer runs out."}
+      </p>
+
+      <h2 className="mb-6 rounded-2xl bg-[var(--tg-softer)] p-6 text-2xl leading-tight font-extrabold text-foreground ring-1 ring-[var(--tg-line)] sm:p-8 sm:text-3xl">
         {item.questionText}
-      </h1>
+      </h2>
 
       {isFlashcard ? (
-        <div className="mx-auto w-full max-w-2xl rounded-3xl bg-white/10 p-6 backdrop-blur">
-          <div className="flex items-center gap-2 font-rb-display text-sm font-extrabold text-white/80">
+        <div className="mx-auto w-full max-w-2xl rounded-2xl bg-[var(--tg-softer)] p-6 ring-1 ring-[var(--tg-line)]">
+          <div className="tg-kicker flex items-center justify-center gap-2">
             <Layers3 className="size-4" />
             Type what you remember
           </div>
 
           <Input
             autoFocus
-            className="mt-4 h-14 border-white/30 bg-white/95 text-lg text-rb-eel"
+            className="mt-4 h-14 bg-card text-lg"
             value={answer}
             disabled={locked}
             onChange={(event) =>
@@ -279,7 +274,7 @@ export default function LearnerPracticeAttemptPage() {
             </Button>
           ) : (
             <div className="mt-5">
-              <p className="font-rb-display text-xs font-extrabold uppercase tracking-wide text-white/60">
+              <p className="tg-kicker">
                 How well did you remember it?
               </p>
               <div className="mt-2 grid grid-cols-4 gap-2">
@@ -289,11 +284,6 @@ export default function LearnerPracticeAttemptPage() {
                     type="button"
                     size="sm"
                     variant={flashcardRating === value ? "default" : "outline"}
-                    className={
-                      flashcardRating === value
-                        ? ""
-                        : "border-white/40 bg-transparent text-white hover:bg-white/10"
-                    }
                     onClick={() => rateFlashcard(value)}
                   >
                     {label}
@@ -304,7 +294,7 @@ export default function LearnerPracticeAttemptPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 text-left sm:grid-cols-2">
           {choices.map((choice, choiceIndex) => (
             <AnswerTile
               key={`${choice.text}-${choiceIndex}`}
@@ -329,11 +319,12 @@ export default function LearnerPracticeAttemptPage() {
 
       {locked ? (
         <div
-          className={`mt-6 rounded-2xl p-5 text-center ${
-            result.correct ? "bg-rb-leaf text-white" : "bg-rb-cardinal text-white"
+          role="status"
+          className={`mt-6 animate-in fade-in rounded-2xl p-5 text-center text-foreground duration-300 ${
+            result.correct ? "bg-emerald-500/12 ring-1 ring-emerald-500/40" : "bg-rose-500/10 ring-1 ring-rose-500/40"
           }`}
         >
-          <p className="font-rb-display text-2xl font-extrabold">
+          <p className={`text-2xl font-extrabold ${result.correct ? "text-emerald-600" : "text-rose-600"}`}>
             {result.correct ? "Correct!" : "Not quite"}
           </p>
 
@@ -342,14 +333,14 @@ export default function LearnerPracticeAttemptPage() {
           ) : null}
 
           {result.explanation ? (
-            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-white/90">
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               {result.explanation}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      <div className="mt-auto flex justify-end py-6">
+      <div className="mt-auto flex justify-end border-t border-[var(--tg-line)] pt-4">
         <IconButton
           icon={isLast ? "check" : "next"}
           primary

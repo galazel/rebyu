@@ -181,7 +181,7 @@
 
 /* ---- icon buttons + shared step navigation ---- */
 .tg-icon-btn { position: relative; width: 2.5rem; height: 2.5rem; padding: 0; border-radius: 999px; }
-.tg-icon-btn.tg-btn-wide { width: auto; padding: 0 .9rem; }
+.tg-icon-btn.tg-btn-wide { width: auto; padding: 0 .9rem; white-space: nowrap; }
 .tg-icon-btn[data-tip]::after {
   content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translate(-50%, 4px);
   white-space: nowrap; pointer-events: none; opacity: 0; z-index: 30;
@@ -238,3 +238,45 @@
 .tg-option.is-dim { opacity: .45; }
 .tg-bar { height: .55rem; border-radius: 999px; background: var(--tg-soft); overflow: hidden; }
 .tg-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--tg-2), var(--tg)); transition: width .4s ease; }
+/* Four-step recall ratings (flashcard rounds): miss · hard · good · hit. */
+.tg-conf-hard { background: linear-gradient(150deg, #ffb35c, #e2801c); box-shadow: 0 5px 0 #a35a0e; }
+.tg-conf-good { background: linear-gradient(150deg, #5fb2ff, #2f7ee0); box-shadow: 0 5px 0 #1d5aa8; }
+.tg-conf:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---- full-page stage (Library items) ----
+   The same widgets as in the tutor chat, opened on their own page: one step
+   larger type throughout, so a game reads like the practice quiz rounds.
+   Sizes, not zoom, so drag-and-drop coordinates stay true. */
+.tg-stage > * > .tg-frame, .tg-stage .tg-frame { margin-top: 0; }
+.tg-stage .text-\[10px\], .tg-stage .text-\[11px\] { font-size: 0.8125rem; }
+.tg-stage .text-xs { font-size: 0.875rem; line-height: 1.35rem; }
+.tg-stage .text-sm { font-size: 1.0625rem; line-height: 1.6rem; }
+.tg-stage .text-base { font-size: 1.1875rem; line-height: 1.75rem; }
+.tg-stage .text-lg { font-size: 1.375rem; line-height: 1.9rem; }
+.tg-stage .tg-kicker { font-size: 12px; }
+.tg-stage .tg-option { min-height: 4.25rem; font-size: 1.05rem; }
+.tg-stage .tg-option .tg-letter { width: 2.5rem; height: 2.5rem; }
+.tg-stage .tg-card { padding: 0.8rem 1rem; font-size: 1rem; }
+.tg-stage .tg-btn { padding: 0.65rem 1.1rem; font-size: 1rem; }
+.tg-stage .tg-icon-btn { width: 3rem; height: 3rem; padding: 0; }
+.tg-stage .tg-icon-btn.tg-btn-wide { width: auto; padding: 0 1.1rem; }
+.tg-stage .tg-flip-inner { min-height: 20rem; }
+.tg-stage .tg-badge-icon { width: 2.75rem; height: 2.75rem; }
+.tg-stage .tg-head { padding: 1rem 1.25rem; }
+.tg-stage .tg-key { width: 2.6rem; height: 2.8rem; font-size: 1rem; }
+.tg-stage .tg-tile { min-width: 2.8rem; height: 3.1rem; font-size: 1.4rem; }
+.tg-stage .tg-num { width: 2.1rem; height: 2.1rem; font-size: 0.875rem; }
+/* Already in the Library: the "Saved to Library" / "Open Library" chip has nothing to add here. */
+.tg-stage a.tg-pill { display: none; }
+/* The page heading already names the item; the frame keeps only its tool label. */
+.tg-stage .tg-head .tg-kicker + span { display: none; }
+/* The page heading already shows the tool's icon too, so the frame header keeps
+   only working controls (mode switch, score); with none left it goes entirely. */
+.tg-stage .tg-head .tg-badge-icon, .tg-stage .tg-head .tg-kicker { display: none; }
+.tg-stage .tg-head:not(:has(button, [role="tablist"], span.tg-pill, .tg-progress)) { display: none; }
+
+/* ---- round over ----
+   Once a game shows its score card, the card takes the game's place (as in the
+   quiz): everything beside it goes, except the header and the bottom bar
+   (score + Restart). */
+:has(> [data-round-result]) > :not([data-round-result]):not([data-game-footer]):not(header) { display: none; }
