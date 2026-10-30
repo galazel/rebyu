@@ -18,9 +18,31 @@ export function SortingGame({ data }) {
   const move = (text, group) => { if (!items.some((item) => item.text === text)) return; setAssigned((current) => ({ ...current, [text]: group === "pool" ? null : group })); setChecked(false) }
   const drag = useCardDrag(move)
   const right = items.filter((item) => assigned[item.text] === item.answer).length
-  const itemButton = (item) => <button type="button" key={item.text} {...drag.card(item.text)} className={`tg-card ${drag.picked === item.text ? "is-picked" : ""} ${drag.dragging === item.text ? "is-dragging" : ""} ${checked ? assigned[item.text] === item.answer ? "is-right" : "is-wrong" : ""}`}><Grip />{item.text}</button>
+  const itemButton = (item) => <button type="button" key={item.text} {...drag.card(item.text)} className={`tg-chip-card ${drag.picked === item.text ? "is-picked" : ""} ${drag.dragging === item.text ? "is-dragging" : ""} ${checked ? assigned[item.text] === item.answer ? "is-right" : "is-wrong" : ""}`}><Grip />{item.text}</button>
   const pool = items.filter((item) => assigned[item.text] == null)
-  return <Game data={data}><GameHint>Drag each card into a group, or tap a card and then tap its group.</GameHint><div className={`tg-zone mb-4 flex min-h-16 flex-wrap gap-2 p-3 ${drag.over === "pool" ? "is-over" : ""}`} {...drag.zone("pool")}>{pool.length ? pool.map(itemButton) : <span className="m-auto text-xs font-semibold text-muted-foreground">All cards placed — check your groups!</span>}</div><div className="grid gap-3 sm:grid-cols-2">{data.groups.map((group, index) => <div key={group.name} className={`tg-zone min-h-32 p-3 ${drag.over === index ? "is-over" : ""}`} {...drag.zone(index)}><button type="button" className={`${button} mb-3 w-full ${drag.picked != null ? "tg-btn-primary" : ""}`} onClick={() => drag.placePicked(index)} aria-label={`Place selected item in ${group.name}`}>{group.name}</button><div className="flex flex-wrap gap-2">{items.filter((item) => assigned[item.text] === index).map(itemButton)}</div></div>)}</div>{checked && pool.length === 0 ? <Celebration right={right} total={items.length} noun="correctly grouped" /> : null}<GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${items.length} correctly grouped` : `${items.length - pool.length} of ${items.length} placed`} onRestart={() => { setAssigned({}); setChecked(false); drag.setPicked(null) }} />{checked && right === items.length && data.explanation ? <p className="mt-3 text-sm text-muted-foreground">{data.explanation}</p> : null}</Game>
+  const [spread, setSpread] = useState({})
+  const top = pool[0]
+  // Tapping a group places the card you picked, or else the top of the deck.
+  const placeIn = (index) => { const text = drag.picked ?? top?.text; if (text != null) move(text, index); drag.setPicked(null) }
+  const deck = pool.slice(0, 3)
+  return <Game data={data}><GameHint>Drag the top card into its group, or tap a group to drop it there.</GameHint>
+    <div className={`tg-deck ${drag.over === "pool" ? "is-over" : ""}`} {...drag.zone("pool")}>
+      {deck.length ? deck.map((item, depth) => depth === 0
+        ? <button type="button" key={item.text} {...drag.card(item.text)} aria-label={`Card: ${item.text}. Drag it to a group, or tap a group.`} className={`tg-deck-card is-top ${drag.picked === item.text ? "is-picked" : ""} ${drag.dragging === item.text ? "is-dragging" : ""}`}><Grip /><span>{item.text}</span></button>
+        : <span key={item.text} aria-hidden="true" className="tg-deck-card" style={{ "--depth": depth, "--tilt": depth === 1 ? "-5deg" : "6deg" }} />).reverse()
+        : <p className="tg-deck-empty">All cards placed — check your groups!</p>}
+    </div>
+    {pool.length ? <p className="mb-4 text-center text-xs font-semibold text-muted-foreground">Card {items.length - pool.length + 1} of {items.length}</p> : null}
+    <div className="grid gap-3 sm:grid-cols-2">{data.groups.map((group, index) => {
+      const placed = items.filter((item) => assigned[item.text] === index)
+      return <div key={group.name} className={`tg-bucket ${drag.over === index ? "is-over" : ""}`} {...drag.zone(index)}>
+        <button type="button" className="tg-bucket-head" onClick={() => placeIn(index)} disabled={!top && drag.picked == null} aria-label={`Place ${drag.picked ?? top?.text ?? "card"} in ${group.name}`}>
+          <span className="min-w-0 flex-1 truncate">{group.name}</span><span className="tg-pill">{placed.length}</span>
+        </button>
+        {placed.length ? <><div className={`tg-stack ${checked || spread[index] ? "is-open" : ""}`} aria-label={`${placed.length} cards in ${group.name}`}>{placed.map(itemButton)}</div>{placed.length > 1 && !checked ? <button type="button" className="tg-stack-toggle" aria-expanded={Boolean(spread[index])} onClick={() => setSpread((current) => ({ ...current, [index]: !current[index] }))}>{spread[index] ? "Stack cards" : `Show all ${placed.length}`}</button> : null}</> : <p className="p-4 text-center text-xs font-semibold text-muted-foreground">Drop cards here</p>}
+      </div>
+    })}</div>
+    {checked && pool.length === 0 ? <Celebration right={right} total={items.length} noun="correctly grouped" /> : null}<GameFooter onCheck={() => setChecked(true)} checkDisabled={pool.length > 0} score={checked ? `${right} of ${items.length} correctly grouped` : `${items.length - pool.length} of ${items.length} placed`} onRestart={() => { setAssigned({}); setChecked(false); drag.setPicked(null) }} />{checked && right === items.length && data.explanation ? <p className="mt-3 text-sm text-muted-foreground">{data.explanation}</p> : null}</Game>
 }
 
 export function WordGame({ data }) {

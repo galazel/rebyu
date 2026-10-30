@@ -38,6 +38,10 @@ public class LearnerActivityProgress {
     @Column(name = "progress_key", nullable = false, length = 255)
     private String progressKey;
 
+    /** The Library item this game is, when known, so the Library can show its score. */
+    @Column(name = "library_item_id")
+    private Long libraryItemId;
+
     /** The game's saved fields as JSON, exactly as the page wrote them. */
     @Column(name = "state", nullable = false, columnDefinition = "TEXT")
     private String state;

@@ -14,7 +14,7 @@ import { TutorStudyWidget } from "@/components/learner/tutor-study-widget.jsx"
 import { SortingGame, WordGame, PuzzleGame, VisualGame, SpeedFlashcardsGame } from "@/components/learner/learning-game-widgets.jsx"
 import { BranchingStoryGame, SimulationGame, TwoTruthsLieGame } from "@/components/learner/decision-game-widgets.jsx"
 import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
-import { hydrateProgress, progressPrefix, widgetProgressKey } from "@/lib/tutor-widget-progress.js"
+import { hydrateProgress, widgetProgressKey } from "@/lib/tutor-widget-progress.js"
 import { useQuery } from "@tanstack/react-query"
 import { categoryClass, Celebration, GameFooter, GameHint, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
 import {
@@ -649,8 +649,8 @@ export function TutorWidgets({ widgets, persistenceScope }) {
   // Saved progress comes from the learner's account first, so a game reopens
   // where it was left on any device. A failed load falls back to this browser.
   const hydrated = useQuery({
-    queryKey: ["activity-progress", persistenceScope ? progressPrefix(persistenceScope) : null],
-    queryFn: () => hydrateProgress(persistenceScope),
+    queryKey: ["activity-progress", persistenceScope, ...(widgets ?? []).map((widget, i) => widgetProgressKey(persistenceScope, widget, i))],
+    queryFn: () => hydrateProgress(persistenceScope, widgets),
     enabled: Boolean(persistenceScope && widgets?.length),
     staleTime: Infinity,
     retry: 0,

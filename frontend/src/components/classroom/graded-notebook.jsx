@@ -117,7 +117,7 @@ export function GradedNotebook({ topics, notAssessed = 0, readiness, tone, child
           ) : null}
 
           <div className="rb-nb-stamp" role="img" aria-label="Stamped: checked by the teacher">
-            <span className="rb-nb-stamp-top">rebyu · graded</span>
+            <span className="rb-nb-stamp-top">REBYU · graded</span>
             <span className="rb-nb-stamp-main">checked</span>
             <span className="rb-nb-stamp-bottom">★ keep going ★</span>
           </div>

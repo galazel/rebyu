@@ -54,7 +54,7 @@ export default function AuthShell({
             className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
           >
             <BrandLogo className="size-9" />
-            <span className="font-rb-display text-2xl leading-none text-rb-eel">rebyu</span>
+            <span className="font-rb-display text-2xl leading-none text-rb-eel">REBYU</span>
           </Link>
 
         </div>
@@ -87,7 +87,7 @@ export default function AuthShell({
           </div>
         </div>
 
-        <p className={`text-xs font-semibold text-rb-wolf ${compact ? "lg:hidden" : ""}`}>© {new Date().getFullYear()} Rebyu</p>
+        <p className={`text-xs font-semibold text-rb-wolf ${compact ? "lg:hidden" : ""}`}>© {new Date().getFullYear()} REBYU</p>
       </section>
 
       <aside

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useSearchParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 
-import { Loader2 } from "@/components/icons"
+import { ArrowLeft, Loader2 } from "@/components/icons"
 import { DocumentReader } from "@/pages/learner/workspace/document-reader.jsx"
 import { apiMessage } from "@/services/base"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
@@ -33,6 +33,7 @@ const FREE_PREVIEW_PAGES = 2
 
 export default function CommunityReviewerPage() {
     const plan = useLearnerEntitlements()
+    const navigate = useNavigate()
     const { postId } = useParams()
     const [params] = useSearchParams()
 
@@ -126,19 +127,29 @@ export default function CommunityReviewerPage() {
         [state, name, size, fileKey, uploader, circle, isImageSet, keys.length]
     )
 
-    const backControl = null
+    const backControl = (
+        <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/learner/community"))}
+            aria-label="Back to Community"
+            title="Back to Community"
+            className="tg-btn tg-icon-btn !size-9 shrink-0"
+        >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+        </button>
+    )
 
     return (
-        <div className="flex h-dvh min-h-0 flex-col bg-rb-snow">
+        <div className="tg-cat-explain flex h-dvh min-h-0 flex-col bg-[var(--tg-softer)]">
             <div className="min-h-0 flex-1">
                 {state.status === "loading" ? (
                     <div className="flex h-full flex-col">
-                        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+                        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--tg-line)] bg-card px-4 py-3">
                             {backControl}
-                            <p className="min-w-0 truncate text-sm font-extrabold text-rb-eel">{name}</p>
+                            <p className="min-w-0 truncate font-rb-display text-lg font-extrabold text-foreground">{name}</p>
                         </div>
-                        <div className="flex flex-1 items-center justify-center gap-2 text-sm font-bold text-rb-hare">
-                            <Loader2 className="size-4 animate-spin" />
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm font-bold text-foreground">
+                            <span className="tg-badge-icon !size-12"><Loader2 className="size-5 animate-spin" /></span>
                             Opening this file…
                         </div>
                     </div>
@@ -146,12 +157,12 @@ export default function CommunityReviewerPage() {
 
                 {state.status === "error" ? (
                     <div className="flex h-full flex-col">
-                        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+                        <div className="flex shrink-0 items-center gap-3 border-b border-[var(--tg-line)] bg-card px-4 py-3">
                             {backControl}
-                            <p className="min-w-0 truncate text-sm font-extrabold text-rb-eel">{name}</p>
+                            <p className="min-w-0 truncate font-rb-display text-lg font-extrabold text-foreground">{name}</p>
                         </div>
                         <div className="grid flex-1 place-items-center p-6 text-center">
-                            <p className="font-rb-display text-lg font-extrabold text-rb-eel">
+                            <p className="font-rb-display text-lg font-extrabold text-foreground">
                                 {state.message}
                             </p>
                         </div>

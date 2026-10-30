@@ -47,6 +47,7 @@ public class ActivityProgressService {
         LearnerActivityProgress row = repository.findByLearnerIdAndProgressKey(learnerId, key)
                 .orElseGet(() -> LearnerActivityProgress.builder().learnerId(learnerId).progressKey(key).build());
         row.setState(json);
+        if (state.path("_libraryItemId").canConvertToLong()) row.setLibraryItemId(state.path("_libraryItemId").asLong());
         JsonNode score = state.path("_score");
         if (score.path("total").isInt() && score.path("total").asInt() > 0) {
             row.setScoreRight(Math.max(0, score.path("right").asInt(0)));

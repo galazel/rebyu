@@ -28,7 +28,6 @@ import {
 } from "@/components/icons"
 
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
-import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { Message, MessageContent } from "@/components/ui/message"
 import {
   MessageScroller,
@@ -277,27 +276,23 @@ function ChatList({ learnerId, lessonId, currentSessionId, onPick, onNew }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b-2 border-rb-swan bg-rb-polar/60 px-4 py-2">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-rb-wolf">previous chats</p>
-        <button
-            type="button"
-            onClick={onNew}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-extrabold text-rb-feather-lip hover:bg-rb-feather-wash"
-        >
-          <Plus className="size-3.5" aria-hidden="true" /> new chat
+      <div className="flex shrink-0 items-center justify-between border-b border-[var(--tg-line)] px-4 py-2.5">
+        <p className="tg-kicker">Previous chats</p>
+        <button type="button" onClick={onNew} className="tg-btn tg-btn-primary !rounded-full !px-3 !py-1 !text-xs">
+          <Plus className="size-3.5" aria-hidden="true" /> New chat
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {query.isLoading ? (
             <div className="space-y-2">
               {[0, 1, 2].map((key) => (
-                  <div key={key} className="h-14 animate-pulse rounded-[0.9rem] bg-rb-polar" />
+                  <div key={key} className="h-14 animate-pulse rounded-xl bg-[var(--tg-softer)]" />
               ))}
             </div>
         ) : query.isError ? (
-            <p className="px-1 text-sm text-rb-wolf">Your chats could not be loaded. Try again in a moment.</p>
+            <p className="px-1 text-sm text-muted-foreground">Your chats could not be loaded. Try again in a moment.</p>
         ) : chats.length === 0 ? (
-            <p className="px-1 text-sm text-rb-wolf">No chats for this lesson yet. Ask the tutor anything to start one.</p>
+            <p className="px-1 text-sm text-muted-foreground">No chats for this lesson yet. Ask the tutor anything to start one.</p>
         ) : (
             <ul className="space-y-2">
               {chats.map((chat) => {
@@ -307,16 +302,16 @@ function ChatList({ learnerId, lessonId, currentSessionId, onPick, onNew }) {
                       <button
                           type="button"
                           onClick={() => onPick(chat.sessionId)}
-                          className={`flex w-full items-start gap-3 rounded-[0.9rem] border-2 px-3 py-2.5 text-left transition-colors ${
+                          className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
                             current
-                              ? "border-rb-feather bg-rb-feather-wash/50"
-                              : "border-rb-swan bg-white hover:border-rb-feather/50"
+                              ? "border-[var(--tg)] bg-[var(--tg-softer)]"
+                              : "border-[var(--tg-line)] bg-card hover:border-[var(--tg)]"
                           }`}
                       >
-                        <MessageCircle className="mt-0.5 size-4 shrink-0 text-rb-feather-lip" aria-hidden="true" />
+                        <span className="tg-badge-icon !size-8 !rounded-lg"><MessageCircle className="size-4" aria-hidden="true" /></span>
                         <span className="min-w-0 flex-1">
-                          <span className="line-clamp-2 text-sm font-bold text-rb-eel">{chat.title}</span>
-                          <span className="mt-0.5 block text-[11px] text-rb-wolf">
+                          <span className="line-clamp-2 text-sm font-bold text-foreground">{chat.title}</span>
+                          <span className="mt-0.5 block text-[11px] text-muted-foreground">
                             {formatChatWhen(chat.updatedAt)} · {chat.messageCount} message{chat.messageCount === 1 ? "" : "s"}
                             {current ? " · open now" : ""}
                           </span>
@@ -377,13 +372,7 @@ function getTutorErrorMessage(error) {
 
 function TutorAvatar({ size = "size-7", iconSize = "size-4", onViolet = false }) {
   return (
-      <span
-          className={`grid ${size} shrink-0 place-items-center rounded-full ring-2 ${
-              onViolet
-                ? "bg-white text-rb-feather-lip ring-white/40"
-                : "bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-white"
-          }`}
-      >
+      <span className={`tg-badge-icon ${size} !rounded-xl ${onViolet ? "" : "!rotate-0"}`}>
         <Sparkles className={iconSize} aria-hidden="true" />
       </span>
   )
@@ -393,7 +382,7 @@ function LearnerAvatar({ size = "size-7", learnerName }) {
   const initial = (learnerName ?? "?").trim().charAt(0).toUpperCase() || "?"
   return (
       <span
-          className={`grid ${size} shrink-0 place-items-center rounded-full bg-rb-eel text-xs font-extrabold text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white`}
+          className={`grid ${size} shrink-0 place-items-center rounded-full bg-[var(--tg-soft)] text-xs font-extrabold text-[var(--tg-ink)]`}
       >
         {initial}
       </span>
@@ -417,28 +406,22 @@ function StudyAidActionCard({ action }) {
   const Icon = action.kind === "flashcard" ? Layers3 : BookOpenCheck
 
   return (
-      <div className="mt-3 rounded-xl border-2 border-rb-feather/25 bg-rb-feather-wash p-3">
+      <div className="mt-3 rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] p-3">
         <div className="flex items-start gap-2.5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]">
+          <span className="tg-badge-icon">
             <Icon className="size-4" aria-hidden="true" />
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-rb-eel">{action.title}</p>
-            <p className="mt-0.5 text-xs font-medium text-rb-wolf">{action.meta}</p>
+            <p className="truncate text-sm font-bold text-foreground">{action.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{action.meta}</p>
           </div>
         </div>
 
-        <TactileButton
-            type="button"
-            variant="feather"
-            size="sm"
-            className="!mt-3 !w-full !gap-2"
-            onClick={() => navigate(action.href)}
-        >
+        <button type="button" className="tg-btn tg-btn-primary mt-3 w-full" onClick={() => navigate(action.href)}>
           {action.label}
           <ArrowRight className="size-4" aria-hidden="true" />
-        </TactileButton>
+        </button>
       </div>
   )
 }
@@ -456,7 +439,7 @@ function TutorResources({ resources }) {
       <div className="mt-3 space-y-3">
         {videos.length ? (
             <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-rb-feather-lip">
+              <p className="mb-1.5 flex items-center gap-1.5 tg-kicker !text-[11px]">
                 <PlayCircle className="size-3.5" aria-hidden="true" /> Videos
               </p>
               <div className="grid gap-2">
@@ -466,7 +449,7 @@ function TutorResources({ resources }) {
                         href={video.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group flex items-center gap-2.5 rounded-xl border border-rb-swan bg-white p-1.5 pr-2.5 transition hover:border-rb-feather"
+                        className="group flex items-center gap-2.5 rounded-xl border border-[var(--tg-line)] bg-card p-1.5 pr-2.5 transition hover:border-[var(--tg)]"
                     >
                       {safeUrl(video.thumbnail) ? (
                           <img
@@ -476,13 +459,13 @@ function TutorResources({ resources }) {
                               className="h-12 w-20 shrink-0 rounded-lg object-cover"
                           />
                       ) : (
-                          <span className="grid h-12 w-20 shrink-0 place-items-center rounded-lg bg-rb-feather-wash">
-                            <PlayCircle className="size-5 text-rb-feather" aria-hidden="true" />
+                          <span className="grid h-12 w-20 shrink-0 place-items-center rounded-lg bg-[var(--tg-soft)]">
+                            <PlayCircle className="size-5 text-[var(--tg)]" aria-hidden="true" />
                           </span>
                       )}
                       <span className="min-w-0">
-                        <span className="line-clamp-2 text-xs font-bold text-rb-eel group-hover:underline">{video.title}</span>
-                        <span className="block truncate text-[11px] text-rb-wolf">{video.source}</span>
+                        <span className="line-clamp-2 text-xs font-bold text-foreground group-hover:underline">{video.title}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{video.source}</span>
                       </span>
                     </a>
                 ))}
@@ -492,7 +475,7 @@ function TutorResources({ resources }) {
 
         {links.length ? (
             <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-rb-feather-lip">
+              <p className="mb-1.5 flex items-center gap-1.5 tg-kicker !text-[11px]">
                 <Link className="size-3.5" aria-hidden="true" /> Further reading
               </p>
               <ul className="space-y-1.5">
@@ -502,10 +485,10 @@ function TutorResources({ resources }) {
                           href={link.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block rounded-lg px-1 py-0.5 hover:bg-white"
+                          className="block rounded-lg px-1.5 py-1 hover:bg-[var(--tg-softer)]"
                       >
-                        <span className="text-xs font-bold text-rb-feather-lip underline-offset-2 hover:underline">{link.title}</span>
-                        <span className="block truncate text-[11px] text-rb-wolf">{link.source}</span>
+                        <span className="text-xs font-bold text-[var(--tg-ink)] underline-offset-2 hover:underline">{link.title}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{link.source}</span>
                       </a>
                     </li>
                 ))}
@@ -595,7 +578,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           placeholderClassName="h-24 w-40 rounded-lg"
         />
       ) : snippet.image ? (
-        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${onDark ? "text-white/85" : "text-rb-wolf"}`}>
+        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${onDark ? "text-white/85" : "text-muted-foreground"}`}>
           <ImageIcon className="size-3.5" aria-hidden="true" />
           A snipped part of the lesson
         </span>
@@ -605,7 +588,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           type="button"
           onClick={() => setOpen(true)}
           title="Show the full text"
-          className={`line-clamp-3 cursor-zoom-in border-l-2 pl-2 text-left text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-rb-feather text-rb-wolf"}`}
+          className={`line-clamp-3 cursor-zoom-in border-l-2 pl-2 text-left text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-[var(--tg)] text-muted-foreground"}`}
         >
           {snippet.quote}
         </button>
@@ -632,7 +615,7 @@ export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLas
 
           <div className={`flex min-w-0 flex-1 flex-col ${isLearner ? "items-end" : "items-start"}`}>
             {!isLearner && isFirstInGroup ? (
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">
+                <p className="tg-kicker mb-1.5">
                   REBYU AI Tutor
                 </p>
             ) : null}
@@ -645,15 +628,15 @@ export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLas
               <BubbleContent
                   className={
                     isLearner
-                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-rb-eel !shadow-none"
+                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-[var(--tg)] !px-4 !py-2.5 !text-white !shadow-[0_2px_0_color-mix(in_oklab,var(--tg)_55%,#000)]`
+                      : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-foreground !shadow-none"
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
                 {message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
                   isLearner
                     ? "font-medium text-white"
-                    : "font-normal text-rb-eel [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink"
+                    : "font-normal text-foreground [&_strong]:font-extrabold [&_strong]:text-[var(--tg-ink)] [&_code]:rounded [&_code]:bg-[var(--tg-softer)] [&_code]:px-1 [&_a]:font-semibold [&_a]:text-[var(--tg-ink)] [&_a]:underline"
                 } [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {isLearner ? friendlyActivityRequest(message.text) : message.text}
@@ -668,7 +651,7 @@ export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLas
 
             {isLastInGroup ? (
                 <p
-                    className={`mt-1 text-[10px] font-medium text-rb-hare ${
+                    className={`mt-1 text-[10px] font-medium text-muted-foreground ${
                         isLearner ? "text-right" : "text-left"
                     }`}
                 >
@@ -958,28 +941,21 @@ export function LessonAiTutor({
 
   if (tutorLocked) {
     return (
-      <section className="flex h-full min-h-0 flex-col bg-rb-snow">
-        <header className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
+      <section className="tg-cat-explain flex h-full min-h-0 flex-col bg-card">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-4">
           <div className="flex min-w-0 items-center gap-3">
             {liveTutorOpen ? (
-              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-[var(--tg)]">
                 <LiveTutorVoiceOrb className="size-8" />
               </span>
             ) : (
               <TutorAvatar size="size-10" iconSize="size-5" onViolet />
             )}
-            <p className="font-rb-display text-sm font-extrabold text-white">REBYU AI Tutor</p>
+            <p className="font-rb-display text-base font-extrabold text-foreground">REBYU AI Tutor</p>
           </div>
-          <TactileButton
-            variant="ghost"
-            size="sm"
-            className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-            style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
-            onClick={onClose}
-            aria-label="Close AI Tutor"
-          >
+          <button type="button" className="tg-btn tg-icon-btn !size-9 shrink-0" onClick={onClose} aria-label="Close AI Tutor">
             <X className="size-4" aria-hidden="true" />
-          </TactileButton>
+          </button>
         </header>
         <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-4">
           <ProLockCard
@@ -994,8 +970,8 @@ export function LessonAiTutor({
   }
 
   return (
-      <section className="flex h-full min-h-0 flex-col bg-rb-snow">
-        <header className="relative flex h-16 shrink-0 items-center justify-between overflow-hidden bg-rb-feather px-4">
+      <section className="tg-cat-explain flex h-full min-h-0 flex-col bg-card">
+        <header className="relative flex h-16 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-4">
           <div className="flex min-w-0 items-center gap-3">
             {liveTutorOpen ? (
               <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/35">
@@ -1006,11 +982,11 @@ export function LessonAiTutor({
             )}
 
             <div className="min-w-0">
-              <p className="font-rb-display text-sm font-extrabold leading-tight text-white">
+              <p className="font-rb-display text-base font-extrabold leading-tight text-foreground">
                 {liveTutorOpen ? "REBYU Live Tutor" : "REBYU AI Tutor"}
               </p>
-              <p className="flex items-center gap-1.5 truncate text-xs font-bold text-white/80">
-                <span className={`size-1.5 shrink-0 rounded-full ${liveTutorOpen ? "bg-rb-fox" : "bg-rb-feather"}`} aria-hidden="true" />
+              <p className="flex items-center gap-1.5 truncate text-xs font-semibold text-muted-foreground">
+                <span className={`size-1.5 shrink-0 rounded-full ${liveTutorOpen ? "bg-rb-fox" : "bg-[var(--tg)]"}`} aria-hidden="true" />
                 {liveTutorOpen ? "Live voice & chat" : lessonName ?? "This lesson"}
               </p>
             </div>
@@ -1018,24 +994,20 @@ export function LessonAiTutor({
 
           <div className="flex shrink-0 items-center gap-1">
             {liveTutorOpen ? (
-              <TactileButton
-                variant="ghost"
-                size="sm"
-                className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-                style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+              <button
+                type="button"
+                className="tg-btn tg-icon-btn !size-9 shrink-0"
                 onClick={() => setLiveTutorOpen(false)}
                 aria-label="Return to tutor chat"
                 title="Return to tutor chat"
               >
                 <MessageCircle className="size-4" aria-hidden="true" />
-              </TactileButton>
+              </button>
             ) : null}
             {!dialogueOpen && !liveTutorOpen ? (
-              <TactileButton
-                  variant="ghost"
-                  size="sm"
-                  className={`rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15 ${chatListOpen ? "!bg-white/20" : ""}`}
-                  style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+              <button
+                  type="button"
+                  className={`tg-btn tg-icon-btn !size-9 shrink-0 ${chatListOpen ? "tg-btn-primary" : ""}`}
                   onClick={() => setChatListOpen((value) => !value)}
                   disabled={pending || Boolean(generating)}
                   aria-label={chatListOpen ? "Back to the chat" : "Previous chats"}
@@ -1043,14 +1015,12 @@ export function LessonAiTutor({
                   title="Previous chats"
               >
                 <History className="size-4" aria-hidden="true" />
-              </TactileButton>
+              </button>
             ) : null}
             {!dialogueOpen && !liveTutorOpen ? (
-              <TactileButton
-                  variant="ghost"
-                  size="sm"
-                  className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-                  style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+              <button
+                  type="button"
+                  className="tg-btn tg-icon-btn !size-9 shrink-0"
                   onClick={() => {
                     if (pending || generating || !hasConversation) return
                     startNewChatSuffix(learnerId, lessonId)
@@ -1061,18 +1031,17 @@ export function LessonAiTutor({
                   title="Start a new chat"
               >
                 <SquarePen className="size-4" aria-hidden="true" />
-              </TactileButton>
+              </button>
             ) : null}
-            <TactileButton
-                variant="ghost"
-                size="sm"
-                className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-                style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+            <button
+                type="button"
+                className="tg-btn tg-icon-btn !size-9 shrink-0"
                 onClick={onClose}
                 aria-label="Close AI Tutor"
+                title="Close"
             >
               <X className="size-4" aria-hidden="true" />
-            </TactileButton>
+            </button>
           </div>
         </header>
 
@@ -1111,8 +1080,8 @@ export function LessonAiTutor({
             />
         ) : loadingHistory ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
-              <Loader2 className="size-5 animate-spin text-rb-feather-lip" aria-hidden="true" />
-              <p className="text-xs font-bold text-rb-hare">Loading your conversation…</p>
+              <Loader2 className="size-5 animate-spin text-[var(--tg)]" aria-hidden="true" />
+              <p className="text-xs font-bold text-muted-foreground">Loading your conversation…</p>
             </div>
         ) : !hasConversation ? (
             <Reveal
@@ -1122,54 +1091,47 @@ export function LessonAiTutor({
             >
               <div className="relative">
                 <motion.span
-                    className="absolute inset-0 -z-10 rounded-full bg-rb-feather/30 blur-xl"
+                    className="absolute inset-0 -z-10 rounded-full bg-[var(--tg-soft)] blur-xl"
                     animate={{ scale: [1, 1.18, 1], opacity: [0.55, 0.9, 0.55] }}
                     transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                     aria-hidden="true"
                 />
-                <span className="relative grid size-16 shrink-0 place-items-center rounded-[1.5rem] bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
+                <span className="tg-badge-icon relative !size-16 !rounded-2xl">
                   <Sparkles className="size-8" aria-hidden="true" />
                 </span>
               </div>
 
-              <p className="mt-6 font-rb-display text-xl font-extrabold text-rb-eel">
+              <p className="mt-6 font-rb-display text-2xl font-extrabold text-foreground">
                 Hi {learnerName}, ready to dig in?
               </p>
 
-              <p className="mt-2 max-w-[16rem] text-sm font-medium leading-6 text-rb-wolf">
+              <p className="mt-2 max-w-[18rem] text-sm leading-6 text-muted-foreground">
                 Ask anything about{" "}
-                <span className="font-bold text-rb-eel">{lessonName ?? "this lesson"}</span> —
+                <span className="font-bold text-foreground">{lessonName ?? "this lesson"}</span> —
                 I'll stick to what's covered here.
               </p>
 
-              <TactileButton
-                  variant="feather"
-                  size="sm"
-                  className="mt-6"
-                  onClick={() => setDialogueOpen(true)}
-              >
+              <button type="button" className="tg-btn tg-btn-primary mt-6 !px-5 !py-2.5" onClick={() => setDialogueOpen(true)}>
                 <MessageCircle className="size-4" aria-hidden="true" />
-                start a guided dialogue
-              </TactileButton>
+                Start a guided dialogue
+              </button>
 
               <div className="mt-4 flex w-full flex-wrap justify-center gap-2">
-                <TactileButton
-                    variant="snow"
-                    size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
+                <button
+                    type="button"
+                    className="tg-btn !rounded-full !px-3.5 !py-1.5 !text-xs"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage("Explain this lesson in simple words.")
                     }
                 >
                   <Sparkles className="size-3.5" aria-hidden="true" />
-                  <span className="text-xs font-bold">Explain simply</span>
-                </TactileButton>
+                  Explain simply
+                </button>
 
-                <TactileButton
-                    variant="snow"
-                    size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
+                <button
+                    type="button"
+                    className="tg-btn !rounded-full !px-3.5 !py-1.5 !text-xs"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage(
@@ -1178,13 +1140,12 @@ export function LessonAiTutor({
                     }
                 >
                   <MessageCircle className="size-3.5" aria-hidden="true" />
-                  <span className="text-xs font-bold">Give example</span>
-                </TactileButton>
+                  Give example
+                </button>
 
-                <TactileButton
-                    variant="snow"
-                    size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
+                <button
+                    type="button"
+                    className="tg-btn !rounded-full !px-3.5 !py-1.5 !text-xs"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage(
@@ -1193,8 +1154,8 @@ export function LessonAiTutor({
                     }
                 >
                   <PlayCircle className="size-3.5" aria-hidden="true" />
-                  <span className="text-xs font-bold">Find videos & links</span>
-                </TactileButton>
+                  Find videos & links
+                </button>
               </div>
             </Reveal>
         ) : (
@@ -1245,12 +1206,12 @@ export function LessonAiTutor({
                               <TutorAvatar />
 
                               <div className="min-w-0 flex-1">
-                                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">
+                                <p className="tg-kicker mb-1.5">
                                   REBYU AI Tutor
                                 </p>
 
                                 <Bubble variant="secondary">
-                                  <BubbleContent className="!flex !items-center !gap-2 !rounded-2xl !rounded-bl-md !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-sm !font-medium !text-rb-wolf !shadow-none">
+                                  <BubbleContent className="!flex !items-center !gap-2 !rounded-2xl !rounded-tl-md !border-0 !bg-[var(--tg-softer)] !px-3.5 !py-2.5 !text-sm !font-medium !text-[var(--tg-ink)] !shadow-none">
                                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                                     <WaitingLine kind={generating ?? "chat"} startedAt={waitingSince} />
                                   </BubbleContent>
@@ -1272,38 +1233,38 @@ export function LessonAiTutor({
         {dialogueOpen || chatListOpen || liveTutorOpen ? null : (
         <form
             onSubmit={handleSubmit}
-            className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-3"
+            className="shrink-0 border-t border-[var(--tg-line)] bg-card px-3 pb-2 pt-3"
         >
           <AiLimitNotice className="mb-2" />
-          <div data-tutor-composer className="min-w-0 rounded-[calc(var(--radius-rb-control,10px)+8px)] border border-border bg-card p-3 text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
+          <div data-tutor-composer className="min-w-0 rounded-[1.1rem] border border-[var(--tg-line)] bg-card p-3 text-card-foreground shadow-[0_3px_0_var(--tg-line)] transition-[border-color,box-shadow] focus-within:border-[var(--tg)] focus-within:ring-4 focus-within:ring-[var(--tg-soft)]">
           {attachment ? (
-              <div className="mb-3 flex items-start gap-2 rounded-[var(--radius-rb-control,10px)] border border-border bg-muted/40 p-2.5">
+              <div className="mb-3 flex items-start gap-2 rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] p-2.5">
                 {attachment.image ? (
                     <img
                         src={attachment.image}
                         alt="Snipped part of the lesson"
-                        className="h-14 w-20 shrink-0 rounded-md border border-rb-swan bg-white object-contain"
+                        className="h-14 w-20 shrink-0 rounded-md border border-[var(--tg-line)] bg-white object-contain"
                     />
                 ) : (
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-rb-feather-wash text-rb-feather-lip">
+                    <span className="tg-badge-icon !size-8 !rounded-lg">
                       <Crop className="size-4" aria-hidden="true" />
                     </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-rb-eel">
+                  <p className="text-xs font-bold text-foreground">
                     {attachment.image ? "Snipped from the lesson" : "Selected from the lesson"}
                   </p>
                   {attachment.quote ? (
-                      <p className="line-clamp-2 text-xs text-rb-wolf">{attachment.quote}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{attachment.quote}</p>
                   ) : (
-                      <p className="text-xs text-rb-wolf">Ask a question about it, or just send.</p>
+                      <p className="text-xs text-muted-foreground">Ask a question about it, or just send.</p>
                   )}
                 </div>
                 <button
                     type="button"
                     onClick={() => setAttachment(null)}
                     aria-label="Remove the snippet"
-                    className="grid size-6 shrink-0 place-items-center rounded-full text-rb-wolf hover:bg-black/5"
+                    className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--tg-soft)]"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -1324,41 +1285,40 @@ export function LessonAiTutor({
           <div className="mt-2 flex items-center justify-between gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <TactileButton
+                <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
+                    className="tg-btn tg-icon-btn !size-9 shrink-0"
                     disabled={pending || Boolean(generating)}
                     aria-label="Create study aid"
+                    title="Learning tools"
                 >
                   {generating ? (
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   ) : (
                       <Plus className="size-4" aria-hidden="true" />
                   )}
-                </TactileButton>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
                 side="top"
-                className="w-72 !rounded-2xl !border-rb-swan !bg-rb-snow !p-2 shadow-[0_14px_32px_rgba(20,30,24,0.18)]"
+                className="tg-cat-explain w-72 !rounded-2xl !border-[var(--tg-line)] !bg-card !p-2 shadow-[0_14px_32px_rgba(20,30,24,0.18)]"
               >
-                <p className="px-2.5 pb-1 pt-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-rb-hare">
+                <p className="tg-kicker px-2.5 pb-1 pt-0.5 !text-[10px]">
                   Learning tools
                 </p>
                 {onStartSnip ? (
                   <>
                     <DropdownMenuItem
                       onSelect={() => onStartSnip()}
-                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]"
                     >
-                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip">
+                      <span className="tg-badge-icon !rounded-lg">
                         <Crop className="size-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-rb-eel">Snip part of the lesson</span>
-                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                        <span className="block text-sm font-bold text-foreground">Snip part of the lesson</span>
+                        <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                           Ask about a specific section
                         </span>
                       </span>
@@ -1366,21 +1326,21 @@ export function LessonAiTutor({
                     {hasConversation ? <DropdownMenuSeparator /> : null}
                   </>
                 ) : null}
-                <DropdownMenuItem disabled={tutorExhausted} onSelect={() => setToolsOpen(true)} className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-feather-wash text-rb-feather-lip"><BookOpenCheck className="size-4" /></span>
-                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-rb-eel">Practice & games</span><span className="mt-0.5 block text-xs leading-4 text-rb-wolf">Quizzes, matching, word games and scenarios</span></span>
+                <DropdownMenuItem disabled={tutorExhausted} onSelect={() => setToolsOpen(true)} className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]">
+                  <span className="tg-badge-icon !rounded-lg"><BookOpenCheck className="size-4" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-foreground">Practice & games</span><span className="mt-0.5 block text-xs leading-4 text-muted-foreground">Quizzes, matching, word games and scenarios</span></span>
                 </DropdownMenuItem>
                 {hasConversation ? (
                     <DropdownMenuItem
                       onSelect={() => setDialogueOpen(true)}
-                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-rb-feather-wash"
+                      className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]"
                     >
-                      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-fox-wash text-rb-fox">
+                      <span className="tg-badge-icon !rounded-lg">
                         <MessageCircle className="size-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-rb-eel">Guided dialogue</span>
-                        <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                        <span className="block text-sm font-bold text-foreground">Guided dialogue</span>
+                        <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                           Practise with tutor-led questions
                         </span>
                       </span>
@@ -1388,15 +1348,15 @@ export function LessonAiTutor({
                 ) : null}
                 <DropdownMenuItem
                   onSelect={() => onStartLive ? onStartLive() : setLiveTutorOpen(true)}
-                  className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5"
+                  className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]"
                   aria-label="Open live tutor"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-rb-cardinal/10 text-rb-cardinal">
+                  <span className="tg-badge-icon !rounded-lg">
                     <Radio className="size-4" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-rb-eel">Live tutor</span>
-                    <span className="mt-0.5 block text-xs font-medium leading-4 text-rb-wolf">
+                    <span className="block text-sm font-bold text-foreground">Live tutor</span>
+                    <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
                       Talk, dictate, and chat with your tutor
                     </span>
                   </span>
@@ -1408,27 +1368,23 @@ export function LessonAiTutor({
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {pending ? (
               <>
-                <TactileButton
+                <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !border-0 !p-0 !shadow-none"
+                    className="tg-btn tg-icon-btn !size-9 shrink-0"
                     onClick={() => setStreamPaused((current) => !current)}
                     aria-label={streamPaused ? "Resume displaying tutor reply" : "Pause displaying tutor reply"}
                     title={streamPaused ? "Resume reply" : "Pause reply"}
                 >
                   {streamPaused ? <Play className="size-3.5" aria-hidden="true" /> : <Pause className="size-3.5" aria-hidden="true" />}
-                </TactileButton>
+                </button>
               </>
             ) : (
-              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} className="!rounded-[var(--radius-rb-control,10px)]" />
+              <MicButton value={draft} onChange={setDraft} disabled={Boolean(generating)} className="!size-9 !rounded-full" />
             )}
             {pending ? (
-              <TactileButton
+              <button
                 type="button"
-                variant="feather"
-                size="sm"
-                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                className="tg-btn tg-btn-primary tg-icon-btn !size-9 shrink-0"
                 onClick={(event) => {
                   event.preventDefault()
                   stopTutorResponse()
@@ -1437,13 +1393,11 @@ export function LessonAiTutor({
                 title="Stop reply"
               >
                 <span className="size-3 rounded-[2px] bg-current" aria-hidden="true" />
-              </TactileButton>
+              </button>
             ) : (
-            <TactileButton
+            <button
                 type="submit"
-                variant="feather"
-                size="sm"
-                className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                className="tg-btn tg-btn-primary tg-icon-btn !size-9 shrink-0"
                 disabled={Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
                 aria-label="Send message"
             >
@@ -1452,17 +1406,17 @@ export function LessonAiTutor({
               ) : (
                   <ArrowUp className="size-4" aria-hidden="true" />
               )}
-            </TactileButton>
+            </button>
             )}
             </div>
           </div>
           </div>
 
-          <div className="mt-1.5 flex items-center gap-2 px-2">
-            <p className="flex-1 text-center text-[10px] leading-snug font-medium text-rb-hare">
-              REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
+          <div className="mt-2 flex items-center gap-2 px-1">
+            <AiUsageRing bucketKey="tutor" size={20} showLabel />
+            <p className="min-w-0 flex-1 text-right text-[10px] leading-snug font-medium text-muted-foreground">
+              REBYU AI can make mistakes · check your lesson materials
             </p>
-            <AiUsageRing bucketKey="tutor" />
           </div>
         </form>
         )}

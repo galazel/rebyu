@@ -1181,22 +1181,12 @@ export default function LearnerProgressPage() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="mr-auto min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Learner dashboard
-            </p>
-            <h1 className="mt-0.5 text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
-              My progress
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Your streak, exam readiness and what to study next for the selected certification.
-            </p>
-          </div>
+      <div className="rb-hub rb-progress-board space-y-6">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <h1 className="sr-only">My progress</h1>
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (
-            <span className="ml-auto flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
               Updating
             </span>
@@ -1211,7 +1201,7 @@ export default function LearnerProgressPage() {
               <SelectValue placeholder="Select certification" />
             </SelectTrigger>
 
-            <SelectContent align="start">
+            <SelectContent align="end">
               {publishedCertifications.map((certification) => (
                 <SelectItem
                   key={certification.certificationId}

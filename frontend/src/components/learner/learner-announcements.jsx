@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { MegaphoneIcon, PinIcon } from "@/components/icons"
 
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import { getMyAnnouncements } from "@/services/institutionService.js"
 
 function formatWhen(value) {
@@ -31,31 +29,32 @@ export function LearnerAnnouncements({ certificationId }) {
   }
 
   return (
-    <section className="space-y-4" aria-labelledby="course-announcements">
+    <section className="tg-cat-explain space-y-3" aria-labelledby="course-announcements">
       <div>
-        <h2 id="course-announcements" className="flex items-center gap-2 text-2xl font-bold">
-          <MegaphoneIcon className="size-5 text-primary" aria-hidden="true" />
+        <h2 id="course-announcements" className="flex items-center gap-2.5 text-lg font-bold text-foreground">
+          <span className="tg-badge-icon !size-8 !rounded-lg"><MegaphoneIcon className="size-4" aria-hidden="true" /></span>
           Announcements
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           Updates from your instructor for this course.
         </p>
       </div>
 
       <div className="space-y-3">
         {announcements.map((announcement) => (
-          <Card
+          <article
             key={announcement.departmentAnnouncementId}
-            className={announcement.pinned ? "border-primary/40 bg-primary/5" : undefined}
+            className={`rounded-[1rem] border p-4 ${
+              announcement.pinned ? "border-[var(--tg)] bg-[var(--tg-softer)]" : "border-[var(--tg-line)] bg-card"
+            }`}
           >
-            <CardContent className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h3 className="min-w-0 font-semibold text-foreground">{announcement.title}</h3>
                 {announcement.pinned ? (
-                  <Badge variant="secondary" className="shrink-0 gap-1">
+                  <span className="tg-chip inline-flex shrink-0 items-center gap-1">
                     <PinIcon className="size-3" aria-hidden="true" />
                     Pinned
-                  </Badge>
+                  </span>
                 ) : null}
               </div>
 
@@ -68,8 +67,7 @@ export function LearnerAnnouncements({ certificationId }) {
                 {announcement.departmentName ? ` · ${announcement.departmentName}` : ""}
                 {announcement.createdAt ? ` · ${formatWhen(announcement.createdAt)}` : ""}
               </p>
-            </CardContent>
-          </Card>
+          </article>
         ))}
       </div>
     </section>

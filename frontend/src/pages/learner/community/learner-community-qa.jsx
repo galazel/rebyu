@@ -31,6 +31,7 @@ import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
 import { LevelBadge } from "@/components/learner/level-badge.jsx"
 import { Button } from "@/components/ui/button"
 import {
@@ -126,15 +127,6 @@ const FEED_TAB_ICONS = {
 
 const REVIEWER_TYPES = ["notes", "docx"]
 
-const POST_TYPE_STYLES = {
-    discussion: "bg-rb-macaw-wash text-rb-macaw-lip",
-    quiz: "bg-rb-feather-wash text-rb-feather-lip",
-    flashcard: "bg-rb-beetle-wash text-rb-beetle-lip",
-    circle: "bg-rb-bee-wash text-rb-bee-lip",
-    notes: "bg-rb-fox-wash text-rb-fox-lip",
-    docx: "bg-rb-fox-wash text-rb-fox-lip",
-}
-
 const POST_TYPE_LABELS = {
     discussion: "discussion",
     quiz: "practice set",
@@ -186,14 +178,6 @@ function CommunityAvatar({ initials, tone, url, className = "" }) {
             ) : null}
         </div>
     )
-}
-
-function attachmentTone(type) {
-    if (type === "QUIZ") return "bg-rb-feather-wash text-rb-feather-lip"
-    if (type === "DOCX") return "bg-rb-bee-wash text-rb-bee-lip"
-    if (type === "IMAGE") return "bg-rb-feather-wash text-rb-feather-lip"
-    if (type === "TXT") return "bg-rb-snow text-rb-hare"
-    return "bg-rb-cardinal-wash text-rb-cardinal-lip"
 }
 
 const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
@@ -300,12 +284,12 @@ function reviewerAttachmentKind(name) {
     return "PDF"
 }
 
-function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onAction }) {
+function PayloadTile({ icon: Icon, name, meta, views, actionLabel, onAction }) {
     const openedBy = Number(views ?? 0)
 
     return (
-        <div className="mt-4 flex items-center gap-3 rounded-rb-tile border-2 border-border bg-muted/40 p-3">
-            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${tone}`}>
+        <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[var(--tg-softer)] p-3 ring-1 ring-[var(--tg-line)]">
+            <span className="tg-badge-icon !size-10">
                 <Icon className="size-5" aria-hidden="true" />
             </span>
 
@@ -326,23 +310,21 @@ function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onActio
             </div>
 
             {onAction ? (
-                <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={onAction}>
+                <button type="button" className="tg-btn tg-btn-primary shrink-0 capitalize" onClick={onAction}>
                     {actionLabel}
-                </Button>
+                </button>
             ) : null}
         </div>
     )
 }
 
-function CountAction({ icon: Icon, count, label, active, activeClassName = "", onClick, className = "" }) {
+function CountAction({ icon: Icon, count, label, active, onClick, className = "" }) {
     return (
         <button
             type="button"
             onClick={onClick}
             aria-pressed={active}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors hover:bg-accent hover:text-foreground ${
-                active ? activeClassName : ""
-            } ${className}`}
+            className={`tg-btn !rounded-full !px-3 !py-1.5 tabular-nums ${active ? "tg-btn-primary" : ""} ${className}`}
         >
             <Icon className={`size-4 ${active ? "fill-current" : ""}`} />
             {Number(count ?? 0).toLocaleString()}
@@ -353,11 +335,7 @@ function CountAction({ icon: Icon, count, label, active, activeClassName = "", o
 
 function PostTypeBadge({ type }) {
     return (
-        <span
-            className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 font-rb-display text-[0.6875rem] font-extrabold lowercase tracking-wide ${
-                POST_TYPE_STYLES[type] ?? POST_TYPE_STYLES.discussion
-            }`}
-        >
+        <span className="tg-chip shrink-0">
             {POST_TYPE_LABELS[type] ?? "post"}
         </span>
     )
@@ -366,28 +344,22 @@ function PostTypeBadge({ type }) {
 function CircleHeader({ circle, onToggleJoin, onDelete, onBack }) {
     return (
         <PanelCard className="overflow-hidden">
-            <div className="relative h-24 bg-rb-bee-wash">
+            <div className="tg-head relative h-24">
                 <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-3 left-3 select-none whitespace-nowrap font-rb-display text-[4rem] font-extrabold lowercase leading-none text-rb-bee-lip opacity-[0.14]"
+                    className="pointer-events-none absolute -bottom-3 left-3 select-none whitespace-nowrap font-rb-display text-[4rem] font-extrabold lowercase leading-none text-[var(--tg)] opacity-[0.14]"
                 >
                     {circle.name}
                 </span>
 
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="absolute left-3 top-3 rounded-full"
-                    onClick={onBack}
-                >
-                    <X className="mr-2 size-4" />
+                <button type="button" className="tg-btn absolute left-3 top-3" onClick={onBack}>
+                    <X className="size-4" aria-hidden="true" />
                     Back to feed
-                </Button>
+                </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 p-4">
-                <span className="-mt-10 grid size-16 shrink-0 place-items-center rounded-full border-4 border-card bg-rb-bee-wash font-rb-display text-lg font-extrabold lowercase text-rb-bee-lip">
+                <span className="-mt-10 grid size-16 shrink-0 place-items-center rounded-full border-4 border-card bg-[var(--tg-soft)] font-rb-display text-lg font-extrabold lowercase text-[var(--tg-ink)]">
                     {circle.initials}
                 </span>
 
@@ -402,27 +374,24 @@ function CircleHeader({ circle, onToggleJoin, onDelete, onBack }) {
 
                 {circle.owner ? (
                     <>
-                        <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
-                            owner
-                        </span>
-                        <Button type="button" variant="outline" size="sm" className="text-destructive" onClick={onDelete}>
+                        <span className="tg-chip">owner</span>
+                        <button type="button" className="tg-btn !text-destructive" onClick={onDelete}>
+                            <Trash2 className="size-4" aria-hidden="true" />
                             Delete circle
-                        </Button>
+                        </button>
                     </>
                 ) : (
-                    <Button
+                    <button
                         type="button"
-                        size="sm"
-                        variant={circle.joined ? "outline" : "default"}
-                        className="rounded-full"
+                        className={`tg-btn ${circle.joined ? "" : "tg-btn-primary"}`}
                         onClick={() => onToggleJoin(circle.circleId)}
                     >
                         {circle.joined ? "Joined" : "Join circle"}
-                    </Button>
+                    </button>
                 )}
             </div>
 
-            <p className="border-t-2 border-border px-4 py-3 text-sm leading-6 text-muted-foreground">
+            <p className="border-t border-[var(--tg-line)] px-4 py-3 text-sm leading-6 text-muted-foreground">
                 {circle.description}
             </p>
         </PanelCard>
@@ -431,21 +400,19 @@ function CircleHeader({ circle, onToggleJoin, onDelete, onBack }) {
 
 function PanelCard({ className = "", children }) {
     return (
-        <section className={`rounded-rb-card border-2 border-border bg-card ${className}`}>
+        <section className={`tg-frame ${className}`}>
             {children}
         </section>
     )
 }
 
-function PanelHeading({ icon: Icon, tone = "bg-rb-macaw-wash text-rb-macaw-lip", title, children }) {
+function PanelHeading({ icon: Icon, title, children }) {
     return (
-        <div className="flex items-center gap-2.5">
-            <span className={`grid size-8 shrink-0 place-items-center rounded-xl ${tone}`}>
-                <Icon className="size-4" aria-hidden="true" />
-            </span>
-            <h2 className="font-rb-display text-sm font-extrabold lowercase text-foreground">{title}</h2>
+        <header className="tg-head flex items-center gap-2.5 px-4 py-3">
+            <span className="tg-badge-icon"><Icon className="size-4" aria-hidden="true" /></span>
+            <h2 className="tg-kicker flex-1">{title}</h2>
             {children}
-        </div>
+        </header>
     )
 }
 
@@ -488,7 +455,7 @@ function CommunityPost({
     }, [threadOpen, onToggleComments, post.postId])
 
     return (
-        <article ref={cardRef} className="overflow-hidden rounded-rb-card border-2 border-border bg-card transition-colors hover:border-rb-macaw/60">
+        <article ref={cardRef} className="tg-frame">
             <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                     <CommunityAvatar initials={post.initials} tone={avatarTone(post.authorName ?? "")} url={authorAvatarUrl} />
@@ -510,7 +477,7 @@ function CommunityPost({
                                 <button
                                     type="button"
                                     onClick={() => onOpenCircle(linkedCircle.circleId)}
-                                    className="max-w-full truncate rounded-sm hover:text-rb-macaw-lip hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
+                                    className="max-w-full truncate rounded-sm hover:text-[var(--tg-ink)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)]"
                                 >
                                     {post.community}
                                 </button>
@@ -527,15 +494,9 @@ function CommunityPost({
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="-mr-1 size-8 shrink-0"
-                                aria-label="Post actions"
-                            >
+                            <button type="button" className="tg-btn tg-icon-btn !size-9 shrink-0" aria-label="Post actions">
                                 <MoreHorizontal className="h-4 w-4" />
-                            </Button>
+                            </button>
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
@@ -593,7 +554,6 @@ function CommunityPost({
                 ) : post.attachment ? (
                     <PayloadTile
                         icon={post.attachment.type === "DOCX" ? FileArchive : FileText}
-                        tone={attachmentTone(post.attachment.type)}
                         name={post.attachment.files ? `${post.attachment.files.length} images` : post.attachment.name}
                         meta={post.attachment.key
                             ? [post.attachment.type, fileSize, "shared reviewer"].filter(Boolean).join(" · ")
@@ -607,7 +567,6 @@ function CommunityPost({
                 {isStudySet ? (
                     <PayloadTile
                         icon={post.postType === "quiz" ? BookOpen : Layers}
-                        tone={post.postType === "quiz" ? "bg-rb-feather-wash text-rb-feather-lip" : "bg-rb-beetle-wash text-rb-beetle-lip"}
                         name={post.title}
                         meta={`${POST_TYPE_LABELS[post.postType]} · generated in REBYU`}
                         views={post.views}
@@ -619,7 +578,6 @@ function CommunityPost({
                 {OPENED_SHARE_TYPES.includes(post.postType) ? (
                     <PayloadTile
                         icon={post.postType === "mindmap" ? Network : Sparkles}
-                        tone={post.postType === "mindmap" ? "bg-rb-macaw-wash text-rb-macaw-lip" : "bg-rb-bee-wash text-rb-bee-lip"}
                         name={post.title}
                         meta={`${POST_TYPE_LABELS[post.postType]} · from the AI tutor`}
                         views={post.views}
@@ -630,13 +588,13 @@ function CommunityPost({
 
 
                 {linkedCircle && !linkedCircle.joined && !linkedCircle.owner ? (
-                    <div className="mt-4 flex flex-col gap-3 rounded-rb-tile border-2 border-border bg-muted/40 p-3 sm:flex-row sm:items-center">
+                    <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-[var(--tg-softer)] p-3 ring-1 ring-[var(--tg-line)] sm:flex-row sm:items-center">
                         <button
                             type="button"
                             onClick={() => onOpenCircle(linkedCircle.circleId)}
                             className="flex min-w-0 flex-1 items-center gap-3 text-left"
                         >
-                            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rb-bee-wash font-rb-display text-xs font-extrabold lowercase text-rb-bee-lip">
+                            <span className="tg-badge-icon !size-10 font-rb-display text-xs font-extrabold lowercase">
                                 {linkedCircle.initials}
                             </span>
 
@@ -651,27 +609,24 @@ function CommunityPost({
                             </div>
                         </button>
 
-                        <Button
+                        <button
                             type="button"
-                            size="sm"
-                            variant={linkedCircle.joined ? "outline" : "default"}
-                            className="shrink-0 rounded-full"
+                            className={`tg-btn shrink-0 ${linkedCircle.joined ? "" : "tg-btn-primary"}`}
                             onClick={() => onJoinCircle(linkedCircle.circleId)}
                         >
                             {linkedCircle.joined ? "Joined" : "Join circle"}
-                        </Button>
+                        </button>
                     </div>
                 ) : null}
 
             </div>
 
-            <div className="flex items-center gap-1 border-t-2 border-border px-3 py-2 text-sm font-bold text-muted-foreground">
+            <div className="flex items-center gap-2 border-t border-[var(--tg-line)] px-4 py-3 sm:px-5">
                 <CountAction
                     icon={ArrowUp}
                     count={post.reactions}
                     label="upvotes"
                     active={post.liked}
-                    activeClassName="text-rb-macaw-lip"
                     onClick={() => onToggleUpvote(post.postId)}
                 />
 
@@ -680,7 +635,6 @@ function CommunityPost({
                     count={post.comments}
                     label="comments"
                     active={threadOpen}
-                    activeClassName="text-rb-macaw-lip"
                     onClick={() => onToggleComments(post.postId)}
                 />
 
@@ -689,14 +643,13 @@ function CommunityPost({
                     count={post.saves}
                     label="saves"
                     active={post.saved}
-                    activeClassName="text-rb-macaw-lip"
                     onClick={() => onToggleSave(post.postId)}
                     className="ml-auto"
                 />
             </div>
 
             {threadOpen ? (
-                <div className="border-t-2 border-border bg-muted/20 px-3 py-2.5 sm:px-4">
+                <div className="border-t border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-3 sm:px-5">
                     {threadComments === undefined ? (
                         <p className="py-2 text-center text-xs font-semibold text-muted-foreground">Loading comments...</p>
                     ) : (
@@ -708,7 +661,7 @@ function CommunityPost({
                                         tone={avatarTone(comment.authorName ?? "")}
                                         className="!size-7 !text-[0.625rem]"
                                     />
-                                    <div className="min-w-0 rounded-2xl bg-muted px-3 py-1.5">
+                                    <div className="min-w-0 rounded-2xl bg-card px-3 py-1.5 ring-1 ring-[var(--tg-line)]">
                                         <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                                             {comment.authorName}
                                             <LevelBadge level={comment.authorLevel} compact />
@@ -751,19 +704,17 @@ function CommunityPost({
                             }}
                             placeholder="Write a comment..."
                             aria-label={`Comment on ${post.title}`}
-                            className="h-8 rounded-full bg-muted text-[0.8125rem]"
+                            className="h-9 rounded-full bg-card text-[0.8125rem]"
                         />
-                        <Button
+                        <button
                             type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="size-8 shrink-0 rounded-full"
+                            className="tg-btn tg-btn-primary tg-icon-btn !size-9 shrink-0"
                             onClick={() => onSubmitComment(post.postId)}
                             disabled={!draft?.trim()}
                             aria-label="Post comment"
                         >
                             <Send className="h-4 w-4" />
-                        </Button>
+                        </button>
                     </div>
                 </div>
             ) : null}
@@ -1289,7 +1240,8 @@ export default function Community() {
     const savedCount = posts.filter((post) => post.saved).length
 
     return (
-        <div className="space-y-5">
+        <div className="rb-hub rb-plain tg-cat-explain space-y-5">
+            <LearnerPageHeader title="Community" />
 
             <div className="sticky top-16 z-20 -mx-3 border-b border-border bg-background/95 px-3 pb-3 pt-2 backdrop-blur sm:-mx-5 sm:px-5 md:top-0 xl:hidden">
                 <div className="mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1301,11 +1253,7 @@ export default function Community() {
                                         key={tab.value}
                                         type="button"
                                         onClick={() => selectFeedTab(tab.value)}
-                                        className={`flex shrink-0 items-center gap-2 rounded-full border-2 px-3.5 py-2 font-rb-display text-sm font-extrabold lowercase transition-colors ${
-                                            !showSavedOnly && activeTab === tab.value
-                                                ? "border-primary bg-primary text-primary-foreground"
-                                                : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                                        }`}
+                                        className={`tg-btn shrink-0 !rounded-full ${!showSavedOnly && activeTab === tab.value ? "tg-btn-primary" : ""}`}
                                     >
                                         <Icon className="size-4" />
                                         {tab.label}
@@ -1314,11 +1262,7 @@ export default function Community() {
                             })}
                         <button
                             type="button"
-                            className={`flex shrink-0 items-center gap-2 rounded-full border-2 px-3.5 py-2 font-rb-display text-sm font-extrabold lowercase transition-colors ${
-                                showSavedOnly
-                                    ? "border-rb-macaw bg-rb-macaw-wash text-rb-macaw-lip"
-                                    : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            }`}
+                            className={`tg-btn shrink-0 !rounded-full ${showSavedOnly ? "tg-btn-primary" : ""}`}
                             onClick={() => {
                                 setShowSavedOnly((current) => !current)
                             }}
@@ -1326,15 +1270,10 @@ export default function Community() {
                             <Bookmark className={`size-4 ${showSavedOnly ? "fill-current" : ""}`} />
                             Saved ({savedCount})
                         </button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            className="ml-auto shrink-0 rounded-full"
-                            onClick={() => setCreateCircleOpen(true)}
-                        >
-                            <UsersRound className="mr-2 size-4" />
+                        <button type="button" className="tg-btn tg-btn-primary ml-auto shrink-0 !rounded-full" onClick={() => setCreateCircleOpen(true)}>
+                            <UsersRound className="size-4" aria-hidden="true" />
                             Create a circle
-                        </Button>
+                        </button>
                 </div>
             </div>
 
@@ -1352,21 +1291,21 @@ export default function Community() {
                     ) : null}
 
                     {composerOpen ? null : (
-                    <PanelCard className="p-4 sm:p-5">
-                        <button type="button" className="flex w-full items-center gap-3" onClick={() => openComposer("discussion")}>
+                    <PanelCard>
+                        <button type="button" className="tg-head flex w-full items-center gap-3 px-4 py-4 sm:px-5" onClick={() => openComposer("discussion")}>
                             <CommunityAvatar initials="GG" />
-                            <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border-2 border-border bg-muted/40 px-4 text-left text-sm font-semibold text-muted-foreground transition-colors hover:border-rb-macaw/60 hover:bg-muted">
+                            <div className="flex h-11 min-w-0 flex-1 items-center rounded-full bg-card px-4 text-left text-sm font-semibold text-muted-foreground ring-1 ring-[var(--tg-line)] transition hover:ring-[var(--tg)]">
                                 <span className="truncate">Start a discussion or share a review resource...</span>
                             </div>
                         </button>
-                        <div className="mt-3 flex items-center gap-2 border-t-2 border-border pt-3">
-                            <div className="grid w-full min-w-0 grid-cols-6 gap-1 [&>button]:min-w-0 [&>button]:px-2 [&>button>span]:min-w-0 [&>button>span]:truncate">
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4 text-rb-feather-lip sm:mr-2" /><span className="hidden sm:inline">Quiz</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Layers className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("activity")} title="Share a game or activity from your Library"><Sparkles className="size-4 text-rb-bee-lip sm:mr-2" /><span className="hidden sm:inline">Game</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("mindmap")} title="Share a mind map from your Library"><Network className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Mind map</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
+                        <div className="px-4 py-3 sm:px-5">
+                            <div className="flex w-full min-w-0 flex-wrap gap-2">
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Discussion</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Quiz</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("flashcard")} title="Share flashcards"><Layers className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Flashcards</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("activity")} title="Share a game or activity from your Library"><Sparkles className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Game</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("mindmap")} title="Share a mind map from your Library"><Network className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Mind map</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Reviewer</span></button>
                             </div>
 
                         </div>
@@ -1374,16 +1313,15 @@ export default function Community() {
                     )}
 
                     {composerOpen ? (
-                        <section className="rounded-rb-card border-2 border-rb-macaw bg-card p-4 sm:p-5">
-                            <div className="flex items-center justify-between gap-3 border-b-2 border-border pb-4">
-                                <div>
-                                    <h2 className="font-rb-display text-sm font-extrabold lowercase">Create a post</h2>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">Ask a question, or share a quiz, flashcards, game or mind map from your Library, or a PDF/Word reviewer.</p>
-                                </div>
-                                <Button type="button" variant="ghost" size="icon-sm" onClick={() => { setComposerOpen(false); setAttachedFile(null) }} aria-label="Close post editor"><X /></Button>
-                            </div>
+                        <section className="tg-frame">
+                            <header className="tg-head flex items-center gap-2.5 px-4 py-3 sm:px-5">
+                                <span className="tg-badge-icon"><Send className="size-4" aria-hidden="true" /></span>
+                                <h2 className="tg-kicker flex-1">Create a post</h2>
+                                <button type="button" className="tg-btn tg-icon-btn !size-9" onClick={() => { setComposerOpen(false); setAttachedFile(null) }} aria-label="Close post editor"><X className="size-4" /></button>
+                            </header>
+                            <div className="p-4 sm:p-5">
 
-                            <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
+                            <div className="flex gap-2 overflow-x-auto pb-1">
                                 {[
                                     { value: "discussion", label: "Discussion", icon: MessageCircle },
                                     { value: "quiz", label: "Quiz", icon: BookOpen },
@@ -1393,7 +1331,7 @@ export default function Community() {
                                     { value: "reviewer", label: "Reviewer", icon: FileText },
                                 ].map((type) => {
                                     const Icon = type.icon
-                                    return <Button key={type.value} type="button" variant={shareType === type.value ? "secondary" : "ghost"} size="sm" className="shrink-0" onClick={() => { setShareType(type.value); setAttachedFile(null) }}><Icon className="mr-1.5 size-4" />{type.label}</Button>
+                                    return <button key={type.value} type="button" aria-pressed={shareType === type.value} className={`tg-btn shrink-0 !rounded-full ${shareType === type.value ? "tg-btn-primary" : ""}`} onClick={() => { setShareType(type.value); setAttachedFile(null) }}><Icon className="size-4" aria-hidden="true" />{type.label}</button>
                                 })}
                             </div>
 
@@ -1422,28 +1360,29 @@ export default function Community() {
                                 {shareType === "reviewer" ? (
                                     <div>
                                         <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} multiple className="hidden" onChange={handleAttachmentSelected} />
-                                        <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-rb-tile border-2 border-dashed border-border px-4 py-3 text-left hover:border-rb-macaw disabled:opacity-60">
-                                            {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-primary" />}
+                                        <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-3 text-left hover:border-[var(--tg)] disabled:opacity-60">
+                                            {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-[var(--tg)]" />}
                                             <span className="min-w-0 flex-1 truncate text-sm">
                                                 {attachedFile?.files?.length > 1
                                                     ? `${attachedFile.files.length} images — add more, up to ${MAX_REVIEWER_IMAGES}`
                                                     : attachedFile?.name ?? "Add a PDF, Word or text file, or several images"}
                                             </span>
-                                            {attachedFile ? <span className="shrink-0 text-xs font-medium text-primary">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
+                                            {attachedFile ? <span className="shrink-0 text-xs font-bold text-[var(--tg-ink)]">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
                                         </button>
                                     </div>
                                 ) : null}
                             </div>
 
-                            <div className="mt-4 flex justify-end gap-2 border-t-2 border-border pt-4">
-                                <Button type="button" variant="ghost"  onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</Button>
-                                <Button type="button"  onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (LIBRARY_SHARE_TYPES.includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="mr-2 size-4" />Post</Button>
+                            <div className="mt-4 flex justify-end gap-2 border-t border-[var(--tg-line)] pt-4">
+                                <button type="button" className="tg-btn" onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</button>
+                                <button type="button" className="tg-btn tg-btn-primary" onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (LIBRARY_SHARE_TYPES.includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="size-4" aria-hidden="true" />Post</button>
+                            </div>
                             </div>
                         </section>
                     ) : null}
 
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-                        <h2 className="font-rb-display text-base font-extrabold lowercase">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-base font-semibold text-foreground">
                             {activeCircle
                                 ? `posts in ${activeCircle.name}`
                                 : showSavedOnly
@@ -1466,21 +1405,21 @@ export default function Community() {
                             </div>
 
                             {showSavedOnly ? (
-                                <Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => setShowSavedOnly(false)}>
-                                    <X className="mr-2 h-4 w-4" />
+                                <button type="button" className="tg-btn shrink-0" onClick={() => setShowSavedOnly(false)}>
+                                    <X className="size-4" aria-hidden="true" />
                                     Back to feed
-                                </Button>
+                                </button>
                             ) : null}
                         </div>
                     </div>
 
                     {isLoading ? (
-                        <div className="flex flex-col items-center justify-center rounded-rb-card border-2 border-dashed border-border py-16 text-center">
-                            <span className="grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+                        <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] py-16 text-center">
+                            <span className="grid size-12 place-items-center tg-badge-icon">
                                 <Loader2 className="size-6 animate-spin" aria-hidden="true" />
                             </span>
-                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
-                                loading the feed
+                            <p className="mt-3 text-sm font-bold text-foreground">
+                                Loading the feed
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                                 Fetching posts, circles and your study items.
@@ -1514,11 +1453,11 @@ export default function Community() {
                             ))}
                         </div>
                     ) : (
-                        <div className="rounded-rb-card border-2 border-dashed border-border py-16 text-center">
-                            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+                        <div className="rounded-3xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] py-16 text-center">
+                            <span className="mx-auto grid size-12 place-items-center tg-badge-icon">
                                 <MessageCircle className="size-6" />
                             </span>
-                            <p className="mt-3 font-rb-display text-sm font-extrabold lowercase">
+                            <p className="mt-3 text-sm font-bold text-foreground">
                                 {showSavedOnly ? "No saved posts yet" : "No community posts found"}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -1531,10 +1470,9 @@ export default function Community() {
                 </main>
 
                 <aside aria-label="Community navigation and reminders" className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] space-y-5 overflow-y-auto overscroll-contain xl:block">
-                    <nav aria-label="Community feed" className="space-y-1">
-                        <p className="px-3 pb-1 font-rb-display text-xs font-extrabold lowercase text-muted-foreground">
-                            feed
-                        </p>
+                    <PanelCard>
+                    <PanelHeading icon={Home} title="Feed" />
+                    <nav aria-label="Community feed" className="space-y-1 p-2">
 
                         {FEED_TABS.map((tab, index) => {
                             const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
@@ -1545,10 +1483,10 @@ export default function Community() {
                                     key={tab.value}
                                     type="button"
                                     onClick={() => selectFeedTab(tab.value)}
-                                    className={`flex w-full items-center gap-3 rounded-rb-tile px-3 py-2 text-left text-sm font-bold transition-colors ${
+                                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold transition-colors ${
                                         active
-                                            ? "bg-rb-macaw-wash text-rb-macaw-lip"
-                                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                            ? "bg-[var(--tg-soft)] text-[var(--tg-ink)]"
+                                            : "text-muted-foreground hover:bg-[var(--tg-softer)] hover:text-foreground"
                                     }`}
                                 >
                                     <Icon className="size-4 shrink-0" />
@@ -1560,44 +1498,39 @@ export default function Community() {
                         <button
                             type="button"
                             onClick={() => setShowSavedOnly((current) => !current)}
-                            className={`flex w-full items-center gap-3 rounded-rb-tile px-3 py-2 text-left text-sm font-bold transition-colors ${
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold transition-colors ${
                                 showSavedOnly
-                                    ? "bg-rb-macaw-wash text-rb-macaw-lip"
-                                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                                    ? "bg-[var(--tg-soft)] text-[var(--tg-ink)]"
+                                    : "text-muted-foreground hover:bg-[var(--tg-softer)] hover:text-foreground"
                             }`}
                         >
                             <Bookmark className={`size-4 shrink-0 ${showSavedOnly ? "fill-current" : ""}`} />
                             <span className="min-w-0 flex-1 truncate">Saved</span>
                             {savedCount > 0 ? (
-                                <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-extrabold text-muted-foreground">
-                                    {savedCount}
-                                </span>
+                                <span className="tg-chip shrink-0">{savedCount}</span>
                             ) : null}
                         </button>
                     </nav>
+                    </PanelCard>
 
-                    <div className="mt-5 border-t-2 border-border pt-4">
-                        <div className="flex items-center justify-between gap-2 px-3 pb-1">
-                            <p className="font-rb-display text-xs font-extrabold lowercase text-muted-foreground">
-                                study circles
-                            </p>
-
+                    <PanelCard>
+                        <PanelHeading icon={UsersRound} title="Study circles">
                             <button
                                 type="button"
                                 onClick={() => setCreateCircleOpen(true)}
                                 aria-label="Create study circle"
-                                className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                                className="tg-btn tg-icon-btn !size-8"
                             >
                                 <Plus className="size-4" />
                             </button>
-                        </div>
+                        </PanelHeading>
 
-                        <div className="space-y-0.5">
+                        <div className="space-y-0.5 p-2">
                             {circles.map((circle) => (
                                 <div
                                     key={circle.circleId}
-                                    className={`group flex items-center gap-3 rounded-rb-tile px-3 py-2 transition-colors hover:bg-accent ${
-                                        circle.circleId === activeCircleId ? "bg-rb-bee-wash" : ""
+                                    className={`group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-[var(--tg-softer)] ${
+                                        circle.circleId === activeCircleId ? "bg-[var(--tg-soft)]" : ""
                                     }`}
                                 >
                                     <button
@@ -1605,7 +1538,7 @@ export default function Community() {
                                         onClick={() => setActiveCircleId(circle.circleId)}
                                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                     >
-                                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rb-bee-wash font-rb-display text-[0.625rem] font-extrabold lowercase text-rb-bee-lip">
+                                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--tg-soft)] font-rb-display text-[0.625rem] font-extrabold lowercase text-[var(--tg-ink)]">
                                             {circle.initials}
                                         </span>
 
@@ -1627,20 +1560,14 @@ export default function Community() {
                                     </button>
 
                                     {circle.owner ? (
-                                        <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">
-                                            owner
-                                        </span>
+                                        <span className="tg-chip shrink-0">owner</span>
                                     ) : (
                                         <button
                                             type="button"
                                             onClick={() => toggleJoinCircle(circle.circleId)}
-                                            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide transition-colors ${
-                                                circle.joined
-                                                    ? "text-muted-foreground hover:text-foreground"
-                                                    : "bg-rb-macaw-wash text-rb-macaw-lip hover:bg-rb-macaw hover:text-white"
-                                            }`}
+                                            className={`tg-btn shrink-0 !rounded-full !px-3 !py-1 !text-xs ${circle.joined ? "" : "tg-btn-primary"}`}
                                         >
-                                            {circle.joined ? "joined" : "join"}
+                                            {circle.joined ? "Joined" : "Join"}
                                         </button>
                                     )}
                                 </div>
@@ -1652,13 +1579,12 @@ export default function Community() {
                                 </p>
                             ) : null}
                         </div>
-                    </div>
+                    </PanelCard>
 
+                    <PanelCard>
+                        <PanelHeading icon={Sparkles} title="Community reminder" />
 
-                    <PanelCard className="border-rb-fox/40 bg-rb-fox-wash p-4">
-                        <PanelHeading icon={Sparkles} tone="bg-rb-snow text-rb-fox-lip" title="Community reminder" />
-
-                        <p className="mt-2 text-xs leading-5 text-rb-wolf">
+                        <p className="px-4 py-3 text-xs leading-5 text-muted-foreground">
                             Be respectful during discussions. Do not share active exam
                             answers, copied reviewer courses, or files you are not allowed to
                             distribute.

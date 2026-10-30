@@ -280,3 +280,263 @@
    quiz): everything beside it goes, except the header and the bottom bar
    (score + Restart). */
 :has(> [data-round-result]) > :not([data-round-result]):not([data-game-footer]):not(header) { display: none; }
+
+/* ---- card deck (sorting) ----
+   The cards still to sort sit in a tilted glass stack; only the top one faces
+   you and is dragged (or tapped onto a group). */
+.tg-deck { position: relative; display: grid; place-items: center; min-height: 14rem; padding: 1.25rem 0 1.75rem; border-radius: 1.25rem; transition: background .15s ease; }
+.tg-deck.is-over { background: var(--tg-softer); }
+.tg-deck-card {
+  grid-area: 1 / 1; width: min(100%, 22rem); min-height: 10rem; border-radius: 1.4rem;
+  border: 1px solid rgb(255 255 255 / .45); color: #fff;
+  background: linear-gradient(150deg, color-mix(in oklab, var(--tg-2) 80%, white), var(--tg));
+  box-shadow: 0 22px 44px -20px color-mix(in oklab, var(--tg) 75%, transparent), inset 0 1px 0 rgb(255 255 255 / .55);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transform: translate(calc(var(--depth, 0) * 9px), calc(var(--depth, 0) * 9px)) rotate(var(--tilt, 0deg)) scale(calc(1 - var(--depth, 0) * .04));
+  opacity: calc(1 - var(--depth, 0) * .22);
+}
+.tg-deck-card.is-top {
+  z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem;
+  padding: 1.5rem; font-size: 1.25rem; font-weight: 800; line-height: 1.3; text-align: center; cursor: grab;
+  touch-action: manipulation; transition: transform .2s ease, box-shadow .2s ease, opacity .15s ease;
+  animation: tg-deck-in .35s cubic-bezier(.3, 1.4, .5, 1) both;
+}
+.tg-deck-card.is-top .tg-grip { color: rgb(255 255 255 / .75); }
+.tg-deck-card.is-top:hover { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 28px 50px -20px color-mix(in oklab, var(--tg) 80%, transparent), inset 0 1px 0 rgb(255 255 255 / .55); }
+.tg-deck-card.is-top:focus-visible { outline: 3px solid var(--tg); outline-offset: 4px; }
+.tg-deck-card.is-top.is-picked { box-shadow: 0 0 0 4px #fff, 0 0 0 8px color-mix(in oklab, var(--tg) 45%, transparent); }
+.tg-deck-card.is-top.is-dragging { opacity: .35; }
+.dark .tg-deck-card { color: #10151a; }
+.dark .tg-deck-card.is-top .tg-grip { color: rgb(16 21 26 / .6); }
+.tg-deck-empty { grid-area: 1 / 1; font-size: .875rem; font-weight: 700; color: var(--muted-foreground); }
+@keyframes tg-deck-in { from { transform: translateY(16px) scale(.94); opacity: 0; } }
+
+.tg-bucket { border: 2px dashed var(--tg-line); border-radius: 1.1rem; background: var(--tg-softer); transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.tg-bucket.is-over { border-color: var(--tg); background: var(--tg-soft); transform: scale(1.01); }
+.tg-bucket-head {
+  display: flex; width: 100%; align-items: center; gap: .5rem; padding: .7rem 1rem;
+  border-bottom: 1px dashed var(--tg-line); font-size: .95rem; font-weight: 800; color: var(--foreground); text-align: left;
+  border-radius: 1rem 1rem 0 0; transition: background .12s ease;
+}
+.tg-bucket-head:hover:not(:disabled) { background: var(--tg-soft); }
+.tg-bucket-head:focus-visible { outline: 2px solid var(--tg); outline-offset: -2px; }
+.tg-bucket-head:disabled { cursor: default; }
+@media (prefers-reduced-motion: reduce) { .tg-deck-card.is-top { animation: none; transition: none; } }
+.tg-deck:has(.tg-deck-empty) { min-height: 4.5rem; padding: .75rem 0; }
+
+/* A card once it is in a group: a small copy of the deck card. */
+.tg-chip-card {
+  display: inline-flex; align-items: center; gap: .45rem; max-width: 100%;
+  padding: .55rem .95rem; border-radius: .9rem; border: 1px solid rgb(255 255 255 / .45);
+  color: #fff; font-size: .875rem; font-weight: 800; text-align: left; cursor: grab; touch-action: manipulation;
+  background: linear-gradient(150deg, color-mix(in oklab, var(--tg-2) 80%, white), var(--tg));
+  box-shadow: 0 10px 20px -12px color-mix(in oklab, var(--tg) 75%, transparent), inset 0 1px 0 rgb(255 255 255 / .5);
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+  animation: tg-chip-drop .3s cubic-bezier(.3, 1.5, .5, 1) both;
+}
+.tg-chip-card .tg-grip { color: rgb(255 255 255 / .75); }
+.tg-chip-card:hover { transform: translateY(-2px) rotate(-.6deg); }
+.tg-chip-card:focus-visible { outline: 3px solid var(--tg); outline-offset: 2px; }
+.tg-chip-card.is-picked { box-shadow: 0 0 0 3px #fff, 0 0 0 6px color-mix(in oklab, var(--tg) 45%, transparent); transform: translateY(-2px); }
+.tg-chip-card.is-dragging { opacity: .35; }
+.tg-chip-card.is-right { background: linear-gradient(150deg, #5fdc9e, #1f9d5f); box-shadow: 0 10px 20px -12px #1f9d5f; }
+.tg-chip-card.is-wrong { background: linear-gradient(150deg, #ff8a9b, #e0475f); box-shadow: 0 10px 20px -12px #e0475f; animation: shake .3s ease-in-out; }
+.dark .tg-chip-card { color: #10151a; }
+.dark .tg-chip-card .tg-grip { color: rgb(16 21 26 / .6); }
+.tg-stage .tg-chip-card { font-size: 1rem; padding: .65rem 1.05rem; }
+@keyframes tg-chip-drop { from { transform: translateY(-10px) scale(.85); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tg-chip-card { animation: none; transition: none; } }
+
+/* A group's cards as a pile: newest on top, older ones peeking out tilted.
+   Hover, keyboard focus or a checked round fans the pile open. */
+.tg-stack { display: flex; flex-direction: column; padding: .85rem .85rem 1rem; }
+.tg-stack > .tg-chip-card { width: 100%; justify-content: flex-start; transition: margin .25s ease, transform .25s ease; }
+.tg-stack > .tg-chip-card + .tg-chip-card { margin-top: -2.05rem; }
+.tg-stack > .tg-chip-card:nth-child(odd) { transform: rotate(-1.2deg); }
+.tg-stack > .tg-chip-card:nth-child(even) { transform: rotate(1.4deg); }
+.tg-stack > .tg-chip-card:last-child { transform: none; }
+.tg-bucket:hover .tg-stack > .tg-chip-card + .tg-chip-card,
+.tg-stack:focus-within > .tg-chip-card + .tg-chip-card,
+.tg-stack.is-open > .tg-chip-card + .tg-chip-card { margin-top: .5rem; }
+.tg-bucket:hover .tg-stack > .tg-chip-card,
+.tg-stack:focus-within > .tg-chip-card,
+.tg-stack.is-open > .tg-chip-card { transform: none; }
+.tg-stack > .tg-chip-card:hover { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) { .tg-stack > .tg-chip-card { transition: none; } }
+/* Stacked cards read as cards: card-sized, and the covered ones show only their edge. */
+.tg-stack > .tg-chip-card { min-height: 3.6rem; padding: .85rem 1.1rem; border-radius: 1rem; }
+.tg-stack > .tg-chip-card + .tg-chip-card { margin-top: -3.05rem; }
+.tg-stack:not(.is-open):not(:focus-within) > .tg-chip-card:not(:last-child) { color: transparent; }
+.tg-stack:not(.is-open):not(:focus-within) > .tg-chip-card:not(:last-child) .tg-grip { visibility: hidden; }
+.tg-bucket:hover .tg-stack > .tg-chip-card:not(:last-child) { color: #fff; }
+.tg-bucket:hover .tg-stack > .tg-chip-card:not(:last-child) .tg-grip { visibility: visible; }
+.dark .tg-bucket:hover .tg-stack > .tg-chip-card:not(:last-child) { color: #10151a; }
+.tg-stage .tg-stack > .tg-chip-card { min-height: 4rem; }
+/* Stacks open by their own toggle, not hover (hover flickers and has no touch equivalent). */
+.tg-bucket:hover .tg-stack:not(.is-open) > .tg-chip-card + .tg-chip-card { margin-top: -3.05rem; }
+.tg-bucket:hover .tg-stack:not(.is-open) > .tg-chip-card:nth-child(odd) { transform: rotate(-1.2deg); }
+.tg-bucket:hover .tg-stack:not(.is-open) > .tg-chip-card:nth-child(even) { transform: rotate(1.4deg); }
+.tg-bucket:hover .tg-stack:not(.is-open) > .tg-chip-card:last-child { transform: none; }
+.tg-bucket:hover .tg-stack:not(.is-open):not(:focus-within) > .tg-chip-card:not(:last-child) { color: transparent; }
+.tg-bucket:hover .tg-stack:not(.is-open):not(:focus-within) > .tg-chip-card:not(:last-child) .tg-grip { visibility: hidden; }
+.tg-stack.is-open > .tg-chip-card:not(:last-child) { color: #fff; }
+.dark .tg-stack.is-open > .tg-chip-card:not(:last-child) { color: #10151a; }
+.tg-stack-toggle { display: block; margin: -.4rem auto .7rem; padding: .2rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 800; color: var(--tg-ink); }
+.tg-stack-toggle:hover { background: var(--tg-soft); }
+.tg-stack-toggle:focus-visible { outline: 2px solid var(--tg); outline-offset: 2px; }
+.tg-stage .tg-stack-toggle { font-size: .875rem; }
+
+/* ---- learner progress dashboard ----
+   Tiles read like the game frames and Library cards: soft card, shadow, one body
+   font for headings (the global rule would make them tiny condensed display type),
+   and a gradient icon badge. Scoped so admin and institution dashboards keep theirs. */
+.rb-progress-board .rb-bento-tile {
+  border-width: 1px; border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgb(15 40 30 / .05), 0 14px 30px -22px rgb(17 55 43 / .45);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.rb-progress-board .rb-bento-tile:hover { box-shadow: 0 1px 2px rgb(15 40 30 / .05), 0 18px 36px -22px rgb(17 55 43 / .55); }
+.rb-progress-board :is(h2, h3):not(.font-rb-display):not(.font-display) {
+  font-family: var(--font-institution-body) !important; letter-spacing: normal;
+}
+.rb-progress-board .rb-bento-heading { border-bottom-color: color-mix(in oklab, var(--border) 70%, transparent); padding-bottom: .75rem; margin-bottom: .9rem; }
+.rb-progress-board .rb-bento-kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.rb-progress-board .rb-bento-title { font-size: 1rem; font-weight: 700; }
+.rb-progress-board .rb-bento-heading p { font-size: .75rem; }
+.rb-progress-board .rb-bento-icon {
+  width: 2.25rem; height: 2.25rem; border-radius: .8rem; color: #fff;
+  background: linear-gradient(140deg, #5cc492, #2f8a5f);
+  box-shadow: 0 3px 0 color-mix(in oklab, #2f8a5f 55%, #000), inset 0 1px 0 rgb(255 255 255 / .35);
+  transform: rotate(-4deg);
+}
+.dark .rb-progress-board .rb-bento-icon { color: #10151a; }
+.rb-progress-board .rb-bento-title { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+.rb-progress-board .rb-bento-heading p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ---- learner hub pages (every page in the learner sidebar) ----
+   One type and card style: section headings in the body face (the global
+   heading rule would make them small condensed display type), soft cards. */
+.rb-hub :is(h2, h3, h4):not(.font-rb-display):not(.font-display):not(.tg-stage *) {
+  font-family: var(--font-institution-body) !important; letter-spacing: normal; text-transform: none;
+}
+.rb-hub .rounded-rb-card:not(.tg-frame) {
+  border-width: 1px; border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgb(15 40 30 / .05), 0 14px 30px -22px rgb(17 55 43 / .45);
+}
+
+/* Learner sidebar items: the page's coloured icon tile, washed in its colour when active. */
+.rb-nav-tile { color: var(--sidebar-foreground); transition: background .15s ease, color .15s ease; }
+.rb-nav-tile:hover { background: var(--tg-softer); color: var(--foreground); }
+.rb-nav-tile[data-active="true"] { background: var(--tg-soft); color: var(--tg-ink); box-shadow: inset 0 0 0 1px var(--tg-line); }
+.rb-nav-tile .tg-badge-icon { transition: transform .15s ease; }
+.rb-nav-tile:hover .tg-badge-icon { transform: translateY(-1px) rotate(-3deg); }
+@media (prefers-reduced-motion: reduce) { .rb-nav-tile .tg-badge-icon { transition: none; } }
+
+/* Plain variant (Community): flat header wash, no decorative bubbles, a lighter lift. */
+.rb-plain .tg-head { background: var(--tg-softer); }
+.rb-plain .tg-frame { box-shadow: 0 2px 0 color-mix(in oklab, var(--tg) 14%, transparent); }
+
+/* Solid category fill: lesson statement bands, quiz band, flip-card backs, index chips. */
+.tg-solid { background: linear-gradient(140deg, var(--tg), color-mix(in oklab, var(--tg) 72%, #000)); color: #fff; }
+.tg-solid-soft { background: linear-gradient(140deg, var(--tg-2), var(--tg)); color: #fff; }
+
+
+/* Document reader in the game-kit green (shared reviewers, Library files). */
+.rb-reader.tg-cat-explain {
+  --reader-ground: var(--tg-softer);
+  --reader-line: var(--tg-line);
+  --reader-green: var(--tg);
+  --reader-green-lip: color-mix(in oklab, var(--tg) 75%, #000);
+}
+.rb-reader.tg-cat-explain .rb-reader-bar { padding: 0.65rem 1rem; box-shadow: none; }
+.rb-reader-group {
+  display: inline-flex; align-items: center; gap: 0.15rem;
+  padding: 0.15rem; border: 1px solid var(--tg-line); border-radius: 999px; background: var(--tg-softer);
+}
+.rb-reader.tg-cat-explain .rb-reader-page-input { border-radius: 999px; border-color: var(--tg-line); background: #fff; }
+.rb-reader.tg-cat-explain .rb-reader-cover {
+  width: auto; aspect-ratio: auto; display: flex; flex-direction: column; align-items: flex-start;
+  border: 0; background: transparent; box-shadow: none; padding: 0;
+}
+.rb-reader.tg-cat-explain .rb-reader-facts dd { color: var(--tg-ink); }
+.rb-reader.tg-cat-explain .rb-reader-jump button { border-radius: 0.6rem; border-color: var(--tg-line); }
+.rb-reader.tg-cat-explain .rb-reader-jump button[aria-current="page"] { box-shadow: 0 2px 0 color-mix(in oklab, var(--tg) 55%, #000); }
+.rb-reader.tg-cat-explain .rb-reader-keys kbd { border-color: var(--tg-line); }
+.rb-reader.tg-cat-explain .rb-reader-sheet { border-radius: 6px; box-shadow: 0 1px 2px rgb(16 42 37 / 0.08), 0 14px 32px -12px rgb(16 42 37 / 0.25); }
+.rb-reader.tg-cat-explain .rb-reader-page-number {
+  margin-top: 0.6rem; padding: 0.1rem 0.6rem; border-radius: 999px;
+  background: #fff; border: 1px solid var(--tg-line); color: var(--tg-ink);
+}
+
+/* Landing page v2: the chalkboard hero stays; everything below it uses the app's
+   game-kit look (clean cards, green pill labels, the app's display face). */
+.rb-classroom-landing.rb-landing-v2 {
+  --font-rb-display: var(--font-institution-display);
+  --font-display: var(--font-institution-display);
+  --font-heading: var(--font-institution-display);
+  --font-rb-body: var(--font-institution-body);
+  --font-body: var(--font-institution-body);
+}
+.rb-classroom-landing.rb-landing-v2 .rb-display { text-transform: none; color: var(--foreground); }
+.rb-classroom-landing.rb-landing-v2 .rb-display-lg { font-size: clamp(2.4rem, 4.8vw, 4.25rem); line-height: 1.02; }
+.rb-classroom-landing.rb-landing-v2 .rb-display-md { font-size: clamp(1.8rem, 3vw, 2.6rem); line-height: 1.05; }
+.rb-classroom-landing.rb-landing-v2 .rb-display-sm { font-family: var(--font-institution-body) !important; font-weight: 700; }
+.rb-classroom-landing.rb-landing-v2 .rb-body-lg { color: var(--muted-foreground); }
+
+.rb-classroom-landing.rb-landing-v2 [data-landing-reveal] > .rb-eyebrow {
+  margin-left: 0;
+  padding: 0.4rem 0.9rem;
+  gap: 0.45rem;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--tg-soft);
+  box-shadow: none;
+  color: var(--tg-ink);
+  font-family: var(--font-institution-body);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transform: none;
+}
+.rb-classroom-landing.rb-landing-v2 [data-landing-reveal] > .rb-eyebrow::before {
+  content: "";
+  position: static;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--tg);
+}
+
+.rebyu-ds.rb-classroom-landing.rb-landing-v2 .rb-card:not([class*="!p-0"]),
+.rebyu-ds.rb-classroom-landing.rb-landing-v2 .rb-card[class*="!p-0"] {
+  background: var(--card);
+  background-image: none;
+  border: 1px solid var(--tg-line);
+  border-radius: 1.1rem;
+  box-shadow: 0 4px 0 color-mix(in oklab, var(--tg) 18%, transparent), 0 12px 28px -20px color-mix(in oklab, var(--tg) 60%, transparent);
+}
+.rebyu-ds.rb-classroom-landing.rb-landing-v2 .rb-card:not([class*="!p-0"]) { padding-left: var(--rb-s3, 1.5rem); }
+
+.rb-classroom-landing.rb-landing-v2 main .bg-rb-polar,
+.rb-classroom-landing.rb-landing-v2 main .bg-rb-feather-wash { background-color: var(--tg-softer); }
+.rb-classroom-landing.rb-landing-v2 main > :is(section, div) + :is(section, div) { border-top-color: var(--tg-line); }
+/* Animated headings split words into spans; keep them in the heading's face. */
+.rb-classroom-landing.rb-landing-v2 :is(h1, h2, h3, .rb-display) span:not(.rb-chalk *) { font-family: inherit; }
+
+/* Print only the certificate (the Print or save PDF button on the badge page). */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body * { visibility: hidden !important; }
+  #rb-certificate, #rb-certificate * { visibility: visible !important; }
+  #rb-certificate { position: fixed; inset: 0; margin: auto; width: 100% !important; height: auto !important; aspect-ratio: 1.414 / 1; box-shadow: none !important; }
+}
+
+/* The certificate's title is a serif like the emailed PDF, not the app's display face. */
+#rb-certificate h1 { font-family: Georgia, "Times New Roman", serif !important; letter-spacing: 0.01em; }
+
+/* Taking an assessment: questions and choices cannot be selected (see useNoCopyDuringAttempt). */
+body.rb-no-copy { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.rb-no-copy :is(input, textarea, select, [contenteditable="true"], .cm-editor, .cm-editor *) { -webkit-user-select: text; user-select: text; }

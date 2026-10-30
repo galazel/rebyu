@@ -44,12 +44,10 @@ import {
 
 import { BrandLogo } from "@/components/brand-logo";
 import { FolderShelf } from "@/components/classroom/folder-shelf.jsx";
-import { GradedNotebook } from "@/components/classroom/graded-notebook.jsx";
 import { PinBoard } from "@/components/classroom/pin-board.jsx";
-import { LaptopSheet } from "@/components/classroom/laptop-sheet.jsx";
+import { DiagnosticMock, ProgressMock, StudyLoopMock } from "@/pages/public/landing-product-mocks.jsx";
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx";
 import { RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx";
-import { MASTERY_BANDS } from "@/components/charts/rebyu-charts.jsx";
 import {
   AnimatePresence,
   EASE,
@@ -64,16 +62,13 @@ import {
   useParallax,
   useScrollSteps,
 } from "@/components/motion/rebyu-motion.jsx";
-import {
-  MASTERY,
-  MasteryChart,
-  RETENTION,
-  RetakeScoreChart,
-  RetentionChart,
-} from "./landing-charts.jsx";
 
 
 const SHOW_COMMUNITY = true;
+
+// Icon tiles use the game-kit categories, the same coloured tiles as the learner sidebar.
+const ICON_TONES = ["explain", "insight", "recall", "decision", "organize", "worked", "timed", "word"];
+const iconTone = (index) => `tg-cat-${ICON_TONES[index % ICON_TONES.length]}`;
 
 const NAV_ITEMS = [
   { label: "about", href: "#about" },
@@ -95,7 +90,7 @@ const HOW_IT_WORKS = [
   {
     step: "02",
     title: "get your plan",
-    body: "Rebyu orders your lessons by what is weakest and what the exam weighs most.",
+    body: "REBYU orders your lessons by what is weakest and what the exam weighs most.",
     tone: "beetle",
   },
   {
@@ -582,7 +577,7 @@ function BrandMark({ light = false }) {
           light ? "text-white! [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]" : ""
         }`}
       >
-        rebyu
+        REBYU
       </span>
     </span>
   );
@@ -691,7 +686,7 @@ function LandingNavbar() {
         }`}
       >
         <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
-          <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
+          <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="REBYU Home">
             <BrandMark light={overHero} />
           </Link>
 
@@ -843,7 +838,7 @@ function HeroSection() {
             variants={fadeUp}
             className="rb-chalk-body mx-auto mt-6 max-w-4xl text-balance text-xl sm:text-2xl"
           >
-            Rebyu finds the topics you are weakest at and builds your study plan around them — so
+            REBYU finds the topics you are weakest at and builds your study plan around them — so
             nothing on exam day is a surprise.
           </motion.p>
 
@@ -872,14 +867,14 @@ function AboutSection() {
     <section id="about" className="scroll-mt-24 bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-3xl">
-          <p className="rb-eyebrow">what rebyu is</p>
+          <p className="rb-eyebrow">what REBYU is</p>
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="one place to prepare for one exam."
+            text="One place to prepare for one exam."
           />
           <p className="rb-body-lg mt-5">
-            Rebyu is a certification review platform for TOPCIT, IT Passport, and the FE exam. It
+            REBYU is a certification review platform for TOPCIT, IT Passport, and the FE exam. It
             holds the whole preparation cycle — a diagnostic that finds your gaps, lessons ordered
             around them, real assessments with code and diagram work, timed mock exams, and a
             mastery level per topic you can actually act on.
@@ -892,10 +887,10 @@ function AboutSection() {
             [Code2, "Real assessments", "Write code against test cases, build diagrams on a canvas."],
             [BarChart3, "Mastery tracking", "Every answer updates a per-topic estimate."],
             [Users, "Built for both", "Study on your own, or through your institution."],
-          ].map(([Icon, title, body]) => (
+          ].map(([Icon, title, body], index) => (
             <HoverLift key={title} className="h-full">
               <RebyuCard raised data-landing-reveal className="h-full">
-                <span className="grid size-12 place-items-center rounded-2xl bg-rb-feather-wash text-rb-feather-ink">
+                <span className={`tg-badge-icon ${iconTone(index)} !size-12 !rounded-xl`}>
                   <Icon className="size-6" aria-hidden="true" />
                 </span>
                 <h3 className="rb-display rb-display-sm mt-4">{title}</h3>
@@ -919,7 +914,7 @@ function ProblemSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="cramming feels productive. it isn't."
+            text="Cramming feels productive. it isn't."
           />
           <p className="rb-body-lg mt-5">
             Most people prepare by reading everything once, a few weeks before the date. A month
@@ -935,8 +930,8 @@ function ProblemSection() {
               ["Weak spots stay hidden", "Nothing tells you which topics are actually weak."],
             ].map(([title, body]) => (
               <li key={title} className="flex gap-3">
-                <span className="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-rb-cardinal-wash">
-                  <X className="size-3.5 text-rb-cardinal-lip" aria-hidden="true" />
+                <span className="tg-badge-icon tg-cat-decision mt-0.5 !size-8 !rounded-lg">
+                  <X className="size-4" aria-hidden="true" />
                 </span>
                 <div>
                   <div className="font-bold text-rb-eel">{title}</div>
@@ -948,21 +943,10 @@ function ProblemSection() {
         </div>
 
         <div data-landing-reveal>
-          <LaptopSheet
-            file="retention-after-one-session.xlsx"
-            formula="=C7-B7"
-            cell="C7"
-            sheet="retention"
-            headers={["day", "cram %", "spaced %"]}
-            rows={RETENTION.map((r) => [r.day, r.cram, r.spaced])}
-          >
-            <p className="rb-sheet-chart-title">What you keep, 30 days later</p>
-            <p className="rb-sheet-chart-sub">Retention after one study session</p>
-            <RetentionChart />
-          </LaptopSheet>
+          <DiagnosticMock topics={TOPICS} />
           <p className="rb-body mt-6 text-center text-sm">
-            Crammed material decays to roughly a seventh of what you started with. Reviewed on a
-            schedule, it holds.
+            REBYU starts with a diagnostic — one question per lesson — so the weak spots show up on
+            day one, not on exam day.
           </p>
         </div>
       </div>
@@ -976,21 +960,10 @@ function SolutionSection() {
     <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div data-landing-reveal>
-          <LaptopSheet
-            file="mastery-per-domain.xlsx"
-            formula="=MIN(B7:E7)"
-            cell="E7"
-            sheet="mastery"
-            headers={["week", "prog", "OS", "net", "db"]}
-            rows={MASTERY.map((r) => [r.week, r.programming, r.os, r.networks, r.databases])}
-          >
-            <p className="rb-sheet-chart-title">Six weeks of tracked study</p>
-            <p className="rb-sheet-chart-sub">Mastery per domain</p>
-            <MasteryChart />
-          </LaptopSheet>
+          <StudyLoopMock />
           <p className="rb-body mt-6 text-center text-sm">
-            Every answer updates the estimate. Databases is still the weakest domain, so it stays at
-            the top of the study plan.
+            Every answer is marked on the spot and moves your proficiency. Your study calendar keeps
+            the weakest lessons first.
           </p>
         </div>
 
@@ -999,23 +972,23 @@ function SolutionSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="measure what you know. study what you don't."
+            text="Measure what you know. study what you don't."
           />
           <p className="rb-body-lg mt-5">
-            Rebyu turns preparation into a loop: answer, get corrected immediately, and let the
+            REBYU turns preparation into a loop: answer, get corrected immediately, and let the
             result change what you see next. Nothing is left to memory or willpower.
           </p>
 
           <ul className="mt-8 space-y-4">
             {[
-              [Layers, "Everything in one track", "Lessons, quizzes, code tasks, diagrams, and mock exams under one curriculum."],
-              [Zap, "Feedback on every answer", "Right or wrong is shown instantly, with the correction attached."],
-              [Target, "Effort follows the data", "Modules are ranked by mastery against exam weight."],
-              [BarChart3, "Mastery is measured", "A level per topic, with a confidence showing how sure it is."],
-            ].map(([Icon, title, body]) => (
+              [Target, "A diagnostic finds your gaps", "One question per lesson places you before you study anything."],
+              [Zap, "Adaptive quizzes and exams", "Each answer makes the next question harder or easier, and you get a proficiency out of 100."],
+              [BarChart3, "Mastery per topic", "Every answer updates the topic behind it; the weakest are flagged to review first."],
+              [Layers, "A plan that follows it", "Your study calendar puts weak lessons first, in Pomodoro-sized focus blocks."],
+            ].map(([Icon, title, body], index) => (
               <li key={title} className="flex gap-3">
-                <span className="mt-1 grid size-6 shrink-0 place-items-center rounded-full bg-rb-feather-wash">
-                  <Icon className="size-3.5 text-rb-feather-ink" aria-hidden="true" />
+                <span className={`tg-badge-icon ${iconTone(index)} mt-0.5 !size-8 !rounded-lg`}>
+                  <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <div>
                   <div className="font-bold text-rb-eel">{title}</div>
@@ -1033,10 +1006,10 @@ function SolutionSection() {
 
 function HowItWorksSection() {
   const TONE_CLASSES = {
-    macaw: "bg-rb-macaw-wash text-rb-macaw-lip",
-    beetle: "bg-rb-beetle-wash text-rb-beetle-lip",
-    feather: "bg-rb-feather-wash text-rb-feather-ink",
-    fox: "bg-rb-fox-wash text-rb-fox-lip",
+    macaw: "tg-badge-icon tg-cat-recall !size-12 !rounded-xl",
+    beetle: "tg-badge-icon tg-cat-organize !size-12 !rounded-xl",
+    feather: "tg-badge-icon tg-cat-explain !size-12 !rounded-xl",
+    fox: "tg-badge-icon tg-cat-timed !size-12 !rounded-xl",
   };
 
   const TONE_LINE = {
@@ -1058,7 +1031,7 @@ function HowItWorksSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3 max-w-2xl"
-            text="four steps, in this order, every time."
+            text="Four steps, in this order, every time."
           />
         </div>
 
@@ -1614,7 +1587,7 @@ function DemoComposer({ draft, placeholder, tips }) {
 function DemoChatEmpty() {
   return (
     <div className="m-auto flex flex-col items-center px-4 text-center">
-      <span className="grid size-14 place-items-center rounded-2xl bg-rb-feather text-white shadow-[0_8px_20px_-8px_rgba(17,55,43,0.5)]">
+      <span className="tg-badge-icon tg-cat-explain !size-14 !rounded-2xl">
         <Sparkles className="size-7" aria-hidden="true" />
       </span>
       <p className="mt-4 font-rb-display text-lg text-rb-eel">Hi Alex, ready to dig in?</p>
@@ -1890,7 +1863,7 @@ function AiTutorSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="a tutor that sits with you in the lesson."
+            text="A tutor that sits with you in the lesson."
           />
           <p className="rb-body-lg mt-4 max-w-lg">
             Stuck mid-lesson? Snip the part you mean and ask. The tutor knows which topics you are
@@ -1905,9 +1878,9 @@ function AiTutorSection() {
               [MessageCircle, "Guided dialogue: explain it back, Feynman-style, and get feedback"],
               [Mic, "Live voice tutor that teaches aloud — raise your hand to interrupt"],
               [Bookmark, "Quizzes, flashcards and mind maps save to your Library"],
-            ].map(([Icon, text]) => (
+            ].map(([Icon, text], index) => (
               <div key={text} className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-snow text-rb-beetle-lip">
+                <span className={`tg-badge-icon ${iconTone(index)} !size-9 !rounded-lg`}>
                   <Icon className="size-5" aria-hidden="true" />
                 </span>
                 <p className="pt-1.5 text-[0.9375rem] font-medium text-rb-eel">{text}</p>
@@ -1915,7 +1888,7 @@ function AiTutorSection() {
             ))}
           </div>
 
-          <TactileButton asChild variant="beetle" className="mt-8">
+          <TactileButton asChild className="mt-8">
             <Link to="/register">
               try the ai tutor
               <ArrowRight className="size-5" />
@@ -1939,11 +1912,6 @@ const TOPICS = [
   { name: "Sorting algorithms", domain: "Programming", mastery: 79, answers: 64, priorityTag: "STRONG" },
 ];
 
-function masteryTone(value) {
-  if (value < MASTERY_BANDS.weak) return "cardinal";
-  if (value < MASTERY_BANDS.developing) return "fox";
-  return "feather";
-}
 
 function WeaknessSection() {
 
@@ -1955,7 +1923,7 @@ function WeaknessSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="it knows which topics you are weak at."
+            text="It knows which topics you are weak at."
           />
           <p className="rb-body-lg mt-4">
             Every answer updates a mastery level for the topic behind it, and the number of answers
@@ -1965,15 +1933,7 @@ function WeaknessSection() {
         </div>
 
         <div data-landing-reveal className="mt-12">
-          <GradedNotebook topics={TOPICS} notAssessed={4} readiness={68} tone={masteryTone}>
-            <LaptopSheet laptop={false} file="retakes.xlsx" formula="=B5-B2" cell="B5" sheet="retakes">
-              <p className="rb-sheet-chart-title">Score across retakes</p>
-              <p className="rb-sheet-chart-sub">
-                Each assessment&apos;s attempts in order — a rising line is a score you moved.
-              </p>
-              <RetakeScoreChart />
-            </LaptopSheet>
-          </GradedNotebook>
+          <ProgressMock topics={TOPICS} notAssessed={4} readiness={68} />
         </div>
       </div>
     </section>
@@ -2044,7 +2004,7 @@ function CommunitySection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="the best reviewer is another student."
+            text="The best reviewer is another student."
           />
           <p className="rb-body-lg mt-4 max-w-lg">
             A feed built for revision. Post a practice set you made, upload your notes, ask the
@@ -2057,9 +2017,9 @@ function CommunitySection() {
               [FileText, "Upload notes, reviewers, and past papers as real files"],
               [MessageCircle, "Ask a question and get answered by someone who just sat it"],
               [Bookmark, "Save anything useful straight into your own library"],
-            ].map(([Icon, text]) => (
+            ].map(([Icon, text], index) => (
               <div key={text} className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-snow text-rb-macaw-lip">
+                <span className={`tg-badge-icon ${iconTone(index + 2)} !size-9 !rounded-lg`}>
                   <Icon className="size-5" aria-hidden="true" />
                 </span>
                 <p className="pt-1.5 text-[0.9375rem] font-medium text-rb-eel">{text}</p>
@@ -2123,7 +2083,7 @@ function AccessSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="bring your school onto rebyu."
+            text="Bring your school onto REBYU."
           />
         </div>
 
@@ -2217,7 +2177,7 @@ function Footer() {
         </div>
 
         <p className="mt-12 border-t-2 border-rb-swan py-6 text-sm text-rb-hare">
-          © {new Date().getFullYear()} Rebyu. All rights reserved.
+          © {new Date().getFullYear()} REBYU. All rights reserved.
         </p>
       </div>
 
@@ -2226,8 +2186,8 @@ function Footer() {
         style={{ y: wordmarkY }}
         className="pointer-events-none flex select-none justify-center overflow-hidden leading-[0.72]"
       >
-        <span className="rb-wordmark font-rb-display text-[24vw] font-black lowercase tracking-tight text-rb-polar">
-          rebyu
+        <span className="rb-wordmark font-rb-display text-[24vw] font-black uppercase tracking-tight text-rb-polar">
+          REBYU
         </span>
       </motion.div>
     </footer>
@@ -2337,7 +2297,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div ref={rootRef} className="rebyu-ds rb-light-only rb-classroom-landing min-h-screen overflow-x-clip">
+    <div ref={rootRef} className="rebyu-ds rb-light-only rb-classroom-landing tg-cat-explain min-h-screen overflow-x-clip">
       <LandingNavbar />
       <main>
         <HeroSection />

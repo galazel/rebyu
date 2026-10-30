@@ -2,9 +2,6 @@ import { Link, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { CheckCircle2, ClipboardCheck, Clock } from "@/components/icons"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { returnState } from "@/lib/assessment-return"
 import { getAssessmentTypeLabel } from "@/services/assessmentService.js"
 import { getMyClassAssessments } from "@/services/learnerService.js"
@@ -25,13 +22,13 @@ export function LearnerClassAssessments({ certificationId }) {
   }
 
   return (
-    <section className="space-y-4" aria-labelledby="class-assessments">
+    <section className="tg-cat-explain space-y-3" aria-labelledby="class-assessments">
       <div>
-        <h2 id="class-assessments" className="flex items-center gap-2 text-2xl font-bold">
-          <ClipboardCheck className="size-5 text-primary" aria-hidden="true" />
+        <h2 id="class-assessments" className="flex items-center gap-2.5 text-lg font-bold text-foreground">
+          <span className="tg-badge-icon !size-8 !rounded-lg"><ClipboardCheck className="size-4" aria-hidden="true" /></span>
           Class assessments
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           Set by your department for this course.
         </p>
       </div>
@@ -45,19 +42,18 @@ export function LearnerClassAssessments({ certificationId }) {
             assessment.passingScore == null ? null : Number(assessment.passingScore)
           const passed = taken && score != null && passMark != null && score >= passMark
           return (
-            <Card key={assessment.examId}>
-              <CardContent className="flex flex-wrap items-center gap-3 p-5">
+            <article key={assessment.examId} className="flex flex-wrap items-center gap-3 rounded-[1rem] border border-[var(--tg-line)] bg-card p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="min-w-0 font-semibold text-foreground">{assessment.title}</h3>
-                    <Badge variant="outline">
+                    <span className="tg-chip">
                       {getAssessmentTypeLabel(assessment.examType)}
-                    </Badge>
+                    </span>
                     {taken ? (
-                      <Badge variant={passed ? "secondary" : "outline"} className="gap-1">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${passed ? "bg-[var(--tg)] text-white" : "bg-muted text-muted-foreground"}`}>
                         <CheckCircle2 className="size-3" aria-hidden="true" />
                         {score == null ? "Submitted" : `${Math.round(score)}%`}
-                      </Badge>
+                      </span>
                     ) : null}
                   </div>
                   <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -77,16 +73,14 @@ export function LearnerClassAssessments({ certificationId }) {
                     {passMark != null ? <span>{Math.round(passMark)}% to pass</span> : null}
                   </p>
                 </div>
-                <Button asChild variant={taken ? "outline" : "default"} className="shrink-0">
-                  <Link
-                    to={`/learner/assessments/${assessment.examId}`}
-                    state={returnState(location)}
-                  >
-                    {inProgress ? "Resume" : taken ? "Take again" : "Start"}
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+                <Link
+                  to={`/learner/assessments/${assessment.examId}`}
+                  state={returnState(location)}
+                  className={`tg-btn shrink-0 ${taken ? "" : "tg-btn-primary"}`}
+                >
+                  {inProgress ? "Resume" : taken ? "Take again" : "Start"}
+                </Link>
+            </article>
           )
         })}
       </div>

@@ -44,7 +44,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { ASSESSMENT_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
-import { GRADING_MESSAGES } from "@/components/loading-screen.jsx"
+import { gradingMessagesFor } from "@/components/loading-screen.jsx"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import CodeMirrorProgrammingWorkspace from "@/components/assessments/attempt/code-mirror-programming-workspace.jsx"
@@ -235,7 +235,7 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
             itemLabel="Question"
         />
 
-        <p className="text-base leading-7">{question.question}</p>
+        <p className="whitespace-pre-wrap text-lg font-semibold leading-8 text-foreground">{question.question}</p>
 
         <AuthedImage
             imageKey={question.questionImageKey}
@@ -260,11 +260,11 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   <label
                       key={choice.choiceId ?? choiceIndex}
                       className={cn(
-                          "flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 transition",
-                          "active:translate-y-[3px] active:shadow-none",
+                          "flex min-h-16 cursor-pointer items-start gap-3 rounded-[1rem] border-2 p-4 transition",
+                          "active:translate-y-[2px] active:shadow-none",
                           answer?.selectedChoiceId === choice.choiceId
-                              ? "border-rb-macaw bg-rb-macaw-wash shadow-[var(--comic-shadow-sm)]"
-                              : "border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)] hover:bg-rb-polar"
+                              ? "border-[var(--tg)] bg-[var(--tg-softer)] shadow-[0_3px_0_var(--tg-line)] ring-4 ring-[var(--tg-soft)]"
+                              : "border-[var(--tg-line)] bg-card shadow-[0_3px_0_var(--tg-line)] hover:border-[var(--tg)]"
                       )}
                   >
                     <RadioGroupItem
@@ -274,7 +274,7 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                     />
                     <div className="min-w-0">
                 <span className="text-sm leading-6">
-                  <span className="mr-1.5 font-semibold">
+                  <span className="mr-1.5 font-extrabold text-[var(--tg-ink)]">
                     {String.fromCharCode(65 + choiceIndex)}.
                   </span>
                   {choice.choiceText}
@@ -458,7 +458,45 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
   )
 }
 
+/** Where the learner types (answers, code editors) keeps normal copy, paste and menus. */
+function isEditable(target) {
+  return Boolean(target?.closest?.('input, textarea, select, [contenteditable="true"], .cm-editor'))
+}
+
+/**
+ * While an assessment is open, questions and answer choices cannot be copied out:
+ * no right-click menu, no copy or cut, no text selection outside the answer fields.
+ */
+function useNoCopyDuringAttempt() {
+  useEffect(() => {
+    const block = (event) => {
+      if (!isEditable(event.target)) event.preventDefault()
+    }
+    const blockKeys = (event) => {
+      const key = event.key?.toLowerCase()
+      if ((event.ctrlKey || event.metaKey) && (key === "c" || key === "x" || key === "a") && !isEditable(event.target)) {
+        event.preventDefault()
+      }
+    }
+    document.body.classList.add("rb-no-copy")
+    document.addEventListener("contextmenu", block)
+    document.addEventListener("copy", block)
+    document.addEventListener("cut", block)
+    document.addEventListener("dragstart", block)
+    document.addEventListener("keydown", blockKeys)
+    return () => {
+      document.body.classList.remove("rb-no-copy")
+      document.removeEventListener("contextmenu", block)
+      document.removeEventListener("copy", block)
+      document.removeEventListener("cut", block)
+      document.removeEventListener("dragstart", block)
+      document.removeEventListener("keydown", blockKeys)
+    }
+  }, [])
+}
+
 export default function LearnerAssessmentAttemptPage() {
+  useNoCopyDuringAttempt()
   const { examId } = useParams()
   const [searchParams] = useSearchParams()
   const questionIndex = searchParams.get("q") != null ? Number(searchParams.get("q")) : null
@@ -800,7 +838,7 @@ export default function LearnerAssessmentAttemptPage() {
 
 
   if (submitMutation.isPending || submitMutation.isSuccess) {
-    return <LoadingSignal messages={GRADING_MESSAGES} />
+    return <LoadingSignal messages={gradingMessagesFor(questions)} />
   }
 
   if (startError) {
@@ -891,32 +929,27 @@ export default function LearnerAssessmentAttemptPage() {
   }
 
   return (
-      <div className="rebyu-ds flex h-dvh flex-col overflow-hidden bg-rb-polar">
-        <header className="shrink-0 border-b-2 border-rb-swan bg-rb-snow">
+      <div className="rebyu-ds tg-cat-explain flex h-dvh flex-col overflow-hidden bg-[var(--tg-softer)]">
+        <header className="shrink-0 border-b border-[var(--tg-line)] bg-card">
           <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLeaveOpen(true)}
-                aria-label="Exit attempt"
-            >
+            <button type="button" className="tg-btn" onClick={() => setLeaveOpen(true)} aria-label="Exit attempt">
               <ArrowLeftIcon aria-hidden="true" />
               <span className="hidden sm:inline">Exit</span>
-            </Button>
+            </button>
             <div className="min-w-0">
-              <p className="truncate font-rb-display text-base font-extrabold lowercase text-rb-eel">
+              <p className="truncate font-rb-display text-lg font-extrabold text-foreground">
                 {attempt.assessmentTitle}
               </p>
-              <p className="truncate text-xs font-semibold text-rb-wolf">
+              <p className="truncate text-xs font-semibold text-muted-foreground">
                 {isSingleProblemChallenge
                   ? `Problem ${(questionIndex ?? 0) + 1}${totalProblems ? ` of ${totalProblems}` : ""}`
                   : `Question ${currentIndex + 1} of ${questions.length} · Attempt ${attempt.attemptNumber}`}
               </p>
             </div>
-            <Badge variant="secondary" className="hidden sm:inline-flex">
+            <span className="tg-chip max-sm:hidden">
               {getAssessmentTypeLabel(attempt.assessmentType)}
-            </Badge>
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -925,12 +958,12 @@ export default function LearnerAssessmentAttemptPage() {
             {remainingSeconds != null ? (
                 <span
                     className={cn(
-                        "flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-bold tabular-nums",
+                        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold tabular-nums",
                         remainingSeconds <= 120
                             ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                             : remainingSeconds <= 600
-                                ? "border-rb-fox bg-rb-fox-wash text-rb-fox-lip"
-                                : "border-rb-swan bg-rb-polar text-rb-eel",
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "border-[var(--tg-line)] bg-[var(--tg-softer)] text-[var(--tg-ink)]",
                         remainingSeconds > 0 &&
                         remainingSeconds <= 60 &&
                         "rb-timer-urgent"
@@ -946,14 +979,9 @@ export default function LearnerAssessmentAttemptPage() {
             {!isSingleProblemChallenge && (
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button
-                      variant="outline"
-                      size="icon"
-                      className="lg:hidden"
-                      aria-label="Open item navigation"
-                  >
+                  <button type="button" className="tg-btn tg-icon-btn !size-9 lg:!hidden" aria-label="Open item navigation">
                     <ListIcon />
-                  </Button>
+                  </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="overflow-hidden p-4">
                   <SheetHeader className="p-0 pb-3">
@@ -965,21 +993,22 @@ export default function LearnerAssessmentAttemptPage() {
             )}
 
             {!isSingleProblemChallenge && (
-              <Button
-                  size="sm"
-                  className="hidden lg:inline-flex"
+              <button
+                  type="button"
+                  className="tg-btn tg-btn-primary max-lg:!hidden"
                   onClick={() => setFinishOpen(true)}
                   disabled={submitMutation.isPending}
               >
-                Finish Attempt
-              </Button>
+                <CheckIcon aria-hidden="true" />
+                Finish attempt
+              </button>
             )}
           </div>
           </div>
 
 
           <div
-              className="h-1.5 w-full bg-rb-swan"
+              className="h-2 w-full bg-[var(--tg-soft)]"
               role="progressbar"
               aria-valuenow={answeredIds.size}
               aria-valuemin={0}
@@ -989,7 +1018,7 @@ export default function LearnerAssessmentAttemptPage() {
           >
             <div
                 className={cn(
-                    "h-full bg-rb-feather transition-[width] duration-500 ease-out",
+                    "tg-solid-soft h-full transition-[width] duration-500 ease-out",
                     answeredIds.size > 0 &&
                     answeredIds.size < questions.length &&
                     "rounded-r-full"
@@ -1053,7 +1082,7 @@ export default function LearnerAssessmentAttemptPage() {
               <>
                 <main
                     className={cn(
-                        "min-h-0 flex-1 overflow-y-auto rounded-2xl border bg-background p-4 sm:p-6",
+                        "min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 rounded-[1.1rem] border border-[var(--tg-line)] bg-card shadow-[0_4px_0_color-mix(in_oklab,var(--tg)_14%,transparent)]",
                         editingLocked && "pointer-events-none opacity-70"
                     )}
                     aria-live="polite"
@@ -1084,7 +1113,7 @@ export default function LearnerAssessmentAttemptPage() {
                 </main>
 
                 {!isSingleProblemChallenge && (
-                  <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden rounded-2xl border bg-background p-4 lg:block">
+                  <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden p-4 lg:block rounded-[1.1rem] border border-[var(--tg-line)] bg-card shadow-[0_4px_0_color-mix(in_oklab,var(--tg)_14%,transparent)]">
                     {navigatorPanel}
                   </aside>
                 )}
@@ -1092,7 +1121,7 @@ export default function LearnerAssessmentAttemptPage() {
           )}
         </div>
 
-        <footer className="flex h-16 shrink-0 items-center justify-between gap-2 border-t bg-background px-4">
+        <footer className="flex h-16 shrink-0 items-center justify-between gap-2 border-t border-[var(--tg-line)] bg-card px-4">
           {isWorldCupChallenge ? (
             <>
               <Button
@@ -1147,20 +1176,24 @@ export default function LearnerAssessmentAttemptPage() {
             </>
           ) : (
             <>
-              <Button
-                  variant="outline"
+              <button
+                  type="button"
+                  className="tg-btn"
                   onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}
                   disabled={currentIndex === 0}
               >
                 <ChevronLeftIcon aria-hidden="true" />
                 Previous
-              </Button>
+              </button>
 
               <div className="flex items-center gap-3">
                 {currentQuestion ? (
-                    <Button
-                        variant="ghost"
-                        size="sm"
+                    <button
+                        type="button"
+                        className={cn(
+                            "tg-btn !rounded-full !px-3 !py-1.5 !text-xs",
+                            flagged.has(currentQuestion.attemptQuestionId) && "!border-amber-400 !bg-amber-50 !text-amber-800"
+                        )}
                         onClick={() => toggleFlag(currentQuestion.attemptQuestionId)}
                         disabled={editingLocked}
                         aria-pressed={flagged.has(currentQuestion.attemptQuestionId)}
@@ -1182,39 +1215,41 @@ export default function LearnerAssessmentAttemptPage() {
                             ? "Flagged"
                             : "Flag for review"}
                       </span>
-                    </Button>
+                    </button>
                 ) : null}
                 {currentQuestion &&
                 !answeredIds.has(currentQuestion.attemptQuestionId) &&
                 currentIndex < questions.length - 1 ? (
-                    <Button
-                        variant="ghost"
-                        size="sm"
+                    <button
+                        type="button"
+                        className="tg-btn !rounded-full !px-3 !py-1.5 !text-xs"
                         onClick={skipCurrent}
                         disabled={editingLocked}
                         aria-label="Skip this question"
                     >
                       <SkipForwardIcon aria-hidden="true" />
                       <span className="hidden sm:inline">Skip</span>
-                    </Button>
+                    </button>
                 ) : null}
-                <span className="hidden text-sm text-muted-foreground sm:block">
+                <span className="hidden text-sm font-bold tabular-nums text-muted-foreground sm:block">
                 {currentIndex + 1} / {questions.length}
               </span>
               </div>
 
               <div className="flex min-w-24 justify-end sm:min-w-32">
                 {currentIndex === questions.length - 1 ? (
-                    <Button
-                        className="lg:hidden"
+                    <button
+                        type="button"
+                        className="tg-btn tg-btn-primary lg:!hidden"
                         onClick={() => setFinishOpen(true)}
                         disabled={submitMutation.isPending}
                     >
-                      Finish Attempt
-                    </Button>
+                      Finish attempt
+                    </button>
                 ) : (
-                    <Button
-                        variant="outline"
+                    <button
+                        type="button"
+                        className="tg-btn tg-btn-primary"
                         onClick={() =>
                             setCurrentIndex((index) =>
                                 Math.min(questions.length - 1, index + 1)
@@ -1223,7 +1258,7 @@ export default function LearnerAssessmentAttemptPage() {
                     >
                       Next
                       <ChevronRightIcon aria-hidden="true" />
-                    </Button>
+                    </button>
                 )}
               </div>
             </>

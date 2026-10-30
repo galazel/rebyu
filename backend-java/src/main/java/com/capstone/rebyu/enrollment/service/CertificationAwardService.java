@@ -104,7 +104,8 @@ public class CertificationAwardService {
                 try {
                     byte[] pdf = certificatePdfService.render(name, title, award.getCertificateNumber(), now);
                     emailService.sendCertificateIssued(email, name, title, award.getCertificateNumber(), score, now,
-                            new EmailService.Attachment(award.getCertificateNumber() + ".pdf", "application/pdf", pdf));
+                            new EmailService.Attachment(award.getCertificateNumber() + ".pdf", "application/pdf", pdf),
+                            certification.getCertificationId(), certification.getBadgeImageKey() != null);
                 } catch (RuntimeException e) {
                     log.warn("Certificate email to {} failed: {}", email, e.getMessage());
                 }

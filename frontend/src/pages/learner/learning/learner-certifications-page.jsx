@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Award, BookOpen, CheckCircle, GraduationCap, Layers3 } from "@/components/icons"
+import { ArrowRight, Award, BookOpen, CheckCircle, GraduationCap, Layers3 } from "@/components/icons"
 
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
-import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
+import { LearnerEmptyState, LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
+import { BubbleCard } from "@/components/commons/bubble-card.jsx"
 import { getCertificationModules, getMyAwards } from "@/services/learnerService.js"
 import EarnedStrip from "@/components/learner/earned-strip.jsx"
 
@@ -50,6 +49,8 @@ function getCertificationDescription(certification) {
   )
 }
 
+// The original bubble card (a coloured cap with the certification's name as a
+// wordmark), kept in one green and with game-kit buttons.
 function CertificationCard({
                              certification,
                              enrolled,
@@ -58,61 +59,58 @@ function CertificationCard({
                              onAction,
                            }) {
   const category = getCertificationCategory(certification)
-  const tone = toneForCertification(certification)
-  const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
   const size = getCertificationSize(certification)
+  const badgeEarned = Boolean(award?.badgeAwardedAt)
+  const ActionIcon = badgeEarned ? CheckCircle : enrolled ? BookOpen : ArrowRight
 
   return (
       <BubbleCard
-          tone={tone}
+          tone="feather"
           cap="flat"
           body="card"
           icon={GraduationCap}
           wordmark={getCertificationTitle(certification)}
           eyebrow={category}
+          className="tg-cat-explain h-full"
           title={
             <button
                 type="button"
                 onClick={onOpen}
-                className="rounded-sm text-left hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--bubble-tone)]"
+                className="rounded-sm text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)]"
             >
               {getCertificationTitle(certification)}
             </button>
           }
           chips={[
             { label: enrolled ? "Enrolled" : "Free to study" },
-            ...(award?.badgeAwardedAt ? [{ label: "Badge earned", side: "right" }] : []),
+            ...(badgeEarned ? [{ label: "Badge earned", side: "right" }] : []),
           ]}
           footer={
-            <>
+            <div className="w-full">
               {size.lessons > 0 ? (
-                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border pt-3 text-xs font-bold text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Layers3 className="size-3.5" aria-hidden="true" />
-                      {size.modules} module{size.modules === 1 ? "" : "s"}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <BookOpen className="size-3.5" aria-hidden="true" />
-                      {size.lessons} lesson{size.lessons === 1 ? "" : "s"}
-                    </span>
+                  <div className="mb-3 grid grid-cols-2 gap-2">
+                    {[
+                      [Layers3, size.modules, size.modules === 1 ? "module" : "modules"],
+                      [BookOpen, size.lessons, size.lessons === 1 ? "lesson" : "lessons"],
+                    ].map(([Icon, count, label]) => (
+                        <div key={label} className="flex items-center gap-2 rounded-xl bg-[var(--tg-softer)] px-3 py-2 ring-1 ring-[var(--tg-line)]">
+                          <Icon className="size-4 shrink-0 text-[var(--tg)]" aria-hidden="true" />
+                          <span className="text-sm text-muted-foreground">
+                            <span className="font-black tabular-nums text-foreground">{count}</span> {label}
+                          </span>
+                        </div>
+                    ))}
                   </div>
               ) : null}
-              <Button
-                  className="w-full hover:opacity-90 hover:bg-rb-feather-wash"
-                  style={
-                    award?.badgeAwardedAt
-                      ? { background: "var(--color-rb-bee-wash)", color: "var(--color-rb-eel)", border: "2px solid var(--color-rb-bee)" }
-                      : enrolled
-                        ? { background: "#fff", color: "var(--color-rb-feather-ink)", border: "2px solid var(--color-rb-feather-ink)" }
-                        : { background: palette.solid, color: "#fff" }
-                  }
+              <button
+                  type="button"
+                  className={`tg-btn w-full !py-2.5 ${badgeEarned ? "" : "tg-btn-primary"}`}
                   onClick={onAction}
               >
-                {award?.badgeAwardedAt
-                  ? <><CheckCircle className="mr-1.5 inline-block size-4" /> Review complete</>
-                  : enrolled ? "Continue learning" : "View details"}
-              </Button>
-            </>
+                <ActionIcon className="size-4" aria-hidden="true" />
+                {badgeEarned ? "Review complete" : enrolled ? "Open lessons" : "View details"}
+              </button>
+            </div>
           }
       >
         <p className="mt-2 line-clamp-3 min-h-[60px] break-words text-sm leading-6 text-muted-foreground">
@@ -132,61 +130,48 @@ function CategoryFilter({
                           onClear,
                         }) {
   return (
-      <aside className="border-b-2 border-border pb-6 xl:min-h-[430px] xl:border-b-0 xl:border-r-2 xl:pr-6">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-rb-display text-base font-extrabold lowercase text-foreground">
-            filters
-          </h2>
+      <aside className="tg-cat-explain h-fit">
+        <section className="tg-frame">
+          <header className="tg-head flex items-center gap-2.5 px-4 py-3">
+            <span className="tg-badge-icon"><Layers3 className="size-4" aria-hidden="true" /></span>
+            <span className="tg-kicker flex-1">Categories</span>
+            <button
+                type="button"
+                onClick={onClear}
+                disabled={selectedCategories.size === 0}
+                className="tg-btn !px-3 !py-1 !text-xs"
+            >
+              Clear
+            </button>
+          </header>
 
-          <button
-              type="button"
-              onClick={onClear}
-              disabled={selectedCategories.size === 0}
-              className="rounded-rb-tile text-xs font-bold text-muted-foreground transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Clear
-          </button>
-        </div>
+          <div className="space-y-2 p-3">
+            {categories.length === 0 ? (
+                <p className="px-1 py-2 text-sm text-muted-foreground">
+                  No categories available.
+                </p>
+            ) : (
+                categories.map((category) => {
+                  const checked = selectedCategories.has(category)
 
-        <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          Categories
-        </p>
-
-        <div className="mt-3 space-y-1.5">
-          {categories.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No categories available.
-              </p>
-          ) : (
-              categories.map((category) => {
-                const checked = selectedCategories.has(category)
-
-                return (
-                    <label
-                        key={category}
-                        className={`flex cursor-pointer items-start gap-2.5 rounded-rb-tile border-2 px-2.5 py-2 text-sm leading-5 transition-colors ${
-                            checked
-                                ? "border-rb-feather bg-rb-feather-wash text-rb-feather-lip"
-                                : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/50"
-                        }`}
-                    >
-                      <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => onToggleCategory(category)}
-                          className="mt-0.5 size-4 shrink-0 rounded border-border accent-[color:var(--color-rb-feather)]"
-                      />
-
-                      <span className="min-w-0 flex-1 font-medium">{category}</span>
-
-                      <span className="shrink-0 text-xs tabular-nums opacity-70">
-                        {categoryCounts.get(category) ?? 0}
-                      </span>
-                    </label>
-                )
-              })
-          )}
-        </div>
+                  return (
+                      <button
+                          key={category}
+                          type="button"
+                          aria-pressed={checked}
+                          onClick={() => onToggleCategory(category)}
+                          className={`tg-btn w-full !justify-between !text-left !text-sm ${checked ? "tg-btn-primary" : ""}`}
+                      >
+                        <span className="min-w-0 flex-1">{category}</span>
+                        <span className="shrink-0 text-xs tabular-nums opacity-80">
+                          {categoryCounts.get(category) ?? 0}
+                        </span>
+                      </button>
+                  )
+                })
+            )}
+          </div>
+        </section>
       </aside>
   )
 }
@@ -364,20 +349,12 @@ export default function LearnerCertificationsPage() {
   const enrolledCount = enrolledCertificationIds.size
 
   return (
-      <div className="w-full min-w-0 space-y-7 pb-10">
-        <header>
-          <h1 className="font-rb-display text-2xl font-extrabold lowercase text-foreground">
-            certifications
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every track REBYU prepares you for. Free to study
-            {enrolledCount > 0
-                ? ` — you are enrolled in ${enrolledCount} of them.`
-                : "; enrol from any certification's page."}
-          </p>
-        </header>
+      <div className="rb-hub w-full min-w-0 space-y-7 pb-10">
+        <LearnerPageHeader
+            title="Certifications"
+        />
 
-        <div className="grid gap-6 xl:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
           <CategoryFilter
               categories={categories}
               categoryCounts={categoryCounts}
@@ -436,16 +413,16 @@ export default function LearnerCertificationsPage() {
                     description="Try clearing your selected categories or using a different search term."
                     action={
                       selectedCategories.size > 0 ? (
-                          <Button onClick={clearCategories}>
-                            Clear Filters
-                          </Button>
+                          <button type="button" className="tg-btn" onClick={clearCategories}>
+                            Clear filters
+                          </button>
                       ) : null
                     }
                 />
             ) : (
                 <>
-                  <section className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                    {visibleCertifications.map((certification, index) => {
+                  <section className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 2xl:grid-cols-3">
+                    {visibleCertifications.map((certification) => {
                       const certificationId = getCertificationId(certification)
 
                       const enrolled = enrolledCertificationIds.has(
@@ -466,7 +443,7 @@ export default function LearnerCertificationsPage() {
                   </section>
 
                   {hasMoreCertifications && (
-                      <div className="mt-10 flex justify-center">
+                      <div className="tg-cat-explain mt-10 flex justify-center">
                         <button
                             type="button"
                             onClick={() =>
@@ -475,7 +452,7 @@ export default function LearnerCertificationsPage() {
                                         currentCount + LOAD_MORE_COUNT
                                 )
                             }
-                            className="h-11 min-w-64 rounded-rb-control border-2 border-border bg-card px-6 text-sm font-bold text-foreground transition hover:border-rb-feather hover:text-rb-feather-lip"
+                            className="tg-btn min-w-64 !py-2.5"
                         >
                           Load more certifications
                         </button>

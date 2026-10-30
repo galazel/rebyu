@@ -23,31 +23,43 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
     }
     const id = sessionId && sessionId.startsWith("cs_") ? sessionId : stored
 
+    // PayMongo can take a few seconds to mark a payment paid, and there is no webhook
+    // locally, so keep asking for about a minute before calling it still pending.
+    const MAX_CHECKS = 20
+    const CHECK_EVERY_MS = 3000
     let cancelled = false
-    verifyLatestCheckout(id)
-      .then((result) => {
-        if (cancelled) return
-        if (result?.status === "awaiting_approval") {
-          try {
-            localStorage.removeItem("rebyu_checkout_session")
-          } catch {
+    let timer = null
+
+    function check(attempt) {
+      verifyLatestCheckout(id)
+        .then((result) => {
+          if (cancelled) return
+          if (result?.status === "awaiting_approval") {
+            try {
+              localStorage.removeItem("rebyu_checkout_session")
+            } catch {
+            }
+            setState("approval")
+          } else if (result?.status === "success") {
+            setState("success")
+          } else if (attempt + 1 < MAX_CHECKS) {
+            timer = setTimeout(() => check(attempt + 1), CHECK_EVERY_MS)
+          } else {
+            setState("pending")
+            setMessage(result?.message ?? "Payment is still processing.")
           }
-          setState("approval")
-        } else if (result?.status === "success") {
-          setState("success")
-        } else {
-          setState("pending")
-          setMessage(result?.message ?? "Payment is still processing.")
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setState("error")
-        setMessage(error?.response?.data?.error ?? "Could not verify your payment.")
-      })
+        })
+        .catch((error) => {
+          if (cancelled) return
+          setState("error")
+          setMessage(error?.response?.data?.error ?? "Could not verify your payment.")
+        })
+    }
+    check(0)
 
     return () => {
       cancelled = true
+      clearTimeout(timer)
     }
   }, [canceled, sessionId])
 

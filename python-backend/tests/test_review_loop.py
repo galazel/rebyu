@@ -9,6 +9,8 @@ Approve / Reject / Regenerate / Approve Remaining.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
@@ -97,11 +99,16 @@ def test_current_item_past_the_end_is_none():
 
 
 
-def _question(text: str = "Q?") -> QuestionDraft:
+def _prompt_text(payload) -> str:
+    messages = payload.get("messages", []) if isinstance(payload, dict) else []
+    return "\n".join(str(getattr(message, "content", message)) for message in messages)
+
+
+def _question(text: str = "Q?", lesson_ref: str = "Lesson 1") -> QuestionDraft:
     return QuestionDraft(
         question_type="MCQ", question=text, choices=["a", "b", "c", "d"],
         choice_explanations=["Correct: this is the defined term.", "Wrong: confuses it with a sibling concept.", "Wrong: describes a later stage.", "Wrong: unrelated to this topic."],
-        correct_choice_index=0, lesson_ref="Lesson 1",
+        correct_choice_index=0, lesson_ref=lesson_ref,
         explanation="A sufficiently detailed explanation of the answer.",
     )
 
@@ -116,8 +123,14 @@ class _Recorder:
     async def ainvoke(self, payload):
         self.calls += 1
         self.payloads.append(payload)
-        return {"structured_response": QuestionBatch(
-            scope="s", questions=[_question(f"Which statement about topic {self.calls} is true?")])}
+        # A prompt that lists lessons by name (the diagnostic: one item per
+        # lesson) gets one question tagged to each, as the real model is asked to.
+        named = re.findall(r"^- (Lesson \d+)$", _prompt_text(payload), flags=re.MULTILINE)
+        questions = [
+            _question(f"Which statement about topic {self.calls}.{i} is true?", lesson_ref=name)
+            for i, name in enumerate(named)
+        ] or [_question(f"Which statement about topic {self.calls} is true?")]
+        return {"structured_response": QuestionBatch(scope="s", questions=questions)}
 
 
 @pytest.fixture()

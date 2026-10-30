@@ -126,7 +126,7 @@ public class SubscriptionCheckoutController {
             return ResponseEntity.ok(Map.of("status", "pending", "message", "Payment still processing"));
         }
         Map<String, Object> attributes = (Map<String, Object>) session.get("attributes");
-        if (attributes == null || !"paid".equalsIgnoreCase(String.valueOf(attributes.get("payment_status")))) {
+        if (attributes == null || !isPaid(attributes)) {
             return ResponseEntity.ok(Map.of("status", "pending", "message", "Payment still processing"));
         }
 
@@ -152,6 +152,31 @@ public class SubscriptionCheckoutController {
                 "subscriptionStatus", subscription.getStatus().name(),
                 "currentPeriodEnd", String.valueOf(subscription.getCurrentPeriodEnd())
         ));
+    }
+
+    /**
+     * A checkout session has no payment_status field: PayMongo shows a paid session by
+     * paid_at, a payments[] entry with status "paid", or a succeeded payment intent.
+     */
+    @SuppressWarnings("unchecked")
+    static boolean isPaid(Map<String, Object> attributes) {
+        if ("paid".equalsIgnoreCase(String.valueOf(attributes.get("payment_status")))) return true;
+        if (attributes.get("paid_at") != null) return true;
+        Object payments = attributes.get("payments");
+        if (payments instanceof java.util.List<?> list) {
+            for (Object payment : list) {
+                if (payment instanceof Map<?, ?> map && map.get("attributes") instanceof Map<?, ?> paymentAttributes
+                        && "paid".equalsIgnoreCase(String.valueOf(paymentAttributes.get("status")))) {
+                    return true;
+                }
+            }
+        }
+        if (attributes.get("payment_intent") instanceof Map<?, ?> intent
+                && intent.get("attributes") instanceof Map<?, ?> intentAttributes
+                && "succeeded".equalsIgnoreCase(String.valueOf(intentAttributes.get("status")))) {
+            return true;
+        }
+        return false;
     }
 
     @PostMapping("/cancel")

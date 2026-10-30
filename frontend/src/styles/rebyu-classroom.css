@@ -1915,7 +1915,8 @@ body.netacad-overlay-theme {
     cursor: not-allowed;
 }
 
-.netacad-portal :is([data-slot="card"], .rb-card, [class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl):not(.rb-sticky) {
+/* Game-kit surfaces (tg-solid fills, --tg washes) keep their own colour. */
+.netacad-portal :is([data-slot="card"], .rb-card, [class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl):not(.rb-sticky, .tg-solid, .tg-solid-soft, [class*="bg-[var(--tg"], [class*="bg-[color-mix"]) {
     background-color: var(--rb-paper);
     background-image: none;
 }
@@ -3412,21 +3413,19 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 }
 .rb-post-gallery-dots span[data-on] { background: #fff; }
 
-/* The live tutor dock owns the bottom-left corner; stack the pomodoro timer above it. */
+/* The live tutor dock is a small pill centred at the bottom; keep the pomodoro timer
+   clear of it in the bottom-left corner. */
 body:has([aria-label="Live tutor across lesson screen"]) .rebyu-pomodoro-pill {
   left: 1.5rem;
-  bottom: 13rem;
-  width: min(340px, calc(100vw - 2rem));
+  bottom: 1.5rem;
+  width: min(300px, calc(100vw - 2rem));
   translate: 0 0;
   transform: none;
 }
 
-/* Wide screens: give the live tutor dock (left) and chat (right) their own gutters
-   so the lesson reflows between them instead of sitting underneath. */
+/* Wide screens: give the live chat (right) its own gutter so the lesson reflows
+   beside it instead of sitting underneath. */
 @media (min-width: 1280px) {
-  body:has([aria-label="Live tutor across lesson screen"]) {
-    padding-left: 370px;
-  }
   body:has([data-live-chat]) {
     padding-right: 400px;
   }

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useSearchParams } from "react-router-dom"
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
+import { LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
 
 import { Button } from "@/components/ui/button"
 import { STUDY_PLAN_QUERY_KEY, getMyStudyPlans } from "@/services/studyPlanService.js"
@@ -185,9 +186,17 @@ export default function LearnerStudyPlanCalendarPage() {
   return (
     <div
       ref={frameRef}
-      className="flex min-w-0 flex-col"
+      className="rb-hub flex min-w-0 flex-col"
       style={{ height: frameHeight ?? undefined }}
     >
+      <div className="mb-4 shrink-0">
+        <LearnerPageHeader
+          icon={CalendarDays}
+          tone="timed"
+          title="Study calendar"
+          subtitle="Your study plan day by day — every lesson, quiz and review it schedules."
+        />
+      </div>
       <section className="flex min-h-0 flex-1 flex-col">
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 pb-3">
           <div className="min-w-0">

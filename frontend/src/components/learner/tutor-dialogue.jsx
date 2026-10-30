@@ -13,7 +13,6 @@ import {
   RotateCcw,
   Sparkles,
 } from "@/components/icons"
-import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { base } from "@/services/base"
 import { MicButton } from "@/components/learner/mic-button.jsx"
 
@@ -91,7 +90,7 @@ function Markdown({ children }) {
     <ReactMarkdown
       components={{
         p: ({ children: inner }) => <p className="mb-3 last:mb-0">{inner}</p>,
-        strong: ({ children: inner }) => <strong className="font-extrabold text-rb-eel">{inner}</strong>,
+        strong: ({ children: inner }) => <strong className="font-extrabold text-foreground">{inner}</strong>,
       }}
     >
       {String(children ?? "").replace(/\\n/g, "\n")}
@@ -114,10 +113,10 @@ function TopicTrack({ topics, topicIndex, complete }) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 text-left"
       >
-        <span className="shrink-0 text-[11px] font-extrabold text-rb-eel">{label}</span>
-        {name ? <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-rb-wolf">· {name}</span> : <span className="flex-1" />}
+        <span className="shrink-0 text-[11px] font-extrabold text-foreground">{label}</span>
+        {name ? <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-muted-foreground">· {name}</span> : <span className="flex-1" />}
         <ChevronDown
-          className={`size-3.5 shrink-0 text-rb-hare transition-transform ${open ? "rotate-180" : ""}`}
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
       </button>
@@ -126,7 +125,7 @@ function TopicTrack({ topics, topicIndex, complete }) {
           <span
             key={topic}
             className={`h-1.5 flex-1 rounded-full ${
-              complete || index < current ? "bg-rb-feather" : index === current ? "bg-rb-feather/40" : "bg-rb-swan"
+              complete || index < current ? "bg-[var(--tg)]" : index === current ? "bg-[var(--tg)]/40" : "bg-[var(--tg-soft)]"
             }`}
           />
         ))}
@@ -136,7 +135,7 @@ function TopicTrack({ topics, topicIndex, complete }) {
           {topics.map((topic, index) => {
             const done = complete || index < current
             return (
-              <li key={topic} className={`flex gap-1.5 ${done ? "text-rb-feather-ink" : index === current ? "font-bold text-rb-eel" : "text-rb-wolf"}`}>
+              <li key={topic} className={`flex gap-1.5 ${done ? "text-[var(--tg-ink)]" : index === current ? "font-bold text-foreground" : "text-muted-foreground"}`}>
                 {done ? (
                   <CheckCircle2 className="mt-px size-3 shrink-0" aria-hidden="true" />
                 ) : (
@@ -190,7 +189,7 @@ function answerProblem(text, explanation) {
 
 function TutorDot() {
   return (
-    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rb-feather text-white">
+    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--tg)] text-white">
       <Sparkles className="size-3.5" aria-hidden="true" />
     </span>
   )
@@ -226,25 +225,25 @@ const RUBRIC = [
   ] },
 ]
 const LEVELS = ["Beginning", "Developing", "Proficient", "Excellent"]
-const LEVEL_COLOURS = ["bg-rb-cardinal", "bg-rb-fox", "bg-rb-macaw", "bg-rb-feather"]
+const LEVEL_COLOURS = ["bg-rb-cardinal", "bg-rb-fox", "bg-rb-macaw", "bg-[var(--tg)]"]
 
 function RubricGuide({ rubric = RUBRIC }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-[0.9rem] border-2 border-rb-swan">
+    <div className="rounded-[0.9rem] border-2 border-[var(--tg-line)]">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-extrabold text-rb-eel">
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-extrabold text-foreground">
         How you'll be assessed
-        <span className="text-xs font-bold text-rb-feather-lip">{open ? "hide rubric" : "view rubric"}</span>
+        <span className="text-xs font-bold text-[var(--tg-ink)]">{open ? "hide rubric" : "view rubric"}</span>
       </button>
       {open ? (
-        <div className="space-y-3 border-t-2 border-rb-swan px-3 py-3">
+        <div className="space-y-3 border-t-2 border-[var(--tg-line)] px-3 py-3">
           {rubric.map((item) => (
             <div key={item.key}>
-              <p className="text-sm font-extrabold text-rb-eel">{item.criterion}</p>
-              <ol className="mt-1 space-y-0.5 text-xs text-rb-wolf">
+              <p className="text-sm font-extrabold text-foreground">{item.criterion}</p>
+              <ol className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                 {item.levels.map((text, index) => (
-                  <li key={index}><strong className="text-rb-eel">{index + 1} {LEVELS[index]}:</strong> {text}</li>
+                  <li key={index}><strong className="text-foreground">{index + 1} {LEVELS[index]}:</strong> {text}</li>
                 ))}
               </ol>
             </div>
@@ -262,7 +261,7 @@ function RubricScores({ scores, rubric = RUBRIC }) {
   return (
     <div className="mt-3 rounded-[0.9rem] bg-white/70 p-3">
       <p className="flex items-center justify-between font-extrabold">
-        Rubric <span className="text-xs font-bold text-rb-wolf">{total} / {scores.length * 4}</span>
+        Rubric <span className="text-xs font-bold text-muted-foreground">{total} / {scores.length * 4}</span>
       </p>
       <ul className="mt-2 space-y-2.5">
         {scores.map((score) => {
@@ -271,16 +270,16 @@ function RubricScores({ scores, rubric = RUBRIC }) {
           return (
             <li key={score.key}>
               <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="font-extrabold text-rb-eel">{item?.criterion ?? score.key}</span>
-                <span className="font-bold text-rb-wolf">{level} · {LEVELS[level - 1]}</span>
+                <span className="font-extrabold text-foreground">{item?.criterion ?? score.key}</span>
+                <span className="font-bold text-muted-foreground">{level} · {LEVELS[level - 1]}</span>
               </div>
               <div className="mt-1 flex gap-1" aria-hidden="true">
                 {LEVELS.map((_, index) => (
-                  <span key={index} className={`h-1.5 flex-1 rounded-full ${index < level ? LEVEL_COLOURS[level - 1] : "bg-rb-swan"}`} />
+                  <span key={index} className={`h-1.5 flex-1 rounded-full ${index < level ? LEVEL_COLOURS[level - 1] : "bg-[var(--tg-soft)]"}`} />
                 ))}
               </div>
-              {item ? <p className="mt-1 text-xs text-rb-wolf">{item.levels[level - 1]}</p> : null}
-              {score.evidence ? <p className="mt-0.5 text-xs italic text-rb-eel">“{score.evidence}”</p> : null}
+              {item ? <p className="mt-1 text-xs text-muted-foreground">{item.levels[level - 1]}</p> : null}
+              {score.evidence ? <p className="mt-0.5 text-xs italic text-foreground">“{score.evidence}”</p> : null}
             </li>
           )
         })}
@@ -291,9 +290,9 @@ function RubricScores({ scores, rubric = RUBRIC }) {
 
 function Summary({ summary, rubric }) {
   return (
-    <div className="rounded-[1.1rem] border-2 border-rb-feather/40 bg-rb-feather-wash/40 p-4 text-sm leading-relaxed text-rb-eel">
+    <div className="rounded-[1.1rem] border-2 border-[var(--tg-line)] bg-[var(--tg-softer)] p-4 text-sm leading-relaxed text-foreground">
       <p className="mb-2 flex items-center gap-1.5 font-extrabold">
-        <Sparkles className="size-4 text-rb-feather-lip" aria-hidden="true" /> Session summary
+        <Sparkles className="size-4 text-[var(--tg-ink)]" aria-hidden="true" /> Session summary
       </p>
       <p>{summary.overview}</p>
       <RubricScores scores={summary.rubric} rubric={rubric} />
@@ -480,67 +479,67 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
   const ended = Boolean(live.summary)
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b-2 border-rb-swan bg-rb-polar/60 px-3 py-2">
+    <div className="tg-cat-explain flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b-2 border-[var(--tg-line)] bg-[var(--tg-softer)] px-3 py-2">
         <button
           type="button"
           onClick={() => (viewing ? setViewing(null) : onExit())}
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-extrabold text-rb-feather-lip hover:bg-rb-feather-wash"
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-extrabold text-[var(--tg-ink)] hover:bg-[var(--tg-softer)]"
         >
           <ArrowLeft className="size-3.5" aria-hidden="true" /> {viewing ? "back" : "chat"}
         </button>
-        <p className="min-w-0 flex-1 truncate text-xs font-extrabold uppercase tracking-wide text-rb-wolf">
+        <p className="min-w-0 flex-1 truncate text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
           guided dialogue
         </p>
         {completedBefore ? (
-          <span className="inline-flex items-center gap-1 text-xs font-extrabold text-rb-feather-ink">
+          <span className="inline-flex items-center gap-1 text-xs font-extrabold text-[var(--tg-ink)]">
             <CheckCircle2 className="size-3.5" aria-hidden="true" /> completed
           </span>
         ) : null}
       </div>
 
       {started ? (
-        <div className="shrink-0 border-b-2 border-rb-swan bg-rb-snow px-3 py-2">
+        <div className="shrink-0 border-b-2 border-[var(--tg-line)] bg-card px-3 py-2">
           <TopicTrack topics={live.topics} topicIndex={live.topicIndex} complete={live.complete} />
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-rb-polar/40 px-3 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--tg-softer)] px-3 py-4">
         {!started ? (
-          <div className="space-y-4 text-sm leading-relaxed text-rb-eel">
+          <div className="space-y-4 text-sm leading-relaxed text-foreground">
             <div className="flex items-start gap-3">
-              <span className="grid size-12 shrink-0 place-items-center rounded-[1rem] bg-rb-feather text-white">
+              <span className="grid size-12 shrink-0 place-items-center rounded-[1rem] bg-[var(--tg)] text-white">
                 <MessageCircle className="size-6" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-lip">Feynman technique</p>
+                <p className="text-[11px] font-extrabold uppercase tracking-wide text-[var(--tg-ink)]">Feynman technique</p>
                 <p className="font-rb-display text-lg font-extrabold leading-tight">Teach it back: {lessonName ?? "this lesson"}</p>
               </div>
             </div>
             <p>If you can explain an idea simply, you understand it. If you can't, the gaps show you exactly what to review.</p>
             <ol className="space-y-2">
               {FEYNMAN_STEPS.map(([title, detail], index) => (
-                <li key={title} className="flex items-start gap-3 rounded-[0.9rem] border-2 border-rb-swan bg-white px-3 py-2.5">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rb-feather-wash text-xs font-extrabold text-rb-feather-ink">{index + 1}</span>
-                  <span className="min-w-0"><strong className="block text-rb-eel">{title}</strong><span className="text-xs text-rb-wolf">{detail}</span></span>
+                <li key={title} className="flex items-start gap-3 rounded-[0.9rem] border-2 border-[var(--tg-line)] bg-white px-3 py-2.5">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--tg-softer)] text-xs font-extrabold text-[var(--tg-ink)]">{index + 1}</span>
+                  <span className="min-w-0"><strong className="block text-foreground">{title}</strong><span className="text-xs text-muted-foreground">{detail}</span></span>
                 </li>
               ))}
             </ol>
-            <p className="flex flex-wrap gap-2 text-xs font-bold text-rb-wolf">
-              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">About 10 minutes</span>
-              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">Summary + rubric at the end</span>
-              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-rb-swan">Stuck? Tap hint</span>
+            <p className="flex flex-wrap gap-2 text-xs font-bold text-muted-foreground">
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-[var(--tg-line)]">About 10 minutes</span>
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-[var(--tg-line)]">Summary + rubric at the end</span>
+              <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-[var(--tg-line)]">Stuck? Tap hint</span>
             </p>
             <RubricGuide />
             <AiLimitNotice />
-            <TactileButton variant="feather" onClick={start} disabled={busy === "start" || tutorExhausted}>
+            <button type="button" className="tg-btn tg-btn-primary !px-5 !py-2.5" onClick={start} disabled={busy === "start" || tutorExhausted}>
               {busy === "start" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              {pastSessions.length ? "start a new dialogue" : "start dialogue"}
-            </TactileButton>
+              {pastSessions.length ? "Start a new dialogue" : "Start dialogue"}
+            </button>
 
             {pastSessions.length ? (
               <div className="pt-4">
-                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-wide text-rb-hare">
+                <p className="mb-2 text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
                   previous dialogues · {pastSessions.length}
                 </p>
                 <ul className="space-y-2">
@@ -559,16 +558,16 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                             completedAt: past.completedAt,
                           })
                         }
-                        className="flex w-full items-center gap-3 rounded-[0.9rem] border-2 border-rb-swan bg-white px-3 py-2.5 text-left hover:border-rb-feather/60"
+                        className="flex w-full items-center gap-3 rounded-[0.9rem] border-2 border-[var(--tg-line)] bg-white px-3 py-2.5 text-left hover:border-[var(--tg-line)]"
                       >
-                        <CheckCircle2 className="size-4 shrink-0 text-rb-feather" aria-hidden="true" />
+                        <CheckCircle2 className="size-4 shrink-0 text-[var(--tg)]" aria-hidden="true" />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-bold text-rb-eel">{formatWhen(past.completedAt)}</span>
-                          <span className="block truncate text-xs text-rb-wolf">
+                          <span className="block text-sm font-bold text-foreground">{formatWhen(past.completedAt)}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
                             {(past.topics ?? []).join(" · ") || "Dialogue"}
                           </span>
                         </span>
-                        <span className="text-xs font-extrabold text-rb-feather-lip">view</span>
+                        <span className="text-xs font-extrabold text-[var(--tg-ink)]">view</span>
                       </button>
                     </li>
                   ))}
@@ -582,13 +581,13 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               message.role === "tutor" ? (
                 <div key={index} className="flex items-start gap-2.5">
                   <TutorDot />
-                  <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-rb-swan bg-white px-4 py-3.5 text-[15px] leading-7 text-rb-eel shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
+                  <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-[var(--tg-line)] bg-white px-4 py-3.5 text-[15px] leading-7 text-foreground shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
                     <div className="mb-2 flex items-center justify-between gap-3">
-                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--tg-ink)]">
                         REBYU AI Tutor
                       </p>
                       {FORMAT_LABEL[message.format] ? (
-                        <span className="rounded-full bg-rb-feather-wash px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-rb-feather-lip">
+                        <span className="rounded-full bg-[var(--tg-softer)] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[var(--tg-ink)]">
                           {FORMAT_LABEL[message.format]}
                         </span>
                       ) : null}
@@ -597,14 +596,14 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                       const { feedback, question } = splitTurn(message.content)
                       return <>
                         {feedback ? (
-                          <div className="font-normal tracking-[0.002em] [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+                          <div className="font-normal tracking-[0.002em] [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_strong]:text-[var(--tg-ink)] [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
                             <Markdown>{feedback}</Markdown>
                           </div>
                         ) : null}
                         {question ? (
-                          <div className={`${feedback ? "mt-3" : ""} rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/50 px-3.5 py-3`}>
-                            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">{FEYNMAN_TITLE[message.format] ?? "Your turn"}</p>
-                            <div className="mt-1 font-extrabold leading-snug text-rb-eel"><Markdown>{question}</Markdown></div>
+                          <div className={`${feedback ? "mt-3" : ""} rounded-xl border-l-4 border-[var(--tg)] bg-[var(--tg-softer)] px-3.5 py-3`}>
+                            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--tg-ink)]">{FEYNMAN_TITLE[message.format] ?? "Your turn"}</p>
+                            <div className="mt-1 font-extrabold leading-snug text-foreground"><Markdown>{question}</Markdown></div>
                           </div>
                         ) : null}
                       </>
@@ -623,11 +622,11 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                               onClick={() => send(`${letter}) ${option}`)}
                               className={`flex items-start gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-sm leading-snug transition-colors ${
                                 chosen
-                                  ? "border-rb-feather bg-rb-feather-wash/60"
-                                  : "border-rb-swan bg-white enabled:hover:border-rb-feather/60 enabled:hover:bg-rb-feather-wash/30"
+                                  ? "border-[var(--tg)] bg-[var(--tg-softer)]"
+                                  : "border-[var(--tg-line)] bg-white enabled:hover:border-[var(--tg-line)] enabled:hover:bg-[var(--tg-softer)]"
                               } disabled:cursor-default`}
                             >
-                              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rb-polar text-[11px] font-extrabold text-rb-eel">
+                              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-[var(--tg-softer)] text-[11px] font-extrabold text-foreground">
                                 {letter}
                               </span>
                               <span className="min-w-0 flex-1">{option}</span>
@@ -640,7 +639,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                 </div>
               ) : (
                 <div key={index} className="flex justify-end">
-                  <p className="max-w-[85%] whitespace-pre-wrap rounded-[1.1rem] rounded-br-md bg-rb-feather px-3.5 py-2.5 text-sm font-medium leading-relaxed text-white shadow-[0_2px_10px_rgba(17,55,43,0.14)]">
+                  <p className="max-w-[85%] whitespace-pre-wrap rounded-[1.1rem] rounded-br-md bg-[var(--tg)] px-3.5 py-2.5 text-sm font-medium leading-relaxed text-white shadow-[0_2px_0_color-mix(in_oklab,var(--tg)_55%,#000)]">
                     {message.content}
                   </p>
                 </div>
@@ -649,7 +648,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
             {busy === "reply" || busy === "summary" ? (
               <div className="flex items-center gap-2.5">
                 <TutorDot />
-                <p className="flex items-center gap-2 rounded-[1.1rem] rounded-tl-md border-2 border-rb-swan bg-white px-3.5 py-2.5 text-xs font-bold text-rb-wolf">
+                <p className="flex items-center gap-2 rounded-[1.1rem] rounded-tl-md border-2 border-[var(--tg-line)] bg-white px-3.5 py-2.5 text-xs font-bold text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
                   {busy === "summary" ? "Writing your summary…" : "Thinking…"}
                 </p>
@@ -658,36 +657,36 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
             {ended ? (
               <>
                 <Summary summary={live.summary} rubric={live.rubric} />
-                <p className="text-sm text-rb-wolf">
+                <p className="text-sm text-muted-foreground">
                   {viewing
                     ? `Past dialogue from ${formatWhen(viewing.completedAt)}.`
                     : "The dialogue has ended. Start again to have a fresh conversation."}
                 </p>
                 <div className="flex flex-wrap items-center gap-3">
                   {viewing ? (
-                    <TactileButton variant="snow" size="sm" onClick={() => setViewing(null)}>
-                      <ArrowLeft className="size-4" /> all dialogues
-                    </TactileButton>
+                    <button type="button" className="tg-btn" onClick={() => setViewing(null)}>
+                      <ArrowLeft className="size-4" /> All dialogues
+                    </button>
                   ) : null}
-                  <TactileButton
-                    variant="feather"
-                    size="sm"
+                  <button
+                    type="button"
+                    className="tg-btn tg-btn-primary"
                     onClick={() => {
                       setViewing(null)
                       restart()
                     }}
                   >
-                    <RotateCcw className="size-4" /> {viewing ? "new dialogue" : "try again"}
-                  </TactileButton>
-                  <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-rb-feather-ink">
+                    <RotateCcw className="size-4" /> {viewing ? "New dialogue" : "Try again"}
+                  </button>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-[var(--tg-ink)]">
                     <CheckCircle2 className="size-4" aria-hidden="true" /> Completed
                   </span>
                 </div>
               </>
             ) : live.complete ? (
-              <TactileButton variant="feather" size="sm" onClick={() => summarise()} disabled={Boolean(busy)}>
-                <Sparkles className="size-4" /> generate summary
-              </TactileButton>
+              <button type="button" className="tg-btn tg-btn-primary" onClick={() => summarise()} disabled={Boolean(busy)}>
+                <Sparkles className="size-4" /> Generate summary
+              </button>
             ) : null}
             <div ref={endRef} />
           </div>
@@ -706,7 +705,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
           <AiLimitNotice className="mb-2" />
           <div data-tutor-composer className="min-w-0 rounded-[calc(var(--radius-rb-control,10px)+8px)] border border-border bg-card p-3 text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10">
             {FEYNMAN_TITLE[lastFormat] ? (
-              <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-rb-wolf">
+              <p className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
                 {FEYNMAN_TIPS.map((tip) => <span key={tip} className="rounded-full bg-muted/60 px-2 py-0.5">{tip}</span>)}
               </p>
             ) : null}
@@ -727,39 +726,35 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
             />
             {guardNote ? <p role="alert" className="mt-1 px-1 text-xs font-semibold text-rb-cardinal-lip">{guardNote}</p> : null}
             <div className="mt-2 flex items-center justify-between gap-2">
-              <TactileButton
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="shrink-0 !h-9 !rounded-[var(--radius-rb-control,10px)] !px-3 !shadow-none text-xs"
+                className="tg-btn shrink-0 !rounded-full !px-3 !py-1.5 !text-xs"
                 disabled={Boolean(busy) || tutorExhausted}
                 onClick={() => send("I'm stuck — can I have a hint?")}
               >
-                <Sparkles className="size-3.5" aria-hidden="true" /> hint
-              </TactileButton>
+                <Sparkles className="size-3.5" aria-hidden="true" /> Hint
+              </button>
               <div className="flex items-center gap-1.5">
                 {draft.trim() ? (
                   <span className="text-[11px] font-medium text-muted-foreground">{draft.trim().split(/s+/).length} words · aim for 2–4 sentences</span>
                 ) : null}
-                <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy) || tutorExhausted} className="!rounded-[var(--radius-rb-control,10px)]" />
-                <TactileButton
+                <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy) || tutorExhausted} className="!size-9 !rounded-full" />
+                <button
                   type="submit"
-                  variant="feather"
-                  size="sm"
-                  className="rb-btn-icon shrink-0 !size-9 !rounded-[var(--radius-rb-control,10px)] !p-0 !shadow-none"
+                  className="tg-btn tg-btn-primary tg-icon-btn !size-9 shrink-0"
                   disabled={Boolean(busy) || !draft.trim() || tutorExhausted}
                   aria-label="Send answer"
                 >
                   {busy === "reply" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ArrowUp className="size-4" aria-hidden="true" />}
-                </TactileButton>
+                </button>
               </div>
             </div>
           </div>
-          <div className="mt-1.5 flex items-center gap-2 px-2">
-            <p className="flex-1 text-center text-[10px] leading-snug font-medium text-rb-hare">
-              REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
+          <div className="mt-2 flex items-center gap-2 px-1">
+            <AiUsageRing bucketKey="tutor" size={20} showLabel />
+            <p className="min-w-0 flex-1 text-right text-[10px] leading-snug font-medium text-muted-foreground">
+              REBYU AI can make mistakes · check your lesson materials
             </p>
-            <AiUsageRing bucketKey="tutor" />
           </div>
         </form>
       ) : null}

@@ -209,7 +209,7 @@ export function AdaptiveAttemptRunner({
         <div className="w-full max-w-md rounded-rb-card border-2 border-rb-cardinal/40 bg-rb-snow p-6 text-center">
           <XCircle className="mx-auto size-8 text-rb-cardinal" aria-hidden="true" />
           <h2 className="mt-3 font-rb-display text-xl font-extrabold text-rb-eel">We lost the thread</h2>
-          <p className="mt-2 text-sm leading-6 text-rb-wolf">{failure}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{failure}</p>
           <p className="mt-1 text-sm leading-6 text-rb-wolf">Your answers so far are saved. Reload to pick up where the server left you.</p>
           <Button className="mt-5" onClick={() => window.location.reload()}>Reload and continue</Button>
         </div>
@@ -238,29 +238,32 @@ export function AdaptiveAttemptRunner({
   const revealed = phase === "REVEALED"
 
   return (
-    <div className="rebyu-ds flex h-dvh flex-col overflow-hidden bg-rb-polar">
+    <div className="rebyu-ds tg-cat-explain flex h-dvh flex-col overflow-hidden bg-[var(--tg-softer)]">
       <FinalRoundInterstitial
         open={phase === "FINAL_INTRO"}
         onContinue={continueToFinal}
         count={progress?.finalRoundTotal ?? 0}
       />
 
-      <header className="shrink-0 border-b-2 border-rb-swan bg-rb-snow">
-        <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-4">
-          <div className="min-w-0">
-            <p className="truncate font-rb-display text-base font-extrabold text-rb-eel">{attempt.assessmentTitle}</p>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-rb-wolf">
-              {finalItem ? "Final round" : "Adaptive"} · Question {Math.min(answeredCount + 1, Math.max(total, 1))} of {total}
-            </p>
+      <header className="shrink-0 border-b border-[var(--tg-line)] bg-card">
+        <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="tg-badge-icon max-sm:!hidden"><Sparkles className="size-4" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <p className="tg-kicker">
+                {finalItem ? "Final round" : "Adaptive"} · Question {Math.min(answeredCount + 1, Math.max(total, 1))} of {total}
+              </p>
+              <p className="truncate font-rb-display text-lg font-extrabold text-foreground">{attempt.assessmentTitle}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {remainingSeconds != null ? (
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-sm font-bold tabular-nums",
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold tabular-nums",
                   remainingSeconds <= 60
                     ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
-                    : "border-rb-swan bg-rb-polar text-rb-eel",
+                    : "border-[var(--tg-line)] bg-[var(--tg-softer)] text-[var(--tg-ink)]",
                 )}
                 role="timer"
                 aria-label={describeCountdown(remainingSeconds)}
@@ -269,10 +272,10 @@ export function AdaptiveAttemptRunner({
                 {formatCountdown(remainingSeconds)}
               </span>
             ) : null}
-            <Button variant="outline" size="sm" onClick={onLeave} className="gap-1.5">
+            <button type="button" onClick={onLeave} className="tg-btn">
               <LogOut className="size-4" aria-hidden="true" />
               Exit
-            </Button>
+            </button>
           </div>
         </div>
         <ProgressBar answered={answeredCount} total={total} mainTotal={progress?.mainTotal ?? total} />
@@ -318,26 +321,31 @@ export function AdaptiveAttemptRunner({
           <FinalRoundFooter onSubmit={() => check()} onNext={() => next()} busy={grading || awaitingServer} revealed={revealed} verdict={verdict} last={answeredCount + 1 >= total} />
         </div>
       ) : current ? (
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-4xl px-4 py-4 sm:py-5">
-            <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[var(--comic-shadow-sm)] sm:p-6">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="rounded-full bg-rb-feather-wash px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-rb-feather-ink">
-                  {typeLabel(current)}
+        <>
+        {/* Fixed header above, fixed footer below; the question starts at the top of the space between them. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
+            {/* No card: the question sits straight on the page. */}
+            <div key={current.attemptQuestionId}>
+              <div className="flex items-center gap-2">
+                <span className="tg-chip">{typeLabel(current)}</span>
+                <span className="ml-auto text-xs font-bold tabular-nums text-muted-foreground">
+                  {Math.min(answeredCount + 1, Math.max(total, 1))} / {total}
                 </span>
               </div>
+              <div className="pt-4">
 
               <QuestionStem text={current.question} />
               <AuthedImage
                 imageKey={current.questionImageKey}
                 alt="Question reference"
                 zoomable
-                className="mx-auto mt-3 max-h-[34vh] w-auto max-w-full rounded-xl border-2 border-rb-swan object-contain"
+                className="mx-auto mt-4 max-h-[34vh] w-auto max-w-full rounded-xl border border-[var(--tg-line)] object-contain"
               />
 
-              <div className="mt-4">
+              <div className="mt-6">
                 {isMultipleChoice(current) ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {(current.choices ?? []).map((choice, choiceIndex) => {
                       const selected = draft?.selectedChoiceId === choice.choiceId
                       const isRight = revealed && verdict?.correctChoiceId === choice.choiceId
@@ -357,22 +365,22 @@ export function AdaptiveAttemptRunner({
                           aria-pressed={selected}
                           disabled={revealed || grading}
                           className={cn(
-                            "flex min-h-12 items-start gap-3 rounded-2xl border-2 p-3 text-left text-[15px] leading-6 transition",
-                            !revealed && "active:translate-y-[2px]",
+                            "flex min-h-14 items-center gap-3 rounded-[1rem] border-2 px-4 py-3 text-left text-[15px] font-medium leading-6 shadow-[0_3px_0_var(--tg-line)] transition",
+                            !revealed && "hover:-translate-y-0.5 active:translate-y-[2px] active:shadow-none",
                             isRight
-                              ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
+                              ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip shadow-none"
                               : isWrong || wrongNoKey
-                                ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
+                                ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip shadow-none"
                                 : selected
-                                  ? "border-rb-feather bg-rb-feather-wash text-rb-feather-ink shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-feather)_20%,transparent)]"
-                                  : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-feather/60 hover:bg-rb-polar",
+                                  ? "border-[var(--tg)] bg-[var(--tg-softer)] text-foreground ring-4 ring-[var(--tg-soft)]"
+                                  : "border-[var(--tg-line)] bg-card text-foreground hover:border-[var(--tg)]",
                             revealed && !isRight && !isWrong && !wrongNoKey && "opacity-60",
                           )}
                         >
                           <span
                             className={cn(
-                              "grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold",
-                              isRight ? "bg-rb-leaf text-white" : isWrong || wrongNoKey ? "bg-rb-cardinal text-white" : selected ? "bg-rb-feather text-white" : "bg-rb-polar text-rb-wolf",
+                              "grid size-8 shrink-0 place-items-center rounded-xl text-sm font-extrabold",
+                              isRight ? "bg-rb-leaf text-white" : isWrong || wrongNoKey ? "bg-rb-cardinal text-white" : selected ? "tg-solid-soft" : "bg-[var(--tg-soft)] text-[var(--tg-ink)]",
                             )}
                           >
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong || wrongNoKey ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
@@ -389,7 +397,7 @@ export function AdaptiveAttemptRunner({
                   <div className="space-y-2">
                     {current.subQuestions.map((sub) => (
                       <div key={sub.subQuestionId} className="flex items-center gap-3">
-                        <span className="w-14 shrink-0 text-sm font-semibold text-rb-wolf">{sub.questionText}</span>
+                        <span className="w-14 shrink-0 text-sm font-bold text-[var(--tg-ink)]">{sub.questionText}</span>
                         <Input
                           value={draft?.subAnswers?.[sub.subQuestionId] ?? ""}
                           onChange={(event) =>
@@ -428,11 +436,16 @@ export function AdaptiveAttemptRunner({
 
               {revealed && verdict ? <VerdictPanel verdict={verdict} /> : null}
 
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <span className="text-xs text-rb-wolf">
+              </div>
+            </div>
+          </div>
+        </main>
+              <footer className="shrink-0 border-t border-[var(--tg-line)] bg-card">
+          <div className="flex w-full items-center justify-between gap-3 px-4 py-4 sm:px-6">
+                <span className="text-xs font-medium text-muted-foreground">
                   {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Marking your work — this can take a moment…" : "Marking…") : finalItem ? "Final round: submit your work and it is marked right away." : "Pick or type an answer, then check."}
                 </span>
-                <Button onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="gap-2">
+                <button type="button" onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="tg-btn tg-btn-primary !px-6 !py-2.5 !text-base">
                   {awaitingServer ? (
                     <>
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -461,13 +474,12 @@ export function AdaptiveAttemptRunner({
                       <ArrowRight className="size-4" aria-hidden="true" />
                     </>
                   )}
-                </Button>
+                </button>
               </div>
-            </div>
-          </div>
-        </main>
+        </footer>
+        </>
       ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-rb-wolf">
+        <div className="flex flex-1 items-center justify-center text-sm font-semibold text-muted-foreground">
           <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
           Loading the next question…
         </div>
@@ -478,16 +490,16 @@ export function AdaptiveAttemptRunner({
 
 function FinalRoundFooter({ onSubmit, onNext, busy, revealed, verdict, last }) {
   return (
-    <div className="mt-3 shrink-0 rounded-2xl border-2 border-rb-swan bg-rb-snow px-4 py-3">
+    <div className="mt-3 shrink-0 rounded-[1rem] border border-[var(--tg-line)] bg-card px-4 py-3 shadow-[0_3px_0_var(--tg-line)]">
       {revealed && verdict ? <VerdictPanel verdict={verdict} /> : null}
       <div className={`flex items-center justify-between gap-3 ${revealed && verdict ? "mt-3" : ""}`}>
-        <span className="text-xs text-rb-wolf">
+        <span className="text-xs font-medium text-muted-foreground">
           {revealed ? "Marked. Ready for the next one?" : busy ? "Marking your work — this can take a moment…" : "Final round: submit your work and it is marked right away."}
         </span>
-        <Button onClick={revealed ? onNext : onSubmit} disabled={busy} className="gap-2">
+        <button type="button" onClick={revealed ? onNext : onSubmit} disabled={busy} className="tg-btn tg-btn-primary !px-5">
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
           {revealed ? (last ? "See my results" : "Next problem") : "Submit and mark"}
-        </Button>
+        </button>
       </div>
     </div>
   )
@@ -500,7 +512,7 @@ function VerdictPanel({ verdict }) {
     <div
       role="status"
       className={cn(
-        "mt-5 rounded-xl border-2 p-4 text-sm",
+        "mt-6 rounded-[1rem] border-2 p-4 text-sm",
         correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : partial ? "border-amber-400/60 bg-amber-50" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
       )}
     >
@@ -508,29 +520,29 @@ function VerdictPanel({ verdict }) {
         {correct ? <CheckCircle2 className="size-5" aria-hidden="true" /> : <XCircle className="size-5" aria-hidden="true" />}
         {correct ? "Correct!" : partial ? "Partly right" : "Not quite"}
         {partial ? (
-          <span className="ml-auto text-xs font-semibold text-rb-wolf">
+          <span className="ml-auto text-xs font-semibold text-muted-foreground">
             {Math.round(Number(verdict.credit) * 100)}% credit
           </span>
         ) : null}
       </p>
       {!correct && verdict.correctChoiceText ? (
-        <p className="mt-2 text-rb-eel">
+        <p className="mt-2 text-foreground">
           Correct answer: <span className="font-semibold text-rb-leaf-lip">{verdict.correctChoiceText}</span>
         </p>
       ) : null}
       {!correct && verdict.acceptedAnswer ? (
-        <p className="mt-2 text-rb-eel">
+        <p className="mt-2 text-foreground">
           Expected: <span className="font-semibold text-rb-leaf-lip">{verdict.acceptedAnswer}</span>
         </p>
       ) : null}
-      {verdict.explanation ? <p className="mt-2 text-sm leading-6 text-rb-wolf">{verdict.explanation}</p> : null}
-      {verdict.feedback ? <p className="mt-2 text-sm leading-6 text-rb-wolf">{verdict.feedback}</p> : null}
+      {verdict.explanation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{verdict.explanation}</p> : null}
+      {verdict.feedback ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{verdict.feedback}</p> : null}
       {(verdict.subQuestionAnswers ?? []).length > 0 ? (
         <ul className="mt-3 space-y-1 text-sm">
           {verdict.subQuestionAnswers.map((sub) => (
             <li key={sub.subQuestionId} className="flex items-baseline justify-between gap-3">
-              <span className="text-rb-wolf">{sub.questionText}</span>
-              <span className="font-semibold text-rb-eel">
+              <span className="text-muted-foreground">{sub.questionText}</span>
+              <span className="font-semibold text-foreground">
                 {sub.learnerAnswer || "—"} · {Number(sub.maxPoints) > 0 ? `${Math.round((Number(sub.earnedPoints ?? 0) / Number(sub.maxPoints)) * 100)}%` : "—"}
               </span>
             </li>
@@ -545,10 +557,10 @@ function ProgressBar({ answered, total, mainTotal }) {
   const pct = total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0
   const finalStart = total > 0 && mainTotal < total ? Math.round((mainTotal / total) * 100) : null
   return (
-    <div className="relative h-1.5 w-full bg-rb-swan" aria-hidden="true">
-      <div className="h-full bg-rb-feather transition-[width] duration-500" style={{ width: `${pct}%` }} />
+    <div className="relative h-2 w-full bg-[var(--tg-soft)]" aria-hidden="true">
+      <div className="tg-solid-soft h-full rounded-r-full transition-[width] duration-500" style={{ width: `${pct}%` }} />
       {finalStart != null ? (
-        <span className="absolute top-0 h-full w-0.5 bg-rb-eel/40" style={{ left: `${finalStart}%` }} />
+        <span className="absolute top-0 h-full w-0.5 bg-foreground/30" style={{ left: `${finalStart}%` }} />
       ) : null}
     </div>
   )
@@ -562,11 +574,11 @@ function QuestionStem({ text }) {
 
   return (
     <>
-      <p className="whitespace-pre-wrap text-lg font-medium leading-7 text-rb-eel sm:text-xl sm:leading-8">
+      <p className="whitespace-pre-wrap text-xl font-bold leading-8 text-foreground sm:text-2xl sm:leading-9">
         {asked}
       </p>
       {citation ? (
-        <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-rb-wolf">{citation}</p>
+        <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{citation}</p>
       ) : null}
     </>
   )

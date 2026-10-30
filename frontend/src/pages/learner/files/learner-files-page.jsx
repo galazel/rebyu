@@ -132,6 +132,7 @@ export default function LearnerFilesPage() {
   const [search, setSearch] = useState("")
   const [certificationId, setCertificationId] = useState(ALL_VALUE)
   const [kind, setKind] = useState(ALL_VALUE)
+  const [tool, setTool] = useState(ALL_VALUE)
   const [sort, setSort] = useState("newest")
   const [pendingRemoval, setPendingRemoval] = useState(null)
 
@@ -165,6 +166,22 @@ export default function LearnerFilesPage() {
     return [...titles].map(([id, title]) => ({ id, title })).sort((a, b) => a.title.localeCompare(b.title))
   }, [items])
 
+  // Game types you actually have, most first, for the "Game type" filter.
+  const toolOptions = useMemo(() => {
+    const totals = new Map()
+    for (const item of items) {
+      if (kind !== ALL_VALUE && item.kind !== kind) continue
+      const type = toolOf(item)
+      totals.set(type, (totals.get(type) ?? 0) + 1)
+    }
+    return [...totals].map(([value, count]) => ({ value, count, label: TOOL_NAMES[value] ?? value.replaceAll("_", " ") }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  }, [items, kind])
+
+  useEffect(() => {
+    if (tool !== ALL_VALUE && !libraryQuery.isLoading && !toolOptions.some((option) => option.value === tool)) setTool(ALL_VALUE)
+  }, [tool, toolOptions, libraryQuery.isLoading])
+
   // Only kinds you actually have get a tab; if the open one empties, fall back to All.
   useEffect(() => {
     if (kind !== ALL_VALUE && !libraryQuery.isLoading && !counts[kind]) setKind(ALL_VALUE)
@@ -175,6 +192,7 @@ export default function LearnerFilesPage() {
   const groups = useMemo(() => {
     const visible = items
       .filter((item) => kind === ALL_VALUE || item.kind === kind)
+      .filter((item) => tool === ALL_VALUE || toolOf(item) === tool)
       .filter((item) => certificationId === ALL_VALUE || String(item.certificationId ?? "") === certificationId)
       .filter((item) => {
         if (!query) return true
@@ -192,7 +210,7 @@ export default function LearnerFilesPage() {
       byLesson.get(key).items.push(item)
     }
     return [...byLesson.values()]
-  }, [items, kind, certificationId, query, sort])
+  }, [items, kind, tool, certificationId, query, sort])
 
   const shownCount = groups.reduce((total, group) => total + group.items.length, 0)
 
@@ -246,10 +264,9 @@ export default function LearnerFilesPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="rb-hub space-y-6">
       <LearnerPageHeader
         title="Library"
-        subtitle="Every game, quiz, flashcard set and mind map the AI tutor made for you in your lessons."
       />
 
       {items.length > 0 ? (
@@ -276,7 +293,7 @@ export default function LearnerFilesPage() {
             })}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_170px]">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px_200px_160px]">
             <label className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -287,6 +304,21 @@ export default function LearnerFilesPage() {
                 className="pl-10"
               />
             </label>
+
+            <Select value={tool} onValueChange={setTool}>
+              <SelectTrigger className="w-full" aria-label="Game type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_VALUE}>All game types</SelectItem>
+                {toolOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <span className={`inline-flex items-center gap-2 ${categoryClass(option.value)}`}>
+                      <span className="text-[var(--tg)]"><GameIcon type={option.value} className="size-3.5" /></span>
+                      {option.label} ({option.count})
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Select value={certificationId} onValueChange={setCertificationId}>
               <SelectTrigger className="w-full" aria-label="Certification"><SelectValue /></SelectTrigger>

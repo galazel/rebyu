@@ -122,21 +122,21 @@ export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label,
 
 export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) {
   return (
-    <div className="mb-3 flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
+    <div className="rb-bento-heading mb-3 flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
       <div className="flex min-w-0 items-center gap-2">
         {Icon ? (
-          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+          <span className="rb-bento-icon grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
             <Icon className="size-4" aria-hidden="true" />
           </span>
         ) : null}
         <div className="min-w-0">
           {kicker ? (
-            <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
+            <h3 className="rb-bento-kicker text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
               {kicker}
             </h3>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-xs font-extrabold leading-snug text-foreground first-letter:uppercase sm:text-sm">{title}</h2>
+            <h2 className="rb-bento-title truncate text-xs font-extrabold leading-snug text-foreground first-letter:uppercase sm:text-sm">{title}</h2>
             {chip ?? null}
           </div>
           {hint ? (

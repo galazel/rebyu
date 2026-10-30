@@ -15,13 +15,13 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpen,
+  Download,
   GraduationCap,
   Layers3,
   TrendingDown,
   TrendingUp,
   Zap,
 } from "@/components/icons"
-import { Button } from "@/components/ui/button"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { getMyAwards, getCurrentLearnerIdentity } from "@/services/learnerService.js"
 import { getProgressAnalytics, progressAnalyticsQueryKey } from "@/services/learnerAnalyticsService.js"
@@ -130,9 +130,9 @@ function FrameCorner({ className }) {
 
 function SectionHead({ icon: Icon, children }) {
   return (
-    <div className="mb-4 flex items-center gap-2 border-b border-border pb-2.5">
-      {Icon && <Icon className="size-4 text-muted-foreground" aria-hidden />}
-      <h3 className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">{children}</h3>
+    <div className="mb-4 flex items-center gap-2.5 border-b border-[var(--tg-line)] pb-3">
+      {Icon && <span className="tg-badge-icon !size-8 !rounded-lg"><Icon className="size-4" aria-hidden /></span>}
+      <h3 className="tg-kicker flex items-center">{children}</h3>
     </div>
   )
 }
@@ -140,7 +140,7 @@ function SectionHead({ icon: Icon, children }) {
 
 function InsightCard({ icon: Icon, iconColor, label, title, subtitle, badge }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3.5">
+    <div className="flex items-start gap-3 rounded-xl border border-[var(--tg-line)] bg-card p-3.5">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-md" style={{ background: iconColor + "18" }}>
         <Icon className="size-4" style={{ color: iconColor }} aria-hidden />
       </div>
@@ -246,7 +246,6 @@ export default function LearnerCertificatePage() {
   const totalAnswers = (d.totalCorrectAnswers ?? 0) + (d.totalIncorrectAnswers ?? 0)
   const accuracyPct = totalAnswers > 0 ? Math.round((d.totalCorrectAnswers / totalAnswers) * 100) : null
 
-  const [view, setView] = React.useState("badge")
 
   if (noAward) return null
 
@@ -262,55 +261,102 @@ export default function LearnerCertificatePage() {
   ]
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 lg:h-[calc(100dvh-8.5rem)]">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => navigate("/learner/certifications")}
-          className="mr-auto inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" /> Back to Certifications
-        </button>
-        <div className="inline-flex rounded-lg border border-border bg-card p-0.5" role="tablist">
-          {[
-            { key: "badge", label: "Badge" },
-            { key: "summary", label: "Performance Summary" },
-          ].map(t => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={view === t.key}
-              onClick={() => setView(t.key)}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition ${
-                view === t.key ? "bg-[var(--color-rb-feather)] text-white" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <Button size="sm" variant="outline" onClick={() => navigate(`/learner/learning/${certificationId}`)}>
-          <BookOpen className="mr-1.5 size-4" />
-          Curriculum
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => navigate(`/learner/certifications/${certificationId}`)}>
-          <GraduationCap className="mr-1.5 size-4" />
-          Details
-        </Button>
-      </div>
+    <div className="tg-cat-explain mx-auto w-full max-w-7xl pb-10">
+      <button type="button" onClick={() => navigate("/learner/certifications")} className="tg-btn mb-6">
+        <ArrowLeft className="size-4" aria-hidden="true" /> Certifications
+      </button>
 
-      {view === "badge" ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center lg:[container-type:size]">
+      {/* Profile layout, GitHub-style: who and what on the left, the work on the right. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
+        <aside className="lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mx-auto aspect-square w-48 lg:mx-0 lg:w-44">
+            {awardLoading ? (
+              <div className="size-full animate-pulse rounded-full bg-muted/30" />
+            ) : (
+              <CertStamp certificationId={certificationId} award={award} />
+            )}
+          </div>
+
+          <h1 className="mt-4 font-rb-display text-3xl font-extrabold leading-tight text-foreground">{certTitle}</h1>
+          <p className="mt-1 text-lg text-muted-foreground">{learnerName}</p>
+
+          <p className="mt-3 text-sm leading-6 text-foreground">
+            Completed the review and passed its mock exam. The badge sits on your certification card;
+            the certificate is yours to print or share.
+          </p>
+
+          <div className="mt-5 space-y-2">
+            <button type="button" className="tg-btn tg-btn-primary w-full !py-2.5" onClick={() => window.print()}>
+              <Download className="size-4" aria-hidden="true" />
+              Print or save PDF
+            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className="tg-btn w-full" onClick={() => navigate(`/learner/learning/${certificationId}`)}>
+                <BookOpen className="size-4" aria-hidden="true" />
+                Curriculum
+              </button>
+              <button type="button" className="tg-btn w-full" onClick={() => navigate(`/learner/certifications/${certificationId}`)}>
+                <GraduationCap className="size-4" aria-hidden="true" />
+                Details
+              </button>
+            </div>
+          </div>
+
+          <dl className="mt-6 space-y-2.5 border-t border-[var(--tg-line)] pt-5 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Badge earned</dt>
+              <dd className="font-semibold text-foreground">{fmtDate(award?.badgeAwardedAt)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Certificate no.</dt>
+              <dd className="truncate font-semibold tabular-nums text-foreground">{award?.certificateNumber ?? "—"}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-6 border-t border-[var(--tg-line)] pt-5">
+            <p className="tg-kicker">At a glance</p>
+            <ul className="mt-3 space-y-2">
+              {stats.map((stat) => (
+                <li key={stat.label} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--tg-softer)] px-3 py-2 ring-1 ring-[var(--tg-line)]">
+                  <span className="text-xs font-semibold text-muted-foreground">{stat.label}</span>
+                  <span className="text-sm font-black tabular-nums text-[var(--tg-ink)]">
+                    {isLoading ? <span className="inline-block h-4 w-12 animate-pulse rounded bg-muted/40" /> : stat.value}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+
+        <main className="min-w-0 space-y-10">
+          <section aria-labelledby="certificate-heading">
+            <div className="mb-3 flex items-center gap-2.5 border-b border-[var(--tg-line)] pb-3">
+              <span className="tg-badge-icon !size-8 !rounded-lg"><GraduationCap className="size-4" aria-hidden="true" /></span>
+              <h2 id="certificate-heading" className="text-lg font-bold text-foreground">Certificate of completion</h2>
+            </div>
+            <div className="[container-type:inline-size]">
           <article
-            className="w-full bg-white p-[6px] lg:aspect-[1.414/1] lg:w-[min(100cqw,calc(100cqh*1.414))]"
-            style={{ border: "1px solid #c8d6cc", boxShadow: "0 4px 28px rgba(0,0,0,0.10)" }}
+            id="rb-certificate"
+            className="w-full p-[8px] sm:aspect-[1.414/1]"
+            style={{
+              border: "1px solid #c8d6cc",
+              borderRadius: 6,
+              background: "linear-gradient(135deg, #fdfcf7, #ffffff 45%, #f4f9f5)",
+              boxShadow: "0 2px 0 #dfe9e2, 0 24px 48px -24px rgba(16,42,37,0.35)",
+            }}
           >
-            <div className="h-full [container-type:inline-size]" style={{ border: `4px double ${GREEN}` }}>
+            <div className="h-full [container-type:inline-size]" style={{ border: `4px double ${GREEN}`, borderRadius: 3 }}>
               <div
-                className="relative flex h-full flex-col items-center justify-between text-center"
-                style={{ padding: "3cqw 6cqw 2.2cqw", gap: "1.2cqw" }}
+                className="relative flex h-full flex-col items-center justify-between overflow-hidden text-center"
+                style={{ padding: "3cqw 6cqw 2.2cqw", gap: "1.2cqw", boxShadow: `inset 0 0 0 0.6cqw transparent, inset 0 0 0 calc(0.6cqw + 1px) #b8902f55` }}
               >
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 grid select-none place-items-center font-bold"
+                  style={{ fontFamily: SERIF, fontSize: "22cqw", color: GREEN, opacity: 0.025, letterSpacing: "0.08em" }}
+                >
+                  REBYU
+                </span>
                 <FrameCorner className="left-[1cqw] top-[1cqw]" />
                 <FrameCorner className="right-[1cqw] top-[1cqw] rotate-90" />
                 <FrameCorner className="bottom-[1cqw] right-[1cqw] rotate-180" />
@@ -322,14 +368,14 @@ export default function LearnerCertificatePage() {
                   </p>
                   <div className="flex items-center justify-center" style={{ gap: "0.8cqw", margin: "0.9cqw 0 1.1cqw" }}>
                     <span style={{ height: 1, width: "6cqw", background: GREEN, opacity: 0.4 }} />
-                    <span style={{ width: 6, height: 6, transform: "rotate(45deg)", background: GREEN, opacity: 0.7 }} />
+                    <span style={{ width: 7, height: 7, transform: "rotate(45deg)", background: "#b8902f" }} />
                     <span style={{ height: 1, width: "6cqw", background: GREEN, opacity: 0.4 }} />
                   </div>
                   <h1 style={{ fontFamily: SERIF, fontSize: sz(4.4, 28), color: GREEN, lineHeight: 1.05, fontWeight: 700, letterSpacing: "0.01em" }}>
-                    Badge of Completion
+                    Certificate of Completion
                   </h1>
                   <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(1.35, 12), color: "#6b7280", marginTop: "0.8cqw" }}>
-                    This formally acknowledges that
+                    This certifies that
                   </p>
                 </header>
 
@@ -341,9 +387,9 @@ export default function LearnerCertificatePage() {
                       {learnerName}
                     </p>
                   )}
-                  <div style={{ height: 1, width: "44%", background: GREEN, opacity: 0.35, margin: "0.6cqw 0 1cqw" }} />
+                  <div style={{ height: 2, width: "44%", background: "linear-gradient(90deg, transparent, #b8902f, transparent)", margin: "0.6cqw 0 1cqw" }} />
                   <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(1.35, 12), color: "#6b7280" }}>
-                    has achieved the badge of completion for
+                    completed the review for
                   </p>
                   {awardLoading ? (
                     <div className="mt-2 h-7 w-72 animate-pulse rounded bg-muted/40" />
@@ -352,18 +398,21 @@ export default function LearnerCertificatePage() {
                       {certTitle}
                     </p>
                   )}
+                  <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(1.2, 11), color: "#6b7280", marginTop: "0.4cqw" }}>
+                    and passed its mock exam on REBYU.
+                  </p>
                 </section>
 
                 <dl
                   className="grid w-full grid-cols-2 sm:grid-cols-4"
-                  style={{ borderTop: "1px solid #dce8e2", borderBottom: "1px solid #dce8e2", padding: "0.9cqw 0" }}
+                  style={{ borderTop: "1px solid #dce8e2", borderBottom: "1px solid #dce8e2", padding: "0.9cqw 0", background: "rgba(244,249,245,0.6)" }}
                 >
                   {stats.map((s, i) => (
                     <div key={s.label} className="px-2 py-1" style={{ borderLeft: i % 4 ? "1px solid #eef2ef" : "none" }}>
                       <dt className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>
                         {s.label}
                       </dt>
-                      <dd style={{ fontFamily: SERIF, fontSize: sz(1.55, 13), color: "#111827", fontWeight: 700, marginTop: "0.3cqw" }}>
+                      <dd style={{ fontFamily: SERIF, fontSize: sz(1.65, 13), color: GREEN, fontWeight: 700, marginTop: "0.3cqw" }}>
                         {isLoading ? <span className="inline-block h-4 w-16 animate-pulse rounded bg-muted/40" /> : s.value}
                         {!isLoading && s.note ? (
                           <span className="block italic" style={{ fontSize: sz(0.95, 10), color: "#6b7280", fontWeight: 400 }}>{s.note}</span>
@@ -389,19 +438,25 @@ export default function LearnerCertificatePage() {
                   <div>
                     <p className="tabular-nums" style={{ fontFamily: SERIF, fontSize: sz(1.4, 12), color: "#111827" }}>{award?.certificateNumber ?? "—"}</p>
                     <div style={{ height: 1, background: "#374151", opacity: 0.5, margin: "0.5cqw 0" }} />
-                    <p className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>Badge No.</p>
+                    <p className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>Certificate No.</p>
                   </div>
                 </footer>
 
                 <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(0.95, 10), color: "#9ca3af" }}>
-                  Issued by the REBYU Learning Platform in recognition of successful completion and mastery of the program named above.
+                  Issued by the REBYU Learning Platform for completing the review above and passing its mock exam.
                 </p>
               </div>
             </div>
           </article>
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            </div>
+          </section>
+
+          <section aria-labelledby="summary-heading">
+            <div className="mb-3 flex items-center gap-2.5 border-b border-[var(--tg-line)] pb-3">
+              <span className="tg-badge-icon !size-8 !rounded-lg"><TrendingUp className="size-4" aria-hidden="true" /></span>
+              <h2 id="summary-heading" className="text-lg font-bold text-foreground">Performance summary</h2>
+            </div>
+        <div>
       {isLoading ? (
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
           <div className="space-y-5">
@@ -420,12 +475,12 @@ export default function LearnerCertificatePage() {
 
           <div className="space-y-5">
 
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="tg-frame p-5">
               <SectionHead icon={Layers3}>Module Mastery</SectionHead>
               <CategoryChart rows={d.categoryMastery} theme={theme} />
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="tg-frame p-5">
               <SectionHead icon={Zap}>Assessment Insights</SectionHead>
               <div className="space-y-2.5">
                 <InsightCard
@@ -461,7 +516,7 @@ export default function LearnerCertificatePage() {
                   />
                 )}
                 {accuracyPct != null && (
-                  <div className="mt-1 rounded-lg border border-border bg-background px-4 py-3">
+                  <div className="mt-1 rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground">Overall Answer Accuracy</p>
@@ -479,7 +534,7 @@ export default function LearnerCertificatePage() {
 
           <div className="space-y-5">
 
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="tg-frame p-5">
               <SectionHead icon={AlertTriangle}>
                 Areas to Improve
                 {d.weakestTopics?.length > 0 && (
@@ -513,7 +568,7 @@ export default function LearnerCertificatePage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-5">
+            <div className="tg-frame p-5">
               <SectionHead icon={BookOpen}>Lesson Mastery Highlights</SectionHead>
               <div className="space-y-2.5">
                 <InsightCard
@@ -540,7 +595,9 @@ export default function LearnerCertificatePage() {
         </div>
       )}
         </div>
-      )}
+          </section>
+        </main>
+      </div>
     </div>
   )
 }

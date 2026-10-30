@@ -2,14 +2,14 @@ import * as React from "react"
 import { NavLink } from "react-router-dom"
 import {
   AwardIcon,
-  BarChart3Icon,
-  BookOpenCheckIcon,
+  BookOpenIcon,
   CalendarDays,
   CrownIcon,
-  FilesIcon,
+  LibraryBig,
   LogOutIcon,
   TargetIcon,
-  UserIcon,
+  TrendingUpIcon,
+  UserRound,
   UsersRoundIcon,
 } from "@/components/icons"
 
@@ -45,24 +45,24 @@ const learnerNav = {
   learning: {
     name: "Learning",
     items: [
-      { name: "Progress", url: "/learner/analytics", icon: BarChart3Icon, activeUrls: ["/learner/progress"] },
-      { name: "Certifications", url: "/learner/certifications", icon: AwardIcon },
-      { name: "My Learning", url: "/learner/learning", activeUrls: ["/learner/lessons"], icon: BookOpenCheckIcon },
-      { name: "Mistake bank", url: "/learner/mistakes", icon: TargetIcon },
+      { name: "Progress", url: "/learner/analytics", icon: TrendingUpIcon, tone: "explain", activeUrls: ["/learner/progress"] },
+      { name: "Certifications", url: "/learner/certifications", icon: AwardIcon, tone: "insight" },
+      { name: "My Learning", url: "/learner/learning", activeUrls: ["/learner/lessons"], icon: BookOpenIcon, tone: "recall" },
+      { name: "Mistake bank", url: "/learner/mistakes", icon: TargetIcon, tone: "decision" },
     ],
   },
   explore: {
     name: "Explore",
     items: [
-      { name: "Community", url: "/learner/community", icon: UsersRoundIcon },
+      { name: "Community", url: "/learner/community", icon: UsersRoundIcon, tone: "organize" },
     ],
   },
   account: {
     name: "My account",
     items: [
-      { name: "Account settings", url: "/learner/account", icon: UserIcon },
-      { name: "Study calendar", url: "/learner/plan", icon: CalendarDays },
-      { name: "Library", url: "/learner/library", icon: FilesIcon },
+      { name: "Account settings", url: "/learner/account", icon: UserRound, tone: "worked" },
+      { name: "Study calendar", url: "/learner/plan", icon: CalendarDays, tone: "timed" },
+      { name: "Library", url: "/learner/library", icon: LibraryBig, tone: "word" },
     ],
   },
 }
@@ -128,15 +128,15 @@ export function LearnerAppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="shrink-0 border-t border-sidebar-border p-2">
-        <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3 group-data-[collapsible=icon]:hidden">
+        <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-semibold">AI usage</span>
-            <NavLink to="/learner/subscription" aria-label={planLabel} className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+            <NavLink to="/learner/subscription" aria-label={planLabel} className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
               <CrownIcon className="size-3.5" />
               {entitlements.institutionalActive ? "Institution" : entitlements.personalProActive ? "Pro" : "Free"}
             </NavLink>
           </div>
-          <AiUsageSummary className="mt-3 border-0 bg-transparent p-0" showHeading={false} />
+          <AiUsageSummary className="mt-2 border-0 bg-transparent p-0" showHeading={false} compact />
         </div>
         <SidebarMenu>
           <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">

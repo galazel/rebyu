@@ -58,7 +58,8 @@ public class LearnerToolsService {
                 LEFT JOIN LATERAL (
                     SELECT p.score_right, p.score_total FROM learner_activity_progress p
                     WHERE p.learner_id = i.learner_id AND p.score_total IS NOT NULL
-                      AND p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%'
+                      AND (p.library_item_id = i.library_item_id
+                           OR p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%')
                     ORDER BY p.updated_at DESC LIMIT 1
                 ) sp ON true
                 LEFT JOIN certifications c ON c.certification_id = i.certification_id
@@ -110,7 +111,8 @@ public class LearnerToolsService {
                 LEFT JOIN LATERAL (
                     SELECT p.score_right, p.score_total FROM learner_activity_progress p
                     WHERE p.learner_id = i.learner_id AND p.score_total IS NOT NULL
-                      AND p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%'
+                      AND (p.library_item_id = i.library_item_id
+                           OR p.progress_key LIKE 'rebyu:tutor-progress:v1:library:' || i.library_item_id || ':%')
                     ORDER BY p.updated_at DESC LIMIT 1
                 ) sp ON true
                 LEFT JOIN certifications c ON c.certification_id = i.certification_id
