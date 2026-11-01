@@ -48,10 +48,8 @@ export function DepartmentsSidebar({
   departments = [],
   selectedDepartmentId = null,
   onSelectDepartment,
-  collapsedTiles = {},
-  onExpandTile,
-  areAllCollapsed = false,
-  onToggleAllCollapse,
+  activeFeature = "dept-overview",
+  onSelectFeature,
   activeCategory = "all",
   onSelectCategory = () => {},
 }) {
@@ -77,18 +75,8 @@ export function DepartmentsSidebar({
     }).filter((group) => group.items.length > 0)
   }, [activeCategory, searchQuery])
 
-  const handleTileClick = (tileId) => {
-    if (collapsedTiles[tileId] && onExpandTile) {
-      onExpandTile(tileId)
-    }
-    const element = document.getElementById(tileId)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" })
-      element.classList.add("ring-2", "ring-primary", "ring-offset-2")
-      setTimeout(() => {
-        element.classList.remove("ring-2", "ring-primary", "ring-offset-2")
-      }, 1500)
-    }
+  const handleItemClick = (tileId) => {
+    onSelectFeature?.(tileId)
   }
 
   return (
@@ -109,20 +97,6 @@ export function DepartmentsSidebar({
               </p>
             </div>
           </div>
-
-          {onToggleAllCollapse ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onToggleAllCollapse}
-              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground font-semibold gap-1"
-              title={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
-            >
-              <ChevronsUpDownIcon className="size-3" aria-hidden="true" />
-              <span>{areAllCollapsed ? "Expand" : "Collapse"}</span>
-            </Button>
-          ) : null}
         </div>
 
         {/* Search */}
@@ -183,32 +157,32 @@ export function DepartmentsSidebar({
                 <div className="flex gap-1.5 lg:flex-col lg:space-y-0.5">
                   {group.items.map((item) => {
                     const Icon = item.icon
-                    const isCollapsed = Boolean(collapsedTiles[item.id])
+                    const isActive = activeFeature === item.id
 
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => handleTileClick(item.id)}
-                        className="group flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-all min-h-[38px] lg:min-h-0 text-foreground hover:bg-muted/70"
-                        title={`Jump to ${item.label}`}
+                        onClick={() => handleItemClick(item.id)}
+                        className={cn(
+                          "group flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-all min-h-[38px] lg:min-h-0",
+                          isActive
+                            ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                            : "text-foreground hover:bg-muted/70"
+                        )}
+                        title={`Open ${item.label}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <Icon className="size-3.5 shrink-0 text-muted-foreground opacity-70 group-hover:opacity-100" />
+                          <Icon
+                            className={cn(
+                              "size-3.5 shrink-0 transition-opacity",
+                              isActive ? "text-primary-foreground opacity-100" : "text-muted-foreground opacity-70 group-hover:opacity-100"
+                            )}
+                          />
                           <span className="truncate">{item.label}</span>
                         </div>
-                        {item.id !== "dept-overview" && (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "hidden xl:inline-flex text-[9px] px-1 py-0 h-3.5 uppercase tracking-wider font-semibold border-border/50",
-                              isCollapsed
-                                ? "bg-muted/40 text-muted-foreground"
-                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                            )}
-                          >
-                            {isCollapsed ? "closed" : "active"}
-                          </Badge>
+                        {isActive && (
+                          <ChevronRight className="size-3.5 shrink-0 opacity-80" aria-hidden="true" />
                         )}
                       </button>
                     )

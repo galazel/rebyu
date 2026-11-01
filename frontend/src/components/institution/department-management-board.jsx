@@ -51,8 +51,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { BentoTile } from "@/components/commons/bento.jsx"
-import { CollapsedMetricCard } from "@/components/institution/collapsed-metric-card.jsx"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { formatDate } from "@/components/institution/institution-ui.jsx"
@@ -115,16 +113,14 @@ function DashboardCardHeader({
   chip,
   action,
   className = "",
-  collapsible = false,
-  onToggleCollapse = null,
 }) {
   return (
-    <div className={`border-b border-border/50 pb-2.5 mb-3 transition-all ${className}`}>
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+    <div className={`border-b border-border/50 pb-3 mb-4 transition-all ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           {Icon ? (
-            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
-              <Icon className="size-4" aria-hidden="true" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
+              <Icon className="size-4.5" aria-hidden="true" />
             </span>
           ) : null}
           <div className="min-w-0">
@@ -133,35 +129,20 @@ function DashboardCardHeader({
                 {kicker}
               </h3>
             ) : null}
-            <p className="truncate text-xs font-semibold leading-snug text-foreground sm:text-sm font-sans tracking-tight">
+            <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
               {title}
             </p>
             {hint ? (
-              <p className="mt-0.5 truncate text-[11px] font-normal text-muted-foreground font-sans">
+              <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground font-sans">
                 {hint}
               </p>
             ) : null}
           </div>
         </div>
-        {(chip || action || collapsible) && (
+        {(chip || action) && (
           <div className="flex shrink-0 items-center gap-2">
             {chip}
             {action}
-            {collapsible && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleCollapse?.()
-                }}
-                className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-bold rounded-xl border border-border/80 bg-muted/70 text-foreground hover:bg-primary/15 hover:text-primary active:scale-95 transition-all cursor-pointer shadow-xs"
-                aria-label={`Collapse ${title}`}
-                title="Collapse card"
-              >
-                <span>Collapse</span>
-                <ChevronDown className="size-3.5 rotate-180 transition-transform duration-200" aria-hidden="true" />
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -199,9 +180,7 @@ export function DepartmentManagementBoard({
   departmentId,
   department = null,
   isOwner = false,
-  collapsedTiles = {},
-  onToggleCollapse = () => {},
-  activeCategory = "all",
+  activeFeature = "dept-section-breakdown",
 }) {
   const queryClient = useQueryClient()
   const primaryDeptId = departmentId ?? department?.departmentId ?? department?.id
@@ -436,39 +415,16 @@ export function DepartmentManagementBoard({
     return list
   }, [deptLearners, selectedSectionFilter, rosterStatusFilter, rosterSearch])
 
-  // Category visibility
-  const showSection = activeCategory === "all" || activeCategory === "Cohorts"
-  const showRoster = activeCategory === "all" || activeCategory === "Roster" || activeCategory === "Cohorts"
-  const showAuthorities = activeCategory === "all" || activeCategory === "Faculty" || activeCategory === "Administration"
-  const showAnnouncements = activeCategory === "all" || activeCategory === "Announcements" || activeCategory === "Administration"
-  const showInvoices = activeCategory === "all" || activeCategory === "Billing" || activeCategory === "Administration"
-
-  return (
+    return (
     <div className="space-y-6">
-      {/* 1. Sections & Cohorts Tile */}
-      {showSection ? (
-        <div id="dept-section-breakdown" className="scroll-mt-24 transition-all">
-          {collapsedTiles["dept-section-breakdown"] ? (
-            <BentoTile col={6} row={1} className="!p-0" isCollapsed>
-              <CollapsedMetricCard
-                icon={Layers}
-                kicker="Cohort Management"
-                title="Section Breakdown & Cohort Progress"
-                description="Provides granular progress tracking, student distribution, and average performance comparison across assigned department sections."
-                previewMetric={`${sections.length} active section${sections.length === 1 ? "" : "s"} · ${deptLearners.length} enrolled`}
-                onExpand={() => onToggleCollapse("dept-section-breakdown")}
-              />
-            </BentoTile>
-          ) : (
-            <BentoTile col={6} row={5} className="!p-0" collapsible onToggleCollapse={() => onToggleCollapse("dept-section-breakdown")}>
-              <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
-                <DashboardCardHeader
+      {/* 1. Sections & Cohorts Page View */}
+      {activeFeature === "dept-section-breakdown" && (
+        <div id="dept-section-breakdown" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
+          <DashboardCardHeader
                   icon={Layers}
                   kicker="Section Management"
                   title="Sections & Cohorts"
                   hint="Active classes, learner headcount, pending invitations, and benchmark progress."
-                  collapsible
-                  onToggleCollapse={() => onToggleCollapse("dept-section-breakdown")}
                   action={
                     primaryDeptId ? (
                       <div className="flex items-center gap-2">
@@ -577,37 +533,17 @@ export function DepartmentManagementBoard({
                     })}
                   </div>
                 )}
-              </div>
-            </BentoTile>
-          )}
         </div>
-      ) : null}
+      )}
 
-      {/* 2. Student Roster Tile */}
-      {showRoster ? (
-        <div id="dept-learner-table" className="scroll-mt-24 transition-all">
-          {collapsedTiles["dept-learner-table"] ? (
-            <BentoTile col={6} row={1} className="!p-0" isCollapsed>
-              <CollapsedMetricCard
-                icon={UsersRoundIcon}
-                kicker="Department Roster"
-                title="Student Roster & Conversation Flags"
-                description="Searchable student directory highlighting flagged learners, recent activity, mock exam scores, and direct analytics access."
-                previewMetric={`${deptLearners.length} enrolled learner${deptLearners.length === 1 ? "" : "s"} · ${flaggedCount} flagged`}
-                previewAlert={flaggedCount > 0}
-                onExpand={() => onToggleCollapse("dept-learner-table")}
-              />
-            </BentoTile>
-          ) : (
-            <BentoTile col={6} row={7} className="!p-0" collapsible onToggleCollapse={() => onToggleCollapse("dept-learner-table")}>
-              <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-5">
-                <DashboardCardHeader
+      {/* 2. Student Roster Page View */}
+      {activeFeature === "dept-learner-table" && (
+        <div id="dept-learner-table" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
+          <DashboardCardHeader
                   icon={Building2}
                   kicker="Department Roster"
                   title="Student Roster & Directory"
                   hint="Flagged students appear at the top with intervention context."
-                  collapsible
-                  onToggleCollapse={() => onToggleCollapse("dept-learner-table")}
                 />
 
                 {/* Filter bar */}
@@ -733,36 +669,17 @@ export function DepartmentManagementBoard({
                     </tbody>
                   </table>
                 </div>
-              </div>
-            </BentoTile>
-          )}
         </div>
-      ) : null}
+      )}
 
-      {/* 3. Co-Authorities Tile */}
-      {showAuthorities ? (
-        <div id="dept-co-authorities" className="scroll-mt-24 transition-all">
-          {collapsedTiles["dept-co-authorities"] ? (
-            <BentoTile col={6} row={1} className="!p-0" isCollapsed>
-              <CollapsedMetricCard
-                icon={ShieldCheck}
-                kicker="Faculty Leadership"
-                title="Co-Authorities & Pending Invitations"
-                description="Manages delegated faculty roles, collaborative curriculum authorities, and pending department invitation codes."
-                previewMetric={`${activeHeadAssignments.length} active authorit${activeHeadAssignments.length === 1 ? "y" : "ies"}`}
-                onExpand={() => onToggleCollapse("dept-co-authorities")}
-              />
-            </BentoTile>
-          ) : (
-            <BentoTile col={6} row={4} collapsible onToggleCollapse={() => onToggleCollapse("dept-co-authorities")}>
-              <div className="flex h-full flex-col justify-between gap-3 p-4 sm:p-5">
-                <DashboardCardHeader
+      {/* 3. Co-Authorities Page View */}
+      {activeFeature === "dept-co-authorities" && (
+        <div id="dept-co-authorities" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
+          <DashboardCardHeader
                   icon={ShieldCheck}
                   kicker="Delegation & Leadership"
                   title="Co-Authorities & Faculty Roles"
                   hint={`${activeHeadAssignments.length} active · ${pendingHeadInvitations.length} pending`}
-                  collapsible
-                  onToggleCollapse={() => onToggleCollapse("dept-co-authorities")}
                   action={
                     <Button
                       size="sm"
@@ -801,36 +718,17 @@ export function DepartmentManagementBoard({
                     Manage invites →
                   </button>
                 </div>
-              </div>
-            </BentoTile>
-          )}
         </div>
-      ) : null}
+      )}
 
-      {/* 4. Announcements Tile */}
-      {showAnnouncements ? (
-        <div id="dept-announcements" className="scroll-mt-24 transition-all">
-          {collapsedTiles["dept-announcements"] ? (
-            <BentoTile col={6} row={1} className="!p-0" isCollapsed>
-              <CollapsedMetricCard
-                icon={PinIcon}
-                kicker="Department Communications"
-                title="Announcements & Quick-Compose"
-                description="Enables posting, pinning, and managing vital department bulletins, reminders, and updates for students and faculty."
-                previewMetric={`${announcements.length} active announcement${announcements.length === 1 ? "" : "s"}`}
-                onExpand={() => onToggleCollapse("dept-announcements")}
-              />
-            </BentoTile>
-          ) : (
-            <BentoTile col={6} row={5} collapsible onToggleCollapse={() => onToggleCollapse("dept-announcements")}>
-              <div className="flex h-full flex-col justify-between gap-4 p-4 sm:p-5">
-                <DashboardCardHeader
+      {/* 4. Announcements Page View */}
+      {activeFeature === "dept-announcements" && (
+        <div id="dept-announcements" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
+          <DashboardCardHeader
                   icon={PinIcon}
                   kicker="Department Communications"
                   title="Announcements & Quick-Compose"
                   hint={`${announcements.length} announcement${announcements.length === 1 ? "" : "s"} · Direct bulletins`}
-                  collapsible
-                  onToggleCollapse={() => onToggleCollapse("dept-announcements")}
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-auto">
@@ -944,36 +842,17 @@ export function DepartmentManagementBoard({
                     </div>
                   </div>
                 </div>
-              </div>
-            </BentoTile>
-          )}
         </div>
-      ) : null}
+      )}
 
-      {/* 5. Invoices & Billing Tile */}
-      {showInvoices ? (
-        <div id="dept-invoices" className="scroll-mt-24 transition-all">
-          {collapsedTiles["dept-invoices"] ? (
-            <BentoTile col={6} row={1} className="!p-0" isCollapsed>
-              <CollapsedMetricCard
-                icon={CreditCard}
-                kicker="Billing & Invoices"
-                title="Invoices & Billing Summary"
-                description="Summarizes partnership billing records, payment statuses, due dates, and pending institutional invoices."
-                previewMetric={`${invoices.length} invoice${invoices.length === 1 ? "" : "s"} on file`}
-                onExpand={() => onToggleCollapse("dept-invoices")}
-              />
-            </BentoTile>
-          ) : (
-            <BentoTile col={6} row={4} collapsible onToggleCollapse={() => onToggleCollapse("dept-invoices")}>
-              <div className="flex h-full flex-col justify-between gap-3 p-4 sm:p-5">
-                <DashboardCardHeader
+      {/* 5. Invoices Page View */}
+      {activeFeature === "dept-invoices" && (
+        <div id="dept-invoices" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
+          <DashboardCardHeader
                   icon={CreditCard}
                   kicker="Billing & Payments"
                   title="Invoices Summary"
                   hint={`${invoices.length} total invoice${invoices.length === 1 ? "" : "s"}`}
-                  collapsible
-                  onToggleCollapse={() => onToggleCollapse("dept-invoices")}
                   action={
                     <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
                       <Link to="/institution/invoices">View all</Link>
@@ -1033,11 +912,8 @@ export function DepartmentManagementBoard({
                     })}
                   </div>
                 )}
-              </div>
-            </BentoTile>
-          )}
         </div>
-      ) : null}
+      )}
 
       {/* Modal Dialogs */}
       {createSectionOpen && primaryDeptId ? (

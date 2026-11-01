@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -98,14 +99,9 @@ import {
   PeriodDeltaBadge,
   usePeriodComparison,
 } from "@/components/institution/department-period-comparison.jsx"
-import { CollapsedMetricCard } from "@/components/institution/collapsed-metric-card.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
-import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
-import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
-import { BentoTile } from "@/components/commons/bento.jsx"
 import { MetricsSidebar, METRIC_GROUPS } from "@/components/institution/metrics-sidebar.jsx"
-import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import {
   getDepartmentStats,
   getInstitutionLearningStats,
@@ -208,18 +204,14 @@ function DashboardCardHeader({
   chip,
   action,
   className = "",
-  collapsible = false,
-  onToggleCollapse = null,
 }) {
   return (
-    <div
-      className={`border-b border-border/50 pb-2.5 mb-3 transition-all ${className}`}
-    >
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+    <div className={`border-b border-border/50 pb-3 mb-4 transition-all ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           {Icon ? (
-            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs transition-transform duration-200 group-hover/header:scale-105">
-              <Icon className="size-4" aria-hidden="true" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
+              <Icon className="size-4.5" aria-hidden="true" />
             </span>
           ) : null}
           <div className="min-w-0">
@@ -228,35 +220,20 @@ function DashboardCardHeader({
                 {kicker}
               </h3>
             ) : null}
-            <p className="truncate text-xs font-semibold leading-snug text-foreground sm:text-sm font-sans tracking-tight group-hover/header:text-primary transition-colors">
+            <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
               {title}
             </p>
             {hint ? (
-              <p className="mt-0.5 truncate text-[11px] font-normal text-muted-foreground font-sans">
+              <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground font-sans">
                 {hint}
               </p>
             ) : null}
           </div>
         </div>
-        {(chip || action || collapsible) && (
+        {(chip || action) && (
           <div className="flex shrink-0 items-center gap-2">
             {chip}
             {action}
-            {collapsible && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onToggleCollapse?.()
-                }}
-                className="inline-flex items-center gap-1.5 h-8 sm:h-8.5 px-3 sm:px-3.5 text-xs font-bold rounded-xl border border-border/80 bg-muted/70 text-foreground hover:bg-primary/15 hover:text-primary hover:border-primary/40 active:scale-95 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer shadow-xs"
-                aria-label={`Collapse ${title}`}
-                title="Collapse card"
-              >
-                <span>Collapse</span>
-                <ChevronDown className="size-3.5 rotate-180 transition-transform duration-200" aria-hidden="true" />
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -317,8 +294,27 @@ export default function DepartmentHeadDashboardPage() {
   const { user } = useAuth()
   const isOwner = isInstitutionOwner(user)
   const chartTheme = useChartTheme()
-  const layout = useDashboardLayout("department-head")
+    const [activeFeature, setActiveFeature] = useState("dept-progress")
   const [range, setRange] = useState(null)
+
+  const ALL_METRIC_IDS = useMemo(() => [
+    "dept-progress",
+    "dept-period-comparison",
+    "dept-programme-enrolment",
+    "dept-programme-table",
+    "dept-completion-spread",
+    "dept-hard-topics",
+    "dept-hard-assessments",
+  ], [])
+
+  useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "")
+      if (ALL_METRIC_IDS.includes(id)) {
+        setActiveFeature(id)
+      }
+    }
+  }, [ALL_METRIC_IDS])
   const [comparisonType, setComparisonType] = useState("previous_period")
   const [activeMetricsCategory, setActiveMetricsCategory] = useState("all")
   const [isMediumScreen, setIsMediumScreen] = useState(
@@ -1078,34 +1074,13 @@ export default function DepartmentHeadDashboardPage() {
     return [
       {
         id: "dept-progress",
-        col: 3,
-        row: collapsedTiles["dept-progress"] ? 1 : 4,
-        element: collapsedTiles["dept-progress"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={TargetIcon}
-              kicker="Curriculum Pacing"
-              title="Department Learning Progress"
-              description="Monitors overall lesson completion rates, graded activity attempts, and department syllabus progression benchmarks across all cohorts."
-              previewMetric={failed ? null : `${percent(summary.averageProgress)} done · ${percent(summary.passRate)} pass rate`}
-              onExpand={() => toggleTileCollapse("dept-progress")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            tone="plain"
-            col={3}
-            row={4}
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-progress")}
-          >
+        element: (
+          <div id="dept-progress" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Department Performance"
                 title="Department Progress & Pass Rate"
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-progress")}
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
@@ -1177,40 +1152,19 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-programme-enrolment",
-        col: 3,
-        row: collapsedTiles["dept-programme-enrolment"] ? 1 : 4,
-        element: collapsedTiles["dept-programme-enrolment"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={GraduationCap}
-              kicker="Cohort Capacity"
-              title="Programme Enrolment & Capacity"
-              description="Tracks active student distribution across degree tracks, certificate programmes, and current department capacity limits."
-              previewMetric={`${totalEnrolled} enrolled · ${programmes.length} active programme${programmes.length === 1 ? "" : "s"}`}
-              onExpand={() => toggleTileCollapse("dept-programme-enrolment")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            col={3}
-            row={4}
-            className="!p-0"
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-programme-enrolment")}
-          >
+        element: (
+          <div id="dept-programme-enrolment" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Enrolment by Programme"
                 title="Who is on each certification"
                 hint="Your department's learners only — a programme nobody here is on is not listed."
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-programme-enrolment")}
                 chip={
                   totalEnrolled > 0 ? (
                     <Badge
@@ -1267,40 +1221,19 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-programme-table",
-        col: 3,
-        row: collapsedTiles["dept-programme-table"] ? 1 : 4,
-        element: collapsedTiles["dept-programme-table"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={Award}
-              kicker="Curriculum Health"
-              title="Programme Performance Scorecard"
-              description="Compares completion benchmarks, average graded scores, and curriculum health metrics across each academic programme."
-              previewMetric={failed ? null : `${percent(summary.averageScore)} avg score · ${totalEnrolled} learners`}
-              onExpand={() => toggleTileCollapse("dept-programme-table")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            col={3}
-            row={4}
-            className="!p-0"
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-programme-table")}
-          >
+        element: (
+          <div id="dept-programme-table" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Award}
                 kicker="Programme Scorecard"
                 title="Seats, completion and marks"
                 hint="Your department's learners on each programme, with their marks."
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-programme-table")}
               />
               {programmes.length === 0 ? (
                 <p className="text-sm text-muted-foreground my-auto">
@@ -1377,40 +1310,19 @@ export default function DepartmentHeadDashboardPage() {
                 </span>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-completion-spread",
-        col: 3,
-        row: collapsedTiles["dept-completion-spread"] ? 1 : 4,
-        element: collapsedTiles["dept-completion-spread"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={Layers}
-              kicker="Learner Distribution"
-              title="Completion Spread & At-Risk Signal"
-              description="Visualizes student distribution across completion quartiles and identifies learners requiring proactive academic interventions."
-              previewMetric={needingSupport > 0 ? `${needingSupport} learner${needingSupport === 1 ? "" : "s"} need intervention` : "All learners on track"}
-              previewAlert={needingSupport > 0}
-              onExpand={() => toggleTileCollapse("dept-completion-spread")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            col={3}
-            row={4}
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-completion-spread")}
-          >
+        element: (
+          <div id="dept-completion-spread" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={Layers}
                 kicker="Progress Distribution"
                 title="How far the cohort has got"
                 hint="Students per completion band — a headcount, not a share."
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-completion-spread")}
               />
               {deptLearners.length === 0 ? (
                 <p className="text-sm text-muted-foreground my-auto">
@@ -1437,41 +1349,19 @@ export default function DepartmentHeadDashboardPage() {
                 </span>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-hard-topics",
-        col: 3,
-        row: collapsedTiles["dept-hard-topics"] ? 1 : 4,
-        element: collapsedTiles["dept-hard-topics"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={TargetIcon}
-              kicker="Teaching Signal"
-              title="Hardest Curriculum Topics"
-              description="Surfaces syllabus modules with lowest student pass rates and highest retry frequency to target remedial teaching."
-              previewMetric={hardestTopics.length > 0 ? `${hardestTopics.length} topic${hardestTopics.length === 1 ? "" : "s"} flagged for review` : "Curriculum pacing optimal"}
-              previewAlert={hardestTopics.length > 0}
-              onExpand={() => toggleTileCollapse("dept-hard-topics")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            col={3}
-            row={4}
-            className="!p-0"
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-hard-topics")}
-          >
+        element: (
+          <div id="dept-hard-topics" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
                 title="Topics the department is failing"
                 hint="Lowest accuracy across everyone's marked answers."
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-hard-topics")}
               />
               {hardestTopics.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center my-auto">
@@ -1519,41 +1409,19 @@ export default function DepartmentHeadDashboardPage() {
                 </span>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-hard-assessments",
-        col: 3,
-        row: collapsedTiles["dept-hard-assessments"] ? 1 : 4,
-        element: collapsedTiles["dept-hard-assessments"] ? (
-          <BentoTile col={3} row={1} className="!p-0" isCollapsed>
-            <CollapsedMetricCard
-              icon={ClipboardListIcon}
-              kicker="Assessment Signal"
-              title="Hardest Assessments & Quizzes"
-              description="Identifies examinations and quizzes presenting the greatest hurdle to help instructors prepare focused review materials."
-              previewMetric={hardestAssessments.length > 0 ? `${hardestAssessments.length} assessment${hardestAssessments.length === 1 ? "" : "s"} flagged` : "All assessments on target"}
-              previewAlert={hardestAssessments.length > 0}
-              onExpand={() => toggleTileCollapse("dept-hard-assessments")}
-            />
-          </BentoTile>
-        ) : (
-          <BentoTile
-            col={3}
-            row={4}
-            className="!p-0"
-            collapsible
-            onToggleCollapse={() => toggleTileCollapse("dept-hard-assessments")}
-          >
+        element: (
+          <div id="dept-hard-assessments" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
                 title="Hardest assessments"
                 hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
-                collapsible
-                onToggleCollapse={() => toggleTileCollapse("dept-hard-assessments")}
               />
               {hardestAssessments.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center my-auto">
@@ -1651,14 +1519,11 @@ export default function DepartmentHeadDashboardPage() {
                 </span>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
-      // Period-over-period comparison using /learning-stats?from=&to=
       {
         id: "dept-period-comparison",
-        col: 6,
-        row: collapsedTiles["dept-period-comparison"] ? 1 : 6,
         element: (
           <PeriodComparisonTile
             comparisonRange={periodComp.comparisonRange}
@@ -1670,9 +1535,7 @@ export default function DepartmentHeadDashboardPage() {
             onComparisonTypeChange={setComparisonType}
             isLoading={periodComp.isLoading}
             isError={periodComp.isError}
-            collapsible
-            isCollapsed={Boolean(collapsedTiles["dept-period-comparison"])}
-            onToggleCollapse={() => toggleTileCollapse("dept-period-comparison")}
+            collapsible={false}
           />
         ),
       },
@@ -1707,8 +1570,7 @@ export default function DepartmentHeadDashboardPage() {
     periodComp.isLoading,
     periodComp.isError,
     comparisonType,
-    collapsedTiles,
-    toggleTileCollapse,
+    activeFeature,
   ])
 
   const visibleTiles = useMemo(() => {
@@ -1765,10 +1627,7 @@ export default function DepartmentHeadDashboardPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              const el = document.getElementById("dept-period-comparison")
-              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-            }}
+            onClick={() => setActiveFeature("dept-period-comparison")}
             className="gap-1.5 min-h-[44px] sm:min-h-0 sm:h-9 justify-center w-full sm:w-auto text-xs sm:text-sm"
             id="dept-header-period-comparison-btn"
             title="Jump to period comparison analysis"
@@ -1805,19 +1664,6 @@ export default function DepartmentHeadDashboardPage() {
           </Button>
 
           <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm font-semibold text-foreground hover:bg-muted/70 transition-colors"
-            onClick={toggleAllCollapse}
-            aria-label={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
-            title={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
-          >
-            <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span>{areAllCollapsed ? "Expand all" : "Collapse all"}</span>
-          </Button>
-
-          <Button
             variant="outline"
             size="sm"
             className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
@@ -1827,136 +1673,50 @@ export default function DepartmentHeadDashboardPage() {
             <Download className="size-4" aria-hidden="true" />
             Export CSV
           </Button>
-
-          <div className="flex items-center justify-center sm:justify-start">
-            {/* Desktop: standard inline controls */}
-            <div className="hidden sm:block">
-              <DashboardRearrangeControls
-                rearranging={layout.rearranging}
-                onStart={layout.startRearranging}
-                onFinish={layout.finishRearranging}
-                onCancel={layout.cancelRearranging}
-                onReset={layout.resetLayout}
-              />
-            </div>
-
-            {/* Mobile: clean non-expanding trigger button */}
-            <div className="sm:hidden w-full">
-              {layout.rearranging ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="w-full min-h-[44px] gap-2 text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
-                  onClick={layout.finishRearranging}
-                >
-                  <span className="relative flex size-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-                  </span>
-                  <span>Editing layout</span>
-                  <Check className="size-3.5 ml-auto text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full min-h-[44px] gap-1.5 text-xs font-semibold text-foreground hover:bg-muted/70 transition-colors"
-                  onClick={layout.startRearranging}
-                  aria-label="Rearrange tiles"
-                >
-                  <GripHorizontal className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <span>Rearrange</span>
-                </Button>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Mobile Sticky Rearrange Floating Card */}
-      {layout.rearranging ? (
-        <div
-          id="dept-mobile-rearrange-bar"
-          className="sm:hidden fixed bottom-3 inset-x-3 z-50 rounded-2xl border-2 border-border/80 bg-card/95 p-3.5 backdrop-blur-xl shadow-2xl shadow-slate-950/25 animate-in fade-in-0 slide-in-from-bottom-3 duration-200"
-          style={{ paddingBottom: "max(0.875rem, env(safe-area-inset-bottom))" }}
-        >
-          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border/50">
-            <div className="flex items-center gap-2">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs font-bold text-foreground">Rearrange Mode Active</span>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => layout.resetLayout()}
-              className="h-8 min-h-[32px] px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/80 gap-1.5 rounded-lg border-border/80 cursor-pointer active:scale-95 transition-all"
-              title="Reset dashboard layout"
-            >
-              <RotateCcw className="size-3.5 text-muted-foreground" aria-hidden="true" />
-              <span>Reset</span>
-            </Button>
-          </div>
-
-          <p className="mt-2 text-[11px] text-muted-foreground leading-normal">
-            Drag tiles or use their arrow buttons to adjust order.
-          </p>
-
-          <div className="mt-3 flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={layout.cancelRearranging}
-              className="flex-1 min-h-[42px] text-xs font-semibold rounded-xl border-border bg-background hover:bg-muted/70 text-foreground"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={layout.finishRearranging}
-              className="flex-1 min-h-[42px] text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center justify-center gap-1.5"
-            >
-              <Check className="size-4" aria-hidden="true" />
-              <span>Save Layout</span>
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      
 
       <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
         <MetricsSidebar
-          collapsedTiles={collapsedTiles}
-          onExpandTile={(tileId) => {
-            setCollapsedTiles((prev) => ({ ...prev, [tileId]: false }))
-          }}
-          areAllCollapsed={areAllCollapsed}
-          onToggleAllCollapse={toggleAllCollapse}
-          rearranging={layout.rearranging}
-          onStartRearranging={layout.startRearranging}
-          onFinishRearranging={layout.finishRearranging}
+          activeFeature={activeFeature}
+          onSelectFeature={setActiveFeature}
           activeCategory={activeMetricsCategory}
           onSelectCategory={setActiveMetricsCategory}
         />
 
         <div className="min-w-0 space-y-6">
-          {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
+          {/* Mobile View Switcher */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
+            {METRIC_GROUPS.flatMap((g) => g.items).map((item) => {
+              const Icon = item.icon
+              const isActive = activeFeature === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveFeature(item.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Alert Strip */}
           <DepartmentAlertStrip alerts={alerts} />
 
-          <DashboardBoard
-            tiles={visibleTiles}
-            layout={layout.tileLayout}
-            editing={layout.rearranging}
-            onLayoutChange={layout.handleLayoutChange}
-            collapsedTiles={collapsedTiles}
-          />
+          {/* Active Metric Expanded Feature View */}
+          {activeTile ? activeTile.element : null}
         </div>
       </div>
 

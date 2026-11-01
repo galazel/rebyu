@@ -48,16 +48,10 @@ export const METRIC_GROUPS = [
 ]
 
 export function MetricsSidebar({
-  activeTileId = null,
-  collapsedTiles = {},
-  onExpandTile,
-  areAllCollapsed = false,
-  onToggleAllCollapse,
-  rearranging = false,
-  onStartRearranging,
-  onFinishRearranging,
+  activeFeature = "dept-progress",
+  onSelectFeature,
   activeCategory = "all",
-  onSelectCategory,
+  onSelectCategory = () => {},
 }) {
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -73,18 +67,8 @@ export function MetricsSidebar({
     }).filter((group) => group.items.length > 0)
   }, [activeCategory, searchQuery])
 
-  const handleTileClick = (tileId) => {
-    if (collapsedTiles[tileId] && onExpandTile) {
-      onExpandTile(tileId)
-    }
-    const element = document.getElementById(tileId)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" })
-      element.classList.add("ring-2", "ring-primary", "ring-offset-2")
-      setTimeout(() => {
-        element.classList.remove("ring-2", "ring-primary", "ring-offset-2")
-      }, 1500)
-    }
+  const handleItemClick = (featureId) => {
+    onSelectFeature?.(featureId)
   }
 
   return (
@@ -101,22 +85,10 @@ export function MetricsSidebar({
                 Metrics Index
               </h2>
               <p className="text-[11px] text-muted-foreground/80 font-medium">
-                7 Analytics Tiles
+                7 Analytics Features
               </p>
             </div>
           </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onToggleAllCollapse}
-            className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground font-semibold gap-1"
-            title={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
-          >
-            <ChevronsUpDownIcon className="size-3" aria-hidden="true" />
-            <span>{areAllCollapsed ? "Expand" : "Collapse"}</span>
-          </Button>
         </div>
 
         {/* Quick Search inside metrics */}
@@ -177,43 +149,34 @@ export function MetricsSidebar({
                 <div className="flex gap-1.5 lg:flex-col lg:space-y-0.5">
                   {group.items.map((item) => {
                     const Icon = item.icon
-                    const isCollapsed = Boolean(collapsedTiles[item.id])
-                    const isFocused = activeTileId === item.id
+                    const isActive = activeFeature === item.id
 
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => handleTileClick(item.id)}
+                        onClick={() => handleItemClick(item.id)}
                         className={cn(
                           "group flex items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs font-medium transition-all min-h-[38px] lg:min-h-0",
-                          isFocused
+                          isActive
                             ? "bg-primary text-primary-foreground font-semibold shadow-xs"
                             : "text-foreground hover:bg-muted/70"
                         )}
-                        title={`Jump to ${item.label}`}
+                        title={`Open ${item.label}`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Icon
                             className={cn(
                               "size-3.5 shrink-0 transition-opacity",
-                              isFocused ? "text-primary-foreground opacity-90" : "text-muted-foreground opacity-70 group-hover:opacity-100"
+                              isActive ? "text-primary-foreground opacity-100" : "text-muted-foreground opacity-70 group-hover:opacity-100"
                             )}
                             aria-hidden="true"
                           />
                           <span className="truncate">{item.label}</span>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "hidden xl:inline-flex text-[9px] px-1 py-0 h-3.5 uppercase tracking-wider font-semibold border-border/50",
-                            isCollapsed
-                              ? "bg-muted/40 text-muted-foreground"
-                              : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                          )}
-                        >
-                          {isCollapsed ? "closed" : "active"}
-                        </Badge>
+                        {isActive && (
+                          <ChevronRight className="size-3.5 shrink-0 opacity-80" aria-hidden="true" />
+                        )}
                       </button>
                     )
                   })}
@@ -227,36 +190,6 @@ export function MetricsSidebar({
             aria-hidden="true"
           />
         </div>
-      </div>
-
-      {/* Board Layout Controls */}
-      <div className="hidden lg:block rounded-2xl border border-border/60 bg-muted/20 p-3 space-y-2 text-xs">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Board Customization
-        </p>
-        {rearranging ? (
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={onFinishRearranging}
-            className="w-full h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 justify-center"
-          >
-            <Check className="size-3.5" aria-hidden="true" />
-            <span>Save Tile Order</span>
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onStartRearranging}
-            className="w-full h-8 text-xs font-semibold gap-1.5 justify-center hover:bg-muted"
-          >
-            <GripHorizontal className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Rearrange Dashboard</span>
-          </Button>
-        )}
       </div>
 
       {/* Quick Links */}
