@@ -104,6 +104,7 @@ import { DateRangeNavigator } from "@/components/commons/date-range-navigator.js
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { BentoTile } from "@/components/commons/bento.jsx"
+import { MetricsSidebar, METRIC_GROUPS } from "@/components/institution/metrics-sidebar.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import {
   getDepartmentStats,
@@ -319,6 +320,7 @@ export default function DepartmentHeadDashboardPage() {
   const layout = useDashboardLayout("department-head")
   const [range, setRange] = useState(null)
   const [comparisonType, setComparisonType] = useState("previous_period")
+  const [activeMetricsCategory, setActiveMetricsCategory] = useState("all")
   const [isMediumScreen, setIsMediumScreen] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
   )
@@ -2740,6 +2742,14 @@ export default function DepartmentHeadDashboardPage() {
     toggleTileCollapse,
   ])
 
+  const visibleTiles = useMemo(() => {
+    if (activeMetricsCategory === "all") return tiles
+    const group = METRIC_GROUPS.find((g) => g.category === activeMetricsCategory)
+    if (!group) return tiles
+    const allowedIds = new Set(group.items.map((i) => i.id))
+    return tiles.filter((t) => allowedIds.has(t.id))
+  }, [tiles, activeMetricsCategory])
+
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
   if (departmentsQuery.isError)
     return <InstitutionErrorState title="Unable to load your departments" onRetry={departmentsQuery.refetch} />
@@ -2950,16 +2960,34 @@ export default function DepartmentHeadDashboardPage() {
         </div>
       ) : null}
 
-      {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
-      <DepartmentAlertStrip alerts={alerts} />
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+        <MetricsSidebar
+          collapsedTiles={collapsedTiles}
+          onExpandTile={(tileId) => {
+            setCollapsedTiles((prev) => ({ ...prev, [tileId]: false }))
+          }}
+          areAllCollapsed={areAllCollapsed}
+          onToggleAllCollapse={toggleAllCollapse}
+          rearranging={layout.rearranging}
+          onStartRearranging={layout.startRearranging}
+          onFinishRearranging={layout.finishRearranging}
+          activeCategory={activeMetricsCategory}
+          onSelectCategory={setActiveMetricsCategory}
+        />
 
-      <DashboardBoard
-        tiles={tiles}
-        layout={layout.tileLayout}
-        editing={layout.rearranging}
-        onLayoutChange={layout.handleLayoutChange}
-        collapsedTiles={collapsedTiles}
-      />
+        <div className="min-w-0 space-y-6">
+          {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
+          <DepartmentAlertStrip alerts={alerts} />
+
+          <DashboardBoard
+            tiles={visibleTiles}
+            layout={layout.tileLayout}
+            editing={layout.rearranging}
+            onLayoutChange={layout.handleLayoutChange}
+            collapsedTiles={collapsedTiles}
+          />
+        </div>
+      </div>
 
       {createSectionOpen && primaryDeptId ? (
         <SectionDialog

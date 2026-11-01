@@ -52,6 +52,7 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
+import { DepartmentsSidebar } from "@/components/institution/departments-sidebar.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import {
@@ -797,6 +798,9 @@ export default function DepartmentsPage() {
 
   const data = useInstitutionData(institutionId)
   const [manageGroup, setManageGroup] = useState(null)
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
   const queryClient = useQueryClient()
 
   const departmentsQuery = useQuery({
@@ -825,6 +829,27 @@ export default function DepartmentsPage() {
       group.status === "active" &&
       (scopedInstitutionCertId == null || (group.institutionCertIds ?? []).includes(scopedInstitutionCertId))
   )
+
+  const filteredGroups = useMemo(() => {
+    return groups.filter((group) => {
+      if (selectedDepartmentId != null && group.departmentId !== selectedDepartmentId) {
+        return false
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = (group.departmentName || "").toLowerCase().includes(q)
+        const matchDesc = (group.departmentDescription || "").toLowerCase().includes(q)
+        const matchCert = (group.certifications || []).some((c) => (c.title || "").toLowerCase().includes(q))
+        if (!matchName && !matchDesc && !matchCert) return false
+      }
+      if (statusFilter === "available") {
+        const total = group.totalSlots ?? 0
+        const used = group.usedSlots ?? 0
+        if (used >= total) return false
+      }
+      return true
+    })
+  }, [groups, selectedDepartmentId, searchQuery, statusFilter])
 
   const scopedCertification = scopedInstitutionCertId != null
     ? data.certificationById.get(data.institutionCertById.get(scopedInstitutionCertId)?.certificationId)
@@ -882,14 +907,46 @@ export default function DepartmentsPage() {
           description="A department appears here automatically once your certification access is paid and active."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {groups.map((group) => (
-            <DepartmentCard
-              key={group.departmentId}
-              group={group}
-              onManage={setManageGroup}
-            />
-          ))}
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+          <DepartmentsSidebar
+            departments={groups}
+            selectedDepartmentId={selectedDepartmentId}
+            onSelectDepartment={setSelectedDepartmentId}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+          />
+          <div className="min-w-0 space-y-4">
+            {filteredGroups.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border/80 bg-card/40 p-10 text-center text-sm text-muted-foreground space-y-2">
+                <p className="font-semibold text-foreground">No matching departments found</p>
+                <p className="text-xs">Try adjusting your search query or filter selection.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setSelectedDepartmentId(null)
+                    setStatusFilter("all")
+                  }}
+                  className="mt-2 text-xs"
+                >
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {filteredGroups.map((group) => (
+                  <DepartmentCard
+                    key={group.departmentId}
+                    group={group}
+                    onManage={setManageGroup}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

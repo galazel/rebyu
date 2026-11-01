@@ -123,13 +123,31 @@ const departmentHeadGroups = [
         label: "Programs",
         href: "/institution/programs",
         icon: UsersRound,
-        match: ["/institution/programs", "/institution/departments"],
+        match: ["/institution/programs"],
       },
+    ],
+  },
+  {
+    label: "Department Management",
+    icon: Building2,
+    items: [
       {
-        label: "Department Workspace",
+        label: "Department Management",
         href: "/institution/departments",
-        icon: BookOpen,
+        icon: Building2,
         match: ["/institution/departments"],
+      },
+    ],
+  },
+  {
+    label: "Metrics",
+    icon: BarChart3,
+    items: [
+      {
+        label: "Metrics",
+        href: "/institution/metrics",
+        icon: BarChart3,
+        match: ["/institution/metrics"],
       },
     ],
   },
@@ -336,8 +354,16 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
     <>
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md shadow-xs transition-shadow">
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
-          <Brand role={role} institutionName={institutionName} />
-          <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
+          <div className={cn("flex items-center", isInstitutionRole(role) ? "flex-1 min-w-0 justify-start" : "shrink-0")}>
+            <Brand role={role} institutionName={institutionName} />
+          </div>
+          <nav
+            className={cn(
+              "hidden min-w-0 items-center gap-1 lg:flex",
+              isInstitutionRole(role) ? "justify-center shrink-0" : "flex-1 justify-start"
+            )}
+            aria-label={`${role.toLowerCase()} navigation`}
+          >
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {
                   const Icon = item.icon
@@ -362,7 +388,12 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
                   <GroupDropdown key={group.label} group={group} pathname={location.pathname} />
                 ))}
           </nav>
-          <div className="flex flex-1 items-center justify-end gap-1.5 lg:flex-none">
+          <div
+            className={cn(
+              "flex items-center justify-end gap-1.5",
+              isInstitutionRole(role) ? "flex-1 min-w-0" : "flex-1 lg:flex-none"
+            )}
+          >
             {groups.length > 0 ? (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>

@@ -143,6 +143,13 @@ function InstitutionDashboardEntry() {
         : <Navigate to="/institution/department-head" replace />
 }
 
+function InstitutionMetricsEntry() {
+    const { user } = useAuth()
+    return isInstitutionOwner(user)
+        ? <InstitutionDashboardPage />
+        : <DepartmentHeadDashboardPage />
+}
+
 function RouteTransition({ children }) {
     const { pathname } = useLocation()
     const ref = useRef(null)
@@ -370,6 +377,7 @@ export function App() {
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
                     <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
                     <Route path="programs" element={<DepartmentHeadProgramsPage />} />
+                    <Route path="metrics" element={<InstitutionMetricsEntry />} />
                     <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
                     <Route path="learners" element={<InstitutionLearnersPage />} />
                     <Route

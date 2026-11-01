@@ -21,3 +21,4 @@ python-backend/scripts/finetune_dataset/out/
 python-backend/scripts/fe_papers/parsed_quarantine/
 frontend/dept_head_checklist_update.md
 frontend/frontend_Instructions.txt
+frontend/UI_problems.txt
