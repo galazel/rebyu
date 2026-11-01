@@ -5,7 +5,7 @@ import {
   Award,
   BarChart3,
   Building2,
-  Calendar,
+  CalendarDays,
   Check,
   ChevronRight,
   CreditCard,
@@ -27,7 +27,7 @@ const OWNER_METRIC_ITEMS = [
   { id: "ent-progress-spread", label: "Readiness Spread", icon: Award, category: "Academics" },
   { id: "ent-departments", label: "Department Benchmarks", icon: Building2, category: "Academics" },
   { id: "ent-trend", label: "Activity Trends", icon: TrendingUp, category: "Activity" },
-  { id: "ent-expiring", label: "Access Windows", icon: Calendar, category: "Administration" },
+  { id: "ent-expiring", label: "Access Windows", icon: CalendarDays, category: "Administration" },
   { id: "ent-invites", label: "Invitations", icon: Mail, category: "Administration" },
 ]
 

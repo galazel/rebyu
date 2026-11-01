@@ -1,14 +1,16 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import {
   BarChart3,
   Building2,
-  CheckCircle2,
   ChevronRight,
-  Filter,
+  ChevronsUpDownIcon,
+  CreditCard,
   GraduationCap,
   Layers,
+  MailIcon,
   Search,
+  ShieldCheck,
   UsersRound,
   X,
 } from "@/components/icons"
@@ -18,15 +20,43 @@ import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 
+export const DEPARTMENT_FUNCTIONAL_GROUPS = [
+  {
+    category: "Allocations",
+    items: [
+      { id: "dept-overview", label: "Department Allocations", icon: Building2 },
+    ],
+  },
+  {
+    category: "Cohorts & Learners",
+    items: [
+      { id: "dept-section-breakdown", label: "Sections & Cohorts", icon: Layers },
+      { id: "dept-learner-table", label: "Student Roster", icon: UsersRound },
+    ],
+  },
+  {
+    category: "Administration",
+    items: [
+      { id: "dept-co-authorities", label: "Co-Authorities", icon: ShieldCheck },
+      { id: "dept-announcements", label: "Announcements", icon: MailIcon },
+      { id: "dept-invoices", label: "Invoices & Billing", icon: CreditCard },
+    ],
+  },
+]
+
 export function DepartmentsSidebar({
   departments = [],
   selectedDepartmentId = null,
   onSelectDepartment,
-  searchQuery = "",
-  onSearchChange,
-  statusFilter = "all",
-  onStatusFilterChange,
+  collapsedTiles = {},
+  onExpandTile,
+  areAllCollapsed = false,
+  onToggleAllCollapse,
+  activeCategory = "all",
+  onSelectCategory = () => {},
 }) {
+  const [searchQuery, setSearchQuery] = useState("")
+
   const stats = useMemo(() => {
     const totalDepartments = departments.length
     const totalSlots = departments.reduce((acc, d) => acc + (d.totalSlots ?? 0), 0)
@@ -35,17 +65,35 @@ export function DepartmentsSidebar({
     return { totalDepartments, totalSlots, usedSlots, utilizationRate }
   }, [departments])
 
-  const itemClass = (active) =>
-    cn(
-      "group relative flex w-full items-center justify-between gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-all min-h-[44px] lg:min-h-0",
-      active
-        ? "bg-primary text-primary-foreground shadow-xs font-semibold"
-        : "text-foreground hover:bg-muted/70 hover:text-foreground"
-    )
+  const filteredGroups = useMemo(() => {
+    return DEPARTMENT_FUNCTIONAL_GROUPS.map((group) => {
+      if (activeCategory !== "all" && group.category !== activeCategory) {
+        return { ...group, items: [] }
+      }
+      if (!searchQuery.trim()) return group
+      const q = searchQuery.toLowerCase()
+      const items = group.items.filter((item) => item.label.toLowerCase().includes(q))
+      return { ...group, items }
+    }).filter((group) => group.items.length > 0)
+  }, [activeCategory, searchQuery])
+
+  const handleTileClick = (tileId) => {
+    if (collapsedTiles[tileId] && onExpandTile) {
+      onExpandTile(tileId)
+    }
+    const element = document.getElementById(tileId)
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" })
+      element.classList.add("ring-2", "ring-primary", "ring-offset-2")
+      setTimeout(() => {
+        element.classList.remove("ring-2", "ring-primary", "ring-offset-2")
+      }, 1500)
+    }
+  }
 
   return (
     <aside aria-label="Departments sidebar" className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-      {/* Sidebar Header */}
+      {/* Header Card */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-3.5 shadow-xs backdrop-blur-xs space-y-3">
         <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/40">
           <div className="flex items-center gap-2">
@@ -54,40 +102,43 @@ export function DepartmentsSidebar({
             </span>
             <div>
               <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Departments
+                Management Index
               </h2>
               <p className="text-[11px] text-muted-foreground/80 font-medium">
-                {departments.length} assigned
+                6 Functional Areas
               </p>
             </div>
           </div>
-          {selectedDepartmentId != null ? (
+
+          {onToggleAllCollapse ? (
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              onClick={() => onSelectDepartment(null)}
-              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-              title="View all departments"
+              onClick={onToggleAllCollapse}
+              className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground font-semibold gap-1"
+              title={areAllCollapsed ? "Expand all tiles" : "Collapse all tiles"}
             >
-              Reset
+              <ChevronsUpDownIcon className="size-3" aria-hidden="true" />
+              <span>{areAllCollapsed ? "Expand" : "Collapse"}</span>
             </Button>
           ) : null}
         </div>
 
-        {/* Search input */}
+        {/* Search */}
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             type="text"
-            placeholder="Search departments..."
+            placeholder="Find functionality..."
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="h-8 pl-8 pr-7 text-xs bg-muted/20 border-border/60 focus-visible:bg-background"
           />
           {searchQuery ? (
             <button
               type="button"
-              onClick={() => onSearchChange("")}
+              onClick={() => setSearchQuery("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
               aria-label="Clear search"
             >
@@ -96,104 +147,115 @@ export function DepartmentsSidebar({
           ) : null}
         </div>
 
-        {/* Quick filter pills */}
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <button
-            type="button"
-            onClick={() => onStatusFilterChange("all")}
-            className={cn(
-              "px-2 py-0.5 rounded-md font-medium transition-colors",
-              statusFilter === "all"
-                ? "bg-foreground/10 text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            )}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            onClick={() => onStatusFilterChange("available")}
-            className={cn(
-              "px-2 py-0.5 rounded-md font-medium transition-colors",
-              statusFilter === "available"
-                ? "bg-foreground/10 text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            )}
-          >
-            Available slots
-          </button>
+        {/* Category Pills */}
+        <div className="flex flex-wrap items-center gap-1 text-[11px]">
+          {["all", "Allocations", "Cohorts & Learners", "Administration"].map((cat) => {
+            const label = cat === "all" ? "All" : cat.split(" ")[0]
+            const active = activeCategory === cat
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => onSelectCategory(cat)}
+                className={cn(
+                  "px-2 py-0.5 rounded-md font-medium transition-colors",
+                  active
+                    ? "bg-foreground/10 text-foreground font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Navigation List: Horizontal scroll on mobile, vertical on desktop */}
+      {/* Navigation List: Grouped items */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-2 shadow-xs backdrop-blur-xs">
         <div className="relative">
-          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-8 lg:pr-0">
-            {/* "All Departments" option */}
-            <button
-              type="button"
-              onClick={() => onSelectDepartment(null)}
-              className={itemClass(selectedDepartmentId === null)}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <UsersRound className="size-3.5 shrink-0 opacity-70" aria-hidden="true" />
-                <span className="truncate">All Departments</span>
+          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-3 lg:overflow-visible lg:pb-0 scrollbar-none pr-8 lg:pr-0">
+            {filteredGroups.map((group) => (
+              <div key={group.category} className="space-y-1">
+                <p className="hidden lg:block px-2.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                  {group.category}
+                </p>
+                <div className="flex gap-1.5 lg:flex-col lg:space-y-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon
+                    const isCollapsed = Boolean(collapsedTiles[item.id])
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleTileClick(item.id)}
+                        className="group flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-all min-h-[38px] lg:min-h-0 text-foreground hover:bg-muted/70"
+                        title={`Jump to ${item.label}`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Icon className="size-3.5 shrink-0 text-muted-foreground opacity-70 group-hover:opacity-100" />
+                          <span className="truncate">{item.label}</span>
+                        </div>
+                        {item.id !== "dept-overview" && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "hidden xl:inline-flex text-[9px] px-1 py-0 h-3.5 uppercase tracking-wider font-semibold border-border/50",
+                              isCollapsed
+                                ? "bg-muted/40 text-muted-foreground"
+                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                            )}
+                          >
+                            {isCollapsed ? "closed" : "active"}
+                          </Badge>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-              <Badge
-                variant={selectedDepartmentId === null ? "outline" : "secondary"}
-                className={cn(
-                  "text-[10px] px-1.5 py-0 h-4 shrink-0",
-                  selectedDepartmentId === null && "border-primary-foreground/30 text-primary-foreground"
-                )}
-              >
-                {departments.length}
-              </Badge>
-            </button>
-
-            {/* Department items */}
-            {departments.map((dept) => {
-              const active = selectedDepartmentId === dept.departmentId
-              const total = dept.totalSlots ?? 0
-              const used = dept.usedSlots ?? 0
-              const certCount = Array.isArray(dept.certifications) ? dept.certifications.length : 0
-
-              return (
-                <button
-                  key={dept.departmentId}
-                  type="button"
-                  onClick={() => onSelectDepartment(active ? null : dept.departmentId)}
-                  className={itemClass(active)}
-                >
-                  <div className="flex flex-col min-w-0 text-left">
-                    <span className="truncate font-medium">{dept.departmentName}</span>
-                    <span
-                      className={cn(
-                        "text-[10px] truncate",
-                        active ? "text-primary-foreground/80" : "text-muted-foreground"
-                      )}
-                    >
-                      {certCount} cert{certCount === 1 ? "" : "s"} · {used}/{total} slots
-                    </span>
-                  </div>
-                  <ChevronRight
-                    className={cn(
-                      "size-3.5 shrink-0 transition-transform",
-                      active ? "rotate-90 text-primary-foreground" : "opacity-40 group-hover:opacity-100"
-                    )}
-                    aria-hidden="true"
-                  />
-                </button>
-              )
-            })}
+            ))}
           </div>
 
-          {/* Right fade indicator on mobile scroll */}
           <div
             className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-card via-card/70 to-transparent lg:hidden"
             aria-hidden="true"
           />
         </div>
       </div>
+
+      {/* Department Selector */}
+      {departments.length > 1 && (
+        <div className="hidden lg:block rounded-2xl border border-border/60 bg-muted/20 p-3 space-y-2 text-xs">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Switch Department
+          </p>
+          <div className="space-y-1">
+            {departments.map((dept) => {
+              const active = selectedDepartmentId === dept.departmentId
+              return (
+                <button
+                  key={dept.departmentId}
+                  type="button"
+                  onClick={() => onSelectDepartment?.(dept.departmentId)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <span className="truncate">{dept.departmentName}</span>
+                  <span className="text-[10px] opacity-80 shrink-0">
+                    {dept.usedSlots ?? 0}/{dept.totalSlots ?? 0}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Capacity & Usage Summary Card */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-muted/20 p-3.5 text-xs space-y-2.5">
@@ -210,21 +272,11 @@ export function DepartmentsSidebar({
         </div>
       </div>
 
-      {/* Portal Quick Links */}
+      {/* Quick Links */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-card/60 p-3 space-y-1.5 text-xs">
         <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Related Pages
         </p>
-        <Link
-          to="/institution/programs"
-          className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors font-medium"
-        >
-          <div className="flex items-center gap-2">
-            <GraduationCap className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Programs</span>
-          </div>
-          <ChevronRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
-        </Link>
         <Link
           to="/institution/metrics"
           className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors font-medium"
@@ -232,6 +284,16 @@ export function DepartmentsSidebar({
           <div className="flex items-center gap-2">
             <BarChart3 className="size-3.5 text-muted-foreground" aria-hidden="true" />
             <span>Metrics & Analytics</span>
+          </div>
+          <ChevronRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
+        </Link>
+        <Link
+          to="/institution/programs"
+          className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors font-medium"
+        >
+          <div className="flex items-center gap-2">
+            <GraduationCap className="size-3.5 text-muted-foreground" aria-hidden="true" />
+            <span>Programs</span>
           </div>
           <ChevronRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
         </Link>

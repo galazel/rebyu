@@ -53,6 +53,7 @@ import {
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import { DepartmentsSidebar } from "@/components/institution/departments-sidebar.jsx"
+import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import {
@@ -791,6 +792,8 @@ function DepartmentCard({ group, onManage }) {
 export default function DepartmentsPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
+  const { user } = useAuth()
+  const isOwner = isInstitutionOwner(user)
   const institutionId = institution?.institutionId
   const [searchParams] = useSearchParams()
   const scopedInstitutionCertIdParam = searchParams.get("institutionCertId")
@@ -801,6 +804,8 @@ export default function DepartmentsPage() {
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [collapsedTiles, setCollapsedTiles] = useState({})
+  const [activeCategory, setActiveCategory] = useState("all")
   const queryClient = useQueryClient()
 
   const departmentsQuery = useQuery({
@@ -854,6 +859,58 @@ export default function DepartmentsPage() {
   const scopedCertification = scopedInstitutionCertId != null
     ? data.certificationById.get(data.institutionCertById.get(scopedInstitutionCertId)?.certificationId)
     : null
+
+  const activeDepartment = useMemo(() => {
+    if (selectedDepartmentId != null) {
+      return groups.find((g) => g.departmentId === selectedDepartmentId) ?? groups[0]
+    }
+    return groups[0]
+  }, [groups, selectedDepartmentId])
+  const activeDepartmentId = activeDepartment?.departmentId ?? activeDepartment?.id
+
+  const allManagementTileIds = useMemo(
+    () => [
+      "dept-overview",
+      "dept-section-breakdown",
+      "dept-learner-table",
+      "dept-co-authorities",
+      "dept-announcements",
+      "dept-invoices",
+    ],
+    []
+  )
+
+  const areAllCollapsed = useMemo(
+    () => allManagementTileIds.every((id) => Boolean(collapsedTiles[id])),
+    [allManagementTileIds, collapsedTiles]
+  )
+
+  const toggleAllCollapse = () => {
+    const next = !areAllCollapsed
+    const update = {}
+    for (const id of allManagementTileIds) {
+      update[id] = next
+    }
+    setCollapsedTiles(update)
+  }
+
+  const toggleTileCollapse = (id) => {
+    setCollapsedTiles((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "")
+      const el = document.getElementById(id)
+      if (el) {
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          el.classList.add("ring-2", "ring-primary", "ring-offset-2")
+          setTimeout(() => el.classList.remove("ring-2", "ring-primary", "ring-offset-2"), 1500)
+        }, 250)
+      }
+    }
+  }, [])
 
   if (institutionLoading || (institution && data.isLoading)) {
     return <InstitutionLoadingSkeleton />
@@ -912,40 +969,62 @@ export default function DepartmentsPage() {
             departments={groups}
             selectedDepartmentId={selectedDepartmentId}
             onSelectDepartment={setSelectedDepartmentId}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
+            collapsedTiles={collapsedTiles}
+            onExpandTile={(tileId) => setCollapsedTiles((prev) => ({ ...prev, [tileId]: false }))}
+            areAllCollapsed={areAllCollapsed}
+            onToggleAllCollapse={toggleAllCollapse}
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
           />
-          <div className="min-w-0 space-y-4">
-            {filteredGroups.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-border/80 bg-card/40 p-10 text-center text-sm text-muted-foreground space-y-2">
-                <p className="font-semibold text-foreground">No matching departments found</p>
-                <p className="text-xs">Try adjusting your search query or filter selection.</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearchQuery("")
-                    setSelectedDepartmentId(null)
-                    setStatusFilter("all")
-                  }}
-                  className="mt-2 text-xs"
-                >
-                  Clear filters
-                </Button>
+          <div className="min-w-0 space-y-6">
+            <div id="dept-overview" className="scroll-mt-24 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Department Allocations</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Active departments, certification allocations, and seat quotas.
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredGroups.map((group) => (
-                  <DepartmentCard
-                    key={group.departmentId}
-                    group={group}
-                    onManage={setManageGroup}
-                  />
-                ))}
-              </div>
-            )}
+
+              {filteredGroups.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border/80 bg-card/40 p-10 text-center text-sm text-muted-foreground space-y-2">
+                  <p className="font-semibold text-foreground">No matching departments found</p>
+                  <p className="text-xs">Try adjusting your search query or filter selection.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery("")
+                      setSelectedDepartmentId(null)
+                      setStatusFilter("all")
+                    }}
+                    className="mt-2 text-xs"
+                  >
+                    Clear filters
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredGroups.map((group) => (
+                    <DepartmentCard
+                      key={group.departmentId}
+                      group={group}
+                      onManage={setManageGroup}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DepartmentManagementBoard
+              departmentId={activeDepartmentId}
+              department={activeDepartment}
+              isOwner={isOwner}
+              collapsedTiles={collapsedTiles}
+              onToggleCollapse={toggleTileCollapse}
+              activeCategory={activeCategory}
+            />
           </div>
         </div>
       )}

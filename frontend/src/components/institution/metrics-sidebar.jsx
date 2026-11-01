@@ -6,20 +6,15 @@ import {
   BarChart3,
   Building2,
   Check,
-  ChevronDown,
   ChevronRight,
   ChevronsUpDownIcon,
   ClipboardListIcon,
-  CreditCard,
   GraduationCap,
   GripHorizontal,
   History,
   Layers,
-  MailIcon,
   Search,
-  ShieldCheck,
   TargetIcon,
-  UsersRound,
   X,
 } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
@@ -29,30 +24,25 @@ import { cn } from "@/lib/utils"
 
 export const METRIC_GROUPS = [
   {
-    category: "Academics",
+    category: "Curriculum Pacing",
     items: [
       { id: "dept-progress", label: "Progress & Coverage", icon: TargetIcon },
-      { id: "dept-completion-spread", label: "Readiness & Spread", icon: Award },
-      { id: "dept-hard-topics", label: "Challenging Topics", icon: AlertTriangle },
-      { id: "dept-hard-assessments", label: "Assessment Pass Rates", icon: ClipboardListIcon },
       { id: "dept-period-comparison", label: "Period Comparison", icon: History },
     ],
   },
   {
-    category: "Programs & Cohorts",
+    category: "Programme Health",
     items: [
-      { id: "dept-programme-enrolment", label: "Program Enrolment", icon: GraduationCap },
-      { id: "dept-programme-table", label: "Program Breakdown", icon: Layers },
-      { id: "dept-section-breakdown", label: "Sections & Cohorts", icon: Layers },
+      { id: "dept-programme-enrolment", label: "Programme Enrolment", icon: GraduationCap },
+      { id: "dept-programme-table", label: "Programme Scorecard", icon: Layers },
     ],
   },
   {
-    category: "Management & Directory",
+    category: "Teaching Signals",
     items: [
-      { id: "dept-learner-table", label: "Learner Directory", icon: UsersRound },
-      { id: "dept-co-authorities", label: "Co-Authorities", icon: ShieldCheck },
-      { id: "dept-announcements", label: "Announcements", icon: MailIcon },
-      { id: "dept-invoices", label: "Invoices & Seats", icon: CreditCard },
+      { id: "dept-completion-spread", label: "Readiness & Spread", icon: Award },
+      { id: "dept-hard-topics", label: "Challenging Topics", icon: AlertTriangle },
+      { id: "dept-hard-assessments", label: "Assessment Pass Rates", icon: ClipboardListIcon },
     ],
   },
 ]
@@ -111,7 +101,7 @@ export function MetricsSidebar({
                 Metrics Index
               </h2>
               <p className="text-[11px] text-muted-foreground/80 font-medium">
-                12 Analytical Cards
+                7 Analytics Tiles
               </p>
             </div>
           </div>
@@ -153,7 +143,7 @@ export function MetricsSidebar({
 
         {/* Category Pills */}
         <div className="flex flex-wrap items-center gap-1 text-[11px]">
-          {["all", "Academics", "Programs & Cohorts", "Management & Directory"].map((cat) => {
+          {["all", "Curriculum Pacing", "Programme Health", "Teaching Signals"].map((cat) => {
             const label = cat === "all" ? "All" : cat.split(" ")[0]
             const active = activeCategory === cat
             return (
@@ -175,7 +165,7 @@ export function MetricsSidebar({
         </div>
       </div>
 
-      {/* Metric Items List: Horizontal scroll on mobile, grouped vertical on desktop */}
+      {/* Metric Items List */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-2 shadow-xs backdrop-blur-xs">
         <div className="relative">
           <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-3 lg:overflow-visible lg:pb-0 scrollbar-none pr-8 lg:pr-0">
@@ -232,7 +222,6 @@ export function MetricsSidebar({
             ))}
           </div>
 
-          {/* Right fade indicator on mobile scroll */}
           <div
             className="pointer-events-none absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-card via-card/70 to-transparent lg:hidden"
             aria-hidden="true"
@@ -240,7 +229,7 @@ export function MetricsSidebar({
         </div>
       </div>
 
-      {/* Board Layout Controls in Sidebar */}
+      {/* Board Layout Controls */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-muted/20 p-3 space-y-2 text-xs">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Board Customization
@@ -273,7 +262,7 @@ export function MetricsSidebar({
       {/* Quick Links */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-card/60 p-3 space-y-1.5 text-xs">
         <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Department Portal
+          Management
         </p>
         <Link
           to="/institution/departments"
@@ -282,16 +271,6 @@ export function MetricsSidebar({
           <div className="flex items-center gap-2">
             <Building2 className="size-3.5 text-muted-foreground" aria-hidden="true" />
             <span>Department Management</span>
-          </div>
-          <ChevronRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
-        </Link>
-        <Link
-          to="/institution/programs"
-          className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors font-medium"
-        >
-          <div className="flex items-center gap-2">
-            <GraduationCap className="size-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Programs</span>
           </div>
           <ChevronRight className="size-3 text-muted-foreground/60" aria-hidden="true" />
         </Link>
