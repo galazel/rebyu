@@ -1573,13 +1573,9 @@ export default function DepartmentHeadDashboardPage() {
     activeFeature,
   ])
 
-  const visibleTiles = useMemo(() => {
-    if (activeMetricsCategory === "all") return tiles
-    const group = METRIC_GROUPS.find((g) => g.category === activeMetricsCategory)
-    if (!group) return tiles
-    const allowedIds = new Set(group.items.map((i) => i.id))
-    return tiles.filter((t) => allowedIds.has(t.id))
-  }, [tiles, activeMetricsCategory])
+  const activeTile = useMemo(() => {
+    return tiles.find((t) => t.id === activeFeature) || tiles[0]
+  }, [tiles, activeFeature])
 
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
   if (departmentsQuery.isError)
