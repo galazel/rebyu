@@ -51,7 +51,9 @@ export function useDashboardLayout(board) {
 
   const resetLayout = () => {
     setLocalLayout([])
+    queryClient.setQueryData(queryKey, { tiles: [] })
     saveLayoutMutation.mutate([])
+    toast.success("Layout reset to default")
   }
 
   const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)

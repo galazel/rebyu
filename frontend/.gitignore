@@ -31,5 +31,24 @@ src/hooks/use-mobile.d.ts
 src/lib/utils.js
 src/lib/utils.d.ts
 
+# Automation and screenshot scripts
+scripts/shoot-attempt-screenshots.mjs
+scripts/*screenshot*
+scripts/*automation*
+scripts/automation/
+
+# Local checklists, reviews, credentials and scratch notes
+*checklist*.md
+*.checklist.md
+*review*.md
+*verification*.md
+*.local.md
 DEPARTMENT_HEAD_PAGE_CHECKLIST.local.md
 INSTITUTION_DASHBOARD_FUNCTIONALITIES.md
+dept_head_visual_improvement_checklist.md
+dept_head_mobile_ui_bugs_checklist.md
+dept_head_mobile_fixes_verification_review.md
+dept_head_checklist_update.md
+login credentials.txt
+
+*.ps1

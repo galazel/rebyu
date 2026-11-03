@@ -170,7 +170,7 @@ function AnnouncementsTab({ departmentId }) {
   return (
     <div className="space-y-5">
       <div ref={formRef} className="scroll-mt-24">
-      <Card className={editing ? "border-primary/40 ring-1 ring-primary/20" : undefined}>
+      <Card className={editing ? "border-l-4 border-l-primary border-primary/40 ring-1 ring-primary/20" : undefined}>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">{editing ? "Edit announcement" : "Post an announcement"}</CardTitle>
           <CardDescription>
@@ -196,7 +196,7 @@ function AnnouncementsTab({ departmentId }) {
               id="announcement-body"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              rows={3}
+              rows={4}
               placeholder="What do your learners need to know?"
             />
           </div>
@@ -207,7 +207,7 @@ function AnnouncementsTab({ departmentId }) {
             </label>
             <div className="flex items-center gap-2">
               {editing ? (
-                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending}>
+                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending} className="min-h-[44px] sm:min-h-0 sm:h-9">
                   Cancel
                 </Button>
               ) : null}
@@ -215,6 +215,7 @@ function AnnouncementsTab({ departmentId }) {
                 type="button"
                 onClick={() => saveMutation.mutate()}
                 disabled={!title.trim() || !body.trim() || saveMutation.isPending || unchanged}
+                className="min-h-[44px] sm:min-h-0 sm:h-9"
               >
                 {saveMutation.isPending ? (
                   <>
@@ -258,7 +259,7 @@ function AnnouncementsTab({ departmentId }) {
                 key={item.departmentAnnouncementId}
                 className={isEditing ? "border-primary/40 bg-primary/5" : undefined}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 space-y-0 pb-2">
                   <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2 text-base">
                       {item.pinned ? <PinIcon className="size-3.5 text-primary" aria-hidden="true" /> : null}
@@ -269,7 +270,7 @@ function AnnouncementsTab({ departmentId }) {
                       {edited ? ` · edited ${formatDateTime(item.updatedAt)}` : ""}
                     </CardDescription>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -551,7 +552,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   return (
     <div className="space-y-6">
       {program ? (
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant="ghost" size="sm" className="min-h-[44px] self-start text-xs sm:text-sm font-medium gap-1.5 px-2">
           <Link to="/institution/programs">
             <ArrowLeftIcon className="size-4" />
             All programs
@@ -571,7 +572,7 @@ export default function InstitutionDepartmentWorkspacePage() {
             ? undefined
             : group?.departmentDescription || group?.description || "Your assigned group workspace."
         }
-        actions={<Badge>{program ? "Program" : "Assigned department"}</Badge>}
+        actions={<Badge variant="secondary" className="text-xs font-semibold">{program ? "Program" : "Assigned department"}</Badge>}
       />
       <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <WorkspaceSidebar
@@ -609,7 +610,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                 New assessments start as drafts — publish one before your learners can access it.
               </p>
             </div>
-            <Button asChild disabled={!certification}>
+            <Button asChild disabled={!certification} className="min-h-[44px] sm:min-h-0 sm:h-9 w-full sm:w-auto">
               <Link to={`/institution/departments/${id}/assessments/new?certificationId=${groupCertificationId ?? ""}`}>
                 <Plus className="size-4" aria-hidden="true" />
                 Create Assessment
@@ -620,33 +621,39 @@ export default function InstitutionDepartmentWorkspacePage() {
           {ownGroupExams.length ? (
             <ul className="divide-y rounded-xl border bg-card">
               {ownGroupExams.map((exam) => (
-                <li key={exam.examId} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewExam(exam)}
-                    className="min-w-0 text-left"
-                  >
-                    <p className="truncate text-sm font-medium text-foreground hover:underline">
-                      {exam.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {exam.totalQuestions ?? 0}{" "}
-                      {(exam.totalQuestions ?? 0) === 1 ? "question" : "questions"}
-                      {exam.durationMinutes ? ` · ${exam.durationMinutes} min` : ""}
-                      {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
-                    </p>
-                  </button>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Badge variant="outline">
-                      {examTypeById.get(exam.examTypeId) ?? "Assessment"}
-                    </Badge>
-                    <InstitutionStatusBadge status={exam.status} />
+                <li key={exam.examId} className="space-y-3 p-3.5 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewExam(exam)}
+                      className="min-w-0 text-left"
+                    >
+                      <p className="font-semibold text-foreground hover:underline break-words text-sm sm:text-base">
+                        {exam.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {exam.totalQuestions ?? 0}{" "}
+                        {(exam.totalQuestions ?? 0) === 1 ? "question" : "questions"}
+                        {exam.durationMinutes ? ` · ${exam.durationMinutes} min` : ""}
+                        {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
+                      </p>
+                    </button>
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                      <Badge variant="outline" className="text-xs">
+                        {examTypeById.get(exam.examTypeId) ?? "Assessment"}
+                      </Badge>
+                      <InstitutionStatusBadge status={exam.status} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40 sm:border-t-0 sm:pt-0 sm:justify-end">
                     {exam.status === "PUBLISHED" ? (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => unpublishExamMutation.mutate(exam.examId)}
                         disabled={unpublishExamMutation.isPending}
+                        className="flex-1 sm:flex-none text-xs"
                       >
                         Unpublish
                       </Button>
@@ -656,16 +663,17 @@ export default function InstitutionDepartmentWorkspacePage() {
                         size="sm"
                         onClick={() => publishExamMutation.mutate(exam.examId)}
                         disabled={publishExamMutation.isPending}
+                        className="flex-1 sm:flex-none text-xs"
                       >
                         {exam.status === "ARCHIVED" ? "Republish" : "Publish"}
                       </Button>
                     )}
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results?certificationId=${groupCertificationId ?? ""}`}>
                         Results
                       </Link>
                     </Button>
-                    <Button asChild variant="ghost" size="sm">
+                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit?certificationId=${groupCertificationId ?? ""}`}>
                         Edit
                       </Link>
@@ -675,7 +683,7 @@ export default function InstitutionDepartmentWorkspacePage() {
                       size="icon"
                       aria-label={`Delete ${exam.title}`}
                       onClick={() => setDeleteExamTarget(exam)}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="size-9 sm:size-8 text-muted-foreground hover:text-destructive shrink-0 min-h-[36px] min-w-[36px]"
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -787,8 +795,8 @@ const WORKSPACE_PAGES = [
 // One certification picker, then the same pages for whichever is chosen.
 function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificationId, onSelect }) {
   const item = (active) =>
-    `flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors ${
-      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+    `flex shrink-0 items-center rounded-lg px-3.5 py-2.5 text-left text-sm font-semibold transition-colors whitespace-nowrap min-h-[44px] lg:min-h-0 ${
+      active ? "bg-primary text-primary-foreground shadow-xs" : "text-foreground hover:bg-muted"
     }`
   return (
     <nav aria-label="Workspace" className="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -802,7 +810,7 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
             value={activeCertificationId != null ? String(activeCertificationId) : undefined}
             onValueChange={(value) => onSelect(activeTab, Number(value))}
           >
-            <SelectTrigger id="workspace-certification" className="w-full">
+            <SelectTrigger id="workspace-certification" className="w-full min-h-[44px] lg:min-h-0">
               <SelectValue placeholder="Choose a certification" />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -815,18 +823,29 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
           </Select>
         </div>
       ) : null}
-      <div className="space-y-1">
-        {WORKSPACE_PAGES.map((page) => (
-          <button
-            key={page.tab}
-            type="button"
-            aria-current={activeTab === page.tab ? "page" : undefined}
-            className={item(activeTab === page.tab)}
-            onClick={() => onSelect(page.tab)}
-          >
-            {page.label}
-          </button>
-        ))}
+
+      {/* Horizontal scroll on mobile & tablet with right-fade gradient, vertical list on lg+ */}
+      <div>
+        <div className="relative">
+          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-8">
+            {WORKSPACE_PAGES.map((page) => (
+              <button
+                key={page.tab}
+                type="button"
+                aria-current={activeTab === page.tab ? "page" : undefined}
+                className={item(activeTab === page.tab)}
+                onClick={() => onSelect(page.tab)}
+              >
+                {page.label}
+              </button>
+            ))}
+          </div>
+          {/* Right-fade gradient to indicate overflow on mobile/tablet horizontal scroll */}
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-background via-background/70 to-transparent lg:hidden"
+            aria-hidden="true"
+          />
+        </div>
       </div>
     </nav>
   )

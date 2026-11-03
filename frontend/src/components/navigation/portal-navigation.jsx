@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Award,
   BarChart3,
+  BookOpen,
   BookOpenCheck,
   Bot,
   Building2,
@@ -122,7 +123,31 @@ const departmentHeadGroups = [
         label: "Programs & sections",
         href: "/institution/programs",
         icon: UsersRound,
-        match: ["/institution/programs", "/institution/departments"],
+        match: ["/institution/programs"],
+      },
+    ],
+  },
+  {
+    label: "Department Management",
+    icon: Building2,
+    items: [
+      {
+        label: "Department Management",
+        href: "/institution/departments",
+        icon: Building2,
+        match: ["/institution/departments"],
+      },
+    ],
+  },
+  {
+    label: "Metrics",
+    icon: BarChart3,
+    items: [
+      {
+        label: "Metrics",
+        href: "/institution/metrics",
+        icon: BarChart3,
+        match: ["/institution/metrics"],
       },
     ],
   },
@@ -190,7 +215,7 @@ function Brand({ role, institutionName, isDepartmentHead = false }) {
 
           {institutionName ? (
             <span
-              className="mt-[1px] block max-w-[200px] truncate text-[11px] font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs sm:text-xs md:max-w-md"
+              className="mt-[1px] block max-w-[120px] xs:max-w-[160px] truncate text-[10px] sm:text-xs font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs md:max-w-md"
               style={{ fontFamily: "var(--font-institution-body, 'Poppins', sans-serif)" }}
               title={institutionName}
             >
@@ -259,9 +284,18 @@ function GroupDropdown({ group, pathname }) {
 
 function NavigationMenuItem({ item }) {
   const Icon = item.icon
+  const location = useLocation()
+  const isCurrent = location.pathname === item.href
+
+  const handleClick = () => {
+    if (isCurrent) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }
+
   return (
     <DropdownMenuItem asChild>
-      <NavLink to={item.href} className="flex items-center gap-3 py-2.5">
+      <NavLink to={item.href} onClick={handleClick} className="flex items-center gap-3 py-2.5">
         <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>{item.label}</span>
       </NavLink>
@@ -320,10 +354,18 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b">
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md shadow-xs transition-shadow">
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
-          <Brand role={role} institutionName={institutionName} isDepartmentHead={isDepartmentHead} />
-          <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
+          <div className={cn("flex items-center", isInstitutionRole(role) ? "flex-1 min-w-0 justify-start" : "shrink-0")}>
+            <Brand role={role} institutionName={institutionName} isDepartmentHead={isDepartmentHead} />
+          </div>
+          <nav
+            className={cn(
+              "hidden min-w-0 items-center gap-1 lg:flex",
+              isInstitutionRole(role) ? "justify-center shrink-0" : "flex-1 justify-start"
+            )}
+            aria-label={`${role.toLowerCase()} navigation`}
+          >
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {
                   const Icon = item.icon
@@ -348,12 +390,39 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
                   <GroupDropdown key={group.label} group={group} pathname={location.pathname} />
                 ))}
           </nav>
-          <div className="flex flex-1 items-center justify-end gap-1.5 lg:flex-none">
+          <div
+            className={cn(
+              "flex items-center justify-end gap-1.5",
+              isInstitutionRole(role) ? "flex-1 min-w-0" : "flex-1 lg:flex-none"
+            )}
+          >
             {groups.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation"><Menu /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 p-2">
-                  {groups.map((group, index) => <div key={group.label}><DropdownMenuLabel>{group.label}</DropdownMenuLabel>{group.items.map((item) => <NavigationMenuItem key={item.href} item={item} />)}{index < groups.length - 1 ? <DropdownMenuSeparator /> : null}</div>)}
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-foreground hover:bg-muted/70"
+                    aria-label="Open navigation"
+                  >
+                    <Menu className="size-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  collisionPadding={8}
+                  className="w-72 p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto"
+                >
+                  {groups.map((group, index) => (
+                    <div key={group.label}>
+                      <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                      {group.items.map((item) => (
+                        <NavigationMenuItem key={item.href} item={item} />
+                      ))}
+                      {index < groups.length - 1 ? <DropdownMenuSeparator /> : null}
+                    </div>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

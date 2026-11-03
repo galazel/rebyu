@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
+import { ArrowLeft } from "@/components/icons"
 import { BrandLogo } from "@/components/brand-logo"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
@@ -33,9 +34,26 @@ export default function AuthShell({
   compact = false,
   side = "left",
   story = "recovery",
+  showBackButton = false,
+  backTo = "/",
+  backLabel = "Back",
+  onBack,
 }) {
+  const navigate = useNavigate()
   const formFirst = side === "left"
   const tale = STORIES[story] ?? STORIES.recovery
+
+  const handleBack = (e) => {
+    if (onBack) {
+      e.preventDefault()
+      onBack()
+      return
+    }
+    if (window.history.state && window.history.state.idx > 0) {
+      e.preventDefault()
+      navigate(-1)
+    }
+  }
 
   return (
     <main
@@ -57,6 +75,18 @@ export default function AuthShell({
             <span className="font-rb-display text-2xl leading-none text-rb-eel">REBYU</span>
           </Link>
 
+          {showBackButton ? (
+            <Link
+              to={backTo}
+              onClick={handleBack}
+              id="auth-back-button"
+              className="rb-btn rb-btn-ghost rb-btn-sm !min-h-[38px] !h-9.5 px-3 sm:!min-h-[42px] sm:!h-10 sm:px-4 gap-1.5 text-xs sm:text-sm font-bold normal-case text-rb-eel hover:text-rb-eel transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
+              aria-label={backLabel}
+            >
+              <ArrowLeft className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
+              <span>{backLabel}</span>
+            </Link>
+          ) : null}
         </div>
 
         <div

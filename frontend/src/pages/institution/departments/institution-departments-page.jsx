@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Mail, Plus, ShieldCheck, Trash2, UserCog, UserPlus, Users2, UsersRound } from "@/components/icons"
+import {
+  ChevronDown,
+  ChevronUpIcon,
+  Loader2,
+  Mail,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserCog,
+  UserPlus,
+  Users2,
+  UsersRound,
+} from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -14,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +52,9 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
+import { cn } from "@/lib/utils"
+import { DEPARTMENT_FUNCTIONAL_GROUPS, DepartmentsSidebar } from "@/components/institution/departments-sidebar.jsx"
+import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import {
@@ -282,7 +298,7 @@ export function ManageGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[80dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{group.departmentName}</DialogTitle>
           <DialogDescription>
@@ -290,21 +306,16 @@ export function ManageGroupDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {isOwner ? (
-            <section className="rounded-lg border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{group.departmentName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {group.departmentDescription?.trim() || "No description."}
-                    </p>
-                  </div>
-                </div>
-            </section>
+        <div className="space-y-4">
+          {isOwner && group.departmentDescription ? (
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <p className="text-xs text-muted-foreground">
+                {group.departmentDescription.trim()}
+              </p>
+            </div>
           ) : null}
 
-          <section className="flex items-center justify-between gap-3 rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-card">
             <div>
               <p className="text-sm font-medium">
                 {groupUsedSlots} / {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} used
@@ -313,368 +324,386 @@ export function ManageGroupDialog({
                 Matches the learner slots your institution holds for this certification.
               </p>
             </div>
-          </section>
+            <Badge variant="outline" className="text-xs tabular-nums">
+              {remainingSlots} left
+            </Badge>
+          </div>
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
-                <h3 className="text-sm font-medium">
-                  Authorities ({activeAuthorities.length})
-                </h3>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs font-semibold gap-1.5"
-                onClick={() => setCoAuthoritiesOpen(true)}
-              >
-                <ShieldCheck className="size-3.5" aria-hidden="true" />
-                Manage / Invite
-              </Button>
-            </div>
+          <Tabs defaultValue="members" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="members" className="text-xs sm:text-sm">
+                Members ({activeAssignees.length + departmentInvitations.length})
+              </TabsTrigger>
+              <TabsTrigger value="authorities" className="text-xs sm:text-sm">
+                Co-Authorities ({activeAuthorities.length})
+              </TabsTrigger>
+            </TabsList>
 
-            {isOwner ? (
-              <>
-                <div className="flex gap-2">
-                  <Select value={authorityUserId} onValueChange={setAuthorityUserId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a department head" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {assignableMembers.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          No one else to assign. Email a department head code instead.
-                        </SelectItem>
-                      ) : (
-                        assignableMembers.map((member) => (
-                          <SelectItem key={member.userId} value={String(member.userId)}>
-                            {memberLabel(member.userId)}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => assignAuthorityMutation.mutate()}
-                    disabled={!authorityUserId || assignAuthorityMutation.isPending}
-                  >
-                    <Plus className="size-4" aria-hidden="true" />
-                    Assign
-                  </Button>
+            <TabsContent value="members" className="space-y-6 pt-3">
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <h3 className="text-sm font-medium">
+                    Learner invitations ({remainingSlots} slot{remainingSlots === 1 ? "" : "s"} left)
+                  </h3>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => setShowInviteForm((prev) => !prev)}
-                >
-                  <Mail className="size-4" aria-hidden="true" />
-                  {showInviteForm ? "Cancel" : "Email a department head code"}
-                </Button>
-
-                {showInviteForm ? (
-                  <form
-                    className="space-y-3 rounded-lg border p-3"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      sendHeadCodeMutation.mutate()
-                    }}
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      We email them a one-time code. They create their own account with that email,
-                      choose Department, then enter the code after signing in.
-                    </p>
-                    <div className="space-y-1">
-                      <Label htmlFor="invite-email">Email</Label>
+                {isLeader ? (
+                  <div className="space-y-2">
+                    {groupCertifications.length > 1 ? (
+                      <Select
+                        value={String(learnerInviteCertId || groupCertIds[0] || "")}
+                        onValueChange={setLearnerInviteCertId}
+                      >
+                        <SelectTrigger className="w-full" aria-label="Certification to invite to">
+                          <SelectValue placeholder="Choose a certification" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {groupCertifications.map((cert) => (
+                            <SelectItem key={cert.institutionCertId} value={String(cert.institutionCertId)}>
+                              {cert.title} · {Math.max(0, (cert.totalSlots ?? 0) - (cert.usedSlots ?? 0))} slot(s) left
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                    <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
                       <Input
-                        id="invite-email"
-                        type="email"
-                        required
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="head@example.com"
+                        value={learnerInviteFirst}
+                        onChange={(e) => setLearnerInviteFirst(e.target.value)}
+                        placeholder="First name"
+                        disabled={remainingSlots <= 0}
                       />
+                      <Input
+                        value={learnerInviteLast}
+                        onChange={(e) => setLearnerInviteLast(e.target.value)}
+                        placeholder="Last name"
+                        disabled={remainingSlots <= 0}
+                      />
+                      <Input
+                        type="email"
+                        value={learnerInviteEmail}
+                        onChange={(e) => setLearnerInviteEmail(e.target.value)}
+                        placeholder="learner@example.com"
+                        disabled={remainingSlots <= 0}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => inviteLearnerMutation.mutate()}
+                        disabled={
+                          !learnerInviteEmail.trim() ||
+                          remainingSlots <= 0 ||
+                          inviteLearnerMutation.isPending
+                        }
+                      >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Invite
+                      </Button>
                     </div>
-                    <Button type="submit" disabled={!inviteEmail.trim() || sendHeadCodeMutation.isPending}>
-                      {sendHeadCodeMutation.isPending ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                          Sending code...
-                        </>
-                      ) : (
-                        "Send code"
-                      )}
-                    </Button>
-                  </form>
-                ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Only this department's head can invite learners.
+                  </p>
+                )}
 
-                {pendingHeadCodes.length > 0 ? (
+                {departmentInvitations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No invitations sent yet.</p>
+                ) : (
                   <ul className="divide-y rounded-lg border">
-                    {pendingHeadCodes.map((invite) => (
-                      <li key={invite.invitationId} className="flex items-center justify-between gap-2 px-3 py-2">
-                        <span className="min-w-0 truncate text-sm">
-                          {invite.accountName ? `${invite.accountName} (${invite.email})` : invite.email}
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {invite.accountName ? "account created, code not entered yet" : "code sent, no account yet"}
-                          </span>
+                    {departmentInvitations.map((inv) => (
+                      <li
+                        key={inv.invitationId}
+                        className="flex items-center justify-between gap-2 px-3 py-2"
+                      >
+                        <span className="flex items-center gap-2 text-sm">
+                          {inv.email}
+                          <InstitutionStatusBadge status={inv.status} />
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => cancelHeadCodeMutation.mutate(invite.invitationId)}
-                          disabled={cancelHeadCodeMutation.isPending}
-                        >
-                          Cancel
-                        </Button>
+                        {isLeader && inv.status === "PENDING" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => cancelInvitationMutation.mutate(inv.invitationId)}
+                            disabled={cancelInvitationMutation.isPending}
+                          >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                            Cancel
+                          </Button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
-                ) : null}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Only the institution owner can assign this department's head.
-              </p>
-            )}
+                )}
+              </section>
 
-            {authoritiesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading department heads...</p>
-            ) : activeAuthorities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No department head assigned yet. The institution assigns a department head who then
-                manages this department's learners.
-              </p>
-            ) : (
-              <ul className="divide-y rounded-lg border">
-                {activeAuthorities.map((authority) => (
-                  <li
-                    key={authority.departmentHeadAssignmentId}
-                    className="flex items-center justify-between gap-2 px-3 py-2"
-                  >
-                    <span className="text-sm">{memberLabel(authority.userId)}</span>
-                    {isOwner ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          removeAuthorityMutation.mutate(authority.departmentHeadAssignmentId)
-                        }
-                        disabled={removeAuthorityMutation.isPending}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                        Remove
-                      </Button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users2 className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <h3 className="text-sm font-medium">
+                    Learners ({activeAssignees.length})
+                  </h3>
+                </div>
 
-          <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
-              <h3 className="text-sm font-medium">
-                Learner invitations ({remainingSlots} slot{remainingSlots === 1 ? "" : "s"} left)
-              </h3>
-            </div>
-
-            {isLeader ? (
-              <div className="space-y-2">
-              {groupCertifications.length > 1 ? (
-                <Select
-                  value={String(learnerInviteCertId || groupCertIds[0] || "")}
-                  onValueChange={setLearnerInviteCertId}
-                >
-                  <SelectTrigger className="w-full" aria-label="Certification to invite to">
-                    <SelectValue placeholder="Choose a certification" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groupCertifications.map((cert) => (
-                      <SelectItem key={cert.institutionCertId} value={String(cert.institutionCertId)}>
-                        {cert.title} · {Math.max(0, (cert.totalSlots ?? 0) - (cert.usedSlots ?? 0))} slot(s) left
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-                <Input
-                  value={learnerInviteFirst}
-                  onChange={(e) => setLearnerInviteFirst(e.target.value)}
-                  placeholder="First name"
-                  disabled={remainingSlots <= 0}
-                />
-                <Input
-                  value={learnerInviteLast}
-                  onChange={(e) => setLearnerInviteLast(e.target.value)}
-                  placeholder="Last name"
-                  disabled={remainingSlots <= 0}
-                />
-                <Input
-                  type="email"
-                  value={learnerInviteEmail}
-                  onChange={(e) => setLearnerInviteEmail(e.target.value)}
-                  placeholder="learner@example.com"
-                  disabled={remainingSlots <= 0}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => inviteLearnerMutation.mutate()}
-                  disabled={
-                    !learnerInviteEmail.trim() ||
-                    remainingSlots <= 0 ||
-                    inviteLearnerMutation.isPending
-                  }
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                  Invite
-                </Button>
-              </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Only this department's head can invite learners.
-              </p>
-            )}
-
-            {departmentInvitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No invitations sent yet.</p>
-            ) : (
-              <ul className="divide-y rounded-lg border">
-                {departmentInvitations.map((inv) => (
-                  <li
-                    key={inv.invitationId}
-                    className="flex items-center justify-between gap-2 px-3 py-2"
-                  >
-                    <span className="flex items-center gap-2 text-sm">
-                      {inv.email}
-                      <InstitutionStatusBadge status={inv.status} />
-                    </span>
-                    {isLeader && inv.status === "PENDING" ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cancelInvitationMutation.mutate(inv.invitationId)}
-                        disabled={cancelInvitationMutation.isPending}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                        Cancel
-                      </Button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Users2 className="size-4 text-muted-foreground" aria-hidden="true" />
-              <h3 className="text-sm font-medium">
-                Learners ({activeAssignees.length})
-              </h3>
-            </div>
-
-            {isLeader ? (
-              <div className="flex gap-2">
-                <Select value={institutionCertLearnerId} onValueChange={setInstitutionCertLearnerId}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Add a learner with access to this certification" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableLearners.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No eligible learners
-                      </SelectItem>
-                    ) : (
-                      availableLearners.map((assignment) => (
-                        <SelectItem
-                          key={assignment.institutionCertLearnerId}
-                          value={String(assignment.institutionCertLearnerId)}
-                        >
-                          {getLearnerDisplayName(learnerById.get(assignment.learnerId))}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => addLearnerMutation.mutate()}
-                  disabled={!institutionCertLearnerId || addLearnerMutation.isPending}
-                >
-                  <Plus className="size-4" aria-hidden="true" />
-                  Add
-                </Button>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Only this department's head manages its learner roster.
-              </p>
-            )}
-
-            {assigneesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading learners...</p>
-            ) : activeAssignees.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No learners in this department yet.
-              </p>
-            ) : (
-              <ul className="divide-y rounded-lg border">
-                {activeAssignees.map((assignee) => {
-                  const isLead = assignee.role === "lead"
-                  return (
-                    <li
-                      key={assignee.departmentLearnerId}
-                      className="flex items-center justify-between gap-2 px-3 py-2"
+                {isLeader ? (
+                  <div className="flex gap-2">
+                    <Select value={institutionCertLearnerId} onValueChange={setInstitutionCertLearnerId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Add a learner with access to this certification" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableLearners.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No eligible learners
+                          </SelectItem>
+                        ) : (
+                          availableLearners.map((assignment) => (
+                            <SelectItem
+                              key={assignment.institutionCertLearnerId}
+                              value={String(assignment.institutionCertLearnerId)}
+                            >
+                              {getLearnerDisplayName(learnerById.get(assignment.learnerId))}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addLearnerMutation.mutate()}
+                      disabled={!institutionCertLearnerId || addLearnerMutation.isPending}
                     >
-                      <span className="flex items-center gap-2 text-sm">
-                        {getLearnerDisplayName(learnerById.get(assignee.learnerId))}
-                        {isLead ? <Badge variant="secondary">Lead</Badge> : null}
-                      </span>
-                      {isLeader ? (
-                        <div className="flex items-center gap-1">
+                      <Plus className="size-4" aria-hidden="true" />
+                      Add
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Only this department's head manages its learner roster.
+                  </p>
+                )}
+
+                {assigneesQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading learners...</p>
+                ) : activeAssignees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No learners in this department yet.
+                  </p>
+                ) : (
+                  <ul className="divide-y rounded-lg border">
+                    {activeAssignees.map((assignee) => {
+                      const isLead = assignee.role === "lead"
+                      return (
+                        <li
+                          key={assignee.departmentLearnerId}
+                          className="flex items-center justify-between gap-2 px-3 py-2"
+                        >
+                          <span className="flex items-center gap-2 text-sm">
+                            {getLearnerDisplayName(learnerById.get(assignee.learnerId))}
+                            {isLead ? <Badge variant="secondary">Lead</Badge> : null}
+                          </span>
+                          {isLeader ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  changeRoleMutation.mutate({
+                                    assigneeId: assignee.departmentLearnerId,
+                                    role: isLead ? "member" : "lead",
+                                  })
+                                }
+                                disabled={changeRoleMutation.isPending}
+                              >
+                                {isLead ? "Make member" : "Make lead"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  removeLearnerMutation.mutate(assignee.departmentLearnerId)
+                                }
+                                disabled={removeLearnerMutation.isPending}
+                              >
+                                <Trash2 className="size-4" aria-hidden="true" />
+                                Remove
+                              </Button>
+                            </div>
+                          ) : null}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
+
+            <TabsContent value="authorities" className="space-y-4 pt-3">
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
+                    <h3 className="text-sm font-medium">
+                      Authorities ({activeAuthorities.length})
+                    </h3>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs font-semibold gap-1.5"
+                    onClick={() => setCoAuthoritiesOpen(true)}
+                  >
+                    <ShieldCheck className="size-3.5" aria-hidden="true" />
+                    Manage / Invite
+                  </Button>
+                </div>
+
+                {isOwner ? (
+                  <>
+                    <div className="flex gap-2">
+                      <Select value={authorityUserId} onValueChange={setAuthorityUserId}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a department head" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assignableMembers.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No one else to assign. Email a department head code instead.
+                            </SelectItem>
+                          ) : (
+                            assignableMembers.map((member) => (
+                              <SelectItem key={member.userId} value={String(member.userId)}>
+                                {memberLabel(member.userId)}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => assignAuthorityMutation.mutate()}
+                        disabled={!authorityUserId || assignAuthorityMutation.isPending}
+                      >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Assign
+                      </Button>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={() => setShowInviteForm((prev) => !prev)}
+                    >
+                      <Mail className="size-4" aria-hidden="true" />
+                      {showInviteForm ? "Cancel" : "Email a department head code"}
+                    </Button>
+
+                    {showInviteForm ? (
+                      <form
+                        className="space-y-3 rounded-lg border p-3"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          sendHeadCodeMutation.mutate()
+                        }}
+                      >
+                        <p className="text-xs text-muted-foreground">
+                          We email them a one-time code. They create their own account with that email,
+                          choose Department, then enter the code after signing in.
+                        </p>
+                        <div className="space-y-1">
+                          <Label htmlFor="invite-email">Email</Label>
+                          <Input
+                            id="invite-email"
+                            type="email"
+                            required
+                            value={inviteEmail}
+                            onChange={(e) => setInviteEmail(e.target.value)}
+                            placeholder="head@example.com"
+                          />
+                        </div>
+                        <Button type="submit" disabled={!inviteEmail.trim() || sendHeadCodeMutation.isPending}>
+                          {sendHeadCodeMutation.isPending ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                              Sending code...
+                            </>
+                          ) : (
+                            "Send code"
+                          )}
+                        </Button>
+                      </form>
+                    ) : null}
+
+                    {pendingHeadCodes.length > 0 ? (
+                      <ul className="divide-y rounded-lg border">
+                        {pendingHeadCodes.map((invite) => (
+                          <li key={invite.invitationId} className="flex items-center justify-between gap-2 px-3 py-2">
+                            <span className="min-w-0 truncate text-sm">
+                              {invite.accountName ? `${invite.accountName} (${invite.email})` : invite.email}
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {invite.accountName ? "account created, code not entered yet" : "code sent, no account yet"}
+                              </span>
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => cancelHeadCodeMutation.mutate(invite.invitationId)}
+                              disabled={cancelHeadCodeMutation.isPending}
+                            >
+                              Cancel
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Only the institution owner can assign this department's head.
+                  </p>
+                )}
+
+                {authoritiesQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading department heads...</p>
+                ) : activeAuthorities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No department head assigned yet. The institution assigns a department head who then
+                    manages this department's learners.
+                  </p>
+                ) : (
+                  <ul className="divide-y rounded-lg border">
+                    {activeAuthorities.map((authority) => (
+                      <li
+                        key={authority.departmentHeadAssignmentId}
+                        className="flex items-center justify-between gap-2 px-3 py-2"
+                      >
+                        <span className="text-sm">{memberLabel(authority.userId)}</span>
+                        {isOwner ? (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              changeRoleMutation.mutate({
-                                assigneeId: assignee.departmentLearnerId,
-                                role: isLead ? "member" : "lead",
-                              })
+                              removeAuthorityMutation.mutate(authority.departmentHeadAssignmentId)
                             }
-                            disabled={changeRoleMutation.isPending}
-                          >
-                            {isLead ? "Make member" : "Make lead"}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              removeLearnerMutation.mutate(assignee.departmentLearnerId)
-                            }
-                            disabled={removeLearnerMutation.isPending}
+                            disabled={removeAuthorityMutation.isPending}
                           >
                             <Trash2 className="size-4" aria-hidden="true" />
                             Remove
                           </Button>
-                        </div>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </section>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
 
@@ -690,9 +719,82 @@ export function ManageGroupDialog({
   )
 }
 
+function DepartmentCard({ group, onManage }) {
+  const [showDetails, setShowDetails] = useState(false)
+  const coveredTitles = (group.certifications ?? []).map((cert) => cert.title).filter(Boolean)
+  const totalSlots = group.totalSlots ?? 0
+  const usedSlots = group.usedSlots ?? 0
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="space-y-2">
+        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-base truncate">{group.departmentName}</CardTitle>
+            <CardDescription className="line-clamp-2">
+              {coveredTitles.length > 0 ? coveredTitles.join(" · ") : "No certifications"}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start">
+            <Badge variant="outline" className="text-[11px] font-medium border-border/70">
+              {usedSlots} / {totalSlots} slots
+            </Badge>
+            <InstitutionStatusBadge status={group.status} />
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex-1 space-y-2 pt-0">
+        <button
+          type="button"
+          onClick={() => setShowDetails((prev) => !prev)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors min-h-[36px] sm:min-h-0 py-1"
+        >
+          {showDetails ? (
+            <ChevronUpIcon className="size-3.5 shrink-0" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
+          )}
+          <span>{showDetails ? "Hide details" : "Details"}</span>
+        </button>
+
+        {showDetails ? (
+          <div className="rounded-lg border bg-muted/20 p-2.5 text-xs text-muted-foreground space-y-1 animate-in fade-in-50 duration-150">
+            <p>{group.departmentDescription || "No department description provided."}</p>
+            {group.certifications?.length > 0 ? (
+              <p className="text-[11px] text-muted-foreground/80">
+                Certifications: {group.certifications.length} active
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+
+      <CardFooter className="gap-2 pt-2 border-t border-border/40">
+        <Button asChild size="sm" className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9">
+          <Link to={`/institution/departments/${group.departmentId}`}>
+            Open workspace
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-[44px] sm:min-h-0 sm:h-9"
+          onClick={() => onManage(group)}
+        >
+          <UserCog className="size-4" aria-hidden="true" />
+          Manage
+        </Button>
+      </CardFooter>
+    </Card>
+  )
+}
+
 export default function DepartmentsPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
+  const { user } = useAuth()
+  const isOwner = isInstitutionOwner(user)
   const institutionId = institution?.institutionId
   const [searchParams] = useSearchParams()
   const scopedInstitutionCertIdParam = searchParams.get("institutionCertId")
@@ -700,6 +802,11 @@ export default function DepartmentsPage() {
 
   const data = useInstitutionData(institutionId)
   const [manageGroup, setManageGroup] = useState(null)
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [activeFeature, setActiveFeature] = useState("dept-overview")
+  const [activeCategory, setActiveCategory] = useState("all")
   const queryClient = useQueryClient()
 
   const departmentsQuery = useQuery({
@@ -729,9 +836,59 @@ export default function DepartmentsPage() {
       (scopedInstitutionCertId == null || (group.institutionCertIds ?? []).includes(scopedInstitutionCertId))
   )
 
+  const filteredGroups = useMemo(() => {
+    return groups.filter((group) => {
+      if (selectedDepartmentId != null && group.departmentId !== selectedDepartmentId) {
+        return false
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = (group.departmentName || "").toLowerCase().includes(q)
+        const matchDesc = (group.departmentDescription || "").toLowerCase().includes(q)
+        const matchCert = (group.certifications || []).some((c) => (c.title || "").toLowerCase().includes(q))
+        if (!matchName && !matchDesc && !matchCert) return false
+      }
+      if (statusFilter === "available") {
+        const total = group.totalSlots ?? 0
+        const used = group.usedSlots ?? 0
+        if (used >= total) return false
+      }
+      return true
+    })
+  }, [groups, selectedDepartmentId, searchQuery, statusFilter])
+
   const scopedCertification = scopedInstitutionCertId != null
     ? data.certificationById.get(data.institutionCertById.get(scopedInstitutionCertId)?.certificationId)
     : null
+
+  const activeDepartment = useMemo(() => {
+    if (selectedDepartmentId != null) {
+      return groups.find((g) => g.departmentId === selectedDepartmentId) ?? groups[0]
+    }
+    return groups[0]
+  }, [groups, selectedDepartmentId])
+  const activeDepartmentId = activeDepartment?.departmentId ?? activeDepartment?.id
+
+  const allManagementTileIds = useMemo(
+    () => [
+      "dept-overview",
+      "dept-section-breakdown",
+      "dept-learner-table",
+      "dept-co-authorities",
+      "dept-announcements",
+      "dept-invoices",
+    ],
+    []
+  )
+
+  useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "")
+      if (allManagementTileIds.includes(id)) {
+        setActiveFeature(id)
+      }
+    }
+  }, [allManagementTileIds])
 
   if (institutionLoading || (institution && data.isLoading)) {
     return <InstitutionLoadingSkeleton />
@@ -785,42 +942,99 @@ export default function DepartmentsPage() {
           description="A department appears here automatically once your certification access is paid and active."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {groups.map((group) => {
-            const coveredTitles = (group.certifications ?? []).map((cert) => cert.title).filter(Boolean)
-            return (
-              <Card key={group.departmentId} className="flex flex-col">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{group.departmentName}</CardTitle>
-                    <InstitutionStatusBadge status={group.status} />
-                  </div>
-                  <CardDescription>
-                    {coveredTitles.length > 0 ? coveredTitles.join(" · ") : "No certifications"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    {group.departmentDescription || "No description."}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {group.usedSlots ?? 0} / {group.totalSlots ?? 0} slot
-                    {(group.totalSlots ?? 0) === 1 ? "" : "s"} used
-                  </p>
-                </CardContent>
-                <CardFooter className="gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setManageGroup(group)}
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+          <DepartmentsSidebar
+            departments={groups}
+            selectedDepartmentId={selectedDepartmentId}
+            onSelectDepartment={setSelectedDepartmentId}
+            activeFeature={activeFeature}
+            onSelectFeature={setActiveFeature}
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
+          />
+          <div className="min-w-0 space-y-6">
+            {/* Mobile View Switcher */}
+            <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
+              {DEPARTMENT_FUNCTIONAL_GROUPS.flatMap((g) => g.items).map((item) => {
+                const Icon = item.icon
+                const isActive = activeFeature === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveFeature(item.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0",
+                      isActive
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    )}
                   >
-                    <UserCog className="size-4" aria-hidden="true" />
-                    Manage
-                  </Button>
-                </CardFooter>
-              </Card>
-            )
-          })}
+                    <Icon className="size-3.5" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* If activeFeature === 'dept-overview', render the Department Allocations page view */}
+            {activeFeature === "dept-overview" && (
+              <div id="dept-overview" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground sm:text-base">Department Allocations</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Active departments, certification allocations, and seat quotas across your institution.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5">
+                      {groups.length} {groups.length === 1 ? "department" : "departments"}
+                    </Badge>
+                  </div>
+                </div>
+
+                {filteredGroups.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 p-10 text-center text-sm text-muted-foreground space-y-2">
+                    <p className="font-semibold text-foreground">No matching departments found</p>
+                    <p className="text-xs">Try adjusting your search query or filter selection.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery("")
+                        setSelectedDepartmentId(null)
+                        setStatusFilter("all")
+                      }}
+                      className="mt-2 text-xs"
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredGroups.map((group) => (
+                      <DepartmentCard
+                        key={group.departmentId}
+                        group={group}
+                        onManage={setManageGroup}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* If activeFeature !== 'dept-overview', render the selected management feature page view */}
+            {activeFeature !== "dept-overview" && (
+              <DepartmentManagementBoard
+                departmentId={activeDepartmentId}
+                department={activeDepartment}
+                isOwner={isOwner}
+                activeFeature={activeFeature}
+              />
+            )}
+          </div>
         </div>
       )}
 

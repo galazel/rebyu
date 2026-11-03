@@ -141,14 +141,20 @@ export default function MemberAttemptReviewSheet({ departmentId, learnerId, lear
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 overflow-y-auto p-0 sm:max-w-2xl">
-        <SheetHeader className="border-b p-5">
-          <SheetTitle>{learnerName ?? "Student"}</SheetTitle>
-          <SheetDescription>
-            {result
-              ? `${result.assessmentTitle} · attempt ${result.attemptNumber ?? "—"}${
-                  result.submittedAt ? ` · ${new Date(result.submittedAt).toLocaleString()}` : ""
-                }`
-              : "Attempt details"}
+        <SheetHeader className="border-b p-4 sm:p-5">
+          <SheetTitle className="text-lg sm:text-xl">{learnerName ?? "Student"}</SheetTitle>
+          <SheetDescription className="flex flex-col gap-0.5 text-xs sm:text-sm">
+            {result ? (
+              <>
+                <span className="font-medium text-foreground">{result.assessmentTitle}</span>
+                <span className="text-muted-foreground">
+                  Attempt {result.attemptNumber ?? "—"}
+                  {result.submittedAt ? ` · ${new Date(result.submittedAt).toLocaleString()}` : ""}
+                </span>
+              </>
+            ) : (
+              "Attempt details"
+            )}
           </SheetDescription>
         </SheetHeader>
 

@@ -38,6 +38,8 @@ const ROW_SPAN = {
   3: "lg:row-span-3",
   4: "lg:row-span-4",
   5: "lg:row-span-5",
+  6: "lg:row-span-6",
+  7: "lg:row-span-7",
 }
 
 export function BentoGrid({ className = "", children }) {
@@ -65,14 +67,35 @@ export function BentoTile({
   col = 2,
   row = 1,
   className = "",
+  collapsible = false,
+  isCollapsed = false,
+  onToggleCollapse = null,
+  onClick,
   children,
   ...props
 }) {
+  const handleClick = (e) => {
+    onClick?.(e)
+    if (!collapsible || !onToggleCollapse) return
+    // Allow clicking the whole card to collapse, except elements that have a direct link or control
+    const directAction = e.target.closest(
+      "a, button, input, textarea, select, [role='menuitem'], [role='tab'], [data-direct-action]"
+    )
+    if (directAction) return
+    // Don't collapse if the user is actively selecting text
+    if (typeof window !== "undefined" && window.getSelection()?.toString()?.trim().length > 0) return
+    onToggleCollapse()
+  }
+
   return (
     <section
-      className={`flex min-w-0 flex-col overflow-hidden rb-bento-tile rounded-rb-card border-2 p-5 sm:p-6 ${
-        TILE_TONES[tone] ?? TILE_TONES.plain
-      } ${COL_SPAN[col]} ${ROW_SPAN[row]} ${className}`}
+      onClick={handleClick}
+      className={`flex min-w-0 flex-col overflow-hidden rb-bento-tile rounded-2xl border p-3.5 sm:p-5 lg:p-6 shadow-xs transition-all duration-200 hover:shadow-md hover:border-primary/30 ${
+        isCollapsed ? "is-collapsed" : "is-expanded h-full flex-1"
+      } ${
+        collapsible ? "cursor-pointer" : ""
+      } ${TILE_TONES[tone] ?? TILE_TONES.plain} ${COL_SPAN[col]} ${ROW_SPAN[row]} ${className}`}
+      title={collapsible ? "Click card to collapse" : undefined}
       {...props}
     >
       {children}

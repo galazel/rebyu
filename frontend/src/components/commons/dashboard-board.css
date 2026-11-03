@@ -1,6 +1,7 @@
 .rebyu-board .react-grid-item > section {
   height: 100%;
   width: 100%;
+  overflow: hidden;
 }
 
 .rebyu-board .react-grid-item {
@@ -36,3 +37,76 @@
 .rebyu-board.is-editing .react-grid-item:hover .react-resizable-handle {
   opacity: 1;
 }
+
+/* Lightweight, butter-smooth animation for card expansion & collapse */
+@keyframes bentoCardExpand {
+  0% {
+    opacity: 0.15;
+    transform: translateY(-6px) scale(0.994);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bentoCardCollapse {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.988);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bentoContentFade {
+  0% {
+    opacity: 0.2;
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rb-bento-tile {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+
+.rb-bento-tile.is-expanded {
+  animation: bentoCardExpand 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.rb-bento-tile.is-expanded > * {
+  animation: bentoContentFade 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.rb-bento-tile.is-collapsed {
+  animation: bentoCardCollapse 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.rb-bento-tile:hover {
+  border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+}
+
+.rb-bento-tile.cursor-pointer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-bento-tile.is-expanded,
+  .rb-bento-tile.is-expanded > *,
+  .rb-bento-tile.is-collapsed {
+    animation: none;
+    transition: none;
+  }
+}
+

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, LibraryBig, ListChecks, Loader2, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -179,6 +180,7 @@ export default function InstitutionAssessmentBuilderPage() {
   const [submitted, setSubmitted] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [questionsHydrated, setQuestionsHydrated] = useState(false)
+  const [mobileTab, setMobileTab] = useState("settings")
 
   const departmentQuery = useQuery({
     queryKey: ["department", id],
@@ -608,8 +610,37 @@ export default function InstitutionAssessmentBuilderPage() {
         </p>
       ) : null}
 
+      {/* Mobile segmented tabs for switching between Settings, Questions canvas, and Add tools */}
+      <div className="flex border-b border-border bg-background p-1.5 md:hidden" role="tablist">
+        {[
+          ["settings", "Settings"],
+          ["questions", `Questions (${questions.length})`],
+          ["add", "Add / Bank"],
+        ].map(([tabKey, tabTitle]) => (
+          <button
+            key={tabKey}
+            type="button"
+            role="tab"
+            aria-selected={mobileTab === tabKey}
+            onClick={() => setMobileTab(tabKey)}
+            className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+              mobileTab === tabKey
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            {tabTitle}
+          </button>
+        ))}
+      </div>
+
       <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)_268px] xl:grid-cols-[360px_minmax(0,1fr)_288px]">
-        <aside className="min-h-0 space-y-5 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r">
+        <aside
+          className={cn(
+            "min-h-0 space-y-5 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r",
+            mobileTab !== "settings" && "hidden md:block"
+          )}
+        >
           <SectionLabel>Basics</SectionLabel>
 
           <div className="space-y-1.5">
@@ -823,7 +854,12 @@ export default function InstitutionAssessmentBuilderPage() {
           </div>
         </aside>
 
-        <main className="min-h-0 overflow-y-auto bg-muted/20 p-4">
+        <main
+          className={cn(
+            "min-h-0 overflow-y-auto bg-muted/20 p-4",
+            mobileTab !== "questions" && "hidden md:block"
+          )}
+        >
           {questions.length === 0 ? (
             <div className="flex h-full items-center justify-center p-2">
               <div className="w-full max-w-md rounded-2xl border-2 border-dashed border-border bg-background/60 px-6 py-10 text-center">
@@ -899,7 +935,12 @@ export default function InstitutionAssessmentBuilderPage() {
           )}
         </main>
 
-        <aside className="min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0">
+        <aside
+          className={cn(
+            "min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0",
+            mobileTab !== "add" && "hidden md:block"
+          )}
+        >
           <div>
             <SectionLabel>From question bank</SectionLabel>
             <p className="mt-1.5 text-sm text-muted-foreground">

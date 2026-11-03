@@ -467,6 +467,9 @@ export function BarBreakdownChart({
   horizontal = true,
   categoryWidth = 108,
   domainMax,
+  tooltipContent,
+  showLegend = true,
+  mobileStacked = true,
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
@@ -478,7 +481,56 @@ export function BarBreakdownChart({
 
   return (
     <figure className="w-full min-w-0">
-      <div style={{ height }} className="w-full min-w-0 overflow-hidden">
+      {/* Mobile stacked view: Full-width progress bars with full category labels */}
+      {mobileStacked && horizontal ? (
+        <div className="sm:hidden space-y-3 py-1">
+          {data.map((row, index) => {
+            const val = Number(row[valueKey]) || 0
+            const maxVal = domainMax || 100
+            const pct = Math.min(100, Math.max(0, (val / maxVal) * 100))
+            const isPassing = target == null || val >= target
+            return (
+              <div key={`${row[categoryKey]}-${index}`} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-foreground text-[11px] leading-tight" title={row[categoryKey]}>
+                    {row[categoryKey]}
+                  </span>
+                  <span
+                    className={`shrink-0 font-bold tabular-nums text-xs ${
+                      isPassing ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {val}{unit}
+                  </span>
+                </div>
+                <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted/60">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: isPassing ? above : below,
+                    }}
+                  />
+                  {target != null ? (
+                    <div
+                      className="absolute inset-y-0 w-0.5 bg-foreground/50 z-10"
+                      style={{ left: `${(target / maxVal) * 100}%` }}
+                      title={`Target: ${target}${unit}`}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+          {target != null ? (
+            <div className="flex items-center justify-end text-[10px] text-muted-foreground pt-0.5">
+              <span>Target: {target}{unit}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div style={{ height }} className={`w-full min-w-0 overflow-hidden ${mobileStacked && horizontal ? "hidden sm:block" : ""}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -518,7 +570,10 @@ export function BarBreakdownChart({
               </>
             )}
 
-            <Tooltip content={<TooltipCard suffix={unit} />} cursor={{ fill: "rgba(127,127,127,0.08)" }} />
+            <Tooltip
+              content={tooltipContent ?? <TooltipCard suffix={unit} />}
+              cursor={{ fill: "rgba(127,127,127,0.08)" }}
+            />
 
             {target != null ? (
               <ReferenceLine
@@ -549,18 +604,20 @@ export function BarBreakdownChart({
         </ResponsiveContainer>
       </div>
 
-      <ChartLegend
-        items={data.map((row) => ({
-          name: row[categoryKey],
-          value: `${row[valueKey].toLocaleString()}${unit}`,
-          color: colorFor(row),
-        }))}
-        note={
-          target != null
-            ? `Bars that reach the ${target}${unit} line are drawn in the first colour; those below it in the second.`
-            : undefined
-        }
-      />
+      {showLegend ? (
+        <ChartLegend
+          items={data.map((row) => ({
+            name: row[categoryKey],
+            value: `${row[valueKey].toLocaleString()}${unit}`,
+            color: colorFor(row),
+          }))}
+          note={
+            target != null
+              ? `Bars that reach the ${target}${unit} line are drawn in the first colour; those below it in the second.`
+              : undefined
+          }
+        />
+      ) : null}
     </figure>
   )
 }
@@ -815,19 +872,19 @@ export function BeadedRadialGauge({
   const activeColor =
     color ||
     (pct >= 75
-      ? "#009688"
+      ? "#059669"
       : pct >= 50
-      ? "#3b82f6"
+      ? "#0d9488"
       : pct >= 25
-      ? "#f59e0b"
-      : "#eb6b56")
+      ? "#0284c7"
+      : "#d97706")
 
   const COUNT = 10
   const CX = 72
   const CY = 80
   const R = 64
-  const DOT_R = 9
-  const STROKE_W = 3.5
+  const DOT_R = 8.5
+  const STROKE_W = 3
 
   const SVG_W = CX
   const SVG_H = CY * 2
@@ -867,17 +924,25 @@ export function BeadedRadialGauge({
       >
         <defs>
           <filter id="bead-shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodOpacity="0.2" />
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodOpacity="0.15" />
           </filter>
         </defs>
+        <path
+          d={`M ${CX} ${CY - R} A ${R} ${R} 0 0 0 ${CX} ${CY + R}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          className="text-border/40"
+          strokeDasharray="2 3"
+        />
         {dots.map((d) => (
           <circle
             key={d.id}
             cx={d.x}
             cy={d.y}
             r={DOT_R}
-            fill="var(--background)"
-            stroke={d.isFilled ? activeColor : "#c8d4e3"}
+            fill="var(--card, #ffffff)"
+            stroke={d.isFilled ? activeColor : "var(--border, #cbd5e1)"}
             strokeWidth={STROKE_W}
             filter={d.isFilled ? "url(#bead-shadow)" : undefined}
             className="transition-colors duration-300"
@@ -887,10 +952,10 @@ export function BeadedRadialGauge({
 
       <div
         className="flex flex-col justify-end min-w-0"
-        style={{ marginLeft: '-18px' }}
+        style={{ marginLeft: "-18px" }}
       >
         <div
-          className="font-rb-display text-7xl font-black leading-none tracking-tight tabular-nums shrink-0"
+          className="font-sans text-4xl sm:text-5xl font-extrabold leading-none tracking-tight tabular-nums shrink-0"
           style={{ color: valueInk || activeColor }}
         >
           {Math.round(bounded)}%
@@ -898,9 +963,14 @@ export function BeadedRadialGauge({
 
         {label && (
           <div
-            className="mt-1 text-xs font-bold leading-tight text-slate-600 dark:text-slate-300"
+            className="mt-1 font-sans text-[11px] sm:text-xs font-semibold leading-tight text-muted-foreground uppercase tracking-wider"
           >
             {label}
+          </div>
+        )}
+        {sublabel && (
+          <div className="mt-0.5 font-sans text-[11px] text-muted-foreground">
+            {sublabel}
           </div>
         )}
       </div>

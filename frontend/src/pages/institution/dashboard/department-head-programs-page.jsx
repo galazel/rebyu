@@ -144,10 +144,16 @@ export default function DepartmentHeadProgramsPage() {
           )
           return (
             <section key={deptId} className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h2 className="font-rb-display text-lg font-bold text-foreground">{deptName}</h2>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={() =>
+                <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+                  <Button asChild variant="outline" size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center">
+                    <Link to={`/institution/departments/${deptId}?tab=learners`}>
+                      <Layers className="size-4" />
+                      Manage sections
+                    </Link>
+                  </Button>
+                  <Button size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center" onClick={() =>
                       setAddingTo({ deptId, deptName, certifications, existingCodes })
                     }>
                     <PlusIcon className="size-4" />
@@ -167,7 +173,7 @@ export default function DepartmentHeadProgramsPage() {
                   description="Add programs such as BSIT, BSCS, or ACT, then create sections inside each one."
                 />
               ) : (
-                <>
+<>
                 {unassignedSections.length ? (
                   <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
                     {unassignedSections.length} section{unassignedSections.length === 1 ? " is" : "s are"} not in any
@@ -368,68 +374,72 @@ function ProgramDialog({ target, onClose }) {
 
   return (
     <Dialog open={target != null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-hidden p-0 gap-0 sm:max-w-lg flex flex-col">
         <form
-          className="space-y-4"
+          className="flex flex-col flex-1 min-h-0"
           onSubmit={(event) => {
             event.preventDefault()
             if (canSubmit) mutation.mutate()
           }}
         >
-          <DialogHeader>
+          <DialogHeader className="p-5 pb-3 border-b border-border/50">
             <DialogTitle>{editing ? "Edit program" : "Add program"}</DialogTitle>
             <DialogDescription>{target?.deptName}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="program-choice">Program</Label>
-            <Select
-              value={form.programCode || undefined}
-              onValueChange={(code) => {
-                const choice = choices.find((option) => option.code === code)
-                setForm((prev) => ({ ...prev, programCode: choice.code, programName: choice.name }))
-              }}
-            >
-              <SelectTrigger id="program-choice" className="w-full">
-                <SelectValue placeholder="Choose a program" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="max-h-64">
-                {choices.map((option) => (
-                  <SelectItem key={option.code} value={option.code}>
-                    {option.code} · {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="program-choice">Program</Label>
+              <Select
+                value={form.programCode || undefined}
+                onValueChange={(code) => {
+                  const choice = choices.find((option) => option.code === code)
+                  setForm((prev) => ({ ...prev, programCode: choice.code, programName: choice.name }))
+                }}
+              >
+                <SelectTrigger id="program-choice" className="w-full">
+                  <SelectValue placeholder="Choose a program" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-h-64">
+                  {choices.map((option) => (
+                    <SelectItem key={option.code} value={option.code}>
+                      {option.code} · {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Certifications</legend>
+              {certifications.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Your institution has not provided any certification to this department yet.
+                </p>
+              ) : (
+                certifications.map((cert) => {
+                  const checkboxId = `program-cert-${cert.institutionCertId}`
+                  return (
+                    <div key={cert.institutionCertId} className="flex items-center gap-2">
+                      <Checkbox
+                        id={checkboxId}
+                        checked={form.institutionCertIds.includes(cert.institutionCertId)}
+                        onCheckedChange={(checked) => toggleCert(cert.institutionCertId, checked === true)}
+                      />
+                      <Label htmlFor={checkboxId} className="font-normal cursor-pointer">
+                        {cert.title}
+                      </Label>
+                    </div>
+                  )
+                })
+              )}
+            </fieldset>
+            <div className="space-y-2">
+              <Label htmlFor="program-description">Description</Label>
+              <Textarea id="program-description" value={form.description} onChange={set("description")} maxLength={2000} rows={3} />
+            </div>
           </div>
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Certifications</legend>
-            {certifications.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Your institution has not provided any certification to this department yet.
-              </p>
-            ) : (
-              certifications.map((cert) => {
-                const checkboxId = `program-cert-${cert.institutionCertId}`
-                return (
-                  <div key={cert.institutionCertId} className="flex items-center gap-2">
-                    <Checkbox
-                      id={checkboxId}
-                      checked={form.institutionCertIds.includes(cert.institutionCertId)}
-                      onCheckedChange={(checked) => toggleCert(cert.institutionCertId, checked === true)}
-                    />
-                    <Label htmlFor={checkboxId} className="font-normal">
-                      {cert.title}
-                    </Label>
-                  </div>
-                )
-              })
-            )}
-          </fieldset>
-          <div className="space-y-2">
-            <Label htmlFor="program-description">Description</Label>
-            <Textarea id="program-description" value={form.description} onChange={set("description")} maxLength={2000} />
-          </div>
-          <DialogFooter>
+
+          <DialogFooter className="p-4 border-t border-border/50 bg-muted/20 flex flex-row items-center justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

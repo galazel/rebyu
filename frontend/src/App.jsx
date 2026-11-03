@@ -62,6 +62,7 @@ const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/pract
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
 const DepartmentHeadDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-dashboard-page.jsx"))
+const DepartmentHeadOverviewPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-overview-page.jsx"))
 const DepartmentHeadProgramsPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-programs-page.jsx"))
 const InstitutionDepartmentWorkspacePage = lazyRoute(() => import("./pages/institution/departments/institution-department-workspace-page.jsx"))
 const InstitutionDepartmentLearnerPage = lazyRoute(() => import("./pages/institution/departments/institution-department-learner-page.jsx"))
@@ -143,6 +144,13 @@ function InstitutionDashboardEntry() {
         : <Navigate to="/institution/department-head" replace />
 }
 
+function InstitutionMetricsEntry() {
+    const { user } = useAuth()
+    return isInstitutionOwner(user)
+        ? <InstitutionDashboardPage />
+        : <DepartmentHeadDashboardPage />
+}
+
 function RouteTransition({ children }) {
     const { pathname } = useLocation()
     const ref = useRef(null)
@@ -158,6 +166,11 @@ function RouteTransition({ children }) {
         node.classList.remove("rb-route-enter")
         void node.offsetWidth
         node.classList.add("rb-route-enter")
+
+        const timer = setTimeout(() => {
+            node.classList.remove("rb-route-enter")
+        }, 360)
+        return () => clearTimeout(timer)
     }, [pathname])
 
     return (
@@ -363,8 +376,9 @@ export function App() {
                     <Route index element={<InstitutionHome />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
-                    <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
+                    <Route path="department-head" element={<DepartmentHeadOverviewPage />} />
                     <Route path="programs" element={<DepartmentHeadProgramsPage />} />
+                    <Route path="metrics" element={<InstitutionMetricsEntry />} />
                     <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
                     <Route path="learners" element={<InstitutionLearnersPage />} />
                     <Route

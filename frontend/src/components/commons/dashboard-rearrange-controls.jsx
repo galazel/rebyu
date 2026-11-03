@@ -64,14 +64,15 @@ export function DashboardRearrangeControls({
           <TooltipTrigger asChild>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="size-8 h-8 p-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+              className="min-h-[36px] sm:min-h-0 sm:h-8 h-9 w-full sm:w-auto sm:size-8 px-3 sm:p-0 rounded-lg border border-border/80 sm:border-0 bg-background sm:bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition flex items-center justify-center gap-1.5 cursor-pointer text-xs sm:text-sm font-medium shadow-2xs sm:shadow-none"
               aria-pressed={false}
               aria-label="Rearrange tiles"
               onClick={onStart}
             >
-              <GripHorizontal className="size-4" aria-hidden="true" />
+              <GripHorizontal className="size-4 shrink-0" aria-hidden="true" />
+              <span className="sm:hidden font-semibold text-foreground">Rearrange</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">

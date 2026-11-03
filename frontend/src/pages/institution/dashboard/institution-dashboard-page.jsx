@@ -33,6 +33,7 @@ import {
 import { BentoTile } from "@/components/commons/bento.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
+import { InstitutionMetricsSidebar } from "@/components/institution/institution-metrics-sidebar.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { getInstitutionDashboard } from "@/services/institutionDashboardService.js"
 import {
@@ -891,12 +892,22 @@ export default function InstitutionDashboardPage() {
             </div>
           </div>
 
-          <DashboardBoard
-            tiles={tiles}
-            layout={layout.tileLayout}
-            editing={layout.rearranging}
-            onLayoutChange={layout.handleLayoutChange}
-          />
+          <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+            <InstitutionMetricsSidebar
+              rearranging={layout.rearranging}
+              onStartRearranging={layout.startRearranging}
+              onFinishRearranging={layout.finishRearranging}
+            />
+
+            <div className="min-w-0 space-y-6">
+              <DashboardBoard
+                tiles={tiles}
+                layout={layout.tileLayout}
+                editing={layout.rearranging}
+                onLayoutChange={layout.handleLayoutChange}
+              />
+            </div>
+          </div>
         </>
       )}
     </div>

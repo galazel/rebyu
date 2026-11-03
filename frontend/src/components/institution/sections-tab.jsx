@@ -371,12 +371,14 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
               onChange={(e) => setDraft((d) => ({ ...d, firstName: e.target.value }))}
               placeholder="First name"
               aria-label="First name"
+              className="h-10 text-sm"
             />
             <Input
               value={draft.lastName}
               onChange={(e) => setDraft((d) => ({ ...d, lastName: e.target.value }))}
               placeholder="Last name"
               aria-label="Last name"
+              className="h-10 text-sm"
             />
             <Input
               type="email"
@@ -390,8 +392,9 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
               }}
               placeholder="learner@example.com"
               aria-label="Email"
+              className="h-10 text-sm"
             />
-            <Button type="button" variant="outline" onClick={addManual}>
+            <Button type="button" variant="outline" onClick={addManual} className="h-10 w-full sm:w-auto">
               Add
             </Button>
           </div>
@@ -445,18 +448,18 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {staged.length} learner(s) ready
             </p>
-            <div className="max-h-56 divide-y overflow-y-auto rounded-lg border">
+            <div className="max-h-44 divide-y overflow-y-auto rounded-lg border">
               {staged.map((row) => (
                 <div key={row.email} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <div className="min-w-0 truncate">
-                    <span className="font-medium">{fullName(row) || "—"}</span>
-                    <span className="ml-2 text-muted-foreground">{row.email}</span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{fullName(row) || "—"}</p>
+                    <p className="break-all text-xs text-muted-foreground">{row.email}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setStaged((current) => current.filter((r) => r.email !== row.email))}
                     aria-label={`Remove ${row.email}`}
-                    className="rounded-full px-1 text-muted-foreground hover:text-destructive"
+                    className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-destructive"
                   >
                     ×
                   </button>
@@ -473,10 +476,10 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
         ) : null}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => close(false)} disabled={send.isPending}>
+          <Button variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => close(false)} disabled={send.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || send.isPending}>
+          <Button className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || send.isPending}>
             {send.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -630,10 +633,11 @@ export function SectionDialog({
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={save.isPending}>
+          <Button variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => onOpenChange(false)} disabled={save.isPending}>
             Cancel
           </Button>
           <Button
+            className="min-h-[44px] sm:min-h-0 sm:h-9"
             onClick={() => {
               if (!name.trim()) return setError("Enter a section name.")
               if (availablePrograms.length && selectedProgramId == null)
@@ -687,20 +691,20 @@ function EarnedBadges({ learnerId }) {
         <Badge
           key={award.certificationId}
           variant="default"
-          className="gap-1"
-          title={`Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
+          className="gap-1 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold text-[10px] tracking-wide"
+          title={`Certified - Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
         >
           {award.hasBadgeImage ? (
             <img
               src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
               alt=""
-              className="size-4 rounded-full object-cover"
+              className="size-3.5 rounded-full object-cover"
               loading="lazy"
             />
           ) : (
-            <AwardIcon className="size-3.5" aria-hidden="true" />
+            <AwardIcon className="size-3" aria-hidden="true" />
           )}
-          {award.certificationTitle ?? "Badge"}
+          <span>Certified</span>
         </Badge>
       ))}
     </span>
@@ -817,27 +821,27 @@ function SectionPanel({
       </button>
 
       {isOpen ? (
-        <CardContent className="space-y-4 border-t bg-muted/10 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
+        <CardContent className="space-y-4 border-t bg-muted/10 p-3 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {isUnsectioned
                 ? "Learners who joined before sections existed, or whose section was deleted. Move them into a section from the row."
                 : "Add learners by typing them in or uploading a class list."}
             </p>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
               {!isUnsectioned ? (
                 <>
-                  <Button size="sm" variant="outline" onClick={() => onEdit(section)}>
+                  <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center" onClick={() => onEdit(section)}>
                     <PencilIcon className="size-4" aria-hidden="true" />
                     Rename
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onDelete(section)}>
+                  <Button size="sm" variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center text-muted-foreground hover:text-destructive" onClick={() => onDelete(section)}>
                     <Trash2 className="size-4" aria-hidden="true" />
                     Delete
                   </Button>
                 </>
               ) : null}
-              <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Button size="sm" className="min-h-[44px] sm:min-h-0 sm:h-9 justify-center col-span-2 sm:col-span-1" onClick={() => setAddOpen(true)}>
                 <UserPlusIcon className="size-4" aria-hidden="true" />
                 Add learners
               </Button>
@@ -847,18 +851,19 @@ function SectionPanel({
           {pending.length ? (
             <div className="divide-y rounded-lg border bg-background">
               {pending.map((inv) => (
-                <div key={inv.invitationId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <MailIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span className="truncate">
-                      {fullName(inv) ? <span className="font-medium">{fullName(inv)} </span> : null}
-                      <span className="text-muted-foreground">{inv.email}</span>
-                    </span>
+                <div key={inv.invitationId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 text-sm">
+                  <div className="flex min-w-0 items-start sm:items-center gap-2">
+                    <MailIcon className="size-4 shrink-0 text-muted-foreground mt-0.5 sm:mt-0" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      {fullName(inv) ? <p className="font-medium text-foreground truncate">{fullName(inv)}</p> : null}
+                      <p className="text-xs text-muted-foreground break-all">{inv.email}</p>
+                    </div>
                     <InstitutionStatusBadge status={inv.status} />
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="self-end sm:self-auto text-xs text-destructive hover:bg-destructive/10"
                     onClick={() => cancel.mutate(inv.invitationId)}
                     disabled={cancel.isPending}
                   >
@@ -874,60 +879,164 @@ function SectionPanel({
               {pending.length ? "No one has accepted yet." : "No learners here yet."}
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-background">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Learner</TableHead>
-                    <TableHead className="w-40">Certification</TableHead>
-                    <TableHead className="w-32">Joined</TableHead>
-                    <TableHead className="w-44">Lessons completed</TableHead>
-                    <TableHead className="w-44">Section</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {learners.map((row) => (
-                    <TableRow key={row.departmentLearnerId}>
-                      <TableCell
-                        className="cursor-pointer"
+            <div className="rounded-lg border bg-background overflow-hidden">
+              {/* Desktop / Tablet view (sm+) */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table className="min-w-[620px] whitespace-nowrap">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">Learner</TableHead>
+                      <TableHead className="w-36">Certification</TableHead>
+                      <TableHead className="w-28">Joined</TableHead>
+                      <TableHead className="w-40">Lessons completed</TableHead>
+                      <TableHead className="w-40">Section</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {learners.map((row) => (
+                      <TableRow key={row.departmentLearnerId}>
+                        <TableCell
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
+                              {rosterInitials(row.name)}
+                              {rosterAvatars[row.avatarKey] ? (
+                                <img
+                                  src={rosterAvatars[row.avatarKey]}
+                                  alt=""
+                                  loading="lazy"
+                                  className="absolute inset-0 size-full object-cover"
+                                />
+                              ) : null}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-medium text-foreground hover:underline">{row.name}</p>
+                                <EarnedBadges learnerId={row.learnerId} />
+                              </div>
+                              <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {certTitles.get(row.certificationId) ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(row.assignedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <LessonProgressCell
+                            completed={row.completedLessonCount}
+                            total={row.totalLessonCount}
+                            percentage={row.completionPercentage}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
+                            onValueChange={(value) =>
+                              move.mutate({
+                                assigneeId: row.departmentLearnerId,
+                                sectionId: value === NO_SECTION ? null : Number(value),
+                              })
+                            }
+                            disabled={move.isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs" aria-label="Move to section">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={NO_SECTION}>No section</SelectItem>
+                              {sections.map((s) => (
+                                <SelectItem key={s.sectionId} value={String(s.sectionId)}>
+                                  {s.sectionName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove ${row.name} from this department`}
+                            className="size-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => setRemoveTarget(row)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card-per-learner Layout (< sm) */}
+              <div className="sm:hidden divide-y divide-border/60">
+                {learners.map((row) => (
+                  <div key={row.departmentLearnerId} className="p-3.5 space-y-3">
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer"
                         onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
-                            {rosterInitials(row.name)}
-                            {rosterAvatars[row.avatarKey] ? (
-                              <img
-                                src={rosterAvatars[row.avatarKey]}
-                                alt=""
-                                loading="lazy"
-                                className="absolute inset-0 size-full object-cover"
-                              />
-                            ) : null}
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium text-foreground hover:underline">{row.name}</p>
-                              <EarnedBadges learnerId={row.learnerId} />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
-                          </div>
+                        <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
+                          {rosterInitials(row.name)}
+                          {rosterAvatars[row.avatarKey] ? (
+                            <img
+                              src={rosterAvatars[row.avatarKey]}
+                              alt=""
+                              loading="lazy"
+                              className="absolute inset-0 size-full object-cover"
+                            />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground hover:underline truncate">{row.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {certTitles.get(row.certificationId) ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(row.assignedAt)}
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${row.name} from this department`}
+                        className="size-10 min-h-[40px] min-w-[40px] text-muted-foreground hover:text-destructive shrink-0 inline-flex items-center justify-center rounded-lg hover:bg-destructive/10"
+                        onClick={() => setRemoveTarget(row)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <EarnedBadges learnerId={row.learnerId} />
+                      {certTitles.get(row.certificationId) ? (
+                        <Badge variant="secondary" className="text-[11px] font-normal truncate max-w-full">
+                          {certTitles.get(row.certificationId)}
+                        </Badge>
+                      ) : null}
+                      {row.assignedAt ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          Joined {formatDate(row.assignedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-lg bg-muted/40 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-muted-foreground">Lessons completed</span>
                         <LessonProgressCell
                           completed={row.completedLessonCount}
                           total={row.totalLessonCount}
                           percentage={row.completionPercentage}
                         />
-                      </TableCell>
-                      <TableCell>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
+                        <span className="font-medium text-muted-foreground shrink-0">Section</span>
                         <Select
                           value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
                           onValueChange={(value) =>
@@ -938,7 +1047,7 @@ function SectionPanel({
                           }
                           disabled={move.isPending}
                         >
-                          <SelectTrigger className="h-8 text-xs" aria-label="Move to section">
+                          <SelectTrigger className="h-8 text-xs max-w-[180px]" aria-label="Move to section">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -950,22 +1059,11 @@ function SectionPanel({
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Remove ${row.name} from this department`}
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setRemoveTarget(row)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
@@ -1136,15 +1234,15 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-          <div>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0">
+          <div className="min-w-0">
             <CardTitle className="text-base">Sections</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xs sm:text-sm">
               {sections.length} section{sections.length === 1 ? "" : "s"} · {roster.length} learner
               {roster.length === 1 ? "" : "s"} · {remainingSlots} of {slotTotal} slot(s) remaining
             </CardDescription>
           </div>
-          <Button size="sm" onClick={() => setDialog({ section: null })}>
+          <Button size="sm" onClick={() => setDialog({ section: null })} className="self-start sm:self-auto shrink-0">
             <Plus className="size-4" aria-hidden="true" />
             New section
           </Button>

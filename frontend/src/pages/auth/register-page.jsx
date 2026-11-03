@@ -254,6 +254,17 @@ export default function RegisterPage() {
           ? TYPE_COPY[accountType].description
           : "Pick the account that fits you. Each one opens a different workspace."
       }
+      showBackButton
+      backTo="/"
+      backLabel="Back"
+      onBack={
+        accountType
+          ? () => {
+              setAccountType(null)
+              setError("")
+            }
+          : undefined
+      }
       footer={
         <>
           Already have an account?{" "}

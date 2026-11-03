@@ -528,9 +528,9 @@ export function InstitutionQuestionBankPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 rounded-xl border border-border bg-background p-3">
         {isLockedToCertification ? null : (
-          <div className="min-w-52 flex-1 space-y-1.5">
+          <div className="w-full sm:min-w-52 sm:flex-1 space-y-1.5">
             <Label>Certification</Label>
             <Select
               value={selectedCertId}
@@ -558,7 +558,7 @@ export function InstitutionQuestionBankPanel({
             </Select>
           </div>
         )}
-        <div className="min-w-64 flex-1 space-y-1.5">
+        <div className="w-full sm:min-w-64 sm:flex-1 space-y-1.5">
           <Label>Lesson</Label>
           <Select
             value={selectedLessonId}
@@ -592,7 +592,7 @@ export function InstitutionQuestionBankPanel({
 
         {selectedLessonId ? (
           <>
-            <div className="min-w-48 flex-1 space-y-1.5">
+            <div className="w-full sm:min-w-48 sm:flex-1 space-y-1.5">
               <Label htmlFor="qb-search">Search</Label>
               <div className="relative">
                 <Search
@@ -608,70 +608,75 @@ export function InstitutionQuestionBankPanel({
                 />
               </div>
             </div>
-            <div className="w-40 space-y-1.5">
-              <Label>Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  {QUESTION_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {departmentId != null && !showingAllLessons ? (
-              <div className="w-36 space-y-1.5">
-                <Label>Source</Label>
-                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
+              <div className="space-y-1.5 sm:w-36">
+                <Label>Type</Label>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="ours">Ours</SelectItem>
-                    <SelectItem value="official">Official</SelectItem>
+                    <SelectItem value="all">All types</SelectItem>
+                    {QUESTION_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            ) : null}
-            <div className="w-36 space-y-1.5">
-              <Label>Difficulty</Label>
-              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All levels</SelectItem>
-                  {DIFFICULTIES.map((level) => (
-                    <SelectItem key={level.value} value={level.value}>
-                      {level.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {departmentId != null && !showingAllLessons ? (
+                <div className="space-y-1.5 sm:w-32">
+                  <Label>Source</Label>
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="ours">Ours</SelectItem>
+                      <SelectItem value="official">Official</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
+              <div className="space-y-1.5 sm:w-32 col-span-2 sm:col-span-1">
+                <Label>Difficulty</Label>
+                <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All levels</SelectItem>
+                    {DIFFICULTIES.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <Button
-              onClick={() => {
-                setEditingQuestion(null)
-                setFormOpen(true)
-              }}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Add question
-            </Button>
-            {departmentId != null ? (
-              <Button asChild variant="outline">
-                <Link to={`/institution/departments/${departmentId}/question-bank/import?certificationId=${lockedCertId || selectedCertId || ""}`}>
-                  <Upload className="size-4" aria-hidden="true" />
-                  Import from PDF/Word
-                </Link>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Button
+                onClick={() => {
+                  setEditingQuestion(null)
+                  setFormOpen(true)
+                }}
+                className="flex-1 sm:flex-initial"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                Add question
               </Button>
-            ) : null}
+              {departmentId != null ? (
+                <Button asChild variant="outline" className="flex-1 sm:flex-initial">
+                  <Link to={`/institution/departments/${departmentId}/question-bank/import?certificationId=${lockedCertId || selectedCertId || ""}`}>
+                    <Upload className="size-4" aria-hidden="true" />
+                    Import from PDF/Word
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           </>
         ) : null}
       </div>
@@ -717,92 +722,98 @@ export function InstitutionQuestionBankPanel({
                 {questions.length === 1 ? "" : "s"}
                 {departmentId != null && !showingAllLessons ? ` · ${ourCount} written by your department` : ""}
               </p>
-              <div className="overflow-x-auto rounded-xl border border-border bg-background">
-                <Table>
-                  <TableHeader className="text-xs">
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="h-9 py-2">Question</TableHead>
-                      <TableHead className="h-9 w-36 py-2">Type</TableHead>
-                      <TableHead className="h-9 w-28 py-2">Difficulty</TableHead>
-                      <TableHead className="h-9 w-48 py-2">Source</TableHead>
-                      <TableHead className="h-9 w-0 py-2 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="text-[13px]">
-                    {visibleQuestions.map((question) => {
-                      const isMine = isOurs(question)
-                      const correct = (question.choices ?? []).find((choice) => choice.correct)
-                      return (
-                        <TableRow key={question.questionId} className="align-top">
-                          <TableCell className="min-w-72 whitespace-normal break-words py-2.5">
-                            <p className="font-medium text-foreground">{question.questionText}</p>
-                            {showingAllLessons && lessonLabelById.get(question.lessonId) ? (
-                              <p className="mt-0.5 text-xs text-muted-foreground">
-                                {lessonLabelById.get(question.lessonId)}
-                              </p>
-                            ) : null}
-                            {correct ? (
-                              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-                                &#10003; {correct.choiceText}
-                              </p>
-                            ) : null}
-                          </TableCell>
-                          <TableCell className="py-2.5 text-muted-foreground">
-                            {QUESTION_TYPES.find((t) => t.value === question.questionType)?.label ??
-                              question.questionType}
-                          </TableCell>
-                          <TableCell className="py-2.5">
-                            <Badge variant="outline">
-                              {DIFFICULTIES.find((d) => d.value === difficultyKey(question.difficultyLevel))
-                                ?.label ?? question.difficultyLevel}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="w-48 max-w-48 py-2.5 text-xs text-muted-foreground">
-                            {question.ownerDepartmentId != null ? (
-                              <>
-                                <span className="block truncate font-medium text-foreground">
-                                  {question.ownerDepartmentName ?? "Department"}
-                                </span>
-                                {question.createdByEmail ? (
-                                  <span className="block truncate">added by {question.createdByEmail}</span>
-                                ) : null}
-                              </>
-                            ) : (
-                              "Official"
-                            )}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap py-2.5 text-right">
-                            {isMine ? (
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Edit question"
-                                  onClick={() => {
-                                    setEditingQuestion(question)
-                                    setFormOpen(true)
-                                  }}
-                                >
-                                  <Pencil className="size-4" aria-hidden="true" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Delete question"
-                                  onClick={() => setDeleteTarget(question)}
-                                >
-                                  <Trash2 className="size-4" aria-hidden="true" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Read only</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="relative overflow-hidden rounded-xl border border-border bg-background">
+                <div className="overflow-x-auto">
+                  <Table className="min-w-[580px] sm:min-w-[620px]">
+                    <TableHeader className="text-xs">
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="h-9 py-2">Question</TableHead>
+                        <TableHead className="h-9 w-32 sm:w-36 py-2">Type</TableHead>
+                        <TableHead className="h-9 w-24 sm:w-28 py-2">Difficulty</TableHead>
+                        <TableHead className="h-9 w-36 sm:w-48 py-2">Source</TableHead>
+                        <TableHead className="h-9 w-0 py-2 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="text-[13px]">
+                      {visibleQuestions.map((question) => {
+                        const isMine = isOurs(question)
+                        const correct = (question.choices ?? []).find((choice) => choice.correct)
+                        return (
+                          <TableRow key={question.questionId} className="align-top">
+                            <TableCell className="min-w-60 sm:min-w-72 whitespace-normal break-words py-2.5">
+                              <p className="font-medium text-foreground">{question.questionText}</p>
+                              {showingAllLessons && lessonLabelById.get(question.lessonId) ? (
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {lessonLabelById.get(question.lessonId)}
+                                </p>
+                              ) : null}
+                              {correct ? (
+                                <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+                                  &#10003; {correct.choiceText}
+                                </p>
+                              ) : null}
+                            </TableCell>
+                            <TableCell className="py-2.5 text-muted-foreground">
+                              {QUESTION_TYPES.find((t) => t.value === question.questionType)?.label ??
+                                question.questionType}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Badge variant="outline">
+                                {DIFFICULTIES.find((d) => d.value === difficultyKey(question.difficultyLevel))
+                                  ?.label ?? question.difficultyLevel}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="w-36 sm:w-48 max-w-48 py-2.5 text-xs text-muted-foreground">
+                              {question.ownerDepartmentId != null ? (
+                                <>
+                                  <span className="block truncate font-medium text-foreground">
+                                    {question.ownerDepartmentName ?? "Department"}
+                                  </span>
+                                  {question.createdByEmail ? (
+                                    <span className="block truncate">added by {question.createdByEmail}</span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                "Official"
+                              )}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap py-2.5 text-right">
+                              {isMine ? (
+                                <div className="flex justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Edit question"
+                                    onClick={() => {
+                                      setEditingQuestion(question)
+                                      setFormOpen(true)
+                                    }}
+                                  >
+                                    <Pencil className="size-4" aria-hidden="true" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label="Delete question"
+                                    onClick={() => setDeleteTarget(question)}
+                                  >
+                                    <Trash2 className="size-4" aria-hidden="true" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Read only</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div
+                  className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden"
+                  aria-hidden="true"
+                />
               </div>
             </div>
           )}

@@ -9,6 +9,7 @@ import {
     Eye,
     KeyRound,
     Loader2,
+    MoreVertical,
     Pencil,
     Plus,
     Save,
@@ -1844,52 +1845,52 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                         </p>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                {duplicateList.length ? (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        className="border-amber-400 text-amber-800 hover:bg-amber-50"
-                                        disabled={busy}
-                                        onClick={() => setDuplicatesOpen(true)}
-                                    >
-                                        <AlertTriangle className="mr-2 h-4 w-4" /> {duplicateList.length} duplicate{duplicateList.length === 1 ? "" : "s"}
-                                    </Button>
-                                ) : null}
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={checkingAny || busy}
-                                    title="AI re-checks every answer and repairs misread wording"
-                                    onClick={() => latest.current.papers.forEach((p) => runAiCheck(p.id))}
-                                >
-                                    {checkingAny ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                                    {checkingAny ? "AI is checking answers…" : flaggedCount ? `Check with AI · ${flaggedCount} to confirm` : "Check with AI"}
-                                </Button>
-                                <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={() => tagWithAi(false)}>
-                                    {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                    {tagging
-                                        ? tagJob
-                                            ? `Tagging ${tagJob.tagged} of ${tagJob.total}…`
-                                            : "Starting…"
-                                        : taggedCount
-                                          ? "Tag all again with AI"
-                                          : `Tag ${answeredCount} with AI`}
-                                </Button>
-                                {!tagging && taggedCount && missingTagCount ? (
-                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => tagWithAi(true)}>
-                                        <Sparkles className="mr-2 h-4 w-4" /> Tag {missingTagCount} missing a lesson or difficulty
-                                    </Button>
-                                ) : null}
-                                {tagJob?.status === "running" ? (
-                                    <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={stopTagging}>
-                                        Stop
-                                    </Button>
-                                ) : null}
-                                <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
-                                    <Eye className="mr-2 h-4 w-4" /> Preview & save
-                                </Button>
+                                        {duplicateList.length ? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="border-amber-400 text-amber-800 hover:bg-amber-50"
+                                                disabled={busy}
+                                                onClick={() => setDuplicatesOpen(true)}
+                                            >
+                                                <AlertTriangle className="mr-2 h-4 w-4" /> {duplicateList.length} duplicate{duplicateList.length === 1 ? "" : "s"}
+                                            </Button>
+                                        ) : null}
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={checkingAny || busy}
+                                            title="AI re-checks every answer and repairs misread wording"
+                                            onClick={() => latest.current.papers.forEach((p) => runAiCheck(p.id))}
+                                        >
+                                            {checkingAny ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                                            {checkingAny ? "AI is checking answers…" : flaggedCount ? `Check with AI · ${flaggedCount} to confirm` : "Check with AI"}
+                                        </Button>
+                                        <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={() => tagWithAi(false)}>
+                                            {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                            {tagging
+                                                ? tagJob
+                                                    ? `Tagging ${tagJob.tagged} of ${tagJob.total}…`
+                                                    : "Starting…"
+                                                : taggedCount
+                                                  ? "Tag all again with AI"
+                                                  : `Tag ${answeredCount} with AI`}
+                                        </Button>
+                                        {!tagging && taggedCount && missingTagCount ? (
+                                            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => tagWithAi(true)}>
+                                                <Sparkles className="mr-2 h-4 w-4" /> Tag {missingTagCount} missing a lesson or difficulty
+                                            </Button>
+                                        ) : null}
+                                        {tagJob?.status === "running" ? (
+                                            <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={stopTagging}>
+                                                Stop
+                                            </Button>
+                                        ) : null}
+                                        <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
+                                            <Eye className="mr-2 h-4 w-4" /> Preview & save
+                                        </Button>
                                     </div>
                                 </div>
                                 <div className="grid border-t border-border/70 sm:grid-cols-3">

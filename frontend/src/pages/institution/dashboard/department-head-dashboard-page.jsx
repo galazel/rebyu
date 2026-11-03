@@ -1,20 +1,34 @@
-import { useCallback, useMemo, useState } from "react"
+import { cn } from "@/lib/utils"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import {
   AlertTriangle,
   Award,
   Building2,
+  Check,
   CheckCheck,
+  ChevronDown,
+  ChevronsUpDownIcon,
   ClipboardListIcon,
+  CreditCard,
   Download,
   GraduationCap,
+  GripHorizontal,
   History,
   Layers,
+  Loader2,
   MailIcon,
+  MoreVertical,
+  Pencil,
+  PinIcon,
   Plus,
+  RotateCcw,
+  Search,
   ShieldCheck,
   TargetIcon,
+  Trash2,
   UserCheck,
   UserPlus,
   UsersRoundIcon,
@@ -22,7 +36,25 @@ import {
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -30,18 +62,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import {
+  InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
+  InstitutionStatusBadge,
+  formatDate,
+  formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
 import {
+  archiveDepartmentAnnouncement,
+  createDepartmentAnnouncement,
+  deleteGroupSection,
+  getDepartmentAnnouncements,
   getDepartmentHeadAssignments,
   getDepartmentHeadCodeInvitations,
+  getDepartmentPrograms,
   getDepartments,
   getGroupLearnerRoster,
-  getDepartmentPrograms,
   getGroupSections,
   getMyInstitutionInvoices,
+  removeLearnerFromGroup,
+  startInvoiceCheckout,
+  updateDepartmentAnnouncement,
 } from "@/services/institutionService.js"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
@@ -56,10 +101,7 @@ import {
 } from "@/components/institution/department-period-comparison.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
-import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
-import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
-import { BentoTile } from "@/components/commons/bento.jsx"
-import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
+import { MetricsSidebar, METRIC_GROUPS } from "@/components/institution/metrics-sidebar.jsx"
 import {
   getDepartmentStats,
   getInstitutionLearningStats,
@@ -128,6 +170,11 @@ const PROGRESS_TIERS = [
   { label: "76-100%", min: 76, max: 100 },
 ]
 
+function money(value, currency = "PHP") {
+  if (value == null) return "—"
+  return Number(value).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 2 })
+}
+
 function passMarkFor(assessments) {
   const marks = new Set(
     assessments.map((exam) => exam.passingScore).filter((mark) => mark != null)
@@ -162,52 +209,58 @@ function DashboardCardHeader({
   className = "",
 }) {
   return (
-    <div
-      className={`flex items-start justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 ${className}`}
-    >
-      <div className="flex items-center gap-2 min-w-0">
-        {Icon ? (
-          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-        ) : null}
-        <div className="min-w-0">
-          {kicker ? (
-            <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
-              {kicker}
-            </h3>
+    <div className={`border-b border-border/50 pb-3 mb-4 transition-all ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {Icon ? (
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
+              <Icon className="size-4.5" aria-hidden="true" />
+            </span>
           ) : null}
-          <p className="truncate text-xs font-extrabold leading-snug text-foreground sm:text-sm">
-            {title}
-          </p>
-          {hint ? (
-            <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
-              {hint}
+          <div className="min-w-0">
+            {kicker ? (
+              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-primary dark:text-emerald-400">
+                {kicker}
+              </h3>
+            ) : null}
+            <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
+              {title}
             </p>
-          ) : null}
+            {hint ? (
+              <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground font-sans">
+                {hint}
+              </p>
+            ) : null}
+          </div>
         </div>
+        {(chip || action) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {chip}
+            {action}
+          </div>
+        )}
       </div>
-      {(chip || action) && (
-        <div className="flex shrink-0 items-center gap-2">
-          {chip}
-          {action}
-        </div>
-      )}
     </div>
   )
 }
 
-function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null }) {
+function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null, className = "" }) {
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-      <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+    <div
+      className={`rounded-xl border p-2.5 sm:p-3.5 flex flex-col justify-between transition-all hover:border-border/80 ${
+        alert
+          ? "border-amber-500/30 bg-amber-500/5 ring-1 ring-inset ring-amber-500/20"
+          : "border-border/60 bg-background/60 hover:bg-muted/30"
+      } ${className}`}
+    >
+      <div className="flex items-center justify-between gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span className="truncate">{label}</span>
         {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
       </div>
-      <div className="mt-1.5 flex items-baseline justify-between gap-1">
+      <div className="mt-1 flex items-baseline justify-between gap-1.5">
         <div
-          className={`font-rb-display text-lg font-bold tabular-nums ${
-            alert ? "text-rb-fox-lip" : "text-foreground"
+          className={`font-sans tabular-nums text-xl sm:text-2xl font-bold tracking-tight ${
+            alert ? "text-amber-600 dark:text-amber-400" : "text-foreground"
           }`}
         >
           {value}
@@ -223,15 +276,127 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delt
   )
 }
 
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return null
+  const date = new Date(dateValue)
+  const time = date.getTime()
+  if (Number.isNaN(time)) return null
+  const diffSec = Math.floor((Date.now() - time) / 1000)
+  if (diffSec < 60) return "Just now"
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  if (diffDays === 1) return "1 day ago"
+  if (diffDays < 30) return `${diffDays} days ago`
+  return formatDate(dateValue)
+}
+
 export default function DepartmentHeadDashboardPage() {
   const { user } = useAuth()
   const isOwner = isInstitutionOwner(user)
   const chartTheme = useChartTheme()
-  const layout = useDashboardLayout("department-head")
+    const [activeFeature, setActiveFeature] = useState("dept-progress")
   const [range, setRange] = useState(null)
+
+  const ALL_METRIC_IDS = useMemo(() => [
+    "dept-progress",
+    "dept-period-comparison",
+    "dept-programme-enrolment",
+    "dept-programme-table",
+    "dept-completion-spread",
+    "dept-hard-topics",
+    "dept-hard-assessments",
+  ], [])
+
+  useEffect(() => {
+    if (window.location.hash) {
+      const id = window.location.hash.replace("#", "")
+      if (ALL_METRIC_IDS.includes(id)) {
+        setActiveFeature(id)
+      }
+    }
+  }, [ALL_METRIC_IDS])
   const [comparisonType, setComparisonType] = useState("previous_period")
+  const [activeMetricsCategory, setActiveMetricsCategory] = useState("all")
+  const [isMediumScreen, setIsMediumScreen] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(min-width: 768px)")
+    const handler = (e) => setIsMediumScreen(e.matches)
+    mq.addEventListener("change", handler)
+    return () => mq.removeEventListener("change", handler)
+  }, [])
+
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
+
+  const allTileIds = useMemo(
+    () => [
+      "dept-progress",
+      "dept-programme-enrolment",
+      "dept-programme-table",
+      "dept-completion-spread",
+      "dept-hard-topics",
+      "dept-hard-assessments",
+      "dept-period-comparison",
+    ],
+    []
+  )
+
+  const [collapsedTiles, setCollapsedTiles] = useState(() => {
+    try {
+      const saved = localStorage.getItem("rebyu:dept-head-collapsed-tiles-v2")
+      if (saved) return JSON.parse(saved)
+      const initial = {}
+      for (const id of allTileIds) {
+        initial[id] = true
+      }
+      return initial
+    } catch {
+      const initial = {}
+      for (const id of allTileIds) {
+        initial[id] = true
+      }
+      return initial
+    }
+  })
+
+  const toggleTileCollapse = useCallback((tileId) => {
+    setCollapsedTiles((prev) => {
+      const next = { ...prev, [tileId]: !prev[tileId] }
+      try {
+        localStorage.setItem("rebyu:dept-head-collapsed-tiles-v2", JSON.stringify(next))
+      } catch {
+        // no-op
+      }
+      return next
+    })
+  }, [])
+
+  const areAllCollapsed = useMemo(() => {
+    return allTileIds.length > 0 && allTileIds.every((id) => Boolean(collapsedTiles[id]))
+  }, [allTileIds, collapsedTiles])
+
+  const toggleAllCollapse = useCallback(() => {
+    setCollapsedTiles((prev) => {
+      const targetState = !allTileIds.every((id) => Boolean(prev[id]))
+      const next = {}
+      for (const id of allTileIds) {
+        next[id] = targetState
+      }
+      try {
+        localStorage.setItem("rebyu:dept-head-collapsed-tiles-v2", JSON.stringify(next))
+      } catch {
+        // no-op
+      }
+      return next
+    })
+  }, [allTileIds])
 
   const departmentsQuery = useQuery({
     queryKey: ["my-institution-groups"],
@@ -384,12 +549,50 @@ export default function DepartmentHeadDashboardPage() {
   /* The overview strip's own facts: the allocation behind the first active
      department (its access window), and the certification it studies. Both
      come from data the page already fetches -- no new endpoint. */
-  const overviewGroup = groups[0] ?? null
+  const queryClient = useQueryClient()
+  const [selectedDeptId, setSelectedDeptId] = useState(null)
+  const activeSelectedDeptId = selectedDeptId ?? (groups[0]?.departmentId ?? groups[0]?.id)
+  const overviewGroup = useMemo(
+    () => groups.find((g) => String(g.departmentId ?? g.id) === String(activeSelectedDeptId)) ?? groups[0] ?? null,
+    [groups, activeSelectedDeptId]
+  )
   const primaryDeptId = overviewGroup?.departmentId ?? overviewGroup?.id
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
+  const [editingSection, setEditingSection] = useState(null)
+  const [archivingSection, setArchivingSection] = useState(null)
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
   const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
   const [rosterStatusFilter, setRosterStatusFilter] = useState("all")
+  const [rosterSearch, setRosterSearch] = useState("")
+  const [removingLearner, setRemovingLearner] = useState(null)
+
+  const removeSectionMutation = useMutation({
+    mutationFn: (sectionId) => deleteGroupSection(primaryDeptId, sectionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-sections", primaryDeptId] })
+      queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      toast.success("Section archived. Its learners remain in the department.")
+      setArchivingSection(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to archive this section."
+      toast.error(msg)
+    },
+  })
+
+  const removeLearnerMutation = useMutation({
+    mutationFn: (learnerId) => removeLearnerFromGroup(primaryDeptId, learnerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      queryClient.invalidateQueries({ queryKey: ["department-head-learning-stats"] })
+      toast.success("Learner removed from department.")
+      setRemovingLearner(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to remove this learner."
+      toast.error(msg)
+    },
+  })
 
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
@@ -417,20 +620,29 @@ export default function DepartmentHeadDashboardPage() {
     [headAssignmentsQuery.data]
   )
 
-  const deptProgramsQuery = useQuery({
+  const [selectedProgramId, setSelectedProgramId] = useState("all")
+
+  const programsQuery = useQuery({
     queryKey: ["department-programs", primaryDeptId],
     queryFn: () => getDepartmentPrograms(primaryDeptId),
     enabled: primaryDeptId != null,
   })
+  const deptProgramsQuery = programsQuery
+  const programs = useMemo(
+    () => (Array.isArray(programsQuery.data) ? programsQuery.data : []),
+    [programsQuery.data]
+  )
+
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", primaryDeptId],
     queryFn: () => getGroupSections(primaryDeptId),
     enabled: primaryDeptId != null,
   })
-  const sections = useMemo(
-    () => (Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []),
-    [sectionsQuery.data]
-  )
+  const sections = useMemo(() => {
+    const raw = Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []
+    if (selectedProgramId === "all") return raw
+    return raw.filter((s) => String(s.programId ?? s.departmentProgramId) === String(selectedProgramId))
+  }, [sectionsQuery.data, selectedProgramId])
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", primaryDeptId],
@@ -446,6 +658,9 @@ export default function DepartmentHeadDashboardPage() {
             sectionId: row.sectionId,
             sectionName: row.sectionName,
             departmentLearnerId: row.departmentLearnerId,
+            mockExamPassed: row.mockExamPassed,
+            bestMockExamScore: row.bestMockExamScore,
+            mockExamPassedAt: row.mockExamPassedAt,
           })
         }
       }
@@ -503,6 +718,10 @@ export default function DepartmentHeadDashboardPage() {
           sectionId: sectionInfo?.sectionId ?? null,
           sectionName: sectionInfo?.sectionName ?? null,
           departmentLearnerId: sectionInfo?.departmentLearnerId ?? null,
+          lastActivityAt: m.lastActivityAt ?? null,
+          mockExamPassed: sectionInfo?.mockExamPassed ?? m.mockExamPassed ?? false,
+          bestMockExamScore: sectionInfo?.bestMockExamScore ?? m.bestMockExamScore ?? null,
+          mockExamPassedAt: sectionInfo?.mockExamPassedAt ?? m.mockExamPassedAt ?? null,
           flag: flagFor(m),
         }
       })
@@ -533,6 +752,96 @@ export default function DepartmentHeadDashboardPage() {
     [invoicesQuery.data]
   )
 
+  const checkoutMutation = useMutation({
+    mutationFn: (invoiceId) => startInvoiceCheckout(invoiceId),
+    onSuccess: ({ checkoutUrl }) => {
+      window.location.assign(checkoutUrl)
+    },
+    onError: (error) => {
+      const msg = error?.response?.data?.message ?? error?.message ?? "Could not open PayMongo checkout."
+      toast.error(msg)
+    },
+  })
+
+  // Checklist 15.2: Announcements quick-compose tile queries and mutations
+  const announcementsQuery = useQuery({
+    queryKey: ["department-announcements", primaryDeptId],
+    queryFn: () => getDepartmentAnnouncements(primaryDeptId),
+    enabled: primaryDeptId != null,
+    staleTime: 30_000,
+  })
+  const announcements = useMemo(
+    () => (Array.isArray(announcementsQuery.data) ? announcementsQuery.data : []),
+    [announcementsQuery.data]
+  )
+  const sortedAnnouncements = useMemo(() => {
+    return [...announcements].sort((a, b) => {
+      if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1
+      return new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0)
+    })
+  }, [announcements])
+
+  const [announcementTitle, setAnnouncementTitle] = useState("")
+  const [announcementBody, setAnnouncementBody] = useState("")
+  const [announcementPinned, setAnnouncementPinned] = useState(false)
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null)
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState(null)
+
+  const saveAnnouncementMutation = useMutation({
+    mutationFn: () => {
+      const payload = {
+        title: announcementTitle.trim(),
+        body: announcementBody.trim(),
+        pinned: announcementPinned,
+      }
+      return editingAnnouncement
+        ? updateDepartmentAnnouncement(primaryDeptId, editingAnnouncement.departmentAnnouncementId, payload)
+        : createDepartmentAnnouncement(primaryDeptId, payload)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success(editingAnnouncement ? "Announcement updated." : "Announcement posted.")
+      setAnnouncementTitle("")
+      setAnnouncementBody("")
+      setAnnouncementPinned(false)
+      setEditingAnnouncement(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to save this announcement."
+      toast.error(msg)
+    },
+  })
+
+  const pinAnnouncementMutation = useMutation({
+    mutationFn: (item) =>
+      updateDepartmentAnnouncement(primaryDeptId, item.departmentAnnouncementId, {
+        title: item.title,
+        body: item.body,
+        pinned: !item.pinned,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success("Pin status updated.")
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to update pin status."
+      toast.error(msg)
+    },
+  })
+
+  const archiveAnnouncementMutation = useMutation({
+    mutationFn: (announcementId) => archiveDepartmentAnnouncement(primaryDeptId, announcementId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      toast.success("Announcement archived.")
+      setDeletingAnnouncement(null)
+    },
+    onError: (err) => {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unable to archive this announcement."
+      toast.error(msg)
+    },
+  })
+
   const handleInspectFlaggedRoster = useCallback(() => {
     setRosterStatusFilter("flagged")
     const el = document.getElementById("dept-learner-table")
@@ -558,9 +867,9 @@ export default function DepartmentHeadDashboardPage() {
     invoices,
     pendingHeadInvitations,
     isOwner,
-    onOpenCoAuthorities: () => setCoAuthoritiesOpen(true),
-    onInspectFlaggedRoster: handleInspectFlaggedRoster,
-    onInspectDormantRoster: handleInspectDormantRoster,
+    onOpenCoAuthorities: () => { window.location.assign("/institution/departments#dept-co-authorities") },
+    onInspectFlaggedRoster: () => { window.location.assign("/institution/departments#dept-learner-table") },
+    onInspectDormantRoster: () => { window.location.assign("/institution/departments#dept-learner-table") },
   })
 
   const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
@@ -592,8 +901,18 @@ export default function DepartmentHeadDashboardPage() {
         return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
       })
     }
+
+    if (rosterSearch.trim()) {
+      const query = rosterSearch.trim().toLowerCase()
+      list = list.filter((l) => {
+        const nameMatch = (l.name || "").toLowerCase().includes(query)
+        const usernameMatch = (l.username || "").toLowerCase().includes(query)
+        return nameMatch || usernameMatch
+      })
+    }
+
     return list
-  }, [deptLearners, selectedSectionFilter, rosterStatusFilter])
+  }, [deptLearners, selectedSectionFilter, rosterStatusFilter, rosterSearch])
 
   /* Each learner's weakest lesson against the cohort average for that same
      lesson and the benchmark -- the "is this one learner or the whole class"
@@ -660,21 +979,21 @@ export default function DepartmentHeadDashboardPage() {
         ],
       },
       {
-        title: `Period-over-period comparison (${periodComp.comparisonRange.current.fromStr} to ${periodComp.comparisonRange.current.toStr} vs ${periodComp.comparisonRange.previous.fromStr} to ${periodComp.comparisonRange.previous.toStr})`,
+        title: `Period-over-period comparison (${periodComp?.comparisonRange?.current?.fromStr ?? ""} to ${periodComp?.comparisonRange?.current?.toStr ?? ""} vs ${periodComp?.comparisonRange?.previous?.fromStr ?? ""} to ${periodComp?.comparisonRange?.previous?.toStr ?? ""})`,
         columns: ["Metric", "Current Period", "Baseline Period", "Delta", "Direction"],
         rows: [
-          ["Average progress (%)", periodComp.deltas.averageProgress.current, periodComp.deltas.averageProgress.previous, periodComp.deltas.averageProgress.formattedDelta, periodComp.deltas.averageProgress.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Pass rate (%)", periodComp.deltas.passRate.current, periodComp.deltas.passRate.previous, periodComp.deltas.passRate.formattedDelta, periodComp.deltas.passRate.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Average score (%)", periodComp.deltas.averageScore.current, periodComp.deltas.averageScore.previous, periodComp.deltas.averageScore.formattedDelta, periodComp.deltas.averageScore.delta >= 0 ? "Favorable" : "Unfavorable"],
-          ["Graded attempts", periodComp.deltas.gradedAttempts.current, periodComp.deltas.gradedAttempts.previous, periodComp.deltas.gradedAttempts.formattedDelta, periodComp.deltas.gradedAttempts.delta >= 0 ? "Increased" : "Decreased"],
-          ["Lessons completed", periodComp.deltas.lessonsCompleted.current, periodComp.deltas.lessonsCompleted.previous, periodComp.deltas.lessonsCompleted.formattedDelta, periodComp.deltas.lessonsCompleted.delta >= 0 ? "Increased" : "Decreased"],
-          ["Active students", periodComp.deltas.activeMembers.current, periodComp.deltas.activeMembers.previous, periodComp.deltas.activeMembers.formattedDelta, periodComp.deltas.activeMembers.delta >= 0 ? "Increased" : "Decreased"],
+          ["Average progress (%)", periodComp?.deltas?.averageProgress?.current ?? 0, periodComp?.deltas?.averageProgress?.previous ?? 0, periodComp?.deltas?.averageProgress?.formattedDelta ?? "—", (periodComp?.deltas?.averageProgress?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Pass rate (%)", periodComp?.deltas?.passRate?.current ?? 0, periodComp?.deltas?.passRate?.previous ?? 0, periodComp?.deltas?.passRate?.formattedDelta ?? "—", (periodComp?.deltas?.passRate?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Average score (%)", periodComp?.deltas?.averageScore?.current ?? 0, periodComp?.deltas?.averageScore?.previous ?? 0, periodComp?.deltas?.averageScore?.formattedDelta ?? "—", (periodComp?.deltas?.averageScore?.delta ?? 0) >= 0 ? "Favorable" : "Unfavorable"],
+          ["Graded attempts", periodComp?.deltas?.gradedAttempts?.current ?? 0, periodComp?.deltas?.gradedAttempts?.previous ?? 0, periodComp?.deltas?.gradedAttempts?.formattedDelta ?? "—", (periodComp?.deltas?.gradedAttempts?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
+          ["Lessons completed", periodComp?.deltas?.lessonsCompleted?.current ?? 0, periodComp?.deltas?.lessonsCompleted?.previous ?? 0, periodComp?.deltas?.lessonsCompleted?.formattedDelta ?? "—", (periodComp?.deltas?.lessonsCompleted?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
+          ["Active students", periodComp?.deltas?.activeMembers?.current ?? 0, periodComp?.deltas?.activeMembers?.previous ?? 0, periodComp?.deltas?.activeMembers?.formattedDelta ?? "—", (periodComp?.deltas?.activeMembers?.delta ?? 0) >= 0 ? "Increased" : "Decreased"],
         ],
       },
       {
         title: "Programme period comparison",
         columns: ["Programme", "Current Certified (%)", "Baseline Certified (%)", "Delta Certified", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
-        rows: periodComp.certificationsComparison.map((c) => [
+        rows: (periodComp?.certificationsComparison ?? []).map((c) => [
           c.title,
           c.currentPassRate,
           c.prevPassRate,
@@ -790,12 +1109,8 @@ export default function DepartmentHeadDashboardPage() {
     return [
       {
         id: "dept-progress",
-        col: 3,
-        row: 2,
-        x: 0,
-        y: 0,
         element: (
-          <BentoTile tone="plain" col={3} row={2}>
+          <div id="dept-progress" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={TargetIcon}
@@ -804,11 +1119,13 @@ export default function DepartmentHeadDashboardPage() {
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                <div className="sm:col-span-5 flex items-center justify-center pl-4 min-w-0">
-                  <BeadedRadialGauge
-                    value={failed ? 0 : Number(summary.averageProgress) || 0}
-                    label="Department Completion"
-                  />
+                <div className="sm:col-span-5 flex min-h-[130px] sm:min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
+                  <div className="w-full max-w-[130px] sm:max-w-none mx-auto flex items-center justify-center">
+                    <BeadedRadialGauge
+                      value={failed ? 0 : Number(summary.averageProgress) || 0}
+                      label="Department Completion"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
@@ -843,41 +1160,41 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
-                <span>
-                  <strong className="text-foreground tabular-nums">{totalEnrolled}</strong>{" "}
-                  enrolments on {programmes.length} programme
-                  {programmes.length === 1 ? "" : "s"}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                    <strong>{totalEnrolled}</strong> enrolments
+                  </span>
+                  <span>·</span>
+                  <span>{programmes.length} programme{programmes.length === 1 ? "" : "s"}</span>
                   {seatsTotal > 0 ? (
                     <>
-                      {" "}
-                      · <strong className="text-foreground tabular-nums">{seatsTotal}</strong> seats
+                      <span>·</span>
+                      <span className="tabular-nums"><strong>{seatsTotal}</strong> seats</span>
                     </>
                   ) : null}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <strong className="text-foreground tabular-nums">
-                    {failed ? "—" : count(summary.gradedAttempts)}
-                  </strong>{" "}
-                  graded attempts
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
+                    <strong className="text-foreground">
+                      {failed ? "—" : count(summary.gradedAttempts)}
+                    </strong>
+                    graded attempts
+                  </span>
                   {periodComp.deltas.gradedAttempts.delta !== 0 ? (
                     <PeriodDeltaBadge delta={periodComp.deltas.gradedAttempts.delta} size="xs" />
                   ) : null}
-                </span>
+                </div>
               </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-programme-enrolment",
-        col: 3,
-        row: 2,
-        x: 3,
-        y: 0,
         element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+          <div id="dept-programme-enrolment" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Enrolment by Programme"
@@ -895,43 +1212,58 @@ export default function DepartmentHeadDashboardPage() {
                 }
               />
               {programmes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground my-auto">
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
-                  <StackedBarChart
-                    data={programmes.map((row) => ({
-                      programme: row.title,
-                      passed: row.passed,
-                      inProgress: row.inProgress,
-                      notStarted: row.notStarted,
-                    }))}
-                    categoryKey="programme"
-                    series={[
-                      { key: "passed", name: "Passed" },
-                      { key: "inProgress", name: "In progress" },
-                      { key: "notStarted", name: "Not started" },
-                    ]}
-                    height={Math.max(130, programmes.length * 56)}
-                    categoryWidth={140}
-                    note="Passed counts awarded credentials, not assignments marked complete."
-                  />
+                <div className="relative min-h-0 flex-1 my-auto py-2">
+                  <div className="-mx-2 overflow-x-auto overflow-y-hidden px-2 min-h-0 h-full">
+                    <StackedBarChart
+                      data={programmes.map((row) => ({
+                        programme: row.title,
+                        passed: row.passed,
+                        inProgress: row.inProgress,
+                        notStarted: row.notStarted,
+                      }))}
+                      categoryKey="programme"
+                      series={[
+                        { key: "passed", name: "Passed" },
+                        { key: "inProgress", name: "In progress" },
+                        { key: "notStarted", name: "Not started" },
+                      ]}
+                      height={Math.max(130, programmes.length * 56)}
+                      categoryWidth={isMediumScreen ? 140 : 110}
+                      note="Passed counts awarded credentials, not assignments marked complete."
+                    />
+                  </div>
+                  {/* Faint right-fade gradient overlay to signal horizontal overflow on small screens */}
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background/80 to-transparent sm:hidden" />
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                    <strong>{programmes.reduce((sum, r) => sum + (r.passed ?? 0), 0)}</strong> credentials awarded
+                  </span>
+                  <span>·</span>
+                  <span>{programmes.reduce((sum, r) => sum + (r.inProgress ?? 0), 0)} in progress</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
+                    {programmes.length} track{programmes.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-programme-table",
-        col: 3,
-        row: 2,
-        x: 0,
-        y: 2,
         element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+          <div id="dept-programme-table" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Award}
                 kicker="Programme Scorecard"
@@ -939,11 +1271,11 @@ export default function DepartmentHeadDashboardPage() {
                 hint="Your department's learners on each programme, with their marks."
               />
               {programmes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground my-auto">
                   None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-auto pr-2">
+                <div className="-mr-2 min-h-0 flex-1 overflow-x-auto overflow-y-hidden pr-2 my-auto">
                   <table className="w-full text-xs" style={{ minWidth: 400 }}>
                     <thead className="sticky top-0 z-10 bg-background">
                       <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
@@ -953,7 +1285,7 @@ export default function DepartmentHeadDashboardPage() {
                         <th className="px-2 py-2 text-center">Passed</th>
                         <th className="px-2 py-2 text-center">Avg done</th>
                         <th className="px-2 py-2 text-center">Avg score</th>
-                        <th className="py-2 pl-2 text-center">Attempts</th>
+                        <th className="hidden py-2 pl-2 text-center sm:table-cell">Attempts</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -962,7 +1294,7 @@ export default function DepartmentHeadDashboardPage() {
                           key={row.certificationId}
                           className="border-b border-border/40 transition-colors hover:bg-muted/40"
                         >
-                          <td className="max-w-[150px] truncate py-2 pr-3 font-bold text-foreground">
+                          <td className="max-w-[180px] overflow-hidden text-ellipsis truncate py-2 pr-3 font-bold text-foreground">
                             {row.title}
                           </td>
                           <td className="px-2 py-2 text-center tabular-nums font-semibold text-foreground">
@@ -991,7 +1323,7 @@ export default function DepartmentHeadDashboardPage() {
                           >
                             {row.averageScore == null ? "—" : `${row.averageScore}%`}
                           </td>
-                          <td className="py-2 pl-2 text-center tabular-nums text-muted-foreground">
+                          <td className="hidden py-2 pl-2 text-center tabular-nums text-muted-foreground sm:table-cell">
                             {count(row.gradedAttempts)}
                             {row.attemptPassRate != null ? (
                               <span className="ml-1 text-[10px]">({row.attemptPassRate}%)</span>
@@ -1003,38 +1335,56 @@ export default function DepartmentHeadDashboardPage() {
                   </table>
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  {programmes.length} active programme{programmes.length === 1 ? "" : "s"}
+                </span>
+                <span className="text-muted-foreground">
+                  {totalEnrolled} total enrolled
+                </span>
+              </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-completion-spread",
-        col: 3,
-        row: 2,
-        x: 3,
-        y: 2,
         element: (
-          <BentoTile col={3} row={2}>
-            <DashboardCardHeader
-              icon={Layers}
-              kicker="Progress Distribution"
-              title="How far the cohort has got"
-              hint="Students per completion band — a headcount, not a share."
-            />
-            {deptLearners.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No learners assigned to your department yet.
-              </p>
-            ) : (
-              <BarBreakdownChart
-                data={spread}
-                categoryKey="tier"
-                valueKey="learners"
-                horizontal={false}
-                height={186}
+          <div id="dept-completion-spread" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={Layers}
+                kicker="Progress Distribution"
+                title="How far the cohort has got"
+                hint="Students per completion band — a headcount, not a share."
               />
-            )}
-          </BentoTile>
+              {deptLearners.length === 0 ? (
+                <p className="text-sm text-muted-foreground my-auto">
+                  No learners assigned to your department yet.
+                </p>
+              ) : (
+                <div className="my-auto py-1">
+                  <BarBreakdownChart
+                    data={spread}
+                    categoryKey="tier"
+                    valueKey="learners"
+                    horizontal={false}
+                    height={186}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  {deptLearners.length} total students
+                </span>
+                <span className={needingSupport > 0 ? "font-semibold text-amber-600 dark:text-amber-400" : "text-muted-foreground"}>
+                  {needingSupport > 0 ? `${needingSupport} needing intervention` : "Cohort pacing healthy"}
+                </span>
+              </div>
+            </div>
+          </div>
         ),
       },
       {
@@ -1101,13 +1451,9 @@ export default function DepartmentHeadDashboardPage() {
       },
       {
         id: "dept-hard-topics",
-        col: 3,
-        row: 2,
-        x: 0,
-        y: 4,
         element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+          <div id="dept-hard-topics" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
@@ -1115,21 +1461,29 @@ export default function DepartmentHeadDashboardPage() {
                 hint="Lowest accuracy across everyone's marked answers."
               />
               {hardestTopics.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Not enough marked answers yet to rank topics.
-                </p>
+                <div className="flex flex-1 items-center justify-center my-auto">
+                  <InstitutionEmptyState
+                    icon={TargetIcon}
+                    title="No topic data yet"
+                    description="Not enough marked answers yet to rank topics."
+                  />
+                </div>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                <div className="space-y-5 min-w-0 my-auto py-2">
                   {hardestTopics.map((programme) => (
                     <div key={programme.certificationId}>
                       <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         {programme.certificationTitle}
                       </p>
                       <BarBreakdownChart
-                        data={programme.topics.map((topic) => ({
-                          topic: topic.lessonTitle,
-                          accuracy: topic.accuracy,
-                        }))}
+                        data={programme.topics.map((topic, i) => {
+                          const isDupe = programme.topics.filter((t) => t.lessonTitle === topic.lessonTitle).length > 1
+                          const uniqueTitle = isDupe && topic.lessonId ? `${topic.lessonTitle} (#${topic.lessonId})` : isDupe ? `${topic.lessonTitle} (${i + 1})` : topic.lessonTitle
+                          return {
+                            topic: uniqueTitle,
+                            accuracy: topic.accuracy,
+                          }
+                        })}
                         categoryKey="topic"
                         valueKey="accuracy"
                         unit="%"
@@ -1142,19 +1496,24 @@ export default function DepartmentHeadDashboardPage() {
                   ))}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  50% accuracy threshold benchmark
+                </span>
+                <span className="text-muted-foreground">
+                  Targeted for remedial review
+                </span>
+              </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
       {
         id: "dept-hard-assessments",
-        col: 3,
-        row: 2,
-        x: 3,
-        y: 4,
         element: (
-          <BentoTile col={3} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+          <div id="dept-hard-assessments" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
@@ -1162,21 +1521,34 @@ export default function DepartmentHeadDashboardPage() {
                 hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
               />
               {hardestAssessments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No assessment has been graded in this department yet.
-                </p>
+                <div className="flex flex-1 items-center justify-center my-auto">
+                  <InstitutionEmptyState
+                    icon={ClipboardListIcon}
+                    title="No graded assessments"
+                    description="No assessment has been graded in this department yet."
+                  />
+                </div>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                <div className="space-y-5 min-w-0 my-auto py-2">
                   {hardestAssessments.map((programme) => (
                     <div key={programme.certificationId}>
                       <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         {programme.certificationTitle}
                       </p>
                       <BarBreakdownChart
-                        data={programme.assessments.map((exam) => ({
-                          exam: exam.title,
-                          averageScore: exam.averageScore ?? 0,
-                        }))}
+                        data={programme.assessments.map((exam, i) => {
+                          const isDupe = programme.assessments.filter((e) => e.title === exam.title).length > 1
+                          const uniqueTitle = isDupe && exam.examId ? `${exam.title} (#${exam.examId})` : isDupe ? `${exam.title} (${i + 1})` : exam.title
+                          return {
+                            exam: uniqueTitle,
+                            averageScore: exam.averageScore ?? 0,
+                            passRate: exam.passRate,
+                            passedAttempts: exam.passedAttempts,
+                            attempts: exam.attempts,
+                            learners: exam.learners,
+                            passingScore: exam.passingScore,
+                          }
+                        })}
                         categoryKey="exam"
                         valueKey="averageScore"
                         unit="%"
@@ -1184,41 +1556,71 @@ export default function DepartmentHeadDashboardPage() {
                         domainMax={100}
                         height={Math.max(120, programme.assessments.length * 36)}
                         categoryWidth={150}
+                        tooltipContent={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const item = payload[0]?.payload
+                          if (!item) return null
+                          return (
+                            <div className="rounded-xl border-2 border-border bg-popover px-3 py-2 text-popover-foreground shadow-md">
+                              <div className="text-xs font-bold text-muted-foreground">{label}</div>
+                              <ul className="mt-1 space-y-1 text-xs">
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Average score</span>
+                                  <span className="font-bold tabular-nums">
+                                    {item.averageScore}%
+                                  </span>
+                                </li>
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Pass rate</span>
+                                  <span
+                                    className={`font-bold tabular-nums ${
+                                      item.passRate === 0 ? "text-destructive" : ""
+                                    }`}
+                                  >
+                                    {item.passRate != null ? `${item.passRate}%` : "—"}
+                                    {item.attempts != null
+                                      ? ` (${item.passedAttempts ?? 0}/${item.attempts} passed)`
+                                      : ""}
+                                  </span>
+                                </li>
+                                <li className="flex items-center justify-between gap-4">
+                                  <span className="text-muted-foreground">Learners</span>
+                                  <span className="font-semibold tabular-nums">
+                                    {item.learners ?? 0} learner{item.learners === 1 ? "" : "s"}
+                                  </span>
+                                </li>
+                                {item.passingScore != null ? (
+                                  <li className="flex items-center justify-between gap-4">
+                                    <span className="text-muted-foreground">Pass mark</span>
+                                    <span className="font-medium tabular-nums text-muted-foreground">
+                                      {item.passingScore}%
+                                    </span>
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </div>
+                          )
+                        }}
                       />
-                      <ul className="mt-2 space-y-1">
-                        {programme.assessments.map((exam) => (
-                          <li key={exam.examId} className="truncate text-xs text-muted-foreground">
-                            <span className="font-semibold text-foreground">{exam.title}</span>
-                            {" — "}
-                            <span
-                              className={
-                                exam.passRate === 0 ? "font-semibold text-destructive" : undefined
-                              }
-                            >
-                              {exam.passedAttempts} of {exam.attempts} passed
-                            </span>
-                            {" · "}
-                            {exam.learners} learner{exam.learners === 1 ? "" : "s"}
-                            {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
-                            {exam.passingScore != null ? ` · pass mark ${exam.passingScore}%` : ""}
-                          </li>
-                        ))}
-                      </ul>
                     </div>
                   ))}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
+                  Sorted by lowest pass rate first
+                </span>
+                <span className="text-muted-foreground">
+                  {hardestAssessments.length} assessment{hardestAssessments.length === 1 ? "" : "s"} analyzed
+                </span>
+              </div>
             </div>
-          </BentoTile>
+          </div>
         ),
       },
-      // Period-over-period comparison using /learning-stats?from=&to=
       {
         id: "dept-period-comparison",
-        col: 6,
-        row: 3,
-        x: 0,
-        y: 11,
         element: (
           <PeriodComparisonTile
             comparisonRange={periodComp.comparisonRange}
@@ -1230,10 +1632,11 @@ export default function DepartmentHeadDashboardPage() {
             onComparisonTypeChange={setComparisonType}
             isLoading={periodComp.isLoading}
             isError={periodComp.isError}
+            collapsible={false}
           />
         ),
       },
-      // Section management & cohort breakdown
+// Section management & cohort breakdown
       {
         id: "dept-section-breakdown",
         col: 6,
@@ -1736,23 +2139,11 @@ export default function DepartmentHeadDashboardPage() {
     benchmarkRows,
     readinessTarget,
     benchmarks,
-    flaggedCount,
-    dormantCount,
-    rosterStatusFilter,
-    groupStats,
-    deptLearners,
-    filteredLearners,
-    selectedSectionFilter,
-    sections,
-    sectionsQuery.isLoading,
-    sectionsQuery.isError,
     primaryDeptId,
     groups,
     statsQuery.isError,
     statsQuery.data,
     departmentStatsQuery.isError,
-    activeHeadAssignments,
-    pendingHeadInvitations,
     overviewGroup,
     periodComp.deltas,
     periodComp.certificationsComparison,
@@ -1763,7 +2154,12 @@ export default function DepartmentHeadDashboardPage() {
     periodComp.isLoading,
     periodComp.isError,
     comparisonType,
+    activeFeature,
   ])
+
+  const activeTile = useMemo(() => {
+    return tiles.find((t) => t.id === activeFeature) || tiles[0]
+  }, [tiles, activeFeature])
 
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
   if (departmentsQuery.isError)
@@ -1771,21 +2167,48 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Controls & Header Navigation (2A) */}
-      <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
-        <div className="w-full md:w-[calc(50%-10px)] flex flex-wrap items-center gap-2">
-          <DateRangeNavigator className="w-full" onRangeChange={setRange} />
+
+      {/* Controls & Header Navigation (Checklist 1) */}
+      <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3 mb-2.5">
+        {/* Left semantic group: Context selectors (Dept Selector + DateRangeNavigator) */}
+        <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="w-full sm:w-[220px] shrink-0">
+            <Select
+              value={selectedProgramId}
+              onValueChange={setSelectedProgramId}
+              disabled={programs.length === 0}
+            >
+              <SelectTrigger className="min-h-[44px] sm:min-h-0 sm:h-9 w-full bg-background" id="dept-header-program-picker">
+                <SelectValue placeholder="Select Program" />
+              </SelectTrigger>
+              <SelectContent className="z-50">
+                <SelectItem value="all">All Programs ({programs.length})</SelectItem>
+                {programs.map((prog) => {
+                  const idStr = String(prog.programId ?? prog.id)
+                  const code = prog.programCode ? `${prog.programCode} - ` : ""
+                  return (
+                    <SelectItem key={idStr} value={idStr}>
+                      {code}{prog.programName || prog.name || `Program #${idStr}`}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:max-w-[320px]">
+            <DateRangeNavigator className="w-full" onRangeChange={setRange} />
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        {/* Right semantic group: Action buttons & alerts */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 md:border-l md:border-border/30 md:pl-3">
+
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              const el = document.getElementById("dept-period-comparison")
-              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-            }}
-            className="gap-1.5 h-9"
+            onClick={() => setActiveFeature("dept-period-comparison")}
+            className="gap-1.5 min-h-[44px] sm:min-h-0 sm:h-9 justify-center w-full sm:w-auto text-xs sm:text-sm"
             id="dept-header-period-comparison-btn"
             title="Jump to period comparison analysis"
           >
@@ -1800,13 +2223,15 @@ export default function DepartmentHeadDashboardPage() {
           </Button>
 
           <Button
+            asChild
             variant="outline"
-            onClick={() => setCoAuthoritiesOpen(true)}
-            className="gap-2"
+            size="sm"
+            className="gap-2 min-h-[44px] sm:min-h-0 sm:h-9 justify-center w-full sm:w-auto text-xs sm:text-sm"
             id="dept-header-co-authorities-btn"
           >
+            <Link to="/institution/departments#dept-co-authorities">
             <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-            <span>Co-Authorities</span>
+            <span className="text-xs sm:text-sm">Co-Authorities</span>
             {pendingHeadInvitations.length > 0 ? (
               <Badge
                 variant="secondary"
@@ -1815,54 +2240,24 @@ export default function DepartmentHeadDashboardPage() {
                 {pendingHeadInvitations.length}
               </Badge>
             ) : null}
+          </Link>
           </Button>
-
-          {alerts.length > 0 ? (
-            <Badge
-              variant="outline"
-              className={
-                alerts.some((a) => a.severity === "critical")
-                  ? "h-9 border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-rose-500/20 transition-colors"
-                  : "h-9 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold px-3 gap-1.5 cursor-pointer hover:bg-amber-500/20 transition-colors"
-              }
-              onClick={() => {
-                const el = document.getElementById("dept-alert-strip")
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-              }}
-            >
-              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
-              <span>{alerts.length} Alert{alerts.length === 1 ? "" : "s"}</span>
-            </Badge>
-          ) : null}
 
           <Button
             variant="outline"
+            size="sm"
+            className="min-h-[44px] sm:min-h-0 sm:h-9 gap-1.5 justify-center w-full sm:w-auto text-xs sm:text-sm"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
             disabled={statsQuery.isLoading || statsQuery.isError}
           >
             <Download className="size-4" aria-hidden="true" />
             Export CSV
           </Button>
-
-          <DashboardRearrangeControls
-            rearranging={layout.rearranging}
-            onStart={layout.startRearranging}
-            onFinish={layout.finishRearranging}
-            onCancel={layout.cancelRearranging}
-            onReset={layout.resetLayout}
-          />
         </div>
       </div>
 
-      {/* Alert Strip: Expiring Access, Seat Budget, Dormant/At-Risk Learners, Unpaid Invoices, Pending Invites */}
-      <DepartmentAlertStrip alerts={alerts} />
-
-      <DashboardBoard
-        tiles={tiles}
-        layout={layout.tileLayout}
-        editing={layout.rearranging}
-        onLayoutChange={layout.handleLayoutChange}
-      />
+      {/* Mobile Sticky Rearrange Floating Card */}
+      
 
       {createSectionOpen && primaryDeptId ? (
         <SectionDialog
@@ -1875,14 +2270,47 @@ export default function DepartmentHeadDashboardPage() {
         />
       ) : null}
 
-      {coAuthoritiesOpen && primaryDeptId ? (
-        <CoAuthoritiesDialog
-          open={coAuthoritiesOpen}
-          onOpenChange={setCoAuthoritiesOpen}
-          departmentId={primaryDeptId}
-          departmentName={overviewGroup?.departmentName || overviewGroup?.name}
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+        <MetricsSidebar
+          activeFeature={activeFeature}
+          onSelectFeature={setActiveFeature}
+          activeCategory={activeMetricsCategory}
+          onSelectCategory={setActiveMetricsCategory}
         />
-      ) : null}
+
+        <div className="min-w-0 space-y-6">
+          {/* Mobile View Switcher */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
+            {METRIC_GROUPS.flatMap((g) => g.items).map((item) => {
+              const Icon = item.icon
+              const isActive = activeFeature === item.id
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveFeature(item.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Alert Strip */}
+          <DepartmentAlertStrip alerts={alerts} />
+
+          {/* Active Metric Expanded Feature View */}
+          {activeTile ? activeTile.element : null}
+        </div>
+      </div>
+
     </div>
   )
 }
