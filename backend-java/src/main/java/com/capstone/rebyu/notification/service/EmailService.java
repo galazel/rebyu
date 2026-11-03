@@ -243,7 +243,7 @@ public class EmailService {
         String base = frontendUrl.replaceAll("/+$", "");
         String certLink = base + "/learner/certifications/" + certificationId + "/certificate";
         String badgeImgUrl = base + "/api/certifications/" + certificationId + "/badge";
-        String subject = "Congratulations! You completed " + certificationTitle + " on REBYU";
+        String subject = "You earned the " + certificationTitle + " badge on REBYU";
         String scoreLine = score == null || score.isBlank() ? "" : " with a score of " + score;
         String dateStr = issuedAt == null ? "" : issuedAt.toLocalDate()
                 .format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"));
@@ -251,12 +251,11 @@ public class EmailService {
         String text = """
                 Congratulations %s!
 
-                You have successfully completed the %s review on REBYU%s.
+                You earned the %s badge on REBYU%s. It now sits on your certification card.
 
-                Certificate No.: %s
-                Date of Completion: %s
+                Your certificate of completion (no. %s, %s) is in a separate email, attached as a PDF.
 
-                View your Badge of Completion:
+                View your badge and certificate:
                 %s
 
                 Well done — keep it up!
@@ -280,11 +279,10 @@ public class EmailService {
                 + "<div style=\"padding:24px 28px;text-align:center;font-family:Georgia,'Times New Roman',serif\">"
                 + "<p style=\"margin:0 0 2px;font-size:10px;font-weight:bold;letter-spacing:0.3em;color:#1a5c3a;text-transform:uppercase\">REBYU LEARNING</p>"
                 + "<p style=\"margin:6px 0 10px;color:#1a5c3a;font-size:12px\">· · ·</p>"
-                + "<p style=\"margin:0 0 4px;font-size:22px;font-weight:bold;color:#1a5c3a\">Badge of Completion</p>"
-                + "<p style=\"margin:0 0 14px;font-size:12px;color:#6b706c;font-style:italic\">This formally acknowledges that</p>"
+                + "<p style=\"margin:0 0 4px;font-size:22px;font-weight:bold;color:#1a5c3a\">Badge earned</p>"
                 + badgeBlock
                 + "<p style=\"margin:10px 0 4px;font-size:20px;font-weight:bold;color:#111827\">" + escape(learnerName) + "</p>"
-                + "<p style=\"margin:0 0 4px;font-size:12px;color:#6b706c\">has achieved the badge of completion for</p>"
+                + "<p style=\"margin:0 0 4px;font-size:12px;color:#6b706c\">earned the badge for</p>"
                 + "<p style=\"margin:0 0 16px;font-size:14px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;color:#111827\">" + escape(certificationTitle) + "</p>"
                 + "<table style=\"width:100%;border-top:1px solid #dce8e2;margin-top:4px;padding-top:14px;font-size:11px;border-collapse:collapse\">"
                 + "<tr>"
@@ -295,9 +293,9 @@ public class EmailService {
                 + "<div style=\"background:linear-gradient(90deg,#1a5c3a 0%,#2d8c5e 50%,#1a5c3a 100%);height:7px\"></div>"
                 + "</div>"
                 + "<p style=\"text-align:center\">"
-                + "<a href=\"" + certLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:bold;display:inline-block\">View your Badge of Completion</a>"
+                + "<a href=\"" + certLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:bold;display:inline-block\">View your badge and certificate</a>"
                 + "</p>"
-                + "<p style=\"font-size:12px;color:#6b706c;text-align:center;margin-top:12px\">Well done — keep it up!</p>"
+                + "<p style=\"font-size:12px;color:#6b706c;text-align:center;margin-top:12px\">Your certificate of completion is in a separate email, attached as a PDF. Well done — keep it up!</p>"
         );
         sendHtml(recipientEmail, subject, text, html);
     }
@@ -305,8 +303,18 @@ public class EmailService {
     public void sendCertificateIssued(String recipientEmail, String learnerName, String certificationTitle,
                                       String certificateNumber, String score, java.time.LocalDateTime issuedAt,
                                       Attachment certificatePdf) {
+        sendCertificateIssued(recipientEmail, learnerName, certificationTitle, certificateNumber, score, issuedAt,
+                certificatePdf, null, false);
+    }
+
+    public void sendCertificateIssued(String recipientEmail, String learnerName, String certificationTitle,
+                                      String certificateNumber, String score, java.time.LocalDateTime issuedAt,
+                                      Attachment certificatePdf, Long certificationId, boolean hasBadgeImage) {
         String base = frontendUrl.replaceAll("/+$", "");
-        String link = base + "/learner/certifications";
+        String link = certificationId == null
+                ? base + "/learner/certifications"
+                : base + "/learner/certifications/" + certificationId + "/certificate";
+        String badgeImgUrl = certificationId == null ? null : base + "/api/certifications/" + certificationId + "/badge";
         String date = issuedAt.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"));
         String subject = "Your certificate of completion for " + certificationTitle;
         String text = """
@@ -327,9 +335,14 @@ public class EmailService {
         String html = frame("<p>Congratulations <b>" + escape(learnerName) + "</b>!</p>"
                 + "<p>You completed the <b>" + escape(certificationTitle) + "</b> review and passed its mock exam. "
                 + "Your certificate of completion is attached as a PDF.</p>"
-                + "<div style=\"border:2px solid #2f6b4f;border-radius:12px;padding:20px 24px;margin:12px 0;text-align:center\">"
-                + "<p style=\"margin:0;font-size:11px;letter-spacing:0.16em;color:#6b706c\">CERTIFICATE OF COMPLETION</p>"
-                + "<p style=\"margin:8px 0 0;font-size:22px;font-weight:bold\">" + escape(learnerName) + "</p>"
+                + "<div style=\"border:4px double #1a5c3a;border-radius:6px;padding:22px 24px;margin:12px 0;text-align:center;font-family:Georgia,'Times New Roman',serif\">"
+                + "<p style=\"margin:0;font-size:10px;font-weight:bold;letter-spacing:0.3em;color:#1a5c3a\">REBYU LEARNING</p>"
+                + "<p style=\"margin:8px 0 0;font-size:24px;font-weight:bold;color:#1a5c3a\">Certificate of Completion</p>"
+                + "<p style=\"margin:4px 0 0;font-size:12px;font-style:italic;color:#6b706c\">This certifies that</p>"
+                + (hasBadgeImage && badgeImgUrl != null
+                    ? "<div style=\"margin:14px 0 6px\"><img src=\"" + badgeImgUrl + "\" alt=\"" + escape(certificationTitle) + " badge\" style=\"width:84px;height:84px;border-radius:50%;border:3px solid #2f6b4f;object-fit:cover\" /></div>"
+                    : "")
+                + "<p style=\"margin:8px 0 0;font-size:22px;font-weight:bold;font-style:italic;color:#111827\">" + escape(learnerName) + "</p>"
                 + "<p style=\"margin:6px 0 0\">completed the <b>" + escape(certificationTitle) + "</b> review and passed its mock exam"
                 + (score == null || score.isBlank() ? "" : " with <b>" + escape(score) + "</b>") + ".</p>"
                 + "<p style=\"margin:12px 0 0;font-family:monospace\">" + escape(certificateNumber) + "</p>"

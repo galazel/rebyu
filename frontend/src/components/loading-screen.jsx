@@ -157,11 +157,29 @@ export function messagesForPath(pathname, user) {
 
 export const GRADING_MESSAGES = lines([
   ["answers", "Checking your answers..."],
-  ["written", "Marking your written responses..."],
-  ["code", "Running your code against the tests..."],
   ["score", "Totalling your score..."],
+  ["mastery", "Updating your topic mastery..."],
   ["feedback", "Writing notes in the margin..."],
 ])
+
+const WRITTEN_GRADING = lines([["written", "Marking your written responses..."]])
+const CODE_GRADING = lines([["code", "Running your code against the tests..."]])
+const DIAGRAM_GRADING = lines([["diagram", "Checking your diagrams..."]])
+
+/** Only mention written, code or diagram marking when the paper has them. */
+export function gradingMessagesFor(questions = []) {
+  const types = (questions ?? []).map((question) => ({
+    type: String(question?.questionType ?? "").toUpperCase(),
+    format: String(question?.criticalThinkingType ?? "").toUpperCase(),
+  }))
+  const has = (test) => types.some(test)
+  return [
+    ...GRADING_MESSAGES,
+    ...(has(({ type, format }) => type === "DESCRIPTIVE" || (type === "CRITICAL_THINKING" && (format === "" || format === "TEXT"))) ? WRITTEN_GRADING : []),
+    ...(has(({ type, format }) => type === "PROGRAMMING" || format === "PROGRAMMING") ? CODE_GRADING : []),
+    ...(has(({ type, format }) => type === "DIAGRAM" || format === "DIAGRAM") ? DIAGRAM_GRADING : []),
+  ]
+}
 
 export const ATTEMPT_MESSAGES = lines([
   ["paper", "Setting out your paper..."],

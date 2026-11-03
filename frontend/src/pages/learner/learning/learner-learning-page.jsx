@@ -15,23 +15,23 @@ import {
   Trophy,
 } from "@/components/icons"
 
-import { Button } from "@/components/ui/button"
 import {
   certificationProgressPercent,
   findCertificationProgress,
 } from "@/lib/certification-progress.js"
 import { getLearnerCertificationProgress, getMyAwards } from "@/services/learnerService.js"
 import EarnedStrip from "@/components/learner/earned-strip.jsx"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
   LearnerEmptyState,
-  ProgressBar,
-  toneForCertification,
+  LearnerPageHeader,
 } from "@/components/learner/learner-ui.jsx"
+import { ProgressBar as GameProgressBar } from "@/components/learner/tutor-game-kit.jsx"
+import { BubbleCard } from "@/components/commons/bubble-card.jsx"
 
 const VIEW_MODE_KEY = "rebyu-my-learning-view"
 
@@ -239,243 +239,185 @@ export function isDiagnosticCompleted(certification, data) {
   })
 }
 
-// Same as the certification catalogue, so a finished certification reads the same in both:
-// its "Review complete" opens the badge page there and here alike.
-const EARNED_BUTTON_STYLE = {
-  background: "var(--color-rb-bee-wash)",
-  color: "var(--color-rb-eel)",
-  border: "2px solid var(--color-rb-bee)",
-}
 
-function CourseCard({ course, onOpen, onViewBadge }) {
-  const {
-    certification,
-    progress,
-    totalLessons,
-    completedLessons,
-    nextLesson,
-    diagnosticCompleted,
-    diagnosticAssessment,
-    award,
-  } = course
-
-  const status = getCourseStatus(progress, completedLessons)
+/** What a course card says and does, from where the learner is in it. */
+function courseState(course) {
+  const { progress, completedLessons, nextLesson, diagnosticCompleted, diagnosticAssessment, award } = course
   const needsDiagnostic = !diagnosticCompleted
   const completed = progress != null && progress >= 100
   const badgeEarned = Boolean(award?.badgeAwardedAt)
-  const tone = toneForCertification(certification)
-  const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
+  const status = needsDiagnostic ? "Diagnostic required" : getCourseStatus(progress, completedLessons).toLowerCase().replace(/^./, (c) => c.toUpperCase())
+  return {
+    needsDiagnostic,
+    completed,
+    badgeEarned,
+    status,
+    StateIcon: needsDiagnostic ? LockKeyhole : completed ? Award : CirclePlay,
+    action: needsDiagnostic ? "Start with the diagnostic" : badgeEarned ? "Review complete" : completed ? "Review" : completedLessons > 0 ? "Continue" : "Start learning",
+    ActionIcon: needsDiagnostic ? ClipboardCheck : badgeEarned ? CheckCircle2 : CirclePlay,
+    line: needsDiagnostic
+        ? diagnosticAssessment
+            ? "Take the diagnostic before learning"
+            : "Diagnostic exam is not configured yet"
+        : nextLesson
+            ? `Next: ${nextLesson.name ?? nextLesson.title}`
+            : completed
+                ? "Course completed"
+                : "Start learning",
+  }
+}
+
+function CourseAction({ state, onOpen, onViewBadge, className = "" }) {
+  return (
+      <button
+          type="button"
+          className={`tg-btn !py-2.5 ${state.badgeEarned ? "" : "tg-btn-primary"} ${className}`}
+          onClick={state.badgeEarned ? onViewBadge : onOpen}
+      >
+        <state.ActionIcon className="size-4" aria-hidden="true" />
+        {state.action}
+      </button>
+  )
+}
+
+function CourseProgress({ progress, completedLessons, totalLessons }) {
+  return (
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          {progress == null ? (
+              <span className="h-6 w-16 animate-pulse rounded-full bg-[var(--tg-soft)]" aria-label="Progress loading" />
+          ) : (
+              <span className="font-rb-display text-3xl font-extrabold leading-none tabular-nums text-[var(--tg-ink)]">
+                {progress}%
+              </span>
+          )}
+          <span className="text-xs font-bold text-muted-foreground">
+            {completedLessons} of {totalLessons} lessons
+          </span>
+        </div>
+        <GameProgressBar value={progress ?? 0} total={100} label="Course progress" />
+      </div>
+  )
+}
+
+// The original bubble card (a coloured cap with the certification's name as a
+// wordmark), kept in one green and with game-kit buttons.
+function CourseCard({ course, onOpen, onViewBadge }) {
+  const { certification, totalLessons, completedLessons, progress, award } = course
+  const state = courseState(course)
 
   return (
       <BubbleCard
-          tone={tone}
+          tone="feather"
           cap="flat"
           body="card"
-          icon={needsDiagnostic ? LockKeyhole : completed ? Award : CirclePlay}
+          icon={state.StateIcon}
           wordmark={getCertificationTitle(certification)}
-          eyebrow="REBYU Certification Review"
+          eyebrow={certification.department ?? "REBYU Certification Review"}
+          className="tg-cat-explain h-full"
           title={
             <button
                 type="button"
                 onClick={onOpen}
-                className="rounded-sm text-left hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--bubble-tone)]"
+                className="rounded-sm text-left hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)]"
             >
               {getCertificationTitle(certification)}
             </button>
           }
           chips={[
-            { label: needsDiagnostic ? "Diagnostic required" : status },
-            ...(badgeEarned ? [{ label: "Badge earned", side: "right" }] : []),
+            { label: state.status },
+            ...(state.badgeEarned ? [{ label: "Badge earned", side: "right" }] : []),
           ]}
-          footer={
-            <div className="w-full space-y-2">
-              <Button
-                  className={badgeEarned ? "w-full hover:opacity-90" : "w-full text-white hover:opacity-90"}
-                  style={badgeEarned ? EARNED_BUTTON_STYLE : { background: palette.solid }}
-                  onClick={badgeEarned ? onViewBadge : onOpen}
-              >
-                {needsDiagnostic ? (
-                    <ClipboardCheck className="mr-2 size-3.5" />
-                ) : badgeEarned ? (
-                    <CheckCircle2 className="mr-1.5 size-4" />
-                ) : null}
-                {needsDiagnostic ? "Start" : badgeEarned ? "Review complete" : completed ? "Review" : "Continue"}
-              </Button>
-            </div>
-          }
+          footer={<CourseAction state={state} onOpen={onOpen} onViewBadge={onViewBadge} className="w-full" />}
       >
-        <p className="mt-2 line-clamp-2 min-h-[42px] text-sm leading-5 text-muted-foreground">
+        <p className="mt-2 line-clamp-2 min-h-[40px] text-sm leading-5 text-muted-foreground">
           {getCertificationDescription(certification)}
         </p>
 
-        <div className="mt-4 space-y-2">
-          <div className="flex items-baseline justify-between gap-3">
-            {progress == null ? (
-              <span
-                  className="h-6 w-16 animate-pulse rounded-rb-pill bg-rb-swan"
-                  title="Working out how far through you are"
-                  aria-label="Progress loading"
-              />
-            ) : (
-              <span
-                  className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
-                  style={{ color: palette.solid }}
-              >
-                {progress}%
-              </span>
-            )}
-            <span className="text-xs font-bold text-muted-foreground">
-              {completedLessons} of {totalLessons} lessons
-            </span>
-          </div>
-
-          <ProgressBar value={progress ?? 0} color={palette.solid} />
+        <div className="mt-4">
+          <CourseProgress progress={progress} completedLessons={completedLessons} totalLessons={totalLessons} />
         </div>
 
-        {badgeEarned ? (
-            <div className="mt-4 border-t border-border pt-3">
-              <EarnedStrip
-                  certificationId={certification.certificationId}
-                  award={award}
-                  onView={onViewBadge}
-                  className=""
-              />
+        {state.badgeEarned ? (
+            <div className="mt-4 border-t border-[var(--tg-line)] pt-3">
+              <EarnedStrip certificationId={certification.certificationId} award={award} onView={onViewBadge} className="" />
             </div>
         ) : (
-            <p className="mt-4 truncate border-t border-border pt-3 text-xs text-muted-foreground">
-              {needsDiagnostic
-                  ? diagnosticAssessment
-                      ? "Take the diagnostic before learning"
-                      : "Diagnostic exam is not configured yet"
-                  : nextLesson
-                      ? `Next: ${nextLesson.name ?? nextLesson.title}`
-                      : completed
-                          ? "Course completed"
-                          : "Start learning"}
+            <p className="mt-4 flex items-center gap-1.5 truncate border-t border-[var(--tg-line)] pt-3 text-xs font-semibold text-muted-foreground">
+              <state.StateIcon className="size-3.5 shrink-0 text-[var(--tg)]" aria-hidden="true" />
+              <span className="truncate">{state.line}</span>
             </p>
         )}
       </BubbleCard>
   )
 }
 
-function CourseRow({ course, onOpen, onViewBadge }) {
-  const {
-    certification,
-    progress,
-    totalLessons,
-    completedLessons,
-    nextLesson,
-    diagnosticCompleted,
-    diagnosticAssessment,
-    award,
-  } = course
-  const badgeEarned = Boolean(award?.badgeAwardedAt)
+/** The row's left tile: the earned badge once there is one, otherwise the state icon. */
+function CourseTile({ course, state }) {
+  const [badgeFailed, setBadgeFailed] = useState(false)
+  const award = course.award
+  if (state.badgeEarned && award?.hasBadgeImage !== false && !badgeFailed) {
+    return (
+        <img
+            src={`${certificationBadgeUrl(course.certification.certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
+            alt={`${getCertificationTitle(course.certification)} badge`}
+            onError={() => setBadgeFailed(true)}
+            className="hidden size-16 rounded-full border-[3px] border-white bg-white object-cover shadow-[0_0_0_2px_var(--tg),0_6px_14px_-6px_rgba(16,42,37,0.45)] sm:block"
+        />
+    )
+  }
+  return (
+      <div className="relative hidden size-16 place-items-center overflow-hidden rounded-2xl tg-solid sm:grid">
+        <state.StateIcon className="relative size-7 text-white" aria-hidden="true" />
+      </div>
+  )
+}
 
-  const status = getCourseStatus(progress, completedLessons)
-  const needsDiagnostic = !diagnosticCompleted
-  const completed = progress != null && progress >= 100
-  const tone = toneForCertification(certification)
-  const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
-  const StateIcon = needsDiagnostic ? LockKeyhole : completed ? Award : CirclePlay
+function CourseRow({ course, onOpen, onViewBadge }) {
+  const { certification, totalLessons, completedLessons, progress } = course
+  const state = courseState(course)
 
   return (
-      <article
-          style={{ "--bubble-tone": palette.solid }}
-          className="flex flex-col gap-4 rounded-rb-card border-2 border-border bg-card p-4 transition-colors hover:border-[color:var(--bubble-tone)] sm:flex-row sm:items-center"
-      >
-        <div
-            className="relative hidden size-20 shrink-0 place-items-center overflow-hidden rounded-rb-tile [container-type:inline-size] sm:grid"
-            style={{ background: palette.flat }}
-        >
-          <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-1 left-1 select-none whitespace-nowrap font-rb-display text-[2rem] font-black lowercase leading-none text-white/25"
-          >
-            {getCertificationTitle(certification)}
-          </span>
-          <StateIcon className="relative size-8 text-white" strokeWidth={1.7} aria-hidden="true" />
-        </div>
+      <article className="tg-cat-explain group grid gap-4 rounded-rb-card border-2 border-border bg-card p-4 transition-colors hover:border-[var(--tg)] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-5 sm:p-5">
+        <CourseTile course={course} state={state} />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-rb-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-rb-feather-lip">
-              REBYU Certification Review
-            </p>
-            <span className={`rounded-rb-pill px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${palette.chip}`}>
-              {needsDiagnostic ? "Diagnostic required" : status}
-            </span>
+            <span className="tg-chip">{state.status}</span>
+            {state.badgeEarned ? <span className="tg-pill">Badge earned</span> : null}
+            {certification.department ? (
+                <span className="truncate text-[11px] font-semibold text-muted-foreground">{certification.department}</span>
+            ) : null}
           </div>
 
           <button
               type="button"
               onClick={onOpen}
-              className="mt-1 block max-w-full truncate rounded-sm text-left font-rb-display text-lg font-extrabold text-foreground hover:underline focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--bubble-tone)]"
+              className="mt-1.5 block max-w-full truncate rounded-sm text-left font-rb-display text-2xl font-extrabold leading-tight text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)]"
           >
             {getCertificationTitle(certification)}
           </button>
 
-          <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-bold text-foreground">
-              {completedLessons} of {totalLessons} lessons
-            </span>
-            <span className="truncate">
-              {needsDiagnostic
-                  ? diagnosticAssessment
-                      ? "Take the diagnostic before learning"
-                      : "Diagnostic exam is not configured yet"
-                  : nextLesson
-                      ? `Next: ${nextLesson.name ?? nextLesson.title}`
-                      : completed
-                          ? "Course completed"
-                          : "Start learning"}
-            </span>
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="shrink-0 font-bold text-foreground">{completedLessons} of {totalLessons} lessons</span>
+            <span aria-hidden="true">·</span>
+            <span className="truncate">{state.line}</span>
           </p>
 
-          <div className="mt-2 max-w-md">
-            <ProgressBar value={progress ?? 0} color={palette.solid} />
+          <div className="mt-2.5 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <GameProgressBar value={progress ?? 0} total={100} label="Course progress" />
+            </div>
+            {progress == null ? (
+                <span className="h-4 w-10 animate-pulse rounded-full bg-[var(--tg-soft)]" aria-label="Progress loading" />
+            ) : (
+                <span className="w-12 shrink-0 text-right text-sm font-black tabular-nums text-[var(--tg-ink)]">{progress}%</span>
+            )}
           </div>
 
-          {badgeEarned ? (
-              <div className="mt-2 max-w-xs">
-                <EarnedStrip
-                    certificationId={certification.certificationId}
-                    award={award}
-                    onView={onViewBadge}
-                    className=""
-                />
-              </div>
-          ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
-          {progress == null ? (
-            <span
-                className="h-6 w-16 animate-pulse rounded-rb-pill bg-rb-swan"
-                title="Working out how far through you are"
-                aria-label="Progress loading"
-            />
-          ) : (
-            <span
-                className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
-                style={{ color: palette.solid }}
-            >
-              {progress}%
-            </span>
-          )}
-
-          <Button
-              className={badgeEarned ? "min-w-32 hover:opacity-90" : "min-w-32 text-white hover:opacity-90"}
-              style={badgeEarned ? EARNED_BUTTON_STYLE : { background: palette.solid }}
-              onClick={badgeEarned ? onViewBadge : onOpen}
-          >
-            {needsDiagnostic ? (
-                <ClipboardCheck className="mr-2 size-3.5" />
-            ) : badgeEarned ? (
-                <CheckCircle2 className="mr-1.5 size-4" />
-            ) : null}
-            {needsDiagnostic ? "Start" : badgeEarned ? "Review complete" : completed ? "Review" : "Continue"}
-          </Button>
-        </div>
+        <CourseAction state={state} onOpen={onOpen} onViewBadge={onViewBadge} className="w-full whitespace-nowrap sm:w-48" />
       </article>
   )
 }
@@ -484,23 +426,18 @@ function AchievementItem({ achievement }) {
   const badge = achievementBadge(achievement)
 
   return (
-      <div className="flex gap-3 border-b border-border py-4 last:border-b-0">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-md border bg-muted">
+      <div className="flex gap-3 py-3">
+        <div className="grid size-11 shrink-0 place-items-center overflow-hidden">
           {badge ? (
-              <img src={badge} alt="" className="size-full rounded-md object-contain p-0.5" />
+              <img src={badge} alt="" className="size-full object-contain p-0.5" />
           ) : (
-              <Award className="size-5 text-primary" />
+              <Award className="size-5 text-[var(--tg)]" />
           )}
         </div>
 
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">
-            {getAchievementTitle(achievement)}
-          </p>
-
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {getAchievementDescription(achievement)}
-          </p>
+          <p className="text-sm font-semibold text-foreground">{getAchievementTitle(achievement)}</p>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{getAchievementDescription(achievement)}</p>
         </div>
       </div>
   )
@@ -617,6 +554,7 @@ export default function LearnerLearningPage() {
     })
   }, [allLessons, enrolledCertifications, data, progressRows, awardByCertification])
 
+
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
       const certification = course.certification
@@ -639,136 +577,101 @@ export default function LearnerLearningPage() {
   }, [courses, query, selectedDepartment, selectedStatus])
 
   return (
-      <div className="space-y-6">
+      <div className="rb-hub space-y-6">
+        <LearnerPageHeader
+            title="My Learning"
+        />
         {enrolledCertifications.length === 0 ? (
             <LearnerEmptyState
                 icon={BookOpen}
                 title="No enrolled certifications yet"
                 description="Browse the Certifications page and enroll in a certification review to start learning."
                 action={
-                  <Button onClick={() => navigate("/learner/certifications")}>
-                    Browse Certifications
-                  </Button>
+                  <button type="button" className="tg-btn tg-btn-primary" onClick={() => navigate("/learner/certifications")}>
+                    <Search className="size-4" aria-hidden="true" />
+                    Browse certifications
+                  </button>
                 }
             />
         ) : (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-              <main className="min-w-0">
-                <div className="mb-4">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-                    Enrolled Certifications
-                  </h2>
-                </div>
-
-                <div className="mb-5 flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="relative w-full lg:max-w-sm">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-
-                    <Input
-                        value={localSearch}
-                        onChange={(event) => setLocalSearch(event.target.value)}
-                        placeholder="Search courses, training"
-                        className="pl-10"
-                    />
-                  </div>
+            <>
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <main className="min-w-0 space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <h2 className="text-base font-semibold text-foreground">Enrolled certifications</h2>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                      <SelectTrigger className="min-w-[170px]"><SelectValue placeholder="All departments" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ALL">All Departments</SelectItem>
-                        {departments.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative w-full sm:w-64">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                          value={localSearch}
+                          onChange={(event) => setLocalSearch(event.target.value)}
+                          placeholder="Search your certifications"
+                          aria-label="Search your certifications"
+                          className="pl-10"
+                      />
+                    </div>
+
+                    {departments.length > 1 ? (
+                        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                          <SelectTrigger className="min-w-[170px]" aria-label="Department"><SelectValue placeholder="All departments" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ALL">All departments</SelectItem>
+                            {departments.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                    ) : null}
 
                     <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                      <SelectTrigger className="min-w-[185px]"><SelectValue placeholder="All types" /></SelectTrigger>
+                      <SelectTrigger className="min-w-[170px]" aria-label="Status"><SelectValue placeholder="All statuses" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL">All Types</SelectItem>
-                        <SelectItem value="DIAGNOSTIC REQUIRED">Diagnostic Required</SelectItem>
-                        <SelectItem value="IN PROGRESS">In Progress</SelectItem>
-                        <SelectItem value="READY TO START">Ready to Start</SelectItem>
+                        <SelectItem value="ALL">All statuses</SelectItem>
+                        <SelectItem value="DIAGNOSTIC REQUIRED">Diagnostic required</SelectItem>
+                        <SelectItem value="IN PROGRESS">In progress</SelectItem>
+                        <SelectItem value="READY TO START">Ready to start</SelectItem>
                         <SelectItem value="COMPLETED">Completed</SelectItem>
                       </SelectContent>
                     </Select>
 
-                    <div className="flex overflow-hidden border border-input">
-                      <button
-                          type="button"
-                          onClick={() => chooseViewMode("GRID")}
-                          className={`flex size-10 items-center justify-center transition ${
-                              viewMode === "GRID"
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-background text-muted-foreground hover:bg-muted"
-                          }`}
-                          aria-label="Grid view"
-                      >
-                        <Grid2X2 className="size-4" />
-                      </button>
-
-                      <button
-                          type="button"
-                          onClick={() => chooseViewMode("LIST")}
-                          className={`flex size-10 items-center justify-center border-l border-input transition ${
-                              viewMode === "LIST"
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-background text-muted-foreground hover:bg-muted"
-                          }`}
-                          aria-label="List view"
-                      >
-                        <List className="size-4" />
-                      </button>
+                    <div className="tg-cat-explain flex gap-1.5" role="group" aria-label="Layout">
+                      {[["GRID", Grid2X2, "Grid view"], ["LIST", List, "List view"]].map(([mode, Icon, label]) => (
+                          <button
+                              key={mode}
+                              type="button"
+                              onClick={() => chooseViewMode(mode)}
+                              aria-pressed={viewMode === mode}
+                              aria-label={label}
+                              data-tip={label}
+                              className={`tg-btn tg-icon-btn ${viewMode === mode ? "tg-btn-primary" : ""}`}
+                          >
+                            <Icon className="size-4" />
+                          </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 {filteredCourses.length === 0 ? (
-                    <div className="border border-dashed border-border py-14 text-center">
-                      <Search className="mx-auto size-7 text-muted-foreground" />
-
-                      <p className="mt-3 text-sm font-medium text-foreground">
-                        No certifications found
-                      </p>
-
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Try another keyword or change your filters.
-                      </p>
-
-                      <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-4"
-                          onClick={() => {
-                            setLocalSearch("")
-                            setSelectedDepartment("ALL")
-                            setSelectedStatus("ALL")
-                          }}
-                      >
-                        Clear Filters
-                      </Button>
-                    </div>
-                ) : (
-                    <div
-                        className={
-                          viewMode === "GRID"
-                              ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-                              : "grid gap-3"
+                    <LearnerEmptyState
+                        icon={Search}
+                        title="No certifications found"
+                        description="Try another keyword or change your filters."
+                        action={
+                          <button type="button" className="tg-btn" onClick={() => { setLocalSearch(""); setSelectedDepartment("ALL"); setSelectedStatus("ALL") }}>
+                            Clear filters
+                          </button>
                         }
-                    >
+                    />
+                ) : (
+                    <div className={viewMode === "GRID" ? "grid gap-5 sm:grid-cols-2 2xl:grid-cols-3" : "grid gap-3"}>
                       {filteredCourses.map((course) => {
                         const Card = viewMode === "GRID" ? CourseCard : CourseRow
                         return (
                             <Card
                                 key={course.certification.certificationId}
                                 course={course}
-                                onOpen={() =>
-                                    openCertification(course.certification, {
-                                      diagnosticCompleted: course.diagnosticCompleted,
-                                    })
-                                }
-                                onViewBadge={() =>
-                                    navigate(`/learner/certifications/${course.certification.certificationId}/certificate`)
-                                }
+                                onOpen={() => openCertification(course.certification, { diagnosticCompleted: course.diagnosticCompleted })}
+                                onViewBadge={() => navigate(`/learner/certifications/${course.certification.certificationId}/certificate`)}
                             />
                         )
                       })}
@@ -776,65 +679,33 @@ export default function LearnerLearningPage() {
                 )}
               </main>
 
-              <aside className="border-t border-border pt-5 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Latest Achievements
-                  </h2>
-
-                  <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => navigate("/learner/account")}
-                  >
-                    Show all
-                  </Button>
-                </div>
-
-                {achievements.length > 0 ? (
-                    <div className="mt-3">
-                      {achievements.slice(0, 5).map((achievement, index) => (
-                          <AchievementItem
-                              key={
-                                  achievement.code ??
-                                  achievement.achievementId ??
-                                  `${getAchievementTitle(achievement)}-${index}`
-                              }
-                              achievement={achievement}
-                          />
-                      ))}
-                    </div>
-                ) : (
-                    <div className="mt-4 border border-dashed border-border p-4 text-center">
-                      <Trophy className="mx-auto size-6 text-muted-foreground" />
-
-                      <p className="mt-2 text-sm font-medium text-foreground">
-                        No achievements yet
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Complete lessons, quizzes, and exams to earn achievements.
-                      </p>
-                    </div>
-                )}
-
-                <div className="mt-6 border-t border-border pt-5">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-primary" />
-
-                    <p className="text-sm font-semibold text-foreground">
-                      Keep your progress moving
-                    </p>
+              <aside className="tg-cat-explain h-fit">
+                <section>
+                  <header className="flex items-center gap-2.5 pb-1">
+                    <span className="tg-badge-icon !size-8"><Trophy className="size-4" aria-hidden="true" /></span>
+                    <span className="flex-1 text-base font-semibold text-foreground">Latest achievements</span>
+                    <button type="button" className="tg-btn !px-3 !py-1 !text-xs" onClick={() => navigate("/learner/account")}>
+                      Show all
+                    </button>
+                  </header>
+                  <div className="divide-y divide-border">
+                    {achievements.length > 0 ? (
+                        achievements.slice(0, 5).map((achievement, index) => (
+                            <AchievementItem
+                                key={achievement.code ?? achievement.achievementId ?? `${getAchievementTitle(achievement)}-${index}`}
+                                achievement={achievement}
+                            />
+                        ))
+                    ) : (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          Complete lessons, quizzes and exams to earn achievements.
+                        </p>
+                    )}
                   </div>
-
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Continue your unfinished lessons to unlock quizzes, exams, and
-                    readiness insights.
-                  </p>
-                </div>
+                </section>
               </aside>
             </div>
+            </>
         )}
 
         {studyPlanDialog}

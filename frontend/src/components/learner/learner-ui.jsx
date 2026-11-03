@@ -271,23 +271,25 @@ export function LearnerMobileSidebar({ open, onOpenChange, data }) {
   )
 }
 
-export function LearnerPageHeader({ title, subtitle, children }) {
-  void title
-  void subtitle
-
-  return children ? (
-    <div className="flex justify-end">{children}</div>
-  ) : null
+/** The heading every learner hub page shares. The page's coloured icon tile and
+ *  name live in the sidebar, so the h1 is for screen readers only; any page
+ *  actions sit on the right. */
+export function LearnerPageHeader({ title, children }) {
+  return (
+    <>
+      <h1 className="sr-only">{title}</h1>
+      {children ? <div className="flex flex-wrap items-center justify-end gap-2">{children}</div> : null}
+    </>
+  )
 }
 
 export function LearnerEmptyState({ icon: Icon = BookOpen, title, description, action }) {
   return (
-    <div className="rb-sticky rb-sticky-yellow mx-auto mt-4 min-h-56 w-full max-w-md items-center justify-center text-center">
-      <span className="rb-pushpin" aria-hidden="true" />
-      <span className="grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-macaw-lip">
-        <Icon className="size-6" />
+    <div className="tg-cat-explain mx-auto mt-4 flex w-full max-w-md flex-col items-center rounded-[1.25rem] border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] px-6 py-10 text-center">
+      <span className="tg-badge-icon !size-12">
+        <Icon className="size-5" />
       </span>
-      <h2 className="mt-4 font-rb-display text-base font-extrabold lowercase text-foreground">
+      <h2 className="rb-form-heading mt-4 text-base font-semibold text-foreground first-letter:uppercase">
         {title}
       </h2>
       <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">

@@ -43,6 +43,39 @@ public interface LearnerCompletedLessonRepository extends JpaRepository<LearnerC
             @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
+    /** {@link #lessonsCompletedByLearnerIds} limited to lessons of the given certifications. */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT l.learner.learnerId AS learnerId, COUNT(l) AS lessonsCompleted
+            FROM LearnerCompletedLesson l
+            WHERE l.learner.learnerId IN :learnerIds
+              AND l.completedAt >= :from AND l.completedAt <= :to
+              AND l.lesson.middleCategory.majorCategory.certification.certificationId IN :certificationIds
+            GROUP BY l.learner.learnerId
+            """)
+    List<LessonsDone> lessonsCompletedByLearnerIdsInCertifications(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds);
+
+    interface CompletionPoint {
+        Long getLearnerId();
+        java.time.LocalDateTime getCompletedAt();
+    }
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT l.learner.learnerId AS learnerId, l.completedAt AS completedAt
+            FROM LearnerCompletedLesson l
+            WHERE l.learner.learnerId IN :learnerIds
+              AND l.completedAt >= :from AND l.completedAt <= :to
+              AND l.lesson.middleCategory.majorCategory.certification.certificationId IN :certificationIds
+            """)
+    List<CompletionPoint> completionPoints(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds);
+
     interface CompletedPerCertification {
         Long getCertificationId();
         long getCompleted();

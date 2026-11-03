@@ -1,28 +1,25 @@
+import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
+  ArrowRight,
   CheckCircle2Icon,
   ClockIcon,
+  HistoryIcon,
+  RotateCcwIcon,
   StarIcon,
+  TrendingUpIcon,
   XCircleIcon,
 } from "@/components/icons"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
-  Chip,
-  RebyuCard,
-  TactileButton,
-} from "@/components/rebyu/rebyu-ui.jsx"
-import {
   getCurrentLearner,
   getCurrentLearnerIdentity,
 } from "@/services/learnerService.js"
 import { getAssessmentAttempts, getAttemptResult } from "@/services/assessmentService.js"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
-import { PenCircle, PenMark } from "@/components/classroom/pen-marks.jsx"
-import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
-import { AttemptFlipbook } from "@/components/classroom/attempt-flipbook.jsx"
 
 function formatDuration(totalSeconds) {
   if (totalSeconds == null) return "—"
@@ -65,36 +62,43 @@ function AttemptTrend({ attempts }) {
   if (attempts.length < 2) return null
 
   return (
-    <section className="rb-graded-sheet p-5">
-      <p className="rb-graded-heading">proficiency by attempt</p>
-      <div className="mt-4 flex items-end gap-2 sm:gap-3">
-        {attempts.map((attempt) => {
-          const rating = attempt.proficiency?.rating
-          const value = Math.min(100, Math.max(0,
-            Number(rating ?? attempt.percentage ?? 0)))
-          return (
-            <div
-              key={attempt.assessmentAttemptId}
-              className="flex min-w-0 flex-1 flex-col items-center gap-2"
-            >
-              <span className="rb-numeric text-xs text-rb-wolf">
-                {rating == null ? `${value.toFixed(0)}%` : value.toFixed(0)}
-              </span>
-              <div className="flex h-24 w-full items-end border-b-2 border-dashed border-[#cfc6b3] px-2">
+    <section className="tg-frame">
+      <header className="flex items-center gap-2.5 border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-5 py-3">
+        <span className="tg-badge-icon !size-8"><TrendingUpIcon className="size-4" aria-hidden="true" /></span>
+        <h2 className="tg-kicker">Proficiency by attempt</h2>
+        <span className="ml-auto text-xs font-semibold text-muted-foreground">Proficient at {PROFICIENT_RATING}</span>
+      </header>
+      <div className="relative px-5 pb-4 pt-6">
+        <div className="relative flex h-40 items-end gap-3 sm:gap-4">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-[var(--tg-line)]"
+            style={{ bottom: `${PROFICIENT_RATING}%` }}
+          />
+          {attempts.map((attempt) => {
+            const rating = attempt.proficiency?.rating
+            const value = Math.min(100, Math.max(0, Number(rating ?? attempt.percentage ?? 0)))
+            const cleared = standingOf(attempt).cleared
+            return (
+              <div key={attempt.assessmentAttemptId} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5">
+                <span className={cn("text-xs font-extrabold tabular-nums", cleared ? "text-[var(--tg-ink)]" : "text-rb-cardinal-lip")}>
+                  {rating == null ? `${value.toFixed(0)}%` : value.toFixed(0)}
+                </span>
                 <div
-                  className={cn(
-                    "w-full rounded-[6px]",
-                    standingOf(attempt).cleared ? "rb-highlight-pass" : "rb-highlight-fail"
-                  )}
-                  style={{ height: `max(4px, ${value}%)` }}
+                  className={cn("w-full max-w-16 rounded-t-xl", cleared ? "tg-solid-soft" : "bg-rb-cardinal/70")}
+                  style={{ height: `max(6px, ${value}%)` }}
                 />
               </div>
-              <span className="text-xs font-bold text-rb-wolf">
-                #{attempt.attemptNumber}
-              </span>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
+        <div className="mt-2 flex gap-3 sm:gap-4">
+          {attempts.map((attempt) => (
+            <span key={attempt.assessmentAttemptId} className="flex-1 text-center text-xs font-bold text-muted-foreground">
+              #{attempt.attemptNumber}
+            </span>
+          ))}
+        </div>
       </div>
     </section>
   )
@@ -102,20 +106,48 @@ function AttemptTrend({ attempts }) {
 
 function SummaryTile({ label, value, caption, tone = "neutral" }) {
   return (
-    <div className={cn("rb-grade-tally", `is-${tone}`)}>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-      {caption ? <p className="rb-grade-tally-caption">{caption}</p> : null}
+    <div className="rounded-[1rem] border border-[var(--tg-line)] bg-card px-4 py-3">
+      <dt className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "mt-1 text-2xl font-black tabular-nums",
+          tone === "leaf" ? "text-[var(--tg-ink)]" : tone === "cardinal" ? "text-rb-cardinal-lip" : "text-foreground",
+        )}
+      >
+        {value}
+      </dd>
+      {caption ? <p className="mt-0.5 text-xs text-muted-foreground">{caption}</p> : null}
     </div>
   )
 }
 
 const PAGE_ANSWER_LIMIT = 6
 
-function answerMark(answer) {
-  if (answer.pendingManualEvaluation) return { kind: "tilde", state: "pending" }
-  if (answer.isCorrect == null) return { kind: "question", state: "neutral" }
-  return answer.isCorrect ? { kind: "check", state: "correct" } : { kind: "cross", state: "incorrect" }
+function answerState(answer) {
+  if (answer.pendingManualEvaluation) return "pending"
+  if (answer.isCorrect == null) return "neutral"
+  return answer.isCorrect ? "correct" : "incorrect"
+}
+
+const ANSWER_ICON = {
+  correct: <CheckCircle2Icon className="size-4 text-[var(--tg)]" aria-hidden="true" />,
+  incorrect: <XCircleIcon className="size-4 text-rb-cardinal" aria-hidden="true" />,
+  pending: <ClockIcon className="size-4 text-amber-500" aria-hidden="true" />,
+  neutral: <ClockIcon className="size-4 text-muted-foreground" aria-hidden="true" />,
+}
+
+function StatusPill({ tone, children }) {
+  const tones = {
+    leaf: "bg-[var(--tg-soft)] text-[var(--tg-ink)]",
+    cardinal: "bg-rb-cardinal-wash text-rb-cardinal-lip",
+    amber: "bg-amber-100 text-amber-800",
+    neutral: "bg-muted text-muted-foreground",
+  }
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold", tones[tone] ?? tones.neutral)}>
+      {children}
+    </span>
+  )
 }
 
 function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
@@ -134,150 +166,118 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
   const answers = result?.answers ?? []
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-2">
-          <p className="rb-graded-heading">Attempt {attempt.attemptNumber}</p>
+    <div className="tg-frame">
+      <div className="flex flex-wrap items-start gap-4 p-5 sm:p-6">
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="font-rb-display text-2xl font-extrabold text-foreground">Attempt {attempt.attemptNumber}</p>
           <div className="flex flex-wrap items-center gap-2">
             {inProgress ? (
-              <Chip tone="macaw">
-                <ClockIcon className="size-3" aria-hidden="true" />
-                In progress
-              </Chip>
+              <StatusPill tone="amber"><ClockIcon className="size-3" aria-hidden="true" />In progress</StatusPill>
             ) : standing.measured ? (
-              <Chip tone={standing.cleared ? "leaf" : "fox"}>
-                {standing.cleared ? (
-                  <CheckCircle2Icon className="size-3" aria-hidden="true" />
-                ) : (
-                  <ClockIcon className="size-3" aria-hidden="true" />
-                )}
+              <StatusPill tone={standing.cleared ? "leaf" : "cardinal"}>
+                {standing.cleared ? <CheckCircle2Icon className="size-3" aria-hidden="true" /> : <ClockIcon className="size-3" aria-hidden="true" />}
                 {standing.label}
-              </Chip>
+              </StatusPill>
             ) : attempt.passed ? (
-              <Chip tone="leaf">
-                <CheckCircle2Icon className="size-3" aria-hidden="true" />
-                Passed
-              </Chip>
+              <StatusPill tone="leaf"><CheckCircle2Icon className="size-3" aria-hidden="true" />Passed</StatusPill>
             ) : (
-              <Chip tone="cardinal">
-                <XCircleIcon className="size-3" aria-hidden="true" />
-                Not passed
-              </Chip>
+              <StatusPill tone="cardinal"><XCircleIcon className="size-3" aria-hidden="true" />Not passed</StatusPill>
             )}
-            {isHighest ? (
-              <Chip tone="fox">
-                <StarIcon className="size-3" aria-hidden="true" />
-                Highest score
-              </Chip>
-            ) : null}
-            {isLatest ? <Chip>Most recent</Chip> : null}
+            {isHighest ? <StatusPill tone="amber"><StarIcon className="size-3" aria-hidden="true" />Highest score</StatusPill> : null}
+            {isLatest ? <StatusPill>Most recent</StatusPill> : null}
           </div>
-          <p className="rb-caption">
+          <p className="text-sm text-muted-foreground">
             {formatDate(attempt.startedAt)}
             {!inProgress ? ` · took ${formatDuration(attempt.durationSeconds)}` : null}
+            {attempt.correctCount != null && attempt.itemCount != null
+              ? ` · ${Number(attempt.correctCount)} of ${Number(attempt.answeredCount ?? attempt.itemCount)} correct`
+              : ""}
           </p>
-          {standing.measured ? (
-            <p className="rb-pen text-lg text-[#6b706c]">
-              proficiency {standing.rating.toFixed(0)} / 100 · {standing.label}
-            </p>
-          ) : null}
-          {attempt.correctCount != null && attempt.itemCount != null ? (
-            <p className="rb-pen text-lg text-[#6b706c]">
-              {Number(attempt.correctCount)} of {Number(attempt.answeredCount ?? attempt.itemCount)} answered correct
-              {attempt.totalPoints != null && attempt.earnedPoints != null
-                ? ` · ${Number(attempt.earnedPoints)} / ${Number(attempt.totalPoints)} points`
-                : ""}
-            </p>
-          ) : null}
         </div>
 
         {inProgress ? null : (
-          <div className={cn("rb-grade-score rb-grade-score-sm", standing.cleared ? "is-pass" : "is-fail")}>
-            <PenCircle />
-            <span className="rb-grade-score-value">
-              {standing.measured ? standing.rating.toFixed(0) : `${percentage.toFixed(0)}%`}
-            </span>
-            <span className="rb-grade-score-note">
-              {standing.measured ? standing.label : attempt.passed ? "passed" : "not passed"}
-            </span>
+          <div
+            className={cn(
+              "grid size-24 shrink-0 place-items-center rounded-full border-[6px] text-center",
+              standing.cleared ? "border-[var(--tg)] bg-[var(--tg-softer)]" : "border-rb-cardinal/70 bg-rb-cardinal-wash",
+            )}
+          >
+            <div>
+              <p className={cn("text-2xl font-black tabular-nums leading-none", standing.cleared ? "text-[var(--tg-ink)]" : "text-rb-cardinal-lip")}>
+                {standing.measured ? standing.rating.toFixed(0) : `${percentage.toFixed(0)}%`}
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {standing.measured ? "of 100" : attempt.passed ? "passed" : "not passed"}
+              </p>
+            </div>
           </div>
         )}
       </div>
 
-      {inProgress ? (
-        <p className="rb-pen text-2xl text-[#c97a1e]">still being written… resume it to finish.</p>
-      ) : resultQuery.isLoading ? (
-        <p className="rb-pen text-lg text-[#6b706c]">fetching the marked paper…</p>
-      ) : resultQuery.isError || !result ? (
-        <p className="rb-pen text-lg text-[#c8342b]">Couldn&apos;t load this attempt&apos;s answers.</p>
-      ) : (
-        <>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="rb-grade-tally is-leaf">
-              <dt>Correct</dt>
-              <dd>{result.correctCount ?? 0}</dd>
-            </div>
-            <div className="rb-grade-tally is-cardinal">
-              <dt>Incorrect</dt>
-              <dd>{result.incorrectCount ?? 0}</dd>
-            </div>
-            {result.pendingCount > 0 ? (
-              <div className="rb-grade-tally is-fox">
-                <dt>Pending</dt>
-                <dd>{result.pendingCount}</dd>
-              </div>
-            ) : null}
-          </dl>
-
-          {answers.length > 0 ? (
-            <ol className="space-y-2.5">
-              {answers.slice(0, PAGE_ANSWER_LIMIT).map((answer) => {
-                const mark = answerMark(answer)
-                const given = answer.selectedChoiceText || answer.learnerAnswer
-                return (
-                  <li key={answer.attemptQuestionId} className={cn("rb-page-answer", `is-${mark.state}`)}>
-                    <PenMark kind={mark.kind} />
-                    <div className="min-w-0">
-                      <p className="line-clamp-2 text-sm font-medium leading-5 text-rb-eel">
-                        <span className="mr-1 text-rb-wolf">{answer.displayOrder}.</span>
-                        {answer.question}
-                      </p>
-                      {given ? (
-                        <p className="rb-graded-answer truncate !px-0 !text-base !leading-6">{given}</p>
-                      ) : null}
-                      {answer.isCorrect === false && answer.correctChoiceText ? (
-                        <p className="rb-pen truncate text-base text-[#c8342b]">
-                          correct: {answer.correctChoiceText}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          ) : null}
-
-          {answers.length > PAGE_ANSWER_LIMIT ? (
-            <p className="rb-pen text-lg text-[#6b706c]">
-              + {answers.length - PAGE_ANSWER_LIMIT} more questions on the full paper
-            </p>
-          ) : null}
-        </>
-      )}
-
-      <TactileButton asChild variant="ghost" size="sm" className="w-fit">
+      <div className="border-t border-[var(--tg-line)] px-5 py-4 sm:px-6">
         {inProgress ? (
-          <Link to={`/learner/assessments/${examId}`}>resume</Link>
+          <p className="text-sm font-semibold text-amber-700">Still in progress. Resume it to finish.</p>
+        ) : resultQuery.isLoading ? (
+          <div className="space-y-2">
+            {[0, 1, 2].map((key) => <Skeleton key={key} className="h-10 w-full rounded-xl" />)}
+          </div>
+        ) : resultQuery.isError || !result ? (
+          <p className="text-sm font-semibold text-rb-cardinal-lip">This attempt&apos;s answers could not be loaded.</p>
         ) : (
-          <Link to={`/learner/results/${attempt.assessmentAttemptId}`}>view full details</Link>
+          <>
+            <div className="flex flex-wrap gap-2">
+              <StatusPill tone="leaf">{result.correctCount ?? 0} correct</StatusPill>
+              <StatusPill tone="cardinal">{result.incorrectCount ?? 0} incorrect</StatusPill>
+              {result.pendingCount > 0 ? <StatusPill tone="amber">{result.pendingCount} pending</StatusPill> : null}
+            </div>
+
+            {answers.length > 0 ? (
+              <ol className="mt-4 divide-y divide-[var(--tg-line)]">
+                {answers.slice(0, PAGE_ANSWER_LIMIT).map((answer) => {
+                  const state = answerState(answer)
+                  const given = answer.selectedChoiceText || answer.learnerAnswer
+                  return (
+                    <li key={answer.attemptQuestionId} className="flex gap-3 py-2.5">
+                      <span className="mt-0.5 shrink-0">{ANSWER_ICON[state]}</span>
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-sm font-semibold leading-5 text-foreground">
+                          <span className="mr-1 text-muted-foreground">{answer.displayOrder}.</span>
+                          {answer.question}
+                        </p>
+                        {given ? <p className="mt-0.5 truncate text-sm text-muted-foreground">Your answer: {given}</p> : null}
+                        {answer.isCorrect === false && answer.correctChoiceText ? (
+                          <p className="truncate text-sm font-semibold text-[var(--tg-ink)]">Correct: {answer.correctChoiceText}</p>
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            ) : null}
+
+            {answers.length > PAGE_ANSWER_LIMIT ? (
+              <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                + {answers.length - PAGE_ANSWER_LIMIT} more questions in the full details
+              </p>
+            ) : null}
+          </>
         )}
-      </TactileButton>
+
+        <Link
+          to={inProgress ? `/learner/assessments/${examId}` : `/learner/results/${attempt.assessmentAttemptId}`}
+          className="tg-btn mt-4"
+        >
+          {inProgress ? "Resume" : "View full details"}
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </Link>
+      </div>
     </div>
   )
 }
 
 export default function LearnerAssessmentHistoryPage() {
   const { examId } = useParams()
+  const [selectedId, setSelectedId] = useState(null)
 
   const identity = getCurrentLearnerIdentity()
   const currentLearnerQuery = useQuery({
@@ -327,34 +327,41 @@ export default function LearnerAssessmentHistoryPage() {
   const inProgressCount = attempts.length - submitted.length
 
   const chronological = [...submitted].reverse()
+  // Newest first in the tabs; the newest attempt is open by default.
+  const selected = attempts.find((attempt) => attempt.assessmentAttemptId === selectedId) ?? attempts[0] ?? null
 
   return (
-    <div className="rebyu-ds min-h-dvh bg-rb-polar text-rb-eel">
-      <header className="sticky top-0 z-40 border-b-2 border-rb-swan bg-rb-snow">
+    <div className="rebyu-ds tg-cat-explain min-h-dvh bg-[var(--tg-softer)] text-foreground">
+      <header className="sticky top-0 z-40 border-b border-[var(--tg-line)] bg-card">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
+          <span className="tg-badge-icon"><HistoryIcon className="size-4" aria-hidden="true" /></span>
           <div className="min-w-0">
-            <p className="rb-eyebrow">attempt history</p>
-            <p className="truncate text-sm font-bold text-rb-eel">{assessmentTitle}</p>
+            <p className="tg-kicker">Attempt history</p>
+            <p className="truncate font-rb-display text-lg font-extrabold text-foreground">{assessmentTitle}</p>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-        <section className="rb-graded-sheet p-6 sm:p-8">
-          {submitted.length > 0 ? <TeacherStamp passed={everCleared} /> : null}
-          <h1 className="rb-display rb-display-md pr-28 sm:pr-36">{assessmentTitle}</h1>
-          <p className="rb-body mt-2 text-sm">
-            {submitted.length} submitted attempt{submitted.length === 1 ? "" : "s"}
-            {inProgressCount > 0 ? ` · ${inProgressCount} in progress` : ""}
-            {submitted.length > 0
-              ? everCleared
-                ? " · proficient"
-                : " · not proficient yet"
-              : ""}
-          </p>
+        <section className="tg-frame p-5 sm:p-6">
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-rb-display text-3xl font-extrabold leading-tight text-foreground">{assessmentTitle}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {submitted.length} submitted attempt{submitted.length === 1 ? "" : "s"}
+                {inProgressCount > 0 ? ` · ${inProgressCount} in progress` : ""}
+              </p>
+            </div>
+            {submitted.length > 0 ? (
+              <StatusPill tone={everCleared ? "leaf" : "cardinal"}>
+                {everCleared ? <CheckCircle2Icon className="size-3.5" aria-hidden="true" /> : <ClockIcon className="size-3.5" aria-hidden="true" />}
+                {everCleared ? "Proficient" : "Not proficient yet"}
+              </StatusPill>
+            ) : null}
+          </div>
 
           {submitted.length > 0 ? (
-            <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               <SummaryTile
                 label={ratingOf(highestAttempt) == null ? "Best score" : "Best proficiency"}
                 value={
@@ -387,58 +394,57 @@ export default function LearnerAssessmentHistoryPage() {
             </dl>
           ) : null}
 
-          <TactileButton asChild className="mt-6">
-            <Link to={`/learner/assessments/${examId}`}>
-              {inProgressCount > 0
-                ? "resume attempt"
-                : submitted.length > 0
-                  ? "retake assessment"
-                  : "start assessment"}
-            </Link>
-          </TactileButton>
+          <Link to={`/learner/assessments/${examId}`} className="tg-btn tg-btn-primary mt-5 !px-5 !py-2.5">
+            <RotateCcwIcon className="size-4" aria-hidden="true" />
+            {inProgressCount > 0
+              ? "Resume attempt"
+              : submitted.length > 0
+                ? "Retake assessment"
+                : "Start assessment"}
+          </Link>
         </section>
 
         <AttemptTrend attempts={chronological} />
 
-        <section className="space-y-4">
-          <h2 className="rb-graded-heading">Every attempt</h2>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-bold text-foreground">Every attempt</h2>
+            {attempts.length > 1 ? (
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Attempts">
+                {attempts.map((attempt) => {
+                  const active = attempt.assessmentAttemptId === selected?.assessmentAttemptId
+                  return (
+                    <button
+                      key={attempt.assessmentAttemptId}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setSelectedId(attempt.assessmentAttemptId)}
+                      className={cn("tg-btn !rounded-full !px-3 !py-1 !text-xs", active && "tg-btn-primary")}
+                    >
+                      #{attempt.attemptNumber}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
 
           {attempts.length === 0 ? (
-            <div className="rb-sticky rb-sticky-yellow mx-auto max-w-md text-center">
-              <span className="rb-pushpin" aria-hidden="true" />
-              <p className="rb-display rb-display-sm">No attempts yet</p>
-              <p className="rb-body mt-2 text-sm">
-                Start the assessment to begin your attempt history.
-              </p>
+            <div className="rounded-[1rem] border-2 border-dashed border-[var(--tg-line)] bg-card px-6 py-10 text-center">
+              <p className="text-base font-bold text-foreground">No attempts yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Start the assessment to begin your attempt history.</p>
             </div>
-          ) : (
-            <AttemptFlipbook
-              initialIndex={attempts.length - 1}
-              pages={[...attempts].reverse().map((attempt) => {
-                const inProgress = attempt.submittedAt == null
-                const isHighest =
-                  attempt.assessmentAttemptId === highestAttemptId && submitted.length > 1
-                const isLatest =
-                  attempt.assessmentAttemptId === latestAttemptId && submitted.length > 1
-
-                return {
-                  key: attempt.assessmentAttemptId,
-                  tab: attempt.attemptNumber,
-                  tone: inProgress ? "open" : standingOf(attempt).cleared ? "pass" : "fail",
-                  label: `Attempt ${attempt.attemptNumber}`,
-                  content: (
-                    <AttemptPage
-                      attempt={attempt}
-                      learnerId={learnerId}
-                      examId={examId}
-                      isHighest={isHighest}
-                      isLatest={isLatest}
-                    />
-                  ),
-                }
-              })}
+          ) : selected ? (
+            <AttemptPage
+              key={selected.assessmentAttemptId}
+              attempt={selected}
+              learnerId={learnerId}
+              examId={examId}
+              isHighest={selected.assessmentAttemptId === highestAttemptId && submitted.length > 1}
+              isLatest={selected.assessmentAttemptId === latestAttemptId && submitted.length > 1}
             />
-          )}
+          ) : null}
         </section>
       </main>
     </div>

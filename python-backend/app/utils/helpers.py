@@ -141,13 +141,20 @@ def get_llm(task: str = "question", model: str | None = None, max_retries: int |
             f"set. Set one, or point ai_{profile.name}_provider elsewhere."
         )
 
+    from app.ai.usage import UsageRecorder
+
+    model_name = model or profile.model
     return ChatOpenAI(
         api_key=key,
         base_url=provider.base_url,
-        model=model or profile.model,
+        model=model_name,
         temperature=profile.temperature,
         max_tokens=profile.max_tokens,
         **({"max_retries": max_retries} if max_retries is not None else {}),
+        # Usage accounting: OpenRouter then returns what the call cost, which
+        # the run's step events record (see app.ai.usage).
+        **({"extra_body": {"usage": {"include": True}}} if provider.name == "openrouter" else {}),
+        callbacks=[UsageRecorder(f"{provider.name}:{model_name}")],
         default_headers=(
             {
                 "HTTP-Referer": settings.openrouter_site_url,

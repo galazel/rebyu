@@ -74,7 +74,8 @@ class CommunityServiceTest {
         s3StorageService = mock(S3StorageService.class);
         service = new CommunityService(postRepository, circleRepository, circleMemberRepository, commentRepository,
                 postLikeRepository, savedPostRepository, postViewRepository, reportRepository, notificationRepository,
-                notificationPreferenceRepository, libraryItemRepository, learnerRepository, s3StorageService);
+                notificationPreferenceRepository, libraryItemRepository, learnerRepository, s3StorageService,
+                mock(com.capstone.rebyu.gamification.service.CertificationReviewLevelService.class));
 
         when(postRepository.save(any(CommunityPost.class))).thenAnswer(inv -> inv.getArgument(0));
     }
@@ -353,5 +354,53 @@ class CommunityServiceTest {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("HIDDEN")));
 
         assertThrows(EntityNotFoundException.class, () -> service.recordView(OTHER_LEARNER_ID, POST_ID));
+    }
+
+    private CommunityPost sharedActivityPost() {
+        Learner author = Learner.builder().learnerId(LEARNER_ID).firstName("Ana").lastName("Cruz").build();
+        LearnerLibraryItem item = LearnerLibraryItem.builder()
+                .libraryItemId(5L).learner(author).itemType("activity").title("Sorting game")
+                .content("{\"type\":\"sorting\"}").resourceUrl("/learner/activities/5").build();
+        CommunityPost post = CommunityPost.builder()
+                .postId(POST_ID).author(author).postType("activity").title("Sorting game").body("A game")
+                .sharedLibraryItem(item).build();
+        post.setModerationStatus("VISIBLE");
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(post));
+        return post;
+    }
+
+    @Test
+    void openSharedActivity_copiesItIntoTheViewersLibrary() {
+        sharedActivityPost();
+        when(libraryItemRepository.findByLearner_LearnerIdOrderByCreatedAtDesc(OTHER_LEARNER_ID)).thenReturn(List.of());
+        when(libraryItemRepository.save(any(LearnerLibraryItem.class))).thenAnswer(inv -> {
+            LearnerLibraryItem saved = inv.getArgument(0);
+            if (saved.getLibraryItemId() == null) saved.setLibraryItemId(42L);
+            return saved;
+        });
+
+        String route = service.openSharedLibraryItem(OTHER_LEARNER_ID, POST_ID);
+
+        assertEquals("/learner/activities/42", route);
+        verify(libraryItemRepository, times(2)).save(argThat(item -> "activity".equals(item.getItemType())
+                && "{\"type\":\"sorting\"}".equals(item.getContent())));
+    }
+
+    @Test
+    void openSharedActivity_reusesAnEarlierCopy() {
+        sharedActivityPost();
+        LearnerLibraryItem copy = LearnerLibraryItem.builder().libraryItemId(42L).itemType("activity")
+                .title("Sorting game").content("{\"type\":\"sorting\"}").build();
+        when(libraryItemRepository.findByLearner_LearnerIdOrderByCreatedAtDesc(OTHER_LEARNER_ID)).thenReturn(List.of(copy));
+
+        assertEquals("/learner/activities/42", service.openSharedLibraryItem(OTHER_LEARNER_ID, POST_ID));
+        verify(libraryItemRepository, never()).save(any());
+    }
+
+    @Test
+    void openSharedActivity_authorOpensTheirOwnItem() {
+        sharedActivityPost();
+        assertEquals("/learner/activities/5", service.openSharedLibraryItem(LEARNER_ID, POST_ID));
+        verify(libraryItemRepository, never()).save(any());
     }
 }

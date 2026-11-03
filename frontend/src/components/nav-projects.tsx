@@ -17,6 +17,8 @@ type NavItem = {
   icon: LucideIcon
   exact?: boolean
   activeUrls?: string[]
+  /** A game-kit category: the item shows the page's coloured icon tile. */
+  tone?: string
 }
 
 type NavGroup = {
@@ -76,6 +78,24 @@ export function NavProjects({ projects }: NavProjectsProps) {
                   )
 
                   const isActive = isMainRouteActive || isExtraRouteActive
+
+                  if (item.tone) {
+                    return (
+                        <SidebarMenuItem key={item.name}>
+                          <SidebarMenuButton
+                              asChild
+                              tooltip={item.name}
+                              isActive={isActive}
+                              className={`rb-nav-tile tg-cat-${item.tone} h-11 rounded-xl px-2 font-semibold group-data-[collapsible=icon]:p-0!`}
+                          >
+                            <NavLink to={item.url}>
+                              <span className="tg-badge-icon !size-8 shrink-0"><Icon className="size-4" /></span>
+                              <span>{item.name}</span>
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    )
+                  }
 
                   return (
                       <SidebarMenuItem key={item.name}>

@@ -16,6 +16,8 @@ import {
   tickPomodoro,
   usePomodoro,
 } from "@/lib/pomodoro-store.js"
+import { base } from "@/services/base.js"
+import { getLessonById } from "@/services/learnerService.js"
 import { STUDY_PLAN_TASKS_QUERY_KEY, setStudyPlanTaskStatus } from "@/services/studyPlanService.js"
 
 function formatClock(ms) {
@@ -45,6 +47,7 @@ function chime() {
 
 export function PomodoroOverlay() {
   const session = usePomodoro()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [now, setNow] = useState(() => Date.now())
   const [confirmEnd, setConfirmEnd] = useState(false)
@@ -94,6 +97,25 @@ export function PomodoroOverlay() {
   if (!session || !phase) return null
 
   const task = session.task ?? {}
+  const canOpenLesson = Boolean(task.href || task.lessonId)
+
+  // Sessions started before href was stored only carry their lessonId, so
+  // walk lesson -> topic -> major category to find the curriculum lesson view.
+  async function openLesson() {
+    if (task.href) return navigate(task.href)
+    try {
+      const lesson = await getLessonById(task.lessonId)
+      const topic = await base(`middle-categories/${lesson.middleCategoryId}`)
+      const major = await base(`major-categories/${topic.majorCategoryId}`)
+      if (major?.certificationId) {
+        return navigate(
+          `/learner/learning/${major.certificationId}/topics/${lesson.middleCategoryId}?lesson=${task.lessonId}`
+        )
+      }
+    } catch {
+    }
+    navigate(`/learner/lessons/${task.lessonId}`)
+  }
 
   function finish() {
     if (task.planId && task.eventId) {
@@ -221,19 +243,25 @@ export function PomodoroOverlay() {
       role="timer"
       aria-live="off"
       aria-label={`Pomodoro focus ${phase.cycle} of ${phase.cycles}, ${formatClock(left)} left`}
-      className="fixed bottom-20 left-1/2 z-[70] w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-card shadow-xl lg:bottom-6"
+      className="rebyu-pomodoro-pill fixed bottom-20 left-1/2 z-[70] w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-card shadow-xl lg:bottom-6"
     >
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rb-feather-wash text-rb-feather-ink">
           <Brain className="size-5" aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          disabled={!canOpenLesson}
+          onClick={openLesson}
+          aria-label={canOpenLesson ? `Open lesson${task.title ? `: ${task.title}` : ""}` : undefined}
+          className="min-w-0 flex-1 rounded-lg text-left enabled:cursor-pointer enabled:hover:[&>p:last-child]:text-foreground enabled:hover:[&>p:last-child]:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Focus {phase.cycle} of {phase.cycles}
             {paused ? " · paused" : ""}
           </p>
           <p className="truncate text-xs text-muted-foreground">{task.title ?? "Study session"}</p>
-        </div>
+        </button>
         <p className="font-rb-display text-3xl font-black tabular-nums leading-none text-foreground">
           {formatClock(left)}
         </p>
@@ -283,18 +311,19 @@ export function PomodoroStart({ task, onStarted, onDismiss }) {
         </Button>
         <Button
           onClick={() => {
+            const href =
+              event.lessonId && event.middleCategoryId && eventCertificationId
+                ? `/learner/learning/${eventCertificationId}/topics/${event.middleCategoryId}?lesson=${event.lessonId}`
+                : null
             startPomodoro({
               title: event.lessonTitle ?? event.title,
+              href,
               lessonId: event.lessonId ?? null,
               planId: task?.planId ?? null,
               eventId: event.id ?? null,
             })
             onStarted?.()
-            if (event.lessonId && event.middleCategoryId && eventCertificationId) {
-              navigate(
-                `/learner/learning/${eventCertificationId}/topics/${event.middleCategoryId}?lesson=${event.lessonId}`
-              )
-            }
+            if (href) navigate(href)
           }}
         >
           <Play className="size-4" aria-hidden="true" />

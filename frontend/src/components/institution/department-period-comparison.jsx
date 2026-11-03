@@ -427,7 +427,7 @@ export function usePeriodComparison({
         list.push({
           type: "positive",
           title: "Leading Programme Gain",
-          text: `"${bestCert.title}" registered the highest pass rate surge with a +${bestCert.deltaPassRate.toFixed(1)}% gain over baseline.`,
+          text: `"${bestCert.title}" registered the largest rise in learners certified, a +${bestCert.deltaPassRate.toFixed(1)}% gain over baseline.`,
         })
       }
     }
@@ -752,7 +752,7 @@ export function PeriodComparisonTile({
                   <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
                     <tr className="border-b border-border/50 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2.5 text-left">Programme</th>
-                      <th className="py-2.5 text-center">Pass Rate (Current / Baseline)</th>
+                      <th className="py-2.5 text-center">Certified (Current / Baseline)</th>
                       <th className="py-2.5 text-center">Delta</th>
                       <th className="py-2.5 text-center">Avg Score</th>
                       <th className="py-2.5 text-center">Attempts</th>

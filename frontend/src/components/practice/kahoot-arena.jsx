@@ -1,44 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { categoryClass, GameIcon } from "@/components/learner/tutor-game-kit.jsx"
+import { ArrowLeft, Check, X } from "@/components/icons"
+import { categoryClass, GameIcon, OPTION_COLORS } from "@/components/learner/tutor-game-kit.jsx"
 
-
-export const ANSWER_TILES = [
-  { key: "triangle", face: "var(--color-rb-cardinal)", lip: "var(--color-rb-cardinal-lip)" },
-  { key: "diamond", face: "var(--color-rb-feather)", lip: "var(--color-rb-feather-lip)" },
-  { key: "circle", face: "var(--color-rb-fox)", lip: "var(--color-rb-fox-lip)" },
-  { key: "square", face: "var(--color-rb-leaf)", lip: "var(--color-rb-leaf-lip)" },
-]
-
-function TileShape({ shape, className = "" }) {
-  const common = { className, viewBox: "0 0 24 24", "aria-hidden": "true", fill: "currentColor" }
-
-  switch (shape) {
-    case "triangle":
-      return (
-        <svg {...common}>
-          <path d="M12 3 22 21H2z" />
-        </svg>
-      )
-    case "diamond":
-      return (
-        <svg {...common}>
-          <path d="M12 2 22 12 12 22 2 12z" />
-        </svg>
-      )
-    case "circle":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="9.5" />
-        </svg>
-      )
-    default:
-      return (
-        <svg {...common}>
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-        </svg>
-      )
-  }
-}
 
 export function useCountdown({ seconds, resetKey, running = true, onExpire }) {
   const [remaining, setRemaining] = useState(seconds)
@@ -79,15 +42,15 @@ export function CountdownRing({ remaining, total, paused = false }) {
   const urgent = !paused && remaining <= 5
 
   return (
-    <div className="relative grid size-16 shrink-0 place-items-center">
-      <svg viewBox="0 0 60 60" className="size-16 -rotate-90">
-        <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="6" />
+    <div className="relative grid size-14 shrink-0 place-items-center" role="timer" aria-label={`${remaining} seconds left`}>
+      <svg viewBox="0 0 60 60" className="size-14 -rotate-90" aria-hidden="true">
+        <circle cx="30" cy="30" r="26" fill="none" stroke="var(--tg-soft)" strokeWidth="6" />
         <circle
           cx="30"
           cy="30"
           r="26"
           fill="none"
-          stroke={urgent ? "var(--color-rb-cardinal)" : "#ffffff"}
+          stroke={urgent ? "#e0475f" : "var(--tg)"}
           strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={circumference}
@@ -97,8 +60,8 @@ export function CountdownRing({ remaining, total, paused = false }) {
       </svg>
 
       <span
-        className={`absolute font-rb-display text-xl font-extrabold tabular-nums ${
-          urgent ? "text-rb-cardinal" : "text-white"
+        className={`absolute text-lg font-black tabular-nums ${
+          urgent ? "text-[#e0475f]" : "text-foreground"
         } ${paused ? "opacity-50" : ""}`}
       >
         {remaining}
@@ -107,14 +70,10 @@ export function CountdownRing({ remaining, total, paused = false }) {
   )
 }
 
+// The same lettered answer option as the lesson game tools (tutor-game-kit).
 export function AnswerTile({ index, label, selected, state, disabled, onSelect }) {
-  const tile = ANSWER_TILES[index % ANSWER_TILES.length]
-  const dimmed = state === "dimmed"
+  const correct = state === "correct"
   const wrong = state === "wrong"
-
-
-  const face = wrong ? "var(--color-rb-cardinal)" : tile.face
-  const lip = wrong ? "var(--color-rb-cardinal-lip)" : tile.lip
 
   return (
     <button
@@ -122,65 +81,73 @@ export function AnswerTile({ index, label, selected, state, disabled, onSelect }
       disabled={disabled}
       onClick={onSelect}
       aria-pressed={selected}
-      style={{ background: face, boxShadow: `0 6px 0 0 ${lip}` }}
-      className={`flex min-h-28 items-center gap-4 rounded-2xl px-5 py-4 text-left text-white transition duration-150 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white enabled:hover:-translate-y-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-none ${
-        dimmed ? "opacity-35 saturate-50" : ""
-      } ${selected ? "ring-4 ring-white ring-offset-2 ring-offset-transparent" : ""}`}
+      style={{ "--opt": OPTION_COLORS[index % OPTION_COLORS.length] }}
+      className={`tg-option !min-h-20 !px-4 !text-base sm:!text-lg ${
+        correct ? "is-right" : wrong ? "is-wrong" : state === "dimmed" ? "is-dim" : ""
+      } ${selected && !correct && !wrong ? "ring-2 ring-[var(--opt)] ring-offset-2 ring-offset-[var(--card)]" : ""}`}
     >
-      <TileShape shape={tile.key} className="size-8 shrink-0 drop-shadow" />
-
-      <span className="font-rb-display text-lg leading-6 font-extrabold sm:text-xl">
-        {label}
+      <span className="tg-letter !size-10">
+        {correct ? <Check className="size-5" /> : wrong ? <X className="size-5" /> : String.fromCharCode(65 + index)}
       </span>
 
-      {state === "correct" || wrong ? (
-        <span className="ml-auto shrink-0 font-rb-display text-sm font-extrabold uppercase tracking-wide">
-          {wrong ? "Your answer" : "Correct"}
-        </span>
+      <span className="min-w-0 flex-1">{label}</span>
+
+      {correct || wrong ? (
+        <span className="tg-chip shrink-0">{wrong ? "Your answer" : "Correct"}</span>
       ) : null}
     </button>
   )
 }
 
-export function ArenaShell({ children, header }) {
+/** The page every practice round sits on: the Library item layout (back link,
+ *  icon and title) around one game frame, like the lesson game tools. With no
+ *  header it is a single centred frame, for the result and error screens. */
+export function ArenaShell({ children, header, tool = "quiz" }) {
   return (
-    <main className="tg-cat-recall flex min-h-dvh flex-col bg-[linear-gradient(160deg,#1B1F3B_0%,#2A1F5B_45%,#12142B_100%)] px-4 py-4 text-white sm:px-6">
+    <main className={`mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 py-6 sm:px-6 ${categoryClass(tool)}`}>
       {header}
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col">{children}</div>
+      <section
+        className={`tg-frame flex flex-1 flex-col items-center p-5 text-center sm:p-8 ${
+          header ? "!mt-0 !rounded-t-none !border-t-0" : "my-auto !flex-none"
+        }`}
+      >
+        <div className="flex w-full max-w-4xl flex-1 flex-col">{children}</div>
+      </section>
     </main>
   )
 }
 
-export function ArenaHeader({ title, subtitle, position, total, onLeave, right, tool }) {
+export function ArenaHeader({ title, subtitle, position, total, onLeave, right, tool = "quiz", kind, leaveLabel = "Back" }) {
   return (
-    <header className="mx-auto w-full max-w-5xl pb-4">
-     <div className="flex items-center gap-4">
+    <header className={categoryClass(tool)}>
       <button
         type="button"
         onClick={onLeave}
-        className="rounded-full border border-white/25 px-4 py-2 font-rb-display text-xs font-extrabold uppercase tracking-wide text-white/85 transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-rb-feather-lip hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)]"
       >
-        Leave
+        <ArrowLeft className="size-4" /> {leaveLabel}
       </button>
 
-      {tool ? <span className={`tg-badge-icon ${categoryClass(tool)}`}><GameIcon type={tool} /></span> : null}
+      <h1 className="flex items-center gap-3 text-2xl font-extrabold text-foreground">
+        <span className="tg-badge-icon !size-12"><GameIcon type={tool} className="size-5" /></span>
+        <span className="min-w-0 font-rb-display">{title}</span>
+      </h1>
+      {subtitle ? <p className="mt-1 text-sm font-semibold text-rb-hare">{subtitle}</p> : null}
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-rb-display font-extrabold">{title}</p>
-        <p className="truncate text-xs text-white/70">{subtitle}</p>
+      <div className="tg-frame mt-4 !rounded-b-none !shadow-none">
+        <div className="tg-head flex items-center gap-3 px-4 py-3">
+          <span className="tg-kicker">{kind ?? (tool === "flashcards" ? "Flashcards" : "Quiz")}</span>
+          <span className="ml-auto flex items-center gap-3">
+            {total ? <span className="tg-pill">{position} / {total}</span> : null}
+            {right}
+          </span>
+          {total ? (
+            <span className="tg-progress" role="progressbar" aria-label="Round progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={position}>
+              <span style={{ width: `${(position / total) * 100}%` }} />
+            </span>
+          ) : null}
+        </div>
       </div>
-
-      <span className="rounded-full bg-white/15 px-3 py-1 font-rb-display text-sm font-extrabold tabular-nums">
-        {position} / {total}
-      </span>
-
-      {right}
-     </div>
-      {total ? (
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-label="Round progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={position}>
-            <span className="block h-full rounded-full bg-[linear-gradient(90deg,#5fb2ff,#b07cff,#ff8aa8)] transition-[width] duration-500" style={{ width: `${(position / total) * 100}%` }} />
-          </div>
-      ) : null}
     </header>
   )
 }

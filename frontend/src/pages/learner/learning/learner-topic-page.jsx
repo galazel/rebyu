@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   Link,
@@ -12,6 +12,11 @@ import { returnState } from "@/lib/assessment-return"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
+  Trophy,
+  ListChecks,
+  FileText,
+  GraduationCap,
+  Pencil,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -31,7 +36,7 @@ import {
 } from "@/components/icons"
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
-import { TactileButton, ProgressBar } from "@/components/rebyu/rebyu-ui.jsx"
+import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import {
   AnimatePresence,
   Collapse,
@@ -181,7 +186,13 @@ function readSectionsOf(structure) {
 }
 
 
-const ROW_ICON = { lesson: BookOpen, assessment: ClipboardCheck, reflection: ReflectionIcon }
+const ROW_ICON = { lesson: FileText, assessment: GraduationCap, reflection: Pencil }
+
+const ROW_META = {
+  lesson: (item) => (item.quiz ? "Lesson · quick check" : "Lesson"),
+  reflection: () => "Practice · AI-graded",
+  assessment: (item) => `Unit exam · ${item.exam.totalQuestions} questions`,
+}
 
 function OutlineRow({
   item,
@@ -198,19 +209,19 @@ function OutlineRow({
   locked,
 }) {
   const Icon = ROW_ICON[item.kind] ?? BookOpen
-  const hasChildren = item.kind === "lesson" && (sections.length > 0 || Boolean(item.quiz))
+  const hasChildren = item.kind === "lesson"
 
   return (
     <motion.li variants={fadeUp}>
       <div
         className={`relative flex items-center gap-1 transition-colors ${
-          active ? "bg-rb-macaw-wash" : "hover:bg-rb-polar"
+          active ? "bg-[var(--tg-softer)]" : "hover:bg-[var(--tg-softer)]"
         }`}
       >
         {active ? (
           <motion.span
             layoutId="rail-active"
-            className="absolute inset-y-0 left-0 w-1 bg-rb-macaw"
+            className="absolute inset-y-2 left-0 w-[3px] rounded-r bg-[var(--tg)]"
             transition={{ type: "spring", stiffness: 520, damping: 40 }}
             aria-hidden="true"
           />
@@ -227,44 +238,41 @@ function OutlineRow({
         >
           <TickPop
             done={done}
-            className={`grid size-8 shrink-0 place-items-center rounded-full transition-colors ${
+            className={`grid size-7 shrink-0 place-items-center rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${
               done
-                ? "bg-rb-feather text-white"
+                ? "border-transparent bg-[var(--tg)] text-white"
                 : active
-                  ? "bg-rb-macaw text-white"
-                  : item.kind === "assessment"
-                    ? "bg-rb-fox-wash text-rb-fox-lip"
-                    : item.kind === "reflection"
-                      ? "bg-rb-macaw-wash text-rb-macaw-lip"
-                    : "bg-rb-swan text-rb-wolf"
+                  ? "border-[var(--tg)] bg-card text-[var(--tg-ink)]"
+                  : locked
+                    ? "border-[var(--tg-line)] bg-muted text-muted-foreground"
+                    : "border-[var(--tg-line)] bg-card text-muted-foreground"
             }`}
           >
             {done ? (
-              <Check className="size-4" aria-hidden="true" />
+              <Check className="size-3.5" aria-hidden="true" />
             ) : locked ? (
-              <Lock className="size-4" aria-hidden="true" />
+              <Lock className="size-3.5" aria-hidden="true" />
+            ) : item.kind === "lesson" && index ? (
+              <span aria-hidden="true">{String(index).replace(".", "")}</span>
             ) : (
-              <Icon className="size-4" aria-hidden="true" />
+              <Icon className="size-3.5" aria-hidden="true" />
             )}
           </TickPop>
 
           {!collapsed ? (
             <span className="min-w-0 flex-1">
               <span
-                className={`line-clamp-2 text-sm leading-snug ${
-                  active ? "font-extrabold text-rb-macaw-lip" : locked ? "font-bold text-rb-hare" : "font-bold text-rb-eel"
+                className={`line-clamp-2 text-[13px] leading-snug ${
+                  active ? "font-bold text-[var(--tg-ink)]" : locked ? "font-semibold text-muted-foreground" : "font-semibold text-foreground"
                 }`}
                 title={item.name}
               >
-                {index ? `${index} ` : ""}
                 {item.name}
               </span>
-              <span className="mt-0.5 block truncate text-[11px] font-bold uppercase tracking-wide text-rb-wolf">
-                {item.kind === "lesson"
-                  ? `lesson${item.quiz ? " · 1 quiz" : ""}`
-                  : item.kind === "reflection"
-                    ? "practice assignment · AI-graded"
-                    : `unit assessment · ${item.exam.totalQuestions} questions`}
+              <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-medium text-rb-wolf">
+                {item.kind !== "lesson" ? <Icon className="size-3 shrink-0" aria-hidden="true" /> : null}
+                {(ROW_META[item.kind] ?? ROW_META.lesson)(item)}
+                {done ? <span className="text-[var(--tg-ink)]">· done</span> : null}
               </span>
             </span>
           ) : null}
@@ -288,7 +296,7 @@ function OutlineRow({
             onClick={() => onToggle(item.id)}
             aria-expanded={expanded}
             aria-label={`${expanded ? "Hide" : "Show"} contents of ${item.name}`}
-            className="grid size-8 shrink-0 place-items-center rounded-full text-rb-hare hover:bg-rb-swan hover:text-rb-eel"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-[var(--tg-soft)] hover:text-[var(--tg-ink)]"
           >
             <motion.span
               animate={{ rotate: expanded ? 180 : 0 }}
@@ -302,7 +310,21 @@ function OutlineRow({
       </div>
 
       <Collapse open={Boolean(hasChildren && expanded && !collapsed)} duration={0.26}>
-        <ul className="border-l-4 border-transparent bg-rb-polar/60 py-1 pl-[2.75rem] pr-3">
+        <ul className="bg-[var(--tg-softer)] py-1 pl-[3.25rem] pr-3">
+          {!active ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => onSelect(item)}
+                className="flex w-full items-center gap-2 py-1.5 text-left text-xs font-semibold text-rb-wolf hover:text-[var(--tg-ink)]"
+              >
+                <span className="grid size-5 shrink-0 place-items-center">
+                  <FileText className="size-3" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 truncate">Open lesson to see its sections</span>
+              </button>
+            </li>
+          ) : null}
           {sections.map((section) => {
             const sectionRead = readSections.has(section.key)
 
@@ -310,13 +332,13 @@ function OutlineRow({
               <li key={section.key}>
                 <a
                   href={`#${section.key}`}
-                  className={`flex items-center gap-2 py-1.5 text-xs font-bold hover:text-rb-macaw-lip ${
-                    sectionRead ? "text-rb-feather-ink" : "text-rb-wolf"
+                  className={`flex items-center gap-2 py-1.5 text-xs font-semibold hover:text-[var(--tg-ink)] ${
+                    sectionRead ? "text-[var(--tg-ink)]" : "text-muted-foreground"
                   }`}
                 >
                   <TickPop done={sectionRead} className="grid size-5 shrink-0 place-items-center">
                     {sectionRead ? (
-                      <Check className="size-3 text-rb-feather" aria-hidden="true" />
+                      <Check className="size-3 text-[var(--tg)]" aria-hidden="true" />
                     ) : (
                       <Circle className="size-1.5" aria-hidden="true" />
                     )}
@@ -332,10 +354,10 @@ function OutlineRow({
               <button
                 type="button"
                 onClick={() => onSelect(item, { scrollTo: `quiz-${item.quiz.examId}` })}
-                className="flex w-full items-center gap-2 py-1.5 text-left text-xs font-bold text-rb-beetle-lip hover:underline"
+                className="flex w-full items-center gap-2 py-1.5 text-left text-xs font-semibold text-rb-wolf hover:text-[var(--tg-ink)]"
               >
-                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rb-beetle-wash">
-                  <CircleHelp className="size-3" aria-hidden="true" />
+                <span className="grid size-5 shrink-0 place-items-center">
+                  <ListChecks className="size-3" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 truncate">
                   Quick check · {item.quiz.totalQuestions} questions
@@ -382,20 +404,20 @@ function Outline({
   let lessonNumber = 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-rb-snow">
+    <div className="tg-cat-explain flex h-full min-h-0 flex-col bg-card">
 
       <div
-        className={`flex h-[var(--rb-topbar-h)] shrink-0 items-center border-b-2 border-rb-swan ${
+        className={`flex h-[var(--rb-topbar-h)] shrink-0 items-center border-b border-[var(--tg-line)] ${
           collapsed ? "justify-center px-2" : "gap-2 px-4"
         }`}
       >
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <p className="rb-eyebrow line-clamp-1" title={`Unit ${major.index} · ${major.name}`}>
+            <p className="tg-kicker line-clamp-1" title={`Unit ${major.index} · ${major.name}`}>
               unit {major.index} · {major.name}
             </p>
             <p
-              className="mt-0.5 line-clamp-1 font-rb-display text-base font-extrabold leading-snug text-rb-eel"
+              className="mt-0.5 line-clamp-1 font-rb-display text-base font-extrabold leading-snug text-foreground"
               title={middle.name}
             >
               {middle.name}
@@ -408,21 +430,23 @@ function Outline({
           onClick={onCollapse}
           aria-label={collapsed ? "Expand outline" : "Collapse outline"}
           title={collapsed ? "Expand outline" : "Collapse outline"}
-          className="grid size-9 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-rb-snow text-rb-wolf transition hover:text-rb-eel"
+          className="tg-btn tg-icon-btn !size-9 shrink-0"
         >
           <PanelLeft className="size-4" aria-hidden="true" />
         </button>
       </div>
 
       {!collapsed ? (
-        <div className="shrink-0 border-b-2 border-rb-swan px-4 py-3">
+        <div className="shrink-0 border-b border-[var(--tg-line)] px-4 py-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-rb-wolf">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               {done} of {lessons.length} lessons
             </span>
             <CountUp value={progress} suffix="%" className="rb-numeric text-xs" />
           </div>
-          <ProgressBar value={progress} tone="macaw" label="Topic progress" className="mt-2 !h-3" />
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--tg-soft)]" role="progressbar" aria-label="Topic progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full tg-solid-soft transition-[width] duration-500" style={{ width: `${progress}%` }} />
+          </div>
         </div>
       ) : null}
 
@@ -430,10 +454,17 @@ function Outline({
         <StaggerList as="ul" stagger={0.045} amount={0}>
           {track.map((item) => {
             if (item.kind === "lesson") lessonNumber += 1
+            const firstAfterLessons =
+              item.kind !== "lesson" && track[track.indexOf(item) - 1]?.kind === "lesson"
 
             return (
+              <Fragment key={item.id}>
+              {firstAfterLessons && !collapsed ? (
+                <li className="tg-kicker px-4 pb-1 pt-4 !text-[10px]">
+                  Finish the topic
+                </li>
+              ) : null}
               <OutlineRow
-                key={item.id}
                 item={item}
                 index={item.kind === "lesson" ? `${lessonNumber}.` : ""}
                 active={item.id === activeId}
@@ -447,6 +478,7 @@ function Outline({
                 done={item.kind === "lesson" ? isDone(item.id) : item.kind === "reflection" && Boolean(reflectionPassed)}
                 locked={Boolean(isLocked?.(item))}
               />
+              </Fragment>
             )
           })}
         </StaggerList>
@@ -472,10 +504,10 @@ function ReadCheck({ done, label, onToggle, pending, disabled = false, size = "s
       }
       className={`grid ${size} shrink-0 place-items-center rounded-full border-2 transition-colors ${
         done
-          ? "border-rb-feather bg-rb-feather text-white"
+          ? "border-[var(--tg)] bg-[var(--tg)] text-white"
           : disabled
-            ? "cursor-not-allowed border-rb-swan bg-rb-polar text-rb-hare/60"
-            : "border-rb-swan bg-rb-snow text-rb-hare hover:border-rb-hare"
+            ? "cursor-not-allowed border-[var(--tg-line)] bg-muted text-muted-foreground/60"
+            : "border-[var(--tg-line)] bg-card text-muted-foreground hover:border-[var(--tg)]"
       }`}
     >
       {pending ? (
@@ -518,7 +550,7 @@ function sectionTone(section, index) {
 
 const SECTION_TONE = {
   statement: {
-    shell: "bg-rb-feather-lip",
+    shell: "tg-solid",
     heading: "text-white",
     eyebrow: "text-white/70",
     rule: "bg-white/30",
@@ -530,17 +562,17 @@ const SECTION_TONE = {
       "[&_[data-marker]]:!bg-white/25 [&_[data-marker]]:!text-white",
   },
   wash: {
-    shell: "bg-rb-polar",
-    heading: "text-rb-eel",
-    eyebrow: "text-rb-macaw-lip",
-    rule: "bg-rb-macaw",
+    shell: "bg-[var(--tg-softer)]",
+    heading: "text-foreground",
+    eyebrow: "text-[var(--tg-ink)]",
+    rule: "bg-[var(--tg)]",
     content: "",
   },
   plain: {
     shell: "",
-    heading: "text-rb-eel",
-    eyebrow: "text-rb-macaw-lip",
-    rule: "bg-rb-macaw",
+    heading: "text-foreground",
+    eyebrow: "text-[var(--tg-ink)]",
+    rule: "bg-[var(--tg)]",
     content: "",
   },
 }
@@ -657,9 +689,9 @@ function LessonView({
       // selecting text still works, the tutor's "ask about this" relies on it).
       onContextMenu={(event) => event.preventDefault()}
       style={{ "--lesson-header-h": "116px" }}
-      className="w-full px-4 pb-10 sm:px-6 lg:px-8"
+      className="tg-cat-explain w-full px-4 pb-10 sm:px-6 lg:px-8"
     >
-      <div ref={headerRef} data-snip-chrome className="sticky top-0 z-10 -mx-4 border-b-2 border-rb-swan bg-rb-snow/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div ref={headerRef} data-snip-chrome className="sticky top-0 z-10 -mx-4 border-b border-[var(--tg-line)] bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
           {onOpenOutline ? (
             <button
@@ -667,28 +699,27 @@ function LessonView({
               onClick={onOpenOutline}
               aria-label="Open topic outline"
               title="Topic outline"
-              className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
+              className={`tg-btn tg-icon-btn shrink-0 ${outlineHidden ? "" : "xl:!hidden"}`}
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>
           ) : null}
           <div className="min-w-0 flex-1">
-            <p className="rb-eyebrow">
-              lesson {position} of {total}
+            <p className="tg-kicker">
+              Lesson {position} of {total}
             </p>
 
-            <h1 className="mt-0.5 truncate font-rb-display text-lg font-extrabold text-rb-eel sm:text-xl">
+            <h1 className="mt-0.5 truncate font-rb-display text-lg font-extrabold text-foreground sm:text-xl">
               {lessonItem.name}
             </h1>
           </div>
 
           {backTo ? (
-            <TactileButton asChild variant="feather" size="sm" className="shrink-0">
-              <Link to={backTo} aria-label="Back to curriculum">
-                <span className="hidden sm:inline">back to curriculum</span>
-                <span className="sm:hidden">curriculum</span>
-              </Link>
-            </TactileButton>
+            <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Back to curriculum</span>
+              <span className="sm:hidden">Curriculum</span>
+            </Link>
           ) : null}
         </div>
       </div>
@@ -780,8 +811,8 @@ function LessonView({
         aria-live="polite"
         animate={lessonDone ? { scale: [1, 1.015, 1] } : { scale: 1 }}
         transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
-        className={`mt-12 flex items-center gap-4 rounded-rb-card border-2 p-5 transition-colors ${
-          lessonDone ? "border-rb-feather bg-rb-feather-wash" : "border-rb-swan bg-rb-polar"
+        className={`mt-12 flex items-center gap-4 rounded-2xl border p-5 transition-colors ${
+          lessonDone ? "border-[var(--tg)] bg-[var(--tg-softer)]" : "border-[var(--tg-line)] bg-card"
         }`}
       >
         <ReadCheck
@@ -800,7 +831,7 @@ function LessonView({
         />
 
         <div className="min-w-0">
-          <p className="font-rb-display text-base font-extrabold text-rb-eel">
+          <p className="text-base font-bold text-foreground">
             {lessonDone
               ? "Lesson complete"
               : completing
@@ -809,7 +840,7 @@ function LessonView({
                   ? "One thing left: the quick check"
                   : "You reached the end of this lesson"}
           </p>
-          <p className="mt-0.5 text-sm font-medium text-rb-wolf">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {lessonDone
               ? "This lesson is ticked off in your outline."
               : quizPending
@@ -821,16 +852,16 @@ function LessonView({
 
       <span aria-hidden="true" data-read-lesson="true" className="block h-px" />
 
-      <div className="mt-12 flex flex-col gap-3 border-t-2 border-rb-swan pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <TactileButton variant="ghost" size="sm" onClick={onPrev} disabled={!onPrev}>
-          <ArrowLeft className="size-4" />
-          previous
-        </TactileButton>
+      <div className="mt-12 flex flex-col gap-3 border-t border-[var(--tg-line)] pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" className="tg-btn" onClick={onPrev} disabled={!onPrev}>
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Previous
+        </button>
 
-        <TactileButton variant="macaw" size="sm" onClick={onNext} disabled={!onNext}>
-          next
-          <ArrowRight className="size-4" />
-        </TactileButton>
+        <button type="button" className="tg-btn tg-btn-primary" onClick={onNext} disabled={!onNext}>
+          Next
+          <ArrowRight className="size-4" aria-hidden="true" />
+        </button>
       </div>
       </div>
 
@@ -913,11 +944,61 @@ function StandingBand({ standing, latest, best, goal }) {
   )
 }
 
+function LevelMeter({ standing, latest, best, taken }) {
+  const shown = best ?? latest
+  const rating = shown?.rating != null ? Math.round(shown.rating) : null
+  const pct = Math.max(0, Math.min(100, rating ?? 0))
+  const cleared = rating != null ? rating >= PROFICIENT_RATING : Boolean(standing?.cleared)
+  return (
+    <div className="mb-5 flex flex-col gap-4 rounded-2xl border-2 border-rb-swan bg-rb-polar/60 p-4 sm:flex-row sm:items-center">
+      <div
+        className="relative grid size-20 shrink-0 place-items-center rounded-full"
+        style={{
+          background: `conic-gradient(${cleared ? "var(--color-rb-feather)" : "var(--color-rb-fox)"} ${pct * 3.6}deg, var(--color-rb-swan) 0deg)`,
+        }}
+      >
+        <span className="grid size-[64px] place-items-center rounded-full bg-rb-snow">
+          {cleared ? (
+            <Trophy className="size-7 text-rb-bee" aria-hidden="true" />
+          ) : (
+            <span className="rb-numeric text-xl font-black text-rb-eel">{rating ?? "?"}</span>
+          )}
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-extrabold uppercase tracking-wider text-rb-wolf">
+          {cleared ? "Level cleared" : taken ? "Keep going" : "New challenge"}
+        </p>
+        <p className="font-rb-display text-xl font-extrabold text-rb-eel">
+          {rating != null ? `Proficiency ${rating} / 100` : "Not attempted yet"}
+        </p>
+        <div className="relative mt-2 h-3 overflow-hidden rounded-full bg-rb-swan">
+          <div
+            className={`h-full rounded-full ${cleared ? "bg-rb-feather" : "bg-rb-fox"}`}
+            style={{ width: `${pct}%` }}
+          />
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 w-0.5 bg-rb-eel/60"
+            style={{ left: `${PROFICIENT_RATING}%` }}
+          />
+        </div>
+        <p className="mt-1 text-xs font-semibold text-rb-wolf">
+          Goal: {PROFICIENT_RATING} · {cleared ? "you made it — retake to raise your best" : `${Math.max(0, PROFICIENT_RATING - (rating ?? 0))} to go`}
+        </p>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-rb-bee-wash px-3 py-1.5 text-sm font-extrabold text-rb-bee-ink sm:self-center">
+        <Zap className="size-4" aria-hidden="true" /> +{ASSESSMENT_MAX_XP} XP
+      </span>
+    </div>
+  )
+}
+
 function QuizBand({ quiz, taken, standing, latest, best }) {
   const location = useLocation()
   return (
-    <section id={`quiz-${quiz.examId}`} data-no-snip className="scroll-mt-8 bg-rb-bee px-5 py-12 sm:px-10 lg:px-14">
-      <div className="w-full">
+    <section id={`quiz-${quiz.examId}`} data-no-snip className="tg-cat-explain relative scroll-mt-8 overflow-hidden tg-solid px-5 py-12 sm:px-10 lg:px-14">
+      <div className="relative w-full">
         <Reveal amount={0.2}>
           <p className="font-rb-display text-2xl font-extrabold text-white">Test your skills</p>
           <p className="mt-1 text-sm font-bold text-white/80">
@@ -928,8 +1009,10 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
         <Reveal
           variants={popIn}
           amount={0.2}
-          className="mt-6 rounded-rb-card border-2 border-rb-swan bg-rb-snow p-6 sm:p-8"
+          className="mt-6 rounded-2xl bg-card p-6 shadow-[0_4px_0_rgb(0_0_0/0.12)] sm:p-8"
         >
+          <LevelMeter standing={standing} latest={latest} best={best} taken={taken} />
+
           <p className="rb-body">
             {quiz.description ??
               "A short check on what this lesson covered. Answer it while the lesson is fresh — it is scored, and you can retake it."}
@@ -942,34 +1025,24 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
             goal="complete this lesson"
           />
 
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [CircleHelp, `${quiz.totalQuestions} questions`],
-              [CheckCircle2, `proficiency ${PROFICIENT_RATING} to complete`],
-              [Clock, quiz.durationMinutes ? `${quiz.durationMinutes} minutes` : "Self-paced"],
-              [Zap, `up to ${ASSESSMENT_MAX_XP} XP`],
-            ].map(([Icon, label]) => (
-              <li
-                key={label}
-                className="flex items-center gap-3 rounded-rb-card border-2 border-rb-swan bg-rb-polar p-4"
-              >
-                <Icon className="size-5 shrink-0 text-rb-beetle-lip" aria-hidden="true" />
-                <span className="text-sm font-bold text-rb-eel">{label}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-semibold text-rb-wolf">
+            <span className="inline-flex items-center gap-1.5"><CircleHelp className="size-4" aria-hidden="true" />{quiz.totalQuestions} questions</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5"><Clock className="size-4" aria-hidden="true" />{quiz.durationMinutes ? `${quiz.durationMinutes} min` : "Self-paced"}</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" aria-hidden="true" />Pass at {PROFICIENT_RATING}</span>
+          </p>
 
 
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <TactileButton asChild variant="macaw">
-              <Link
-                to={`/learner/assessments/${quiz.examId}`}
-                state={returnState(location)}
-              >
-                {taken ? "retake quiz" : "start quiz"}
-                <ArrowRight className="size-4" />
-              </Link>
-            </TactileButton>
+          <div className="mt-5 flex flex-col items-center gap-3">
+            <Link
+              to={`/learner/assessments/${quiz.examId}`}
+              state={returnState(location)}
+              className="tg-btn tg-btn-primary !px-7 !py-3 !text-base"
+            >
+              {taken ? "Retake quiz" : "Start quiz"}
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
 
             {taken ? (
               <Link
@@ -1001,8 +1074,8 @@ function AssessmentView({
   const location = useLocation()
 
   return (
-    <div className="w-full pb-10">
-      <div className="sticky top-0 z-10 border-b-2 border-rb-swan bg-rb-snow/95 px-5 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:px-10 lg:px-14">
+    <div className="tg-cat-explain w-full pb-10">
+      <div className="sticky top-0 z-10 border-b border-[var(--tg-line)] bg-card/95 px-5 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:px-10 lg:px-14">
         <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
           {onOpenOutline ? (
             <button
@@ -1010,28 +1083,27 @@ function AssessmentView({
               onClick={onOpenOutline}
               aria-label="Open topic outline"
               title="Topic outline"
-              className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
+              className={`tg-btn tg-icon-btn shrink-0 ${outlineHidden ? "" : "xl:!hidden"}`}
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>
           ) : null}
           <div className="min-w-0 flex-1">
-            <p className="rb-eyebrow">
-              lesson {position} of {total}
+            <p className="tg-kicker">
+              Lesson {position} of {total}
             </p>
 
-            <h1 className="mt-0.5 truncate font-rb-display text-lg font-extrabold text-rb-eel sm:text-xl">
+            <h1 className="mt-0.5 truncate font-rb-display text-lg font-extrabold text-foreground sm:text-xl">
               {exam.title}
             </h1>
           </div>
 
           {backTo ? (
-            <TactileButton asChild variant="feather" size="sm" className="shrink-0">
-              <Link to={backTo} aria-label="Back to curriculum">
-                <span className="hidden sm:inline">back to curriculum</span>
-                <span className="sm:hidden">curriculum</span>
-              </Link>
-            </TactileButton>
+            <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Back to curriculum</span>
+              <span className="sm:hidden">Curriculum</span>
+            </Link>
           ) : null}
         </div>
 
@@ -1078,15 +1150,14 @@ function AssessmentView({
         </ul>
 
         <div className="mt-9 flex flex-wrap items-center gap-4">
-          <TactileButton asChild variant="fox" className="w-fit">
-            <Link
-              to={`/learner/assessments/${exam.examId}`}
-              state={returnState(location)}
-            >
-              {taken ? "retake exam" : "start exam"}
-              <ArrowRight className="size-4" />
-            </Link>
-          </TactileButton>
+          <Link
+            to={`/learner/assessments/${exam.examId}`}
+            state={returnState(location)}
+            className="tg-btn tg-btn-primary w-fit !px-6 !py-3 !text-base"
+          >
+            {taken ? "Retake exam" : "Start exam"}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
 
           {taken ? (
             <Link
@@ -1167,17 +1238,15 @@ export default function LearnerTopicPage() {
   const requestedLessonId = searchParams.get("lesson")
   const requestedLesson = requestedLessonId ? lessonById.get(String(requestedLessonId)) : null
 
-  useEffect(() => {
-    if (!requestedLesson) return
-
+  // Repair links saved before an overall plan retained the event's own
+  // certification. Do not redirect to content the learner cannot access.
+  const repairHref = useMemo(() => {
+    if (!requestedLesson) return null
     const actualCertificationId = requestedLesson.certificationId
     const actualMiddleCategoryId = requestedLesson.middleCategoryId
     const isEnrolledInActualCertification = (data?.enrolledCertifications ?? []).some(
       (item) => String(item.certificationId) === String(actualCertificationId),
     )
-
-    // Repair links saved before an overall plan retained the event's own
-    // certification. Do not redirect to content the learner cannot access.
     if (
       !isEnrolledInActualCertification ||
       actualCertificationId == null ||
@@ -1185,21 +1254,14 @@ export default function LearnerTopicPage() {
       (String(actualCertificationId) === String(certificationId) &&
         String(actualMiddleCategoryId) === String(middleCategoryId))
     ) {
-      return
+      return null
     }
+    return `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`
+  }, [certificationId, data?.enrolledCertifications, middleCategoryId, requestedLesson, requestedLessonId])
 
-    navigate(
-      `/learner/learning/${actualCertificationId}/topics/${actualMiddleCategoryId}?lesson=${requestedLessonId}`,
-      { replace: true },
-    )
-  }, [
-    certificationId,
-    data?.enrolledCertifications,
-    middleCategoryId,
-    navigate,
-    requestedLesson,
-    requestedLessonId,
-  ])
+  useEffect(() => {
+    if (repairHref) navigate(repairHref, { replace: true })
+  }, [navigate, repairHref])
 
   useEffect(() => {
     setActiveId(null)
@@ -1518,6 +1580,8 @@ export default function LearnerTopicPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLessonId, readSectionsQuery.data])
 
+  if (repairHref) return <TopicPageSkeleton />
+
   if (!certification) {
     return (
       <LearnerEmptyState
@@ -1533,7 +1597,8 @@ export default function LearnerTopicPage() {
     )
   }
 
-  if (examsQuery.isLoading || examTypesQuery.isLoading || !curriculum) {
+  // A stale link is about to redirect; don't flash "Topic not found" first.
+  if (repairHref || examsQuery.isLoading || examTypesQuery.isLoading || !curriculum) {
     return <TopicPageSkeleton />
   }
 
@@ -1632,7 +1697,7 @@ export default function LearnerTopicPage() {
           style={{ height: "auto", overflow: "visible" }}
         >
         <ResizablePanel id="lesson" minSize="30%" style={{ overflow: "visible", maxHeight: "none" }}>
-        <main ref={readingRef} className="min-w-0 bg-rb-snow">
+        <main ref={readingRef} className="min-h-dvh min-w-0 bg-rb-snow">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={active?.id}

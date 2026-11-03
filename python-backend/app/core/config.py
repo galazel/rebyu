@@ -166,6 +166,11 @@ class Settings(BaseSettings):
 
     question_batch_size: int = 20
 
+    # Question batches of one large ask (bank, mock exam) written at once.
+    # Batches in the same wave cannot see each other's stems, so duplicates
+    # between them are dropped afterwards and topped up in the next wave.
+    question_concurrency: int = 4
+
     auto_review_min_quality_score: int = 70
 
     mock_exam_max_questions: int = 0

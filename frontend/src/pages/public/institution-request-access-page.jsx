@@ -60,17 +60,17 @@ function ShieldCheckMark(props) {
 const PROCESS = [
   {
     icon: ClipboardCheck,
-    title: "you submit",
+    title: "You submit",
     body: "Institution details and the certifications your learners need. No account is created yet.",
   },
   {
     icon: ShieldCheckMark,
-    title: "we review",
+    title: "We review",
     body: "Our team verifies your institution and the learner slots you asked for.",
   },
   {
     icon: Mail,
-    title: "you hear back",
+    title: "You hear back",
     body: "We email the contact person once the request is approved or rejected.",
   },
 ]
@@ -90,7 +90,7 @@ function FormSection({ icon: Icon, tone = "feather", title, description, childre
           <Icon className="size-6" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h2 className="rb-display rb-display-md">{title}</h2>
+          <h2 className="rb-display rb-display-md !normal-case">{title.charAt(0).toUpperCase() + title.slice(1)}</h2>
           <p className="rb-body mt-1 text-sm">{description}</p>
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function InstitutionRequestAccessPage() {
             <span className="grid size-14 place-items-center rounded-rb-tile bg-rb-leaf-wash text-rb-leaf">
               <CheckCircle2 className="size-7" aria-hidden="true" />
             </span>
-            <h1 className="rb-display rb-display-md mt-5">request submitted</h1>
+            <h1 className="rb-display rb-display-md mt-5 !normal-case">Request submitted</h1>
             <p className="rb-body mt-3">
               Our team will review your institution details and requested
               certification access. You will receive an email at the address you
@@ -277,7 +277,7 @@ export default function InstitutionRequestAccessPage() {
             </div>
 
             <TactileButton asChild variant="ghost" className="mt-7 w-full">
-              <Link to="/">back to home</Link>
+              <Link to="/">Back to home</Link>
             </TactileButton>
           </div>
         </div>
@@ -294,7 +294,7 @@ export default function InstitutionRequestAccessPage() {
           <div className="rb-chalkboard px-6 pb-16 pt-10 text-center sm:px-12">
             <p className="rb-chalk-label mx-auto">institution partnerships</p>
             <h1 className="rb-chalk mt-5 text-[clamp(2.2rem,5vw,4rem)] leading-tight">
-              bring your school onto rebyu.
+              Bring your school onto REBYU.
             </h1>
             <p className="rb-chalk-body mx-auto mt-4 max-w-2xl text-lg">
               Tell us about your institution and the certifications your learners
@@ -303,19 +303,24 @@ export default function InstitutionRequestAccessPage() {
             <TraySupplies />
           </div>
 
-          <ol className="mt-16 grid gap-8 sm:grid-cols-3">
+          <ol className="mt-16 grid items-stretch gap-8 sm:grid-cols-3">
             {PROCESS.map((step, index) => (
               <li
                 key={step.title}
-                className={`rb-sticky ${["rb-sticky-yellow", "rb-sticky-mint", "rb-sticky-pink"][index]}`}
+                className={`rb-sticky flex h-full flex-col ${["rb-sticky-yellow", "rb-sticky-mint", "rb-sticky-pink"][index]}`}
+                style={{ "--tilt": index % 2 ? "1.2deg" : "-1.2deg" }}
               >
                 <span className="rb-pushpin" aria-hidden="true" />
                 <div className="flex items-center gap-3">
-                  <step.icon className="size-6 text-[#4a3a12]" aria-hidden="true" />
-                  <span className="font-rb-display text-xl text-[#6b5a2a]">step {index + 1}</span>
+                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-white/70 shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)]">
+                    <step.icon className="size-5 text-[#4a3a12]" aria-hidden="true" />
+                  </span>
+                  <span className="rounded-full bg-black/[0.07] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#5b4a1e]">
+                    Step {index + 1}
+                  </span>
                 </div>
-                <p className="rb-sticky-title mt-2 !text-[1.7rem]">{step.title}</p>
-                <p className="rb-sticky-body mt-1.5 text-sm">{step.body}</p>
+                <p className="rb-sticky-title mt-4 !text-[1.8rem] leading-tight">{step.title}</p>
+                <p className="rb-sticky-body mt-2 text-[0.95rem] leading-6">{step.body}</p>
               </li>
             ))}
           </ol>
@@ -554,7 +559,7 @@ export default function InstitutionRequestAccessPage() {
         <aside className="lg:sticky lg:top-28 lg:self-start">
           <div className="rb-sticky rb-sticky-yellow !p-6 sm:!p-7">
             <span className="rb-pushpin" aria-hidden="true" />
-            <p className="rb-eyebrow">request summary</p>
+            <p className="rb-sticky-title !text-[1.6rem]">Request summary</p>
 
             <RequestSummary selection={selection} pricePerSlot={pricePerSlot} currency={currency} />
 
@@ -575,10 +580,10 @@ export default function InstitutionRequestAccessPage() {
               {submitMutation.isPending ? (
                 <>
                   <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-                  submitting...
+                  Submitting…
                 </>
               ) : (
-                "submit request"
+                "Submit request"
               )}
             </TactileButton>
 
@@ -595,11 +600,11 @@ export default function InstitutionRequestAccessPage() {
 
 function PublicHeader() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b-2 border-rb-swan bg-rb-snow">
+    <header className="sticky top-0 z-50 w-full border-b border-rb-swan bg-rb-snow/95 backdrop-blur">
       <div className="mx-auto flex h-20 max-w-[1120px] items-center justify-between gap-6 px-5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">
           <BrandLogo className="size-9" />
-          <span className="rb-display text-2xl leading-none">rebyu</span>
+          <span className="rb-wordmark text-2xl leading-none text-rb-eel">REBYU</span>
         </Link>
       </div>
     </header>

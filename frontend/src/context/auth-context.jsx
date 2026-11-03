@@ -18,8 +18,6 @@ import {
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat.js"
 
-const DEV_USER = null;
-
 const AuthContext = createContext(null)
 const AUTH_USER_SNAPSHOT_KEY = "rebyu:auth-user-snapshot"
 
@@ -68,11 +66,6 @@ export function AuthProvider({ children }) {
   const [status, setStatus] = useState("loading")
 
   const refresh = useCallback(async () => {
-    if (DEV_USER) {
-      setUser(DEV_USER)
-      setStatus("authenticated")
-      return DEV_USER
-    }
     const token = await getAccessToken()
     if (!token) {
       setUser(null)

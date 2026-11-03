@@ -126,14 +126,14 @@ export function PriorityBookmark({ tag, masteryProbability, size = 16 }) {
     <svg
       viewBox="0 0 24 24"
       width={size}
-      height={size * 1.25}
+      height={size}
       className="shrink-0"
       role="img"
       aria-label={`${label}${mastery}`}
     >
       <title>{`${label}${mastery}`}</title>
       <path
-        d="M5 2h14a1 1 0 0 1 1 1v19l-8-5.2L4 22V3a1 1 0 0 1 1-1z"
+        d="M5 2a1 1 0 0 1 1 1v.6c1.6-.8 3.4-.9 5.5-.1 2.2.9 4.2.8 6.1-.2a1 1 0 0 1 1.4.9v9.6a1 1 0 0 1-.5.9c-2.4 1.3-4.9 1.4-7.6.4-1.8-.7-3.4-.7-4.9.1V21a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1z"
         fill={config.fill}
       />
     </svg>

@@ -89,10 +89,31 @@ public final class InstitutionLearningStatsDtos {
             String certificationTitle,
             List<TopicDifficultyDto> topics) {}
 
+    /** One calendar month of the cohort's work on the institution's certifications. */
+    public record MonthlyTrendPointDto(
+            String month,
+            long gradedAttempts,
+            Integer averageScore,
+            Integer passRate,
+            long lessonsCompleted,
+            long activeLearners) {}
+
     public record InstitutionLearningStatsDto(
             LearningStatsSummaryDto summary,
             List<MemberLearningStatsDto> members,
             List<CertificationStatsDto> certifications,
             List<CertificationTopicsDto> hardestTopics,
-            List<CertificationAssessmentsDto> hardestAssessments) {}
+            List<CertificationAssessmentsDto> hardestAssessments,
+            List<MonthlyTrendPointDto> monthlyTrend,
+            java.util.Map<String, Long> readinessDistribution) {
+
+        public InstitutionLearningStatsDto(
+                LearningStatsSummaryDto summary,
+                List<MemberLearningStatsDto> members,
+                List<CertificationStatsDto> certifications,
+                List<CertificationTopicsDto> hardestTopics,
+                List<CertificationAssessmentsDto> hardestAssessments) {
+            this(summary, members, certifications, hardestTopics, hardestAssessments, List.of(), java.util.Map.of());
+        }
+    }
 }

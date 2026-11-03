@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm"
 import { BookOpen, Check, XCircle } from "@/components/icons"
 import { useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
 import { studyIndex, tutorStudyItems } from "@/lib/tutor-study-set.js"
-import { categoryClass, Ico, Celebration, Confidence, FlipCard, GameIcon, IconButton, OPTION_COLORS, ProgressBar, StepNav } from "@/components/learner/tutor-game-kit.jsx"
+import { categoryClass, Ico, Celebration, Confidence, FlipCard, GameFooter, GameHint, GameIcon, IconButton, OPTION_COLORS, ProgressBar, StepNav } from "@/components/learner/tutor-game-kit.jsx"
 
 function Text({ children }) {
   return <div className="break-words leading-relaxed [&_p]:my-1 [&_pre]:overflow-auto [&_ul]:list-disc [&_ul]:pl-5"><ReactMarkdown remarkPlugins={[remarkGfm]}>{String(children ?? "")}</ReactMarkdown></div>
@@ -61,16 +61,17 @@ export function TutorStudyWidget({ data }) {
         <div role="tablist" aria-label="Study mode" className="inline-flex rounded-full bg-card p-1 ring-1 ring-[var(--tg-line)]">
           {[['quiz', 'Quiz'], ['flashcards', 'Flashcards']].map(([value, label]) => <button key={value} id={`${id}-${value}`} type="button" role="tab" aria-selected={mode === value} aria-controls={`${id}-panel`} tabIndex={mode === value ? 0 : -1} onClick={() => chooseMode(value)} onKeyDown={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const next = event.key === "Home" ? "quiz" : event.key === "End" ? "flashcards" : mode === "quiz" ? "flashcards" : "quiz"; chooseMode(next); document.getElementById(`${id}-${next}`)?.focus() } }} className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)] ${mode === value ? "bg-[var(--tg)] text-white dark:text-[#10151a]" : "text-muted-foreground hover:text-foreground"}`}><GameIcon type={value} className="size-3" />{label}</button>)}
         </div>
-        <Link to="/learner/library" className="tg-pill inline-flex items-center gap-1 hover:underline"><BookOpen className="size-3" />{data.library?.id != null ? "Saved" : "Library"}</Link>
+        <Link to="/learner/library" className="tg-pill inline-flex items-center gap-1 hover:underline"><BookOpen className="size-3" />{data.library?.id != null ? "Saved to Library" : "Open Library"}</Link>
       </header>
       <div className="@container p-3 @md:p-5">
+        <GameHint>{mode === "quiz" ? "Pick one answer for each question, then see your results." : "Recall the answer, flip the card, then rate yourself."}</GameHint>
         <div className="mb-4 flex items-center gap-3">
           <div className="flex-1"><ProgressBar value={mode === "quiz" ? answered : reviewedCount} total={items.length} label={mode === "quiz" ? "Questions answered" : "Cards reviewed"} /></div>
           <span className="tg-pill">{mode === "quiz" ? `${right} correct` : `${knownCount} known`}</span>
         </div>
         <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${mode}`}>
-          {quizDone ? <Celebration right={right} total={items.length} onRestart={reset} restartLabel="Try again" />
-            : deckDone ? <Celebration right={knownCount} total={items.length} noun="known" detail={`${items.length - knownCount} still learning`} onRestart={restartCards} restartLabel="Review again" />
+          {quizDone ? <Celebration right={right} total={items.length} onReview={() => { setFinished(false); setPosition(0) }} />
+            : deckDone ? <Celebration right={knownCount} total={items.length} noun="known" detail={`${items.length - knownCount} still learning`} restartLabel="Review again" reviewable={false} />
             : mode === "quiz" ? (
             <>
               <div className="mb-4 rounded-2xl bg-[var(--tg-softer)] p-4 text-lg font-extrabold text-foreground ring-1 ring-[var(--tg-line)]"><Text>{item.front}</Text></div>
@@ -101,6 +102,7 @@ export function TutorStudyWidget({ data }) {
             {mode === "quiz" ? "Question" : "Card"} {index + 1} of {items.length}
           </StepNav>
         )}
+        <GameFooter score={mode === "quiz" ? `${right} of ${answered} correct · ${answered} of ${items.length} answered` : `${knownCount} known · ${reviewedCount} of ${items.length} reviewed`} onRestart={mode === "quiz" ? reset : restartCards} restartLabel={mode === "quiz" ? "Restart quiz" : "Restart cards"} />
       </div>
     </section>
   )

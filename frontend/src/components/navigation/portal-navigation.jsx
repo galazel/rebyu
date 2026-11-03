@@ -104,11 +104,11 @@ export const adminGroups = [
 
 const departmentHeadGroups = [
   {
-    label: "Overview",
+    label: "Department dashboard",
     icon: LayoutDashboard,
     items: [
       {
-        label: "Overview",
+        label: "Department dashboard",
         href: "/institution/department-head",
         icon: LayoutDashboard,
         match: ["/institution/department-head"],
@@ -116,11 +116,11 @@ const departmentHeadGroups = [
     ],
   },
   {
-    label: "Programs",
+    label: "Programs & sections",
     icon: UsersRound,
     items: [
       {
-        label: "Programs",
+        label: "Programs & sections",
         href: "/institution/programs",
         icon: UsersRound,
         match: ["/institution/programs"],
@@ -155,10 +155,10 @@ const departmentHeadGroups = [
 
 const departments = [
   {
-    label: "Overview",
+    label: "Institution dashboard",
     icon: LayoutDashboard,
     items: [
-      { label: "Institution overview", href: "/institution/dashboard", icon: LayoutDashboard },
+      { label: "Institution dashboard", href: "/institution/dashboard", icon: LayoutDashboard },
     ],
   },
   {
@@ -179,13 +179,15 @@ function pathMatches(pathname, item) {
   return candidates.some((path) => pathname === path || (path !== "/admin" && pathname.startsWith(`${path}/`)))
 }
 
-function Brand({ role, institutionName }) {
+function Brand({ role, institutionName, isDepartmentHead = false }) {
   const isInstitution = isInstitutionRole(role)
   const home = role === "LEARNER"
     ? "/learner/analytics"
-    : isInstitution
-      ? "/institution/dashboard"
-      : "/admin/dashboard"
+    : isDepartmentHead
+      ? "/institution/department-head"
+      : isInstitution
+        ? "/institution/dashboard"
+        : "/admin/dashboard"
   const label = role === "LEARNER"
     ? "Learn"
     : isInstitution
@@ -193,7 +195,7 @@ function Brand({ role, institutionName }) {
       : "Admin"
 
   if (isInstitution) {
-    const scopeLabel = role === "DEPARTMENT_HEAD" ? "DEPARTMENT" : "INSTITUTION"
+    const scopeLabel = isDepartmentHead ? "DEPARTMENT HEAD" : "INSTITUTION ADMIN"
     return (
       <NavLink
         to={home}
@@ -355,7 +357,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md shadow-xs transition-shadow">
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
           <div className={cn("flex items-center", isInstitutionRole(role) ? "flex-1 min-w-0 justify-start" : "shrink-0")}>
-            <Brand role={role} institutionName={institutionName} />
+            <Brand role={role} institutionName={institutionName} isDepartmentHead={isDepartmentHead} />
           </div>
           <nav
             className={cn(

@@ -703,7 +703,7 @@ export default function LearnerProgressPage() {
       id: "player-card",
       x: 0,
       y: 0,
-      col: 6,
+      col: 2,
       row: 1,
       element: <PlayerCardTile portalData={data} />,
     },
@@ -836,8 +836,8 @@ export default function LearnerProgressPage() {
     {
       id: "exam-countdown",
       x: 2,
-      y: 3,
-      col: 1,
+      y: 0,
+      col: 2,
       row: 1,
       element: (
         <ExamCountdownTile certificationId={selectedCertificationId} />
@@ -1181,16 +1181,12 @@ export default function LearnerProgressPage() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="mr-auto flex flex-col items-start gap-2">
-            <h1 className="font-rb-display text-3xl leading-none text-foreground sm:text-4xl">
-              how&apos;s your studying going?
-            </h1>
-          </div>
+      <div className="rb-hub rb-progress-board space-y-6">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <h1 className="sr-only">My progress</h1>
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (
-            <span className="ml-auto flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
               Updating
             </span>
@@ -1205,7 +1201,7 @@ export default function LearnerProgressPage() {
               <SelectValue placeholder="Select certification" />
             </SelectTrigger>
 
-            <SelectContent align="start">
+            <SelectContent align="end">
               {publishedCertifications.map((certification) => (
                 <SelectItem
                   key={certification.certificationId}

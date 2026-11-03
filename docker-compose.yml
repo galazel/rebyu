@@ -51,7 +51,7 @@ services:
       REDIS_DATABASE: 2
       SITE_URL: http://localhost:3000
       # The provider key is loaded server-side from the ignored onboarding env file.
-      ELEVENLABS_LIVE_TUTOR_AGENT_ID: ${ELEVENLABS_LIVE_TUTOR_AGENT_ID:-agent_6001m5hrr384ef1tkgzt1p4s00zr}
+      ELEVENLABS_LIVE_TUTOR_AGENT_ID: ${ELEVENLABS_LIVE_TUTOR_AGENT_ID:-agent_5301m63q2q1qemt9rv668was1ctd}
       JAVA_TOOL_OPTIONS: >-
         -Xms128m
         -Xmx384m

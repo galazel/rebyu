@@ -114,13 +114,27 @@ def list_awaiting_review(
 
 
 @router.get("/ai-credits")
-async def ai_credits() -> dict[str, Any]:
+async def ai_credits(db: Session = Depends(get_db)) -> dict[str, Any]:
     """The OpenRouter balance, so the admin can see before starting a run
-    whether it can afford it -- a run that runs dry stops part-way.
+    whether it can afford it -- a run that runs dry stops part-way -- and the
+    per-unit `rates` the form multiplies into its estimate (see
+    `app.services.generation_rates`).
 
     Never raises: a missing key or an unreachable OpenRouter comes back as
     `available: false`, and the form treats an unknown balance as "don't block".
     """
+    from app.services.generation_rates import generation_rates
+
+    balance = await _openrouter_balance()
+    try:
+        rates = await generation_rates(db)
+    except Exception:
+        logger.warning("Could not build generation rates", exc_info=True)
+        rates = None
+    return {**balance, "rates": rates}
+
+
+async def _openrouter_balance() -> dict[str, Any]:
     import httpx
 
     from app.ai.tasks import PROVIDERS

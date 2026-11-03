@@ -61,6 +61,8 @@ export const createCommunityCircle = (payload) => base("community/circles", { me
 export const shareCommunityStudyItem = async (libraryItemId, circleId = null) =>
   postView(await base(`community/posts/shared-study-item/${libraryItemId}`, { method: "POST", data: { circleId } }))
 export const startSharedCommunityPractice = (postId) => base(`community/posts/${postId}/practice`, { method: "POST" })
+// A shared game/activity or mind map: copied into the viewer's Library; returns the route to open.
+export const openSharedCommunityItem = (postId) => base(`community/posts/${postId}/open-shared`, { method: "POST" })
 export const recordCommunityPostView = (postId) => base(`community/posts/${postId}/view`, { method: "POST" })
 export const reportCommunityPost = (postId, reason, details = null) =>
   base(`community/posts/${postId}/report`, { method: "POST", data: { reason, details } })

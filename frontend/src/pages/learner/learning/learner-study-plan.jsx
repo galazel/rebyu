@@ -20,7 +20,6 @@ import {
     TimerReset,
 } from "@/components/icons"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -277,6 +276,20 @@ function FormInput({ label, value, onChange, type = "text", min, max, error }) {
     )
 }
 
+/** One part of the plan form: an icon and title over open content, no box. */
+function PlanSection({ icon: Icon, title, aside, children }) {
+    return (
+        <section>
+            <header className="mb-4 flex flex-wrap items-center gap-2.5">
+                <span className="tg-badge-icon !size-8"><Icon className="size-4" aria-hidden="true" /></span>
+                <p className="flex-1 text-base font-bold text-foreground">{title}</p>
+                {aside}
+            </header>
+            {children}
+        </section>
+    )
+}
+
 function TechniqueCard({ technique, selected, onSelect }) {
     const Icon = technique.icon
 
@@ -285,29 +298,31 @@ function TechniqueCard({ technique, selected, onSelect }) {
             type="button"
             onClick={onSelect}
             aria-pressed={selected}
-            className={`h-full rounded-2xl border-2 bg-card p-4 text-left shadow-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                selected ? "border-rb-bee ring-4 ring-rb-bee/40" : "border-transparent hover:border-rb-swan"
+            className={`h-full rounded-2xl border-2 p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tg)] ${
+                selected
+                    ? "border-[var(--tg)] bg-[var(--tg-softer)] ring-4 ring-[var(--tg-soft)]"
+                    : "border-[var(--tg-line)] bg-card hover:-translate-y-0.5 hover:border-[var(--tg)]"
             }`}
         >
             <div className="flex items-start justify-between gap-3">
-                <div
-                    className={`flex size-9 items-center justify-center rounded-xl ${
+                <span
+                    className={
                         selected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background text-muted-foreground"
-                    }`}
+                            ? "tg-badge-icon"
+                            : "grid size-9 place-items-center rounded-xl bg-[var(--tg-softer)] text-[var(--tg-ink)] ring-1 ring-[var(--tg-line)]"
+                    }
                 >
-                    <Icon className="size-4" />
-                </div>
+                    <Icon className="size-4" aria-hidden="true" />
+                </span>
 
                 {selected ? (
-                    <CheckCircle2 className="size-5 text-primary" aria-hidden="true" />
+                    <CheckCircle2 className="size-5 text-[var(--tg)]" aria-hidden="true" />
                 ) : null}
             </div>
 
-            <h3 className="mt-3 text-base font-bold text-foreground">
+            <p className="mt-3 text-base font-bold text-foreground">
                 {technique.title}
-            </h3>
+            </p>
 
             <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
                 {technique.description}
@@ -893,15 +908,11 @@ export function StudyPlanContent({
     }
 
     return (
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
-            <main className="min-w-0 space-y-8">
-                <section>
-                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
-                        Course and target
-                    </p>
-
+        <div className="rb-plain tg-cat-explain grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <main className="min-w-0 space-y-9">
+                <PlanSection icon={Target} title="Course and target">
                     {overall ? (
-                        <div className="mt-4 space-y-3">
+                        <div className="space-y-3">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                                 <Label className="text-xs font-semibold text-foreground">
                                     Certifications to cover
@@ -915,7 +926,7 @@ export function StudyPlanContent({
                             </div>
 
                             {enrolledCertifications.length === 0 ? (
-                                <p className="rounded-2xl bg-muted/50 p-4 text-sm leading-6 text-muted-foreground">
+                                <p className="rounded-2xl bg-[var(--tg-softer)] p-4 text-sm leading-6 text-muted-foreground">
                                     You are not enrolled in any certifications yet, so there is
                                     nothing to build a plan around.
                                 </p>
@@ -931,8 +942,8 @@ export function StudyPlanContent({
                                                 key={row.id}
                                                 className={`rounded-2xl p-3 transition ${
                                                     checked
-                                                        ? "bg-primary/10 ring-2 ring-primary"
-                                                        : "bg-muted/50 hover:bg-muted"
+                                                        ? "bg-[var(--tg-softer)] ring-2 ring-[var(--tg)]"
+                                                        : "bg-card ring-1 ring-[var(--tg-line)] hover:bg-[var(--tg-softer)]"
                                                 }`}
                                             >
                                                 <Label
@@ -1004,14 +1015,14 @@ export function StudyPlanContent({
                         </div>
                     ) : null}
 
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className={`grid gap-4 sm:grid-cols-2 ${overall ? "mt-5" : ""}`}>
                         {overall ? null : lockedCertification ? (
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold text-foreground">
                                     Certification
                                 </Label>
 
-                                <p className="flex h-10 items-center rounded-lg bg-muted px-3 text-sm font-medium text-foreground">
+                                <p className="flex h-10 items-center rounded-lg bg-[var(--tg-softer)] px-3 text-sm font-semibold text-[var(--tg-ink)] ring-1 ring-[var(--tg-line)]">
                                     {lockedCertification}
                                 </p>
                             </div>
@@ -1059,14 +1070,10 @@ export function StudyPlanContent({
                             options={priorityOptions}
                         />
                     </div>
-                </section>
+                </PlanSection>
 
-                <section>
-                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
-                        Schedule
-                    </p>
-
-                    <div className={`mt-4 grid gap-4 ${overall ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+                <PlanSection icon={CalendarDays} title="Schedule">
+                    <div className={`grid gap-4 ${overall ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
                         {overall ? null : (
                             <FormInput
                                 label="Calendar starts"
@@ -1098,14 +1105,10 @@ export function StudyPlanContent({
                             />
                         )}
                     </div>
-                </section>
+                </PlanSection>
 
-                <section>
-                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
-                        Study technique
-                    </p>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                <PlanSection icon={Brain} title="Study technique">
+                    <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                         {studyTechniques.map((technique) => (
                             <TechniqueCard
                                 key={technique.id}
@@ -1115,35 +1118,32 @@ export function StudyPlanContent({
                             />
                         ))}
                     </div>
-                </section>
+                </PlanSection>
 
-                <section>
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="text-sm font-bold uppercase tracking-wider text-foreground">
-                            Priority topics
-                        </p>
-
-                        <p className="text-xs text-muted-foreground">
+                <PlanSection
+                    icon={ListChecks}
+                    title="Priority topics"
+                    aside={
+                        <span className="text-xs font-semibold text-muted-foreground">
                             {overall
                                 ? "Weakest across every certification"
                                 : "From your diagnostic"}
-                        </p>
-                    </div>
-
+                        </span>
+                    }
+                >
                     {priorityTopics.length > 0 ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2">
                             {priorityTopics.map((topic) => (
-                                <Badge
+                                <span
                                     key={topic.title}
-                                    variant="secondary"
-                                    className="h-auto max-w-full whitespace-normal rounded-full px-3 py-1.5 text-left text-xs font-medium leading-snug"
+                                    className="max-w-full rounded-full bg-[var(--tg-soft)] px-3 py-1.5 text-left text-xs font-semibold leading-snug text-[var(--tg-ink)]"
                                 >
                                     {topic.title}
-                                </Badge>
+                                </span>
                             ))}
                         </div>
                     ) : (
-                        <p className="mt-4 rounded-2xl bg-card p-4 text-sm leading-6 text-muted-foreground">
+                        <p className="rounded-2xl bg-[var(--tg-softer)] p-4 text-sm leading-6 text-muted-foreground">
                             {priorityTopicsPending
                                 ? "Working out which topics to put first from your diagnostic. This takes a moment."
                                 : overall
@@ -1151,19 +1151,15 @@ export function StudyPlanContent({
                                     : "Your weak topics appear here once the diagnostic is submitted."}
                         </p>
                     )}
-                </section>
+                </PlanSection>
 
-                <section>
-                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
-                        Anything else
-                    </p>
-
+                <PlanSection icon={Sparkles} title="Anything else">
                     <Textarea
                         value={studyPreferences}
                         onChange={(event) => setStudyPreferences(event.target.value)}
                         maxLength={500}
                         placeholder="Example: I am available Monday, Wednesday, and Friday after 7 PM. Use short sessions with breaks and add one catch-up day every week."
-                        className="mt-4 min-h-28 resize-none rounded-2xl"
+                        className="min-h-28 resize-none rounded-2xl"
                     />
 
                     <div className="mt-2 flex items-start justify-between gap-3 text-xs text-muted-foreground">
@@ -1174,13 +1170,14 @@ export function StudyPlanContent({
                                     ? "Saved with your plan. Mention days (e.g. Monday, Friday), a time (e.g. 7 PM), short sessions, or no catch-up to change the schedule."
                                     : null}
                         </p>
-                        <p className="shrink-0">{studyPreferences.length} / 500</p>
+                        <p className="shrink-0 tabular-nums">{studyPreferences.length} / 500</p>
                     </div>
-                </section>
+                </PlanSection>
 
                 <div className="flex justify-end">
-                    <Button
-                        className="gap-2"
+                    <button
+                        type="button"
+                        className="tg-btn tg-btn-primary !px-6 !py-3 !text-base"
                         onClick={handleGeneratePlan}
                         disabled={generating || datesOutOfOrder || noCertificationsSelected}
                     >
@@ -1188,25 +1185,23 @@ export function StudyPlanContent({
                             "Saving plan…"
                         ) : (
                             <>
-                                <Sparkles className="size-4" />
+                                <Sparkles className="size-4" aria-hidden="true" />
                                 Generate calendar
                             </>
                         )}
-                    </Button>
+                    </button>
                 </div>
             </main>
 
             <aside className="min-w-0 xl:sticky xl:top-0 xl:self-start">
-                <div className="overflow-hidden rounded-2xl bg-card p-5 shadow-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <ListChecks className="size-4" aria-hidden="true" />
+                <div className="tg-frame">
+                    <header className="tg-head flex items-center gap-2.5 px-5 py-3">
+                        <span className="tg-badge-icon"><Clock3 className="size-4" aria-hidden="true" /></span>
+                        <p className="tg-kicker">Preview</p>
+                    </header>
+                    <div className="p-5">
 
-                        <p className="text-xs font-semibold uppercase tracking-wider">
-                            Preview
-                        </p>
-                    </div>
-
-                    <p className="mt-4 font-semibold leading-snug text-foreground">
+                    <p className="font-rb-display text-xl font-extrabold leading-snug text-foreground">
                         {certification || "Your certification"}
                     </p>
 
@@ -1217,8 +1212,8 @@ export function StudyPlanContent({
                             [Brain, "Technique", selectedTechniqueInfo?.title],
                             [Target, "Readiness", targetReadiness],
                         ].map(([Icon, label, value]) => (
-                            <div key={label} className="flex items-start gap-2.5">
-                                <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                            <div key={label} className="flex items-start gap-3">
+                                <Icon className="mt-0.5 size-4 shrink-0 text-[var(--tg)]" aria-hidden="true" />
 
                                 <div className="min-w-0">
                                     <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -1229,8 +1224,8 @@ export function StudyPlanContent({
                     </dl>
 
                     {pacePreview.length > 0 ? (
-                        <div className="mt-5 space-y-3 border-t border-border/60 pt-4">
-                            <p className="text-xs text-muted-foreground">Pace</p>
+                        <div className="mt-5 space-y-3 border-t border-[var(--tg-line)] pt-4">
+                            <p className="tg-kicker">Pace</p>
                             {pacePreview.map(({ title, summary }) => (
                                 <div key={title} className="text-sm leading-5">
                                     {overall ? <p className="font-semibold text-foreground">{title}</p> : null}
@@ -1255,22 +1250,22 @@ export function StudyPlanContent({
                     ) : null}
 
                     {priorityTopics.length > 0 ? (
-                        <div className="mt-5 border-t border-border/60 pt-4">
-                            <p className="text-xs text-muted-foreground">Focus first</p>
+                        <div className="mt-5 border-t border-[var(--tg-line)] pt-4">
+                            <p className="tg-kicker">Focus first</p>
 
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {priorityTopics.slice(0, 4).map((topic) => (
-                                    <Badge
+                                    <span
                                         key={topic.title}
-                                        variant="secondary"
-                                        className="h-auto max-w-full whitespace-normal rounded-xl text-left leading-snug"
+                                        className="max-w-full rounded-full bg-[var(--tg-soft)] px-2.5 py-1 text-left text-xs font-semibold leading-snug text-[var(--tg-ink)]"
                                     >
                                         {topic.title}
-                                    </Badge>
+                                    </span>
                                 ))}
                             </div>
                         </div>
                     ) : null}
+                    </div>
                 </div>
             </aside>
         </div>

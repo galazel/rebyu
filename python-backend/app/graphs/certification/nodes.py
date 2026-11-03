@@ -1,4 +1,5 @@
 import asyncio
+import math
 import logging
 import time
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.agents.certification.exam_format_agent import get_exam_format_agent
 from .review_mode import auto_approving
 from .state import CertificationState
 from app.ai import tasks
+from app.ai.usage import note
 from app.ai.invocation import (
     invoke_agent,
     invoke_json_agent,
@@ -592,30 +594,38 @@ async def generate_diagnostic_exam_node(state: CertificationState):
     prior = written_stems(state)
     generated_questions: list = []
 
-    for start in range(0, len(lessons), size):
-        group = lessons[start:start + size]
+    # Each group names its own lessons, so the groups cannot overlap and are
+    # written at the same time.
+    limit = asyncio.Semaphore(max(1, get_settings().question_concurrency))
+
+    async def write_group(group):
         planned = [lesson for _name, lesson in group if lesson]
         context = _content_for_lessons(state, planned) or _curriculum_outline(curriculum)
         context = _with_exam_structure(_with_existing_curriculum(context, state), state)
         names = "\n".join(f"- {name}" for name, _lesson in group)
 
-        batch = await invoke_question_agent(
-            scope, context,
-            _with_improvement(
-                state,
-                f"Generate exactly {len(group)} questions: ONE for each lesson listed below, "
-                "to gauge a new learner's starting knowledge of it before they begin studying.\n"
-                f"{names}\n"
-                "Set lesson_ref on each question to that lesson's exact name as written above. "
-                "Use the same question types and layout as the real exam described above: "
-                f"{types}.{performance_quota(types, len(group))}"
-                f"{blank_format_rule(state)}{mcq_style_rule(state)}"
-                f"{SUB_QUESTION_RULE} "
-                + difficulty_quota_rule(len(group)),
-            ),
-            count=len(group),
-            existing_stems=prior + [q.question for q in generated_questions],
-        )
+        async with limit:
+            return await invoke_question_agent(
+                scope, context,
+                _with_improvement(
+                    state,
+                    f"Generate exactly {len(group)} questions: ONE for each lesson listed below, "
+                    "to gauge a new learner's starting knowledge of it before they begin studying.\n"
+                    f"{names}\n"
+                    "Set lesson_ref on each question to that lesson's exact name as written above. "
+                    "Use the same question types and layout as the real exam described above: "
+                    f"{types}.{performance_quota(types, len(group))}"
+                    f"{blank_format_rule(state)}{mcq_style_rule(state)}"
+                    f"{SUB_QUESTION_RULE} "
+                    + difficulty_quota_rule(len(group)),
+                ),
+                count=len(group),
+                existing_stems=prior,
+            )
+
+    groups = [lessons[start:start + size] for start in range(0, len(lessons), size)]
+    note("parallel", max(1, min(get_settings().question_concurrency, len(groups))))
+    for batch in await asyncio.gather(*(write_group(group) for group in groups)):
         generated_questions.extend(batch.questions)
 
     # A correct count alone is not coverage: an LLM can return two items for
@@ -967,6 +977,7 @@ async def generate_mock_exam_node(state: CertificationState):
     a straightforward 50-question MCQ exam covering the whole syllabus -- see
     `UNKNOWN_EXAM_QUESTION_TYPES`.
     """
+    note("parallel", max(1, get_settings().question_concurrency))
     scope = f"Mock exam for {state['certification_name']}"
     curriculum = {
         **(state.get("curriculum", {}) or {}),
@@ -1018,17 +1029,27 @@ async def generate_mock_exam_node(state: CertificationState):
             "Mock exam for '%s' follows the official weighting: %s", state["certification_name"],
             ", ".join(f"{d.get('name')} {n}" for d, n, _l in quotas),
         )
-        for domain, n, lessons in quotas:
+        # Domains cover different lessons, so they are written at the same time.
+        limit = asyncio.Semaphore(max(1, get_settings().question_concurrency))
+        stems = written_stems(state)
+
+        async def write_domain(domain, n, lessons):
             part = _content_for_lessons(state, lessons) or _curriculum_outline(curriculum)
             part = _with_exam_structure(_with_existing_curriculum(part, state), state)
-            batch = await invoke_question_agent(
-                scope, part,
-                instruction(n, f"for the \"{domain.get('name')}\" domain of the exam, covering "
-                               "its lessons proportionally"),
-                count=n,
-                existing_stems=written_stems(state) + [q.question for q in questions],
-            )
-            questions.extend(batch.questions[:n])
+            async with limit:
+                batch = await invoke_question_agent(
+                    scope, part,
+                    instruction(n, f"for the \"{domain.get('name')}\" domain of the exam, covering "
+                                   "its lessons proportionally"),
+                    count=n,
+                    existing_stems=stems,
+                )
+            return batch.questions[:n]
+
+        for part_questions in await asyncio.gather(
+            *(write_domain(domain, n, lessons) for domain, n, lessons in quotas)
+        ):
+            questions.extend(part_questions)
         batch = QuestionBatch(scope=scope, questions=questions)
     else:
         batch = await invoke_question_agent(
@@ -1212,6 +1233,7 @@ async def generate_question_bank_node(state: CertificationState):
     settings = get_settings()
     requested = state.get("requested_bank_size")
     total = question_bank_count(curriculum, requested)
+    note("parallel", max(1, min(settings.question_concurrency, math.ceil(total / settings.question_batch_size))))
     per_lesson = 0 if requested else settings.question_bank_questions_per_lesson
     lessons = len(_flatten_lessons(curriculum))
 
@@ -1445,10 +1467,11 @@ def _lessons_left_in_parent(curriculum: dict, index: int) -> int:
     """How many lessons remain in the middle category holding `index`,
     counting that one.
 
-    Read-ahead stops at this boundary. The walk leaves the lesson phase at the
-    end of each middle category to write that category's exam, and what comes
-    after is decided there -- so authoring past it would be writing lessons the
-    run has not yet committed to reaching in that order.
+    Supervised read-ahead stops at this boundary. The walk leaves the lesson
+    phase at the end of each middle category to write that category's exam, and
+    a reviewer decides what comes after -- so authoring past it would be writing
+    lessons the run has not yet committed to reaching in that order. Unattended
+    runs have no such decision and read ahead across categories.
     """
     position = 0
     for major in _flatten_majors(curriculum):
@@ -1476,6 +1499,7 @@ async def major_generate_node(state: CertificationState):
     lesson under this major has been written, so `_content_for_lessons` has
     real material to draw on.
     """
+    note("parallel", max(1, get_settings().question_concurrency))
     curriculum = state.get("curriculum", {}) or {}
     index = current_index(state, MAJOR_PHASE)
     major = current_item(state, MAJOR_PHASE) or {}
@@ -1517,25 +1541,32 @@ async def middle_generate_node(state: CertificationState):
     major, middle = _middle_at(curriculum, index)
     context = _content_for_lessons(state, middle.get("lessons") or [])
 
-    batch = await invoke_question_agent(
-        f"Middle category quiz for '{middle.get('name')}' "
-        f"(under major category '{major.get('name')}') within {state['certification_name']}",
-        context or middle.get("description", ""),
-        _with_improvement(
-            state,
-            f"Generate exactly {middle_quiz_count()} questions drawn from the lesson "
-            "content above, covering every lesson under this middle category. Test only "
-            "material the lessons actually teach. Use these question types: "
-            f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
-            f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), middle_quiz_count())}"
-            f"{difficulty_quota_rule(middle_quiz_count())}"
-            f"{blank_format_rule(state)}{mcq_style_rule(state)} "
-            "Set lesson_ref on each question to the lesson it tests.",
-        ),
-        count=middle_quiz_count(),
-        existing_stems=written_stems(state),
-    )
-    reflection = await _reflection_for(state, major, middle, context)
+    # The reflection reads the same lessons, not the exam, so both are written
+    # at once.
+    reflection_task = asyncio.create_task(_reflection_for(state, major, middle, context))
+    try:
+        batch = await invoke_question_agent(
+            f"Middle category quiz for '{middle.get('name')}' "
+            f"(under major category '{major.get('name')}') within {state['certification_name']}",
+            context or middle.get("description", ""),
+            _with_improvement(
+                state,
+                f"Generate exactly {middle_quiz_count()} questions drawn from the lesson "
+                "content above, covering every lesson under this middle category. Test only "
+                "material the lessons actually teach. Use these question types: "
+                f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
+                f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), middle_quiz_count())}"
+                f"{difficulty_quota_rule(middle_quiz_count())}"
+                f"{blank_format_rule(state)}{mcq_style_rule(state)} "
+                "Set lesson_ref on each question to the lesson it tests.",
+            ),
+            count=middle_quiz_count(),
+            existing_stems=written_stems(state),
+        )
+    except BaseException:
+        reflection_task.cancel()
+        raise
+    reflection = await reflection_task
     return {
         "middle_quizzes": [
             {
@@ -1694,9 +1725,16 @@ async def lesson_content_node(state: CertificationState):
     feedback = state.get("review_instructions")
     width = 1 if feedback else _read_ahead_width(state)
 
-    remaining = _lessons_left_in_parent(curriculum, index)
+    # Unattended, every lesson is reached in curriculum order, so writing ahead
+    # can run past the end of the current category. Supervised runs never get
+    # here with width > 1 (see _read_ahead_width).
+    if width > 1:
+        remaining = len(_flatten_lessons(curriculum)) - index
+    else:
+        remaining = _lessons_left_in_parent(curriculum, index)
     width = max(1, min(width, remaining))
 
+    note("parallel", width)
     if width == 1:
         return {"lessons": [await _author_lesson(state, curriculum, index, feedback)]}
 
@@ -1985,12 +2023,23 @@ def apply_middle_edit(state: CertificationState, payload) -> dict:
     pairs = _flatten_middles(state.get("curriculum", {}) or {})
     index = current_index(state, MIDDLE_PHASE)
     major, middle = pairs[index] if index < len(pairs) else ({}, {})
+    # The merge replaces the whole entry, so carry the topic's reflection over
+    # or a reviewer's edit to the exam would silently drop it.
+    previous = next(
+        (
+            quiz for quiz in state.get("middle_quizzes") or []
+            if quiz.get("majorCategory") == major.get("name")
+            and quiz.get("middleCategory") == middle.get("name")
+        ),
+        {},
+    )
     return {
         "middle_quizzes": [
             {
                 "majorCategory": major.get("name"),
                 "middleCategory": middle.get("name"),
                 "questions": payload,
+                "reflection": previous.get("reflection"),
             }
         ]
     }

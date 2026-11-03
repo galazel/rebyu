@@ -2,7 +2,9 @@ import { useEffect, useMemo } from "react"
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  ArrowLeft,
   BookOpen,
+  Clock,
   GraduationCap,
   Layers3,
   LockKeyhole,
@@ -21,7 +23,6 @@ import {
 import { Button } from "@/components/ui/button"
 
 import { BentoHeading } from "@/components/commons/bento.jsx"
-import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 import { BUBBLE_TONES } from "@/components/commons/bubble-card.jsx"
 import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
@@ -80,19 +81,22 @@ function formatDuration(minutes) {
   return `${hours} hr ${remainingMinutes} min`
 }
 
-function SyllabusFigure({ value, label }) {
+function SyllabusFigure({ icon: Icon, value, label }) {
   const isNumber = /^\d/.test(String(value))
 
   return (
-      <div className="min-w-0">
-        <p
-            className={`rb-numeric font-rb-display font-extrabold leading-none text-rb-eel ${
-                isNumber ? "text-3xl sm:text-4xl" : "text-xl sm:text-2xl"
-            }`}
-        >
-          {value}
-        </p>
-        <p className="rb-nav-label mt-2">{label}</p>
+      <div className="flex min-w-0 items-center gap-3 rounded-[1rem] border border-[var(--tg-line)] bg-card p-4 shadow-[0_3px_0_var(--tg-line)]">
+        {Icon ? <span className="tg-badge-icon !size-11 !rounded-xl"><Icon className="size-5" aria-hidden="true" /></span> : null}
+        <div className="min-w-0">
+          <p
+              className={`font-rb-display font-extrabold leading-none tabular-nums text-foreground ${
+                  isNumber ? "text-3xl" : "text-xl"
+              }`}
+          >
+            {value}
+          </p>
+          <p className="mt-1 text-xs font-bold text-muted-foreground">{label}</p>
+        </div>
       </div>
   )
 }
@@ -101,21 +105,18 @@ function RouteStep({ index, icon: Icon, title, children, tone, done }) {
   return (
       <li className="flex min-w-0 gap-3">
         <span
-            className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full font-rb-display text-xs font-extrabold"
-            style={
-              done
-                  ? { background: tone.solid, color: "#fff" }
-                  : { boxShadow: `inset 0 0 0 2px ${tone.solid}33`, color: tone.solid }
-            }
+            className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl text-xs font-extrabold ${
+              done ? "tg-solid-soft" : "bg-[var(--tg-soft)] text-[var(--tg-ink)]"
+            }`}
         >
           {index}
         </span>
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-sm font-extrabold text-rb-eel">
+          <p className="flex items-center gap-1.5 text-sm font-extrabold text-foreground">
             <Icon className="size-3.5 shrink-0" aria-hidden="true" />
             {title}
           </p>
-          <p className="mt-0.5 text-xs leading-5 text-rb-wolf">{children}</p>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{children}</p>
         </div>
       </li>
   )
@@ -303,7 +304,7 @@ export default function LearnerCertificationDetailPage() {
           ? "Sign In to Enroll"
           : enrollMutation.isPending
               ? "Enrolling..."
-              : "Rebyu Certificate"
+              : "REBYU Certificate"
 
   function handlePrimaryAction() {
     if (enrolled) {
@@ -327,52 +328,51 @@ export default function LearnerCertificationDetailPage() {
 
   return (
 
-      <div className="rebyu-ds min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-rb-snow pb-20">
+      <div className="rebyu-ds tg-cat-explain min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-card pb-20">
         <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8">
 
           <div className="flex items-center gap-3 py-6">
-            <span className="font-rb-display text-sm font-extrabold lowercase text-rb-wolf">
-              back to certifications
-            </span>
+            <button type="button" className="tg-btn" onClick={() => navigate("/learner/certifications")}>
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              Certifications
+            </button>
           </div>
 
-          <header className="relative border-l-[6px] pl-5 sm:pl-7" style={{ borderColor: tone.solid }}>
+          <header className="tg-frame relative p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <p className="rb-eyebrow min-w-0 break-words">
                 {certification.department || "certification program"}
               </p>
 
-              <span
-                  className="shrink-0 rounded-rb-pill px-3 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide"
-                  style={{ background: `${tone.solid}14`, color: tone.solid }}
-              >
+              <span className="tg-chip shrink-0 !px-3 !py-1">
                 {enrolled ? "Enrolled" : "Free to study"}
               </span>
             </div>
 
-            <h1 className="mt-3 max-w-4xl break-words font-rb-display text-[clamp(2rem,5vw,3.75rem)] font-extrabold leading-[1.05] text-rb-eel [overflow-wrap:anywhere]">
+            <h1 className="mt-3 max-w-4xl break-words font-rb-display text-[clamp(2rem,5vw,3.75rem)] font-extrabold leading-[1.05] text-foreground [overflow-wrap:anywhere]">
               {certification.title}
             </h1>
 
-            <p className="mt-4 max-w-2xl text-base leading-7 text-rb-wolf">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
               {certification.description ||
                   "A comprehensive certification review designed to build your expertise, prepare you for the examination, and accelerate your career."}
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-4">
-              <TactileButton
+              <button
                   type="button"
-                  size="lg"
+                  className="tg-btn tg-btn-primary !px-6 !py-3 !text-base"
                   onClick={handlePrimaryAction}
                   disabled={enrollMutation.isPending}
               >
+                {diagnosticRequired ? <Target className="size-4" aria-hidden="true" /> : <PlayCircle className="size-4" aria-hidden="true" />}
                 {primaryButtonLabel}
-              </TactileButton>
+              </button>
 
               {(diagnosticRequired || (publishedDiagnostic && !enrolled)) && (
-                  <span className="inline-flex min-w-0 items-center gap-2 text-xs font-bold text-rb-wolf">
+                  <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-[var(--tg-softer)] px-3 py-1.5 text-xs font-bold text-[var(--tg-ink)]">
                     {diagnosticRequired ? (
-                        <Target className="size-4 shrink-0" style={{ color: tone.solid }} aria-hidden="true" />
+                        <Target className="size-4 shrink-0" aria-hidden="true" />
                     ) : (
                         <LockKeyhole className="size-4 shrink-0" aria-hidden="true" />
                     )}
@@ -384,24 +384,25 @@ export default function LearnerCertificationDetailPage() {
             </div>
           </header>
 
-          <div className="mt-10 grid grid-cols-2 gap-y-6 border-y border-rb-swan py-6 sm:grid-cols-4 sm:divide-x sm:divide-rb-swan">
-            <div className="sm:pr-6">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
               <SyllabusFigure
+                  icon={Layers3}
                   value={modules.length}
                   label={modules.length === 1 ? "major category" : "major categories"}
               />
             </div>
-            <div className="sm:px-6">
-              <SyllabusFigure value={moduleCount} label={moduleCount === 1 ? "module" : "modules"} />
+            <div>
+              <SyllabusFigure icon={GraduationCap} value={moduleCount} label={moduleCount === 1 ? "module" : "modules"} />
             </div>
-            <div className="sm:px-6">
-              <SyllabusFigure value={lessonCount} label={lessonCount === 1 ? "lesson" : "lessons"} />
+            <div>
+              <SyllabusFigure icon={BookOpen} value={lessonCount} label={lessonCount === 1 ? "lesson" : "lessons"} />
             </div>
-            <div className="sm:pl-6">
+            <div>
               {totalMinutes > 0 ? (
-                  <SyllabusFigure value={formatDuration(totalMinutes)} label="total length" />
+                  <SyllabusFigure icon={Clock} value={formatDuration(totalMinutes)} label="total length" />
               ) : (
-                  <SyllabusFigure value="Self-paced" label="study at your own pace" />
+                  <SyllabusFigure icon={Clock} value="Self-paced" label="study at your own pace" />
               )}
             </div>
           </div>
@@ -410,10 +411,11 @@ export default function LearnerCertificationDetailPage() {
 
             <div className="min-w-0">
               <div className="mb-6">
-                <h2 className="font-rb-display text-sm font-extrabold lowercase text-rb-eel">
-                  course content
+                <h2 className="flex items-center gap-2.5 text-lg font-bold text-foreground">
+                  <span className="tg-badge-icon !size-8 !rounded-lg"><BookOpen className="size-4" aria-hidden="true" /></span>
+                  Course content
                 </h2>
-                <p className="mt-1 text-xs text-rb-wolf">
+                <p className="mt-1.5 text-xs text-muted-foreground">
                   One mark per lesson, so you can see where the weight of this
                   certification sits before you open anything.
                 </p>
@@ -444,19 +446,18 @@ export default function LearnerCertificationDetailPage() {
                                 <span
                                     aria-hidden="true"
                                     className="absolute left-[15px] top-9 bottom-0 w-0.5 sm:left-[19px]"
-                                    style={{ background: `${tone.solid}22` }}
+                                    style={{ background: "var(--tg-soft)" }}
                                 />
                             )}
 
                             <span
                                 aria-hidden="true"
-                                className="absolute left-0 top-0 grid size-8 place-items-center rounded-full font-rb-display text-sm font-extrabold text-white sm:size-10 sm:text-base"
-                                style={{ background: tone.solid }}
+                                className="tg-solid-soft absolute left-0 top-0 grid size-8 place-items-center rounded-xl font-rb-display text-sm font-extrabold shadow-[0_3px_0_color-mix(in_oklab,var(--tg)_55%,#000)] sm:size-10 sm:text-base"
                             >
                               {majorIndex + 1}
                             </span>
 
-                            <h3 className="min-w-0 break-words font-rb-display text-xl font-extrabold leading-tight text-rb-eel sm:text-2xl">
+                            <h3 className="min-w-0 break-words font-rb-display text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
                               {major.title ?? "Untitled"}
                             </h3>
 
@@ -469,12 +470,11 @@ export default function LearnerCertificationDetailPage() {
                                 {Array.from({ length: categoryLessons }).map((_, mark) => (
                                     <span
                                         key={mark}
-                                        className="h-1.5 w-4 rounded-full"
-                                        style={{ background: tone.solid }}
+                                        className="h-1.5 w-4 rounded-full bg-[var(--tg)]"
                                     />
                                 ))}
                               </span>
-                              <span className="shrink-0 text-xs font-extrabold text-rb-wolf">
+                              <span className="shrink-0 text-xs font-extrabold text-muted-foreground">
                                 {categoryLessons} {categoryLessons === 1 ? "lesson" : "lessons"}
                                 {" · "}
                                 {middleCategories.length}{" "}
@@ -483,11 +483,11 @@ export default function LearnerCertificationDetailPage() {
                             </div>
 
                             {middleCategories.length === 0 ? (
-                                <p className="mt-4 text-sm text-rb-wolf">
+                                <p className="mt-4 text-sm text-muted-foreground">
                                   No modules under this category yet.
                                 </p>
                             ) : (
-                                <Accordion type="multiple" className="mt-4 border-t border-rb-swan">
+                                <Accordion type="multiple" className="mt-4 space-y-2">
                                   {middleCategories.map((middle, middleIndex) => {
                                     const middleLessons = middle.lessons ?? []
                                     const middleMinutes = middleLessons.reduce(
@@ -501,14 +501,14 @@ export default function LearnerCertificationDetailPage() {
                                         <AccordionItem
                                             key={itemValue}
                                             value={itemValue}
-                                            className="border-rb-swan"
+                                            className="overflow-hidden rounded-[1rem] border border-[var(--tg-line)] bg-card data-[state=open]:border-[var(--tg)] data-[state=open]:shadow-[0_3px_0_var(--tg-line)]"
                                         >
-                                          <AccordionTrigger className="rounded-rb-tile px-3 py-3.5 transition-colors hover:bg-rb-polar hover:no-underline">
+                                          <AccordionTrigger className="px-4 py-3.5 transition-colors hover:bg-[var(--tg-softer)] hover:no-underline">
                                             <div className="flex min-w-0 flex-col items-start text-left">
-                                              <span className="min-w-0 break-words font-rb-display text-base font-extrabold text-rb-eel">
+                                              <span className="min-w-0 break-words font-rb-display text-lg font-extrabold text-foreground">
                                                 {middle.title ?? "Untitled Module"}
                                               </span>
-                                              <span className="mt-0.5 text-xs font-bold text-rb-wolf">
+                                              <span className="mt-0.5 text-xs font-bold text-muted-foreground">
                                                 {middleLessons.length}{" "}
                                                 {middleLessons.length === 1 ? "lesson" : "lessons"}
                                                 {middleMinutes > 0
@@ -517,9 +517,9 @@ export default function LearnerCertificationDetailPage() {
                                               </span>
                                             </div>
                                           </AccordionTrigger>
-                                          <AccordionContent className="pb-3 pt-1">
+                                          <AccordionContent className="border-t border-[var(--tg-line)] bg-[var(--tg-softer)] px-2 pb-2 pt-2">
                                             {middleLessons.length === 0 ? (
-                                                <p className="px-3 py-2 text-sm text-rb-wolf">
+                                                <p className="px-3 py-2 text-sm text-muted-foreground">
                                                   No lessons have been added yet.
                                                 </p>
                                             ) : (
@@ -527,18 +527,18 @@ export default function LearnerCertificationDetailPage() {
                                                   {middleLessons.map((lesson) => (
                                                       <li
                                                           key={lesson.lessonId}
-                                                          className="flex items-center justify-between gap-4 rounded-rb-tile px-3 py-2.5 hover:bg-rb-polar"
+                                                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2.5 hover:bg-card"
                                                       >
                                                         <span className="flex min-w-0 items-center gap-3">
                                                           <PlayCircle
-                                                              className="size-4 shrink-0 text-rb-hare"
+                                                              className="size-4 shrink-0 text-[var(--tg)]"
                                                               aria-hidden="true"
                                                           />
-                                                          <span className="min-w-0 truncate text-sm font-bold text-rb-eel">
+                                                          <span className="min-w-0 truncate text-sm font-bold text-foreground">
                                                             {lesson.name}
                                                           </span>
                                                         </span>
-                                                        <span className="shrink-0 text-xs font-bold text-rb-hare">
+                                                        <span className="shrink-0 text-xs font-bold text-muted-foreground">
                                                           {getLessonDurationMinutes(lesson) > 0
                                                               ? formatDuration(
                                                                   getLessonDurationMinutes(lesson)
@@ -567,8 +567,8 @@ export default function LearnerCertificationDetailPage() {
 
               <LearnerClassAssessments certificationId={certificationId} />
 
-              <section>
-                <BentoHeading title="how this works" hint="The route from here to the exam." />
+              <section className="tg-frame p-5">
+                <BentoHeading title="How this works" hint="The route from here to the exam." />
                 <ol className="space-y-4">
                   {publishedDiagnostic && (
                       <RouteStep
@@ -613,9 +613,9 @@ export default function LearnerCertificationDetailPage() {
                 </ol>
               </section>
 
-              <section className="border-t border-rb-swan pt-6">
-                <BentoHeading title="what it asks of you" />
-                <ul className="space-y-2 text-sm font-semibold text-rb-wolf">
+              <section className="tg-frame p-5">
+                <BentoHeading title="What it asks of you" />
+                <ul className="space-y-2 text-sm font-semibold text-muted-foreground [&>li]:flex [&>li]:items-center [&>li]:gap-2 [&>li]:before:size-1.5 [&>li]:before:shrink-0 [&>li]:before:rounded-full [&>li]:before:bg-[var(--tg)] [&>li]:before:content-['']">
                   <li>No prior experience.</li>
                   <li>A stable internet connection.</li>
                   <li>English is the language of the material.</li>

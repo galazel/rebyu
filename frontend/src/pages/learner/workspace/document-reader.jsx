@@ -483,21 +483,23 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
   )
 
   return (
-    <div ref={frameRef} className="rb-reader">
+    <div ref={frameRef} className="rb-reader tg-cat-explain">
       <header className="rb-reader-bar">
         <div className="flex min-w-0 items-center gap-3">
           {back ?? null}
+          {/* On wide screens the side panel names the file, so the bar does not repeat it. */}
+          <span className="tg-badge-icon lg:!hidden"><FileText className="size-4" aria-hidden="true" /></span>
           <div className="min-w-0 lg:hidden">
-            <p className="truncate text-sm font-extrabold">{file.name}</p>
-            <p className="rb-reader-muted text-xs font-bold">
+            <p className="tg-kicker">
               {[typeLabel, pageCount ? `${pageCount} pages` : null].filter(Boolean).join(" · ")}
             </p>
+            <p className="truncate font-rb-display text-lg font-extrabold leading-tight">{file.title ?? file.name.replace(/\.[^.]+$/, "")}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {previewPages == null ? (
-            <a href={file.previewUrl} download={file.name} className="rb-reader-download">
+            <a href={file.previewUrl} download={file.name} className="tg-btn tg-btn-primary !rounded-full">
               <Download className="size-4" aria-hidden="true" />
               <span className="hidden sm:inline">Download</span>
             </a>
@@ -505,7 +507,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
 
           <span className="rb-reader-divider" aria-hidden="true" />
 
-          <div className="flex items-center gap-1" role="group" aria-label="Pages">
+          <div className="rb-reader-group" role="group" aria-label="Pages">
             <ToolButton label="Previous page" onClick={() => goTo(page - 1)} disabled={!pageCount || page <= 1}>
               <ChevronUpIcon className="size-4" />
             </ToolButton>
@@ -531,7 +533,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
 
           <span className="rb-reader-divider hidden sm:block" aria-hidden="true" />
 
-          <div className="hidden items-center gap-1 sm:flex" role="group" aria-label="Zoom">
+          <div className="rb-reader-group hidden sm:flex" role="group" aria-label="Zoom">
             <ToolButton label="Zoom out" onClick={() => zoomTo(Math.max(0, zoomIndex - 1))} disabled={zoomIndex === 0}>
               <Minus className="size-4" />
             </ToolButton>
@@ -565,8 +567,8 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
       <div className="flex min-h-0 flex-1">
         <aside className="rb-reader-info" aria-label="About this document">
           <div className="rb-reader-cover" aria-hidden="true">
-            <FileText className="size-8" />
-            <span className="rb-reader-type">{typeLabel}</span>
+            <span className="tg-badge-icon !size-12"><FileText className="size-6" /></span>
+            <span className="tg-chip mt-3">{typeLabel}</span>
           </div>
 
           <h1 className="rb-reader-title">{file.title ?? file.name.replace(/\.[^.]+$/, "")}</h1>
@@ -642,9 +644,10 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
 
         <div ref={scrollRef} className="rb-reader-room">
           {loading ? (
-            <div className="rb-reader-state">
-              <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-              Opening your document…
+            <div className="rb-reader-state flex-col !gap-3">
+              <span className="tg-badge-icon !size-12"><Loader2 className="size-5 animate-spin" aria-hidden="true" /></span>
+              <p className="text-sm font-bold">Opening your document…</p>
+              <p className="rb-reader-muted max-w-xs text-center text-xs">Large Word files with many pictures can take a few seconds.</p>
             </div>
           ) : failed ? (
             <div className="rb-reader-state">
@@ -660,7 +663,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
                         : "This file type has no preview. Download it to read it.")}
                 </p>
                 {previewPages == null ? (
-                  <a href={file.previewUrl} download={file.name} className="rb-reader-download mt-5">
+                  <a href={file.previewUrl} download={file.name} className="tg-btn tg-btn-primary mt-5 !rounded-full">
                     <Download className="size-4" aria-hidden="true" />
                     Download
                   </a>
@@ -760,7 +763,7 @@ function ToolButton({ label, onClick, disabled, children }) {
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="rb-reader-tool"
+      className="tg-btn tg-icon-btn !size-8 !border-transparent !shadow-none"
     >
       {children}
     </button>

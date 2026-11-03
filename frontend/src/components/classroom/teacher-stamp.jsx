@@ -27,7 +27,7 @@ export function TeacherStamp({ passed, className = "" }) {
       role="img"
       aria-label={passed ? "Stamped: passed" : "Stamped: try again"}
     >
-      <span className="rb-nb-stamp-top">rebyu · checked</span>
+      <span className="rb-nb-stamp-top">REBYU · checked</span>
       <span className="rb-nb-stamp-main">{passed ? "passed" : "try again"}</span>
       <span className="rb-nb-stamp-bottom">{passed ? "★ well done ★" : "★ keep going ★"}</span>
     </div>

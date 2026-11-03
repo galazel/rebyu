@@ -29,6 +29,7 @@ import logging
 import time
 from typing import Any, Callable
 
+from app.ai.usage import UsageMeter, metered
 from app.graphs.certification.state import curriculum_totals
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,24 @@ def _progress_context(state: dict, stage: str, result: Any = None) -> dict | Non
     return context or None
 
 
+def _with_usage(payload: dict | None, state: dict, meter: UsageMeter) -> dict | None:
+    """Adds what the step's model calls consumed, and the sizes the admin asked
+    for, so `generation_rates` can turn finished runs into per-unit costs.
+
+    A failed step still spent money, so it is recorded too.
+    """
+    usage = meter.as_payload()
+    if usage is None and not meter.notes:
+        return payload
+    extra: dict = {**meter.notes}
+    if usage is not None:
+        extra["usage"] = usage
+    for key in ("requested_bank_size", "requested_lesson_count"):
+        if state.get(key):
+            extra[key] = state[key]
+    return {**(payload or {}), **extra}
+
+
 def _halt_if_cancelled(thread_id: str | None, stage: str) -> None:
     """Stops the graph at a node boundary once a reviewer has cancelled.
 
@@ -149,21 +168,22 @@ def instrument(node: Callable, stage: str) -> Callable:
                 task_status=registry.TASK_RUNNING, payload=_progress_context(state, stage),
             )
             started = time.monotonic()
-            try:
-                result = await node(state, *args, **kwargs)
-            except Exception as error:
-                _emit(
-                    thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
-                    task_status=registry.TASK_FAILED,
-                    duration_ms=int((time.monotonic() - started) * 1000),
-                    payload={"error": str(error)},
-                )
-                raise
+            with metered() as meter:
+                try:
+                    result = await node(state, *args, **kwargs)
+                except Exception as error:
+                    _emit(
+                        thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
+                        task_status=registry.TASK_FAILED,
+                        duration_ms=int((time.monotonic() - started) * 1000),
+                        payload=_with_usage({"error": str(error)}, state, meter),
+                    )
+                    raise
             _emit(
                 thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
                 task_status=registry.TASK_COMPLETED,
                 duration_ms=int((time.monotonic() - started) * 1000),
-                payload=_progress_context(state, stage, result),
+                payload=_with_usage(_progress_context(state, stage, result), state, meter),
             )
             return result
 
@@ -178,21 +198,22 @@ def instrument(node: Callable, stage: str) -> Callable:
             task_status=registry.TASK_RUNNING, payload=_progress_context(state, stage),
         )
         started = time.monotonic()
-        try:
-            result = node(state, *args, **kwargs)
-        except Exception as error:
-            _emit(
-                thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
-                task_status=registry.TASK_FAILED,
-                duration_ms=int((time.monotonic() - started) * 1000),
-                payload={"error": str(error)},
-            )
-            raise
+        with metered() as meter:
+            try:
+                result = node(state, *args, **kwargs)
+            except Exception as error:
+                _emit(
+                    thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
+                    task_status=registry.TASK_FAILED,
+                    duration_ms=int((time.monotonic() - started) * 1000),
+                    payload=_with_usage({"error": str(error)}, state, meter),
+                )
+                raise
         _emit(
             thread_id, registry.EVT_NODE_COMPLETED, stage=stage,
             task_status=registry.TASK_COMPLETED,
             duration_ms=int((time.monotonic() - started) * 1000),
-            payload=_progress_context(state, stage, result),
+            payload=_with_usage(_progress_context(state, stage, result), state, meter),
         )
         return result
 

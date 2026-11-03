@@ -3,10 +3,9 @@ import { useEffect, useId, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
-import { Check, Copy, Maximize, RotateCcw, X } from "@/components/icons"
+import { Check, Copy, ImageIcon, Maximize, RotateCcw, X } from "@/components/icons"
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
 import { CODE_LANGUAGES, registerCodeLanguages } from "./code-languages.js"
-import { Card } from "@/components/ui/card"
 import {
   Accordion,
   AccordionContent,
@@ -18,38 +17,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const EASE = [0.22, 1, 0.36, 1]
 
+// Every block uses the game kit's green (the --tg variables of tg-cat-explain,
+// set on each tool's wrapper). Washes are translucent so they also read on the
+// solid-green "statement" sections. Class names stay literal for Tailwind's scanner.
+const SOFT = "bg-[color-mix(in_oklab,var(--tg)_9%,transparent)]"
+
 const ACCENTS = [
-  { text: "!text-chart-1", marker: "marker:!text-chart-1", border: "!border-chart-1", bgSolid: "!bg-chart-1", bgSoft: "!bg-chart-1/10" },
-  { text: "!text-chart-5", marker: "marker:!text-chart-5", border: "!border-chart-5", bgSolid: "!bg-chart-5", bgSoft: "!bg-chart-5/10" },
-  { text: "!text-chart-2", marker: "marker:!text-chart-2", border: "!border-chart-2", bgSolid: "!bg-chart-2", bgSoft: "!bg-chart-2/10" },
-  { text: "!text-chart-4", marker: "marker:!text-chart-4", border: "!border-chart-4", bgSolid: "!bg-chart-4", bgSoft: "!bg-chart-4/10" },
-  { text: "!text-chart-3", marker: "marker:!text-chart-3", border: "!border-chart-3", bgSolid: "!bg-chart-3", bgSoft: "!bg-chart-3/10" },
+  { text: "!text-[var(--tg-ink)]", marker: "marker:!text-[var(--tg)]", border: "!border-[var(--tg)]", bgSolid: "!bg-[var(--tg)]", bgSoft: "!bg-[color-mix(in_oklab,var(--tg)_9%,transparent)]" },
 ]
 
 function accentFor(index) {
   return ACCENTS[((index % ACCENTS.length) + ACCENTS.length) % ACCENTS.length]
 }
 
-const RB_ACCENTS = [
-  { chip: "bg-rb-macaw-wash text-rb-macaw-lip", wash: "bg-rb-macaw-wash" },
-  { chip: "bg-rb-fox-wash text-rb-fox-lip", wash: "bg-rb-fox-wash" },
-  { chip: "bg-rb-bee-wash text-rb-bee-ink", wash: "bg-rb-bee-wash" },
-  { chip: "bg-rb-beetle-wash text-rb-beetle-lip", wash: "bg-rb-beetle-wash" },
-  { chip: "bg-rb-feather-wash text-rb-feather-ink", wash: "bg-rb-feather-wash" },
-]
-
 const RB_PILL_ACTIVE =
-  "data-active:border-rb-feather data-active:bg-rb-feather data-active:text-white"
+  "data-[state=active]:!border-[var(--tg)] data-[state=active]:!bg-[var(--tg)] data-[state=active]:!text-white"
 
-function rbAccentFor(index) {
-  return RB_ACCENTS[((index % RB_ACCENTS.length) + RB_ACCENTS.length) % RB_ACCENTS.length]
-}
-
-const RB_CARD = "overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow"
-
+const RB_CARD = "overflow-hidden rounded-2xl border border-[var(--tg-line)] bg-card"
 
 const RB_INDEX_CHIP =
-  "grid size-9 shrink-0 place-items-center rounded-xl font-rb-display text-sm font-extrabold"
+  "grid size-9 shrink-0 place-items-center rounded-xl tg-solid-soft font-rb-display text-sm font-extrabold text-white"
 
 function isDirectMediaSrc(key) {
   return Boolean(key) && (/^https?:\/\//.test(key) || key.startsWith("/"))
@@ -127,6 +114,8 @@ function MediaViewer({ label, ownerId, onClose, children }) {
 
 function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
   const [open, setOpen] = useState(false)
+  // Hotlinked pictures can be refused by their host; show a tidy notice, not a broken icon.
+  const [failed, setFailed] = useState(false)
   const mediaId = useId()
 
   const youTubeEmbed = getYouTubeEmbedUrl(sourceUrl) ?? getYouTubeEmbedUrl(imageKey)
@@ -151,6 +140,21 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
     )
   }
 
+  if (failed) {
+    return (
+        <div className="tg-cat-explain mx-auto flex w-full max-w-xl flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] px-6 py-8 text-center">
+          <span className="tg-badge-icon"><ImageIcon className="size-4" aria-hidden="true" /></span>
+          <p className="text-sm font-bold text-foreground">{alt && alt !== "Lesson image" ? alt : "This picture could not load"}</p>
+          <p className="text-xs text-muted-foreground">Its website did not let REBYU show it here.</p>
+          {sourceUrl ? (
+              <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="tg-btn mt-1 !rounded-full !px-3 !py-1 !text-xs">
+                Open it on {sourceName || "the source site"}
+              </a>
+          ) : null}
+        </div>
+    )
+  }
+
   return (
       <div>
         <button
@@ -162,7 +166,7 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
             aria-label={alt ? `View "${alt}" full size` : "View image full size"}
             className="group relative mx-auto block w-fit max-w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <img src={src} alt={alt} className={className} />
+          <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />
           <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-[var(--radius-rb-tile)] bg-foreground/0 transition-colors group-hover:bg-foreground/5"
@@ -295,7 +299,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
         />
 
         <div
-            className="overflow-x-auto rounded-[var(--radius-rb-tile)] border-2 border-border/70"
+            className="overflow-x-auto rounded-2xl border border-[var(--tg-line)] bg-card"
             tabIndex={0}
             role="region"
             aria-label={data.caption ?? data.smallHeader ?? "Table"}
@@ -308,12 +312,12 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
             ) : null}
 
             <thead>
-              <tr className="bg-muted/60">
+              <tr className="bg-[var(--tg-softer)]">
                 {columns.map((column, columnIndex) => (
                     <th
                         key={column.id ?? column.label ?? columnIndex}
                         scope="col"
-                        className="border-b-2 border-border/70 px-4 py-3 font-heading text-[13px] font-bold uppercase tracking-wide text-foreground"
+                        className="border-b border-[var(--tg-line)] px-4 py-3 text-[12px] font-extrabold uppercase tracking-wider text-[var(--tg-ink)]"
                     >
                       {column.label ?? column}
                     </th>
@@ -327,7 +331,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
                 return (
                     <tr
                         key={row.id ?? rowIndex}
-                        className={rowIndex % 2 ? "bg-muted/25" : undefined}
+                        className={`border-b border-[var(--tg-line)] last:border-b-0 ${rowIndex % 2 ? SOFT : ""}`}
                     >
                       {cells.map((cell, cellIndex) =>
                           rowHeaders && cellIndex === 0 ? (
@@ -385,10 +389,10 @@ function CodeBlock({ data, accent = ACCENTS[0] }) {
       <div className="space-y-4">
         <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
 
-        <figure className="overflow-hidden rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-card">
-          <div className="flex items-center justify-between gap-3 border-b-2 border-border/70 bg-muted/60 px-4 py-2">
+        <figure className="overflow-hidden rounded-2xl border border-[var(--tg-line)] bg-card">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-2">
             <div className="flex min-w-0 items-center gap-2">
-              <span className={`rounded-md px-2 py-0.5 font-heading text-[12px] font-bold uppercase tracking-wide ${accent.bgSoft} ${accent.text}`}>
+              <span className="tg-chip">
                 {label}
               </span>
               {data.title ? (
@@ -398,7 +402,7 @@ function CodeBlock({ data, accent = ACCENTS[0] }) {
             <button
                 type="button"
                 onClick={copy}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                className="tg-btn !rounded-full !px-2.5 !py-1 !text-xs"
                 aria-live="polite"
             >
               {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
@@ -421,7 +425,7 @@ function CodeBlock({ data, accent = ACCENTS[0] }) {
           </div>
 
           {data.caption ? (
-              <figcaption className="border-t-2 border-border/70 px-4 py-2.5 text-sm text-muted-foreground">
+              <figcaption className="border-t border-[var(--tg-line)] px-4 py-2.5 text-sm text-muted-foreground">
                 {data.caption}
               </figcaption>
           ) : null}
@@ -436,7 +440,7 @@ function SectionIntro({ smallHeader, description, accent = ACCENTS[0] }) {
   return (
       <div>
         {smallHeader ? (
-            <p className={`text-sm font-semibold uppercase tracking-wide ${accent.text}`}>
+            <p className={`tg-kicker !text-[12px] ${accent.text}`}>
               {smallHeader}
             </p>
         ) : null}
@@ -452,22 +456,20 @@ function AccordionBlock({ items = [] }) {
       <Accordion type="single" collapsible defaultValue={String(items[0]?.id ?? 0)} className="gap-3">
         {items.map((item, index) => {
           const id = String(item.id ?? index)
-          const rb = rbAccentFor(index)
-
           return (
-              <AccordionItem key={id} value={id} className={`${RB_CARD} not-last:border-b-2`}>
+              <AccordionItem key={id} value={id} className={`${RB_CARD} transition data-[state=open]:border-[var(--tg)] data-[state=open]:shadow-[0_3px_0_var(--tg-line)]`}>
                 <AccordionTrigger data-live-accordion={id} className="items-center gap-3 p-4 hover:no-underline">
-                  <span className={`${RB_INDEX_CHIP} ${rb.chip}`} aria-hidden="true">
+                  <span className={RB_INDEX_CHIP} aria-hidden="true">
                     {index + 1}
                   </span>
 
-                  <span className="min-w-0 flex-1 font-rb-display text-base font-extrabold text-rb-eel">
+                  <span className="min-w-0 flex-1 text-base font-bold text-foreground">
                     {item.title}
                   </span>
                 </AccordionTrigger>
 
                 <AccordionContent
-                    className={`border-t-2 border-rb-swan px-4 py-3 text-[15px] leading-7 text-rb-wolf ${rb.wash}`}
+                    className="border-t border-[var(--tg-line)] px-4 py-3 text-[15px] leading-7 text-foreground/80"
                 >
                   {item.content ?? item.description}
                 </AccordionContent>
@@ -490,7 +492,7 @@ function TabsBlock({ items = [] }) {
                     data-live-tab={String(item.id ?? index)}
                     key={item.id ?? item.label ?? index}
                     value={String(index)}
-                    className={`h-auto flex-1 rounded-rb-pill border-2 border-rb-swan bg-rb-snow px-3.5 py-2 text-sm font-bold text-rb-wolf after:hidden ${RB_PILL_ACTIVE}`}
+                    className={`h-auto flex-1 rounded-full border border-[var(--tg-line)] bg-card px-3.5 py-2 text-sm font-bold text-muted-foreground after:hidden hover:text-[var(--tg-ink)] ${RB_PILL_ACTIVE}`}
                 >
                   {item.label ?? item.title ?? `Tab ${index + 1}`}
                 </TabsTrigger>
@@ -499,8 +501,6 @@ function TabsBlock({ items = [] }) {
         </TabsList>
 
         {items.map((item, index) => {
-          const rb = rbAccentFor(index)
-
           return (
               <TabsContent
                   key={item.id ?? item.label ?? index}
@@ -508,17 +508,17 @@ function TabsBlock({ items = [] }) {
                   className={`mt-3 ${RB_CARD}`}
               >
                 <div className="flex items-center gap-3 p-4">
-                  <span className={`${RB_INDEX_CHIP} ${rb.chip}`} aria-hidden="true">
+                  <span className={RB_INDEX_CHIP} aria-hidden="true">
                     {index + 1}
                   </span>
 
-                  <span className="min-w-0 flex-1 font-rb-display text-base font-extrabold text-rb-eel">
+                  <span className="min-w-0 flex-1 text-base font-bold text-foreground">
                     {item.title ?? item.label}
                   </span>
                 </div>
 
                 <div
-                    className={`border-t-2 border-rb-swan px-4 py-3 text-[15px] leading-7 text-rb-wolf ${rb.wash}`}
+                    className="border-t border-[var(--tg-line)] px-4 py-3 text-[15px] leading-7 text-foreground/80"
                 >
                   {item.description}
                 </div>
@@ -546,22 +546,29 @@ function FlipCard({ cardId, frontTitle, backTitle, description, accent = ACCENTS
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.5, ease: EASE }}
         >
-          <Card className={`absolute inset-0 h-full justify-between !border-t-4 p-5 [backface-visibility:hidden] ${accent.border}`}>
-            <p className="font-heading font-semibold text-foreground">{frontTitle}</p>
-            <span className={`inline-flex size-7 items-center justify-center self-start rounded-full transition group-hover:opacity-80 ${accent.bgSoft} ${accent.text}`}>
-              <RotateCcw className="size-3.5" aria-hidden="true" />
+          <div className="absolute inset-0 flex h-full flex-col justify-between rounded-2xl border border-[var(--tg-line)] bg-card p-5 shadow-[0_3px_0_var(--tg-line)] transition group-hover:border-[var(--tg)] [backface-visibility:hidden]">
+            <p className="text-lg font-bold leading-snug text-foreground">{frontTitle}</p>
+            <span className="inline-flex items-center gap-1.5 self-start text-xs font-bold text-[var(--tg-ink)]">
+              <span className="tg-badge-icon !size-7 !rounded-lg"><RotateCcw className="size-3.5" aria-hidden="true" /></span>
+              Tap to flip
             </span>
-          </Card>
+          </div>
 
-          <Card
-              className={`absolute inset-0 h-full justify-center p-5 shadow-[0_2px_0_currentColor] [backface-visibility:hidden] ${accent.border} ${accent.bgSoft} ${accent.text}`}
+          <div
+              className="absolute inset-0 flex h-full flex-col justify-center overflow-y-auto rounded-2xl tg-solid p-5 text-white shadow-[0_3px_0_color-mix(in_oklab,var(--tg)_55%,#000)] [backface-visibility:hidden]"
               style={{ transform: "rotateY(180deg)" }}
           >
-            <p className={`font-heading font-semibold ${accent.text}`}>
-              {frontTitle ?? backTitle}
-            </p>
-            <p className="mt-2 text-[15px] leading-6 text-foreground/85">{description}</p>
-          </Card>
+            {/* The answer may live in backTitle (with no description) or in description. */}
+            {backTitle && backTitle !== frontTitle ? (
+              <>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-white/70">{frontTitle}</p>
+                <p className="mt-1.5 text-lg font-bold leading-snug text-white">{backTitle}</p>
+              </>
+            ) : (
+              <p className="font-bold text-white">{frontTitle ?? backTitle}</p>
+            )}
+            {description ? <p className="mt-2 text-[15px] leading-6 text-white/90">{description}</p> : null}
+          </div>
         </motion.div>
       </button>
   )
@@ -675,7 +682,7 @@ function ImageHotspotBlock({ data, accent }) {
       <div className="space-y-4">
         <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
 
-        <div className="flex justify-center rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted p-2">
+        <div className="flex justify-center rounded-2xl border border-[var(--tg-line)] bg-[var(--tg-softer)] p-2">
           {!src ? (
               <div className="flex aspect-video w-full items-center justify-center text-sm text-muted-foreground">
                 Loading image...
@@ -706,7 +713,7 @@ function ImageHotspotBlock({ data, accent }) {
                       className={`absolute isolate grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-sm font-bold shadow-md ring-2 ring-background transition hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                           isOpen
                               ? `scale-110 text-white ${accent.bgSolid}`
-                              : "bg-foreground text-background"
+                              : "bg-card text-[var(--tg-ink)] ring-[var(--tg)]"
                       }`}
                   >
                     {hotspotIndex + 1}
@@ -743,7 +750,7 @@ function ImageHotspotBlock({ data, accent }) {
                           openHotspot.x > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"
                       }, ${openHotspot.y > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"})`,
                     }}
-                    className={`absolute z-20 w-64 max-w-[calc(100%-1rem)] overflow-hidden rounded-[var(--radius-rb-tile)] border-2 bg-popover p-4 shadow-lg sm:w-72 ${accent.border}`}
+                    className={`absolute z-20 w-64 max-w-[calc(100%-1rem)] overflow-hidden rounded-2xl border bg-popover p-4 shadow-lg sm:w-72 ${accent.border}`}
                 >
                   <span
                       aria-hidden="true"
@@ -792,7 +799,7 @@ function ImageHotspotBlock({ data, accent }) {
 }
 
 function LessonTool({ tool, index = 0 }) {
-  return <div data-tool-id={tool.id ?? `block-${index}`} data-tool-type={tool.type} data-live-title={tool.data?.smallHeader || tool.data?.title || ""}><LessonToolContent tool={tool} index={index} /></div>
+  return <div className="tg-cat-explain" data-tool-id={tool.id ?? `block-${index}`} data-tool-type={tool.type} data-live-title={tool.data?.smallHeader || tool.data?.title || ""}><LessonToolContent tool={tool} index={index} /></div>
 }
 
 function LessonToolContent({ tool, index = 0 }) {
@@ -801,7 +808,7 @@ function LessonToolContent({ tool, index = 0 }) {
 
   if (tool.type === "heading") {
     return (
-        <h2 className={`rounded-r-[var(--radius-rb-tile)] border-l-4 py-2 pl-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl ${accent.border} ${accent.bgSoft}`}>
+        <h2 className={`border-l-4 py-1 pl-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl ${accent.border}`}>
           {data.text}
         </h2>
     )
@@ -873,7 +880,7 @@ function LessonToolContent({ tool, index = 0 }) {
           <LessonImage
               imageKey={data.imageKey}
               alt={data.altText || data.title || data.smallHeader || "Lesson image"}
-              className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
+              className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-2xl object-contain"
               sourceUrl={data.imageSourceUrl}
               sourceName={data.imageSourceName}
           />
@@ -885,7 +892,7 @@ function LessonToolContent({ tool, index = 0 }) {
     return data.videoKey ? (
         <VideoBlock
             videoKey={data.videoKey}
-            className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-foreground"
+            className="aspect-video w-full rounded-2xl border border-[var(--tg-line)] bg-foreground"
         />
     ) : null
   }
@@ -899,12 +906,12 @@ function LessonToolContent({ tool, index = 0 }) {
         <LessonImage
             imageKey={data.imageKey}
             alt={data.title ?? ""}
-            className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
+            className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-2xl object-contain"
             sourceUrl={data.imageSourceUrl}
             sourceName={data.imageSourceName}
         />
     ) : (
-        <div className="flex aspect-video w-full items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
+        <div className="flex aspect-video w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] text-muted-foreground">
           No image
         </div>
     )
@@ -965,7 +972,7 @@ function LessonToolContent({ tool, index = 0 }) {
               <div>
                 <LessonImage
                     imageKey={data.imageKey}
-                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
+                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-2xl object-contain"
                     sourceUrl={data.imageSourceUrl}
                     sourceName={data.imageSourceName}
                 />
@@ -983,7 +990,7 @@ function LessonToolContent({ tool, index = 0 }) {
               <div>
                 <LessonImage
                     imageKey={data.imageKey}
-                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
+                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-2xl object-contain"
                     sourceUrl={data.imageSourceUrl}
                     sourceName={data.imageSourceName}
                 />
@@ -993,18 +1000,17 @@ function LessonToolContent({ tool, index = 0 }) {
 
           <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
             {(data.gridItems ?? []).map((item, itemIndex) => {
-              const itemAccent = accentFor(itemIndex)
               return (
-                  <Card
+                  <div
                       key={item.id ?? itemIndex}
-                      size="sm"
-                      className={`!border-t-4 p-4 transition ${itemAccent.border} ${itemAccent.bgSoft}`}
+                      className={`rounded-2xl p-5 ring-1 ring-[var(--tg-line)] ${SOFT}`}
                   >
-                    <h4 className="font-heading font-semibold text-foreground">{item.title}</h4>
-                    <p className="mt-2 text-[15px] leading-6 text-foreground/85">
+                    <span className={`${RB_INDEX_CHIP} !size-8 !text-xs`} aria-hidden="true">{itemIndex + 1}</span>
+                    <h4 className="mt-3 font-bold text-foreground">{item.title}</h4>
+                    <p className="mt-1.5 text-[15px] leading-6 text-foreground/85">
                       {item.description}
                     </p>
-                  </Card>
+                  </div>
               )
             })}
           </div>
@@ -1057,10 +1063,10 @@ function LessonToolContent({ tool, index = 0 }) {
             data.videoKey ? (
                 <VideoBlock
                     videoKey={data.videoKey}
-                    className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-foreground"
+                    className="aspect-video w-full rounded-2xl border border-[var(--tg-line)] bg-foreground"
                 />
             ) : (
-                <div className="flex h-full min-h-72 items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
+                <div className="flex h-full min-h-72 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] text-muted-foreground">
                   No video
                 </div>
             )
@@ -1068,12 +1074,12 @@ function LessonToolContent({ tool, index = 0 }) {
             <LessonImage
                 imageKey={data.imageKey}
                 alt={data.supportingTitle ?? ""}
-                className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
+                className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-2xl object-contain"
                 sourceUrl={data.imageSourceUrl}
                 sourceName={data.imageSourceName}
             />
         ) : (
-            <div className="flex aspect-video w-full items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
+            <div className="flex aspect-video w-full items-center justify-center rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] text-muted-foreground">
               No media
             </div>
         )

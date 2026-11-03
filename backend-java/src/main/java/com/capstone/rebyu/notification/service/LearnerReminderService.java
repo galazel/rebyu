@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -38,9 +39,11 @@ public class LearnerReminderService {
     @Value("${notifications.streak-reminder-time:20:00}")
     private String streakReminderTime;
 
+    // One transaction per run, so each learner's lazily loaded user can be read.
     @Scheduled(
             fixedDelayString = "${notifications.reminder-check-ms:60000}",
             initialDelayString = "${notifications.reminder-initial-delay-ms:60000}")
+    @Transactional
     public void deliverDueReminders() {
         deliverDueReminders(ZonedDateTime.now(LEARNER_ZONE));
     }

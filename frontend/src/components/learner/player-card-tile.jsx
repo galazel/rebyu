@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
 import { Flame } from "@/components/icons"
 
-import { BentoTile } from "@/components/commons/bento.jsx"
+import { BentoHeading, BentoTile } from "@/components/commons/bento.jsx"
 import { base } from "@/services/base"
 
 
-const PANEL = "#2f4a3c"
-const PANEL_LIP = "#243b2f"
 const FLAME = "#e08a2c"
 
 const GOALS = [3, 7, 14, 30, 60, 100, 180, 365]
@@ -46,25 +44,6 @@ function recentWeek({ currentStreak, lastActivityDate }) {
   })
 }
 
-function Stat({ value, label, ink = "white" }) {
-  return (
-    <div
-      className="flex min-w-0 grow basis-[64px] flex-col items-center justify-center rounded-xl px-2 py-2"
-      style={{ backgroundColor: "rgba(255,255,255,0.07)" }}
-    >
-      <span
-        className="font-rb-display text-2xl font-black leading-none tabular-nums"
-        style={{ color: ink }}
-      >
-        {value}
-      </span>
-      <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-white/45">
-        {label}
-      </span>
-    </div>
-  )
-}
-
 export function PlayerCardTile({ portalData }) {
   const streakQuery = useQuery({
     queryKey: ["learner-streak"],
@@ -89,77 +68,75 @@ export function PlayerCardTile({ portalData }) {
   const xp = Number(levelQuery.data?.xp ?? portalData?.totalXp) || 0
   const level = levelQuery.data
 
+  const status =
+    streak === 0
+      ? "Study today to start a streak."
+      : keptToday
+        ? "Counted today — come back tomorrow."
+        : `Study within ${hoursLeftToday()}h to keep it.`
+
   return (
-    <BentoTile
-      col={6}
-      row={1}
-      className="justify-center border-transparent"
-      style={{ backgroundColor: PANEL }}
-      aria-label="Your daily streak"
-    >
-      <div className="flex h-full flex-wrap content-evenly items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 grow basis-[210px] items-center gap-3">
+    <BentoTile col={2} row={1} className="gap-2" aria-label="Your daily streak">
+      <BentoHeading
+        icon={Flame}
+        kicker="Daily Streak"
+        title={status}
+        chip={
+          best > 0 ? (
+            <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+              best {best}
+            </span>
+          ) : null
+        }
+      />
+
+      <div className="flex items-end justify-between gap-3">
+        <p className="leading-none">
           <span
-            className="grid size-11 shrink-0 place-items-center rounded-2xl"
-            style={{ backgroundColor: "rgba(224,138,44,0.20)" }}
-            aria-hidden="true"
+            className="font-rb-display text-4xl font-black tabular-nums"
+            style={{ color: streak > 0 ? FLAME : undefined }}
           >
-            <Flame
-              className={`size-6 ${streak > 0 ? "rb-flicker" : "opacity-40"}`}
-              style={{ color: FLAME }}
-            />
+            {streak}
           </span>
+          <span className="ml-1 text-xs font-bold text-muted-foreground">
+            day{streak === 1 ? "" : "s"}
+          </span>
+        </p>
 
-          <div className="min-w-0">
-            <p className="font-rb-display text-lg font-extrabold lowercase leading-none text-white">
-              daily streak
-            </p>
-            <p className="mt-1.5 max-w-[34ch] text-[11px] font-semibold leading-snug text-white/50">
-              {streak === 0
-                ? "Study today to start one - every day you keep it earns XP."
-                : keptToday
-                  ? "Counted today. The longer it runs, the more XP you earn."
-                  : "Study today to keep it alive - the run resets at midnight."}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex grow basis-[290px] items-stretch gap-2">
-          <Stat value={streak} label="current" ink={streak > 0 ? FLAME : "white"} />
-          <Stat value={keptToday ? "done" : `${hoursLeftToday()}h left`} label="today" />
-          <Stat value={goal ?? "-"} label="next goal" />
-          <Stat value={level ? `Lv. ${level.levelNumber}` : xp.toLocaleString()} label={level?.title ?? "total xp"} />
-        </div>
-
-        <div className="flex grow basis-[230px] items-end justify-between gap-1">
+        <div className="flex items-end gap-1.5" aria-label="Last 7 days">
           {week.map((day) => (
-            <div key={day.key} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+            <div key={day.key} className="flex flex-col items-center gap-0.5" title={day.label}>
               <Flame
-                className="size-5"
-                style={{ color: day.kept ? FLAME : "rgba(255,255,255,0.18)" }}
+                className="size-3.5"
+                style={{ color: day.kept ? FLAME : "var(--color-rb-swan, #e5e5e5)" }}
                 aria-hidden="true"
               />
               <span
-                className={`text-[10px] font-bold uppercase leading-none ${
-                  day.isToday ? "text-white" : "text-white/40"
+                className={`text-[9px] font-bold uppercase leading-none ${
+                  day.isToday ? "text-foreground" : "text-muted-foreground"
                 }`}
-                style={day.kept ? { color: FLAME } : undefined}
               >
-                {day.label}
+                {day.label.slice(0, 2)}
               </span>
             </div>
           ))}
         </div>
-
-        {best > 0 ? (
-          <span
-            className="shrink-0 rounded-rb-pill px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white/60"
-            style={{ backgroundColor: PANEL_LIP }}
-          >
-            best {best}
-          </span>
-        ) : null}
       </div>
+
+      <p className="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-semibold text-muted-foreground">
+        <span>Next goal <strong className="text-foreground">{goal ?? "—"}</strong></span>
+        <span>
+          {level ? (
+            <>
+              <strong className="text-foreground">Lv. {level.levelNumber}</strong> {level.title}
+            </>
+          ) : (
+            <>
+              <strong className="text-foreground">{xp.toLocaleString()}</strong> XP
+            </>
+          )}
+        </span>
+      </p>
     </BentoTile>
   )
 }

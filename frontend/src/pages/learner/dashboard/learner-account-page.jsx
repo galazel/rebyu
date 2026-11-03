@@ -22,6 +22,7 @@ import {
   UserRound,
   LogOut,
 } from "@/components/icons"
+import { LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -828,7 +829,10 @@ export default function LearnerAccountPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
+    <div className="rb-hub mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
+      <LearnerPageHeader
+        title="Account settings"
+      />
       <header className="border-b border-border/70">
         <div className="flex items-center gap-3 pb-4 sm:gap-5 sm:pb-6">
           <div className="relative shrink-0">

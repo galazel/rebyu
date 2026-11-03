@@ -20,13 +20,14 @@ import { BadgeUploadStep } from "@/components/certifications/badge-upload-step.j
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
 import {
     GenerationEstimate,
-    estimateGenerationTokens,
+    estimateGeneration,
     generationEstimateLevel,
     hasEnoughCredit,
 } from "@/components/certifications/generation-estimate.jsx"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -63,32 +64,43 @@ const REVIEW_MODES = [
     },
 ]
 
+// Same heading as the badge, document and question-format sections, so every
+// part of the form reads the same way.
+function SectionHeading({ title, children }) {
+    return (
+        <div>
+            <h3 className="rb-form-heading text-base font-semibold text-foreground">{title}</h3>
+            {children ? (
+                <p className="mt-1 text-sm text-muted-foreground">{children}</p>
+            ) : null}
+        </div>
+    )
+}
+
 function ReviewModeChoice({ value, onChange, disabled }) {
     return (
-        <fieldset disabled={disabled} className="space-y-3">
-            <legend className="text-sm font-medium text-foreground">
-                How should this run?
+        <fieldset disabled={disabled} className="space-y-4">
+            <legend className="contents">
+                <SectionHeading title="How should this run?">
+                    Either way the work happens on the server and keeps going if you
+                    close this.
+                </SectionHeading>
             </legend>
-
-            <p className="text-sm text-muted-foreground">
-                Either way the work happens on the server and keeps going if you
-                close this.
-            </p>
 
             <RadioGroup
                 value={value}
                 onValueChange={onChange}
-                className="gap-3 pt-1"
+                className="grid gap-2 sm:grid-cols-2"
             >
                 {REVIEW_MODES.map((mode) => (
                     <label
                         key={mode.value}
                         htmlFor={`review-mode-${mode.value}`}
                         className={cn(
-                            "flex cursor-pointer gap-3 rounded-lg border p-4 transition",
+                            "flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors",
                             value === mode.value
-                                ? "border-primary bg-primary/5"
-                                : "border-border hover:bg-muted/50"
+                                ? "border-primary/60 bg-primary/5"
+                                : "border-border hover:bg-muted/40"
                         )}
                     >
                         <RadioGroupItem
@@ -97,12 +109,12 @@ function ReviewModeChoice({ value, onChange, disabled }) {
                             className="mt-0.5"
                         />
 
-                        <span className="space-y-1">
+                        <span className="min-w-0">
                             <span className="block text-sm font-medium text-foreground">
                                 {mode.title}
                             </span>
 
-                            <span className="block text-sm text-muted-foreground">
+                            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                                 {mode.description}
                             </span>
                         </span>
@@ -183,8 +195,6 @@ export default function CertificationFormDrawer({
     const [lessonCount, setLessonCount] = useState("40")
     // A large run asks once before starting; changing either size asks again.
     const [confirmedLarge, setConfirmedLarge] = useState(false)
-    const estimatedTokens = estimateGenerationTokens(lessonCount, questionBankSize)
-    const isLargeRun = generationEstimateLevel(estimatedTokens) === "high"
     const credits = useQuery({
         queryKey: ["ai-credits"],
         queryFn: getAiCredits,
@@ -192,7 +202,9 @@ export default function CertificationFormDrawer({
         staleTime: 60_000,
         retry: false,
     })
-    const notEnoughCredit = hasEnoughCredit(credits.data, estimatedTokens) === false
+    const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates)
+    const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"
+    const notEnoughCredit = hasEnoughCredit(credits.data, estimate.cost) === false
 
     const {
         mutateAsync: createWithAi,
@@ -418,12 +430,17 @@ export default function CertificationFormDrawer({
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6">
                     <div className="space-y-8">
-                        <CertificationDetails
-                            value={certificationDetails}
-                            onChange={handleDetailsChange}
-                            errors={detailsErrors}
-                            disabled={isBusy}
-                        />
+                        <section className="space-y-4">
+                            <SectionHeading title="Details">
+                                What learners see on the certification page.
+                            </SectionHeading>
+                            <CertificationDetails
+                                value={certificationDetails}
+                                onChange={handleDetailsChange}
+                                errors={detailsErrors}
+                                disabled={isBusy}
+                            />
+                        </section>
 
                         <div className="border-t border-border pt-8">
                             <BadgeUploadStep
@@ -449,79 +466,70 @@ export default function CertificationFormDrawer({
                         </div>
 
                         <div className="border-t border-border pt-8">
-                            <p className="text-sm font-semibold text-foreground">How big should it be?</p>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Both are required. They decide how long the run takes and what it
-                                costs, so the form asks for them rather than reading them from a
-                                config file you cannot see from here.
-                            </p>
+                            <section className="space-y-4">
+                                <SectionHeading title="How big should it be?">
+                                    Both are required. They decide how long the run takes and
+                                    what it costs.
+                                </SectionHeading>
 
-                            <div className="mt-4 grid gap-5 sm:grid-cols-2">
-                                <div>
-                                    <label
-                                        htmlFor="lesson-count"
-                                        className="text-sm font-semibold text-foreground"
-                                    >
-                                        Lessons
-                                    </label>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        How many lessons the whole curriculum should contain. They
-                                        are spread across the categories by how much material each
-                                        area holds, not divided evenly.
-                                    </p>
-                                    <Input
-                                        id="lesson-count"
-                                        type="number"
-                                        min={1}
-                                        max={300}
-                                        step={1}
-                                        inputMode="numeric"
-                                        value={lessonCount}
-                                        onChange={(event) => {
-                                            setLessonCount(event.target.value)
-                                            setConfirmedLarge(false)
-                                        }}
-                                        disabled={isBusy}
-                                        className="mt-3 max-w-[220px]"
-                                    />
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <Field>
+                                        <FieldLabel htmlFor="lesson-count">Lessons</FieldLabel>
+                                        <Input
+                                            id="lesson-count"
+                                            type="number"
+                                            min={1}
+                                            max={300}
+                                            step={1}
+                                            inputMode="numeric"
+                                            value={lessonCount}
+                                            onChange={(event) => {
+                                                setLessonCount(event.target.value)
+                                                setConfirmedLarge(false)
+                                            }}
+                                            disabled={isBusy}
+                                            aria-describedby="lesson-count-description"
+                                        />
+                                        <FieldDescription id="lesson-count-description">
+                                            Spread across the categories by how much material
+                                            each area holds, not divided evenly.
+                                        </FieldDescription>
+                                    </Field>
+
+                                    <Field>
+                                        <FieldLabel htmlFor="question-bank-size">
+                                            Question bank size
+                                        </FieldLabel>
+                                        <Input
+                                            id="question-bank-size"
+                                            type="number"
+                                            min={10}
+                                            max={5000}
+                                            step={10}
+                                            inputMode="numeric"
+                                            value={questionBankSize}
+                                            onChange={(event) => {
+                                                setQuestionBankSize(event.target.value)
+                                                setConfirmedLarge(false)
+                                            }}
+                                            disabled={isBusy}
+                                            aria-describedby="question-bank-size-description"
+                                        />
+                                        <FieldDescription id="question-bank-size-description">
+                                            The pool every quiz, retake and practice session draws
+                                            from. Every lesson gets at least one question.
+                                        </FieldDescription>
+                                    </Field>
                                 </div>
 
-                                <div>
-                                    <label
-                                        htmlFor="question-bank-size"
-                                        className="text-sm font-semibold text-foreground"
-                                    >
-                                        Question bank size
-                                    </label>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        The pool every quiz, retake and practice session draws from.
-                                        Each difficulty level gets an equal share, and every lesson
-                                        gets at least one question however small the number.
-                                    </p>
-                                    <Input
-                                        id="question-bank-size"
-                                        type="number"
-                                        min={10}
-                                        max={5000}
-                                        step={10}
-                                        inputMode="numeric"
-                                        value={questionBankSize}
-                                        onChange={(event) => {
-                                            setQuestionBankSize(event.target.value)
-                                            setConfirmedLarge(false)
-                                        }}
-                                        disabled={isBusy}
-                                        className="mt-3 max-w-[220px]"
-                                    />
-                                </div>
-                            </div>
-
-                            <GenerationEstimate
-                                lessons={lessonCount}
-                                bankSize={questionBankSize}
-                                credits={credits.data}
-                                creditsLoading={credits.isLoading}
-                            />
+                                <GenerationEstimate
+                                    lessons={lessonCount}
+                                    bankSize={questionBankSize}
+                                    credits={credits.data}
+                                    creditsLoading={credits.isLoading}
+                                    reviewMode={reviewMode}
+                                />
+                            </section>
                         </div>
 
                         <div className="border-t border-border pt-8">

@@ -67,18 +67,18 @@ function toneFor(value) {
   return value >= 1 ? "bg-destructive" : value >= 0.8 ? "bg-amber-500" : "bg-primary"
 }
 
-function UsageBar({ title, window, weekly }) {
+function UsageBar({ title, window, weekly, compact = false }) {
   const value = ratio(window)
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3 text-sm">
+      <div className={`flex items-baseline justify-between gap-3 ${compact ? "text-xs" : "text-sm"}`}>
         <span className="font-medium text-foreground">{title}</span>
         <span className="tabular-nums text-muted-foreground">{Math.round(value * 100)}% used</span>
       </div>
-      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+      <div className={`overflow-hidden rounded-full bg-muted ${compact ? "mt-1 h-1.5" : "mt-1.5 h-2"}`}>
         <div className={`h-full rounded-full transition-all ${toneFor(value)}`} style={{ width: `${value * 100}%` }} />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className={`text-muted-foreground ${compact ? "mt-0.5 text-[11px] leading-4" : "mt-1 text-xs"}`}>
         {window.used} of {window.limit} · {resetLabel(window.resetsAt, weekly)}
       </p>
     </div>
@@ -86,15 +86,15 @@ function UsageBar({ title, window, weekly }) {
 }
 
 /** Daily + weekly bars for one bucket, with its label as a heading. */
-export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
+export function AiUsageBars({ bucketKey, showLabel = true, compact = false, className = "" }) {
   const { bucket } = useAiUsage()
   const current = bucket(bucketKey)
   if (!current) return null
   return (
-    <div className={`space-y-3 ${className}`}>
+    <div className={`${compact ? "space-y-2" : "space-y-3"} ${className}`}>
       {showLabel ? <p className="text-sm font-semibold text-foreground">{current.label}</p> : null}
-      <UsageBar title="Daily limit" window={current.daily} />
-      {current.weekly ? <UsageBar title="Weekly" window={current.weekly} weekly /> : null}
+      <UsageBar title="Daily limit" window={current.daily} compact={compact} />
+      {current.weekly ? <UsageBar title="Weekly" window={current.weekly} weekly compact={compact} /> : null}
     </div>
   )
 }
@@ -103,14 +103,14 @@ export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
  *  tutor menu): one meter, because every AI task -- tutor chat, guided
  *  dialogue, and the quizzes, flashcards and mind maps the tutor makes -- is a
  *  tutor message. */
-export function AiUsageSummary({ className = "", showHeading = true }) {
+export function AiUsageSummary({ className = "", showHeading = true, compact = false }) {
   const { bucket, isLoading } = useAiUsage()
   if (isLoading) {
     // Same footprint as the loaded card, so the page does not jump when it arrives.
     return (
       <div className={`rounded-md border bg-muted/20 p-4 ${className}`} aria-busy="true">
         {showHeading ? <p className="text-sm font-semibold text-foreground">AI usage</p> : null}
-        <div className="mt-3 space-y-4">
+        <div className={compact ? "space-y-2" : "mt-3 space-y-4"}>
           {[0, 1].map((i) => (
             <div key={i} className="space-y-2">
               <div className="h-3.5 w-1/3 animate-pulse rounded bg-muted" />
@@ -129,7 +129,7 @@ export function AiUsageSummary({ className = "", showHeading = true }) {
       <p className="mb-3 text-xs text-muted-foreground">
         Tutor chat, guided dialogue and Live Tutor share one allowance. Successful responses and Live Tutor sessions count once; failed attempts do not count.
       </p></> : null}
-      <AiUsageBars bucketKey="tutor" showLabel={false} />
+      <AiUsageBars bucketKey="tutor" showLabel={false} compact={compact} />
     </div>
   )
 }
@@ -138,7 +138,7 @@ export function AiUsageSummary({ className = "", showHeading = true }) {
  * A small progress ring for one bucket; click it for the daily and weekly
  * breakdown with reset times.
  */
-export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
+export function AiUsageRing({ bucketKey, size = 22, className = "", showLabel = false }) {
   const { bucket } = useAiUsage()
   const [details, setDetails] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -157,7 +157,11 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`inline-grid shrink-0 place-items-center rounded-full transition hover:bg-muted ${className}`}
+          className={`shrink-0 rounded-full transition hover:bg-muted ${
+            showLabel
+              ? "inline-flex items-center gap-1.5 border border-border bg-card py-0.5 pl-0.5 pr-2.5 text-[11px] font-bold text-foreground"
+              : "inline-grid place-items-center"
+          } ${className}`}
           aria-label={`AI usage: ${Math.round(value * 100)}% of limit used`}
           title={`AI usage: ${Math.round(value * 100)}% used`}
         >
@@ -184,6 +188,7 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
               strokeDashoffset={circumference * (1 - value)}
             />
           </svg>
+          {showLabel ? <span className="tabular-nums">AI {Math.round(value * 100)}% used</span> : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" className="w-72 p-4">

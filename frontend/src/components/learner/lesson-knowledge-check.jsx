@@ -242,7 +242,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
     <AlertDialog open={open}>
       <AlertDialogContent
         data-no-snip
-        className={cn(phase === "playing" || phase === "submitting" || phase === "result" ? "sm:max-w-4xl sm:p-8" : null)}
+        className={cn(
+          "max-h-[calc(100dvh-2rem)]",
+          phase === "playing" || phase === "submitting" || phase === "result" ? "flex flex-col overflow-hidden sm:max-w-4xl sm:p-8" : null,
+        )}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
       >
@@ -283,11 +286,17 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogHeader>
 
             {current ? (
-              <div key={current.attemptQuestionId} className="space-y-4">
-                <p className="text-lg font-medium leading-8 text-rb-eel sm:text-xl sm:leading-9">{current.question}</p>
+              <div key={current.attemptQuestionId} className="-mx-1 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-1 py-1">
+                <p className="text-base font-medium leading-7 text-rb-eel sm:text-lg sm:leading-8">{current.question}</p>
 
                 {isMultipleChoice(current) ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div
+                    className={cn(
+                      "grid gap-2",
+                      // Long answers read better full width than squeezed into two columns.
+                      (current.choices ?? []).every((choice) => String(choice.choiceText ?? "").length <= 60) && "sm:grid-cols-2",
+                    )}
+                  >
                     {(current.choices ?? []).map((choice, choiceIndex) => {
                       const selected = currentAnswer?.selectedChoiceId === choice.choiceId
                       const isRight = revealed && currentKey?.correctChoiceId === choice.choiceId
@@ -300,7 +309,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           aria-pressed={selected}
                           disabled={revealed}
                           className={cn(
-                            "flex min-h-16 items-start gap-3 rounded-2xl border-2 p-4 text-left text-base leading-7 transition",
+                            "flex min-h-12 items-start gap-3 rounded-xl border-2 px-3.5 py-3 text-left text-sm leading-6 transition sm:text-[15px]",
                             !revealed && "active:translate-y-[2px]",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
@@ -381,7 +390,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               </div>
             ) : null}
 
-            <AlertDialogFooter className="sm:justify-between">
+            <AlertDialogFooter className="shrink-0 border-t border-rb-swan pt-3 sm:justify-between">
               <span className="self-center text-xs text-rb-wolf">
                 {sources[0] ? `From: ${sources[0]}` : null}
               </span>

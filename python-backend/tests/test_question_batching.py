@@ -86,7 +86,8 @@ async def test_each_batch_states_its_own_count_overriding_the_total(recorder):
     assert "Ignore any other question count" in calls[0]
 
 
-async def test_later_batches_are_told_what_was_already_written(recorder):
+async def test_later_batches_are_told_what_was_already_written(recorder, monkeypatch):
+    monkeypatch.setattr(get_settings(), "question_concurrency", 1)
     size = get_settings().question_batch_size
     calls = recorder(lambda n: [f"batch{n}-q{i}" for i in range(size)])
 
@@ -96,6 +97,24 @@ async def test_later_batches_are_told_what_was_already_written(recorder):
 
     assert "already written" not in calls[0], "nothing precedes the first batch"
     assert "batch1-q0" in calls[1], "the second batch must see the first's questions"
+
+
+async def test_batches_are_written_in_parallel_waves(recorder, monkeypatch):
+    """Batches in one wave run together and cannot see each other; the next
+    wave sees everything the earlier waves wrote."""
+    monkeypatch.setattr(get_settings(), "question_concurrency", 2)
+    size = get_settings().question_batch_size
+    calls = recorder(lambda n: [f"batch{n}-q{i}" for i in range(size)])
+
+    batch = await invocation.invoke_question_agent(
+        "s", "c", f"Generate exactly {size * 3} questions.", count=size * 3
+    )
+
+    assert len(calls) == 3
+    assert len(batch.questions) == size * 3
+    assert "batch1-q0" not in calls[1], "batches in the same wave run side by side"
+    assert "part 2 of 2" in calls[1], "each batch in a wave gets its own stretch of material"
+    assert "batch1-q0" in calls[2] and "batch2-q0" in calls[2], "a later wave sees earlier ones"
 
 
 async def test_duplicates_across_batches_are_dropped(recorder):
@@ -112,7 +131,8 @@ async def test_duplicates_across_batches_are_dropped(recorder):
     assert len(stems) == size
 
 
-async def test_an_all_duplicate_batch_stops_the_run_rather_than_burning_tokens(recorder):
+async def test_an_all_duplicate_batch_stops_the_run_rather_than_burning_tokens(recorder, monkeypatch):
+    monkeypatch.setattr(get_settings(), "question_concurrency", 1)
     size = get_settings().question_batch_size
     calls = recorder(lambda n: [f"same-q{i}" for i in range(size)])
 

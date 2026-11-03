@@ -14,8 +14,9 @@ import { TutorStudyWidget } from "@/components/learner/tutor-study-widget.jsx"
 import { SortingGame, WordGame, PuzzleGame, VisualGame, SpeedFlashcardsGame } from "@/components/learner/learning-game-widgets.jsx"
 import { BranchingStoryGame, SimulationGame, TwoTruthsLieGame } from "@/components/learner/decision-game-widgets.jsx"
 import { TutorWidgetProgressContext, useTutorWidgetProgress } from "@/hooks/useTutorWidgetProgress.js"
-import { widgetProgressKey } from "@/lib/tutor-widget-progress.js"
-import { categoryClass, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
+import { hydrateProgress, widgetProgressKey } from "@/lib/tutor-widget-progress.js"
+import { useQuery } from "@tanstack/react-query"
+import { categoryClass, Celebration, GameFooter, GameHint, GameIcon, Grip, IconButton, useCardDrag } from "@/components/learner/tutor-game-kit.jsx"
 import {
   ArrowDown,
   ArrowUp,
@@ -36,7 +37,7 @@ import {
   XCircle,
   Zap,
 } from "@/components/icons"
-import { Ico, Stars } from "@/components/learner/tutor-game-kit.jsx"
+import { Ico } from "@/components/learner/tutor-game-kit.jsx"
 
 registerCodeLanguages(SyntaxHighlighter)
 
@@ -114,26 +115,6 @@ function Feedback({ ok, children }) {
   )
 }
 
-function Score({ right, total, onReset }) {
-  const pct = total ? right / total : 0
-  const line = pct === 1 ? "Perfect -- you've got this!" : pct >= 0.7 ? "Good job!" : pct >= 0.4 ? "Getting there -- review the misses." : "Let's go over this again."
-  const stars = pct === 1 ? 3 : pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0
-  return (
-      <div role="status" className="tg-result mt-4 flex animate-in fade-in zoom-in-95 items-center justify-between gap-3 px-4 py-3 duration-300">
-        <div className="flex items-center gap-3">
-          <span className="tg-confetti text-4xl text-[var(--tg)]" aria-hidden="true"><Ico name={pct === 1 ? "trophy" : pct >= 0.7 ? "medal" : pct >= 0.4 ? "strong" : "book"} /></span>
-          <div>
-            <p className="flex items-baseline gap-2 text-2xl font-semibold tabular-nums text-foreground">{right}/{total}
-              <span className="text-lg tracking-tight text-amber-400" aria-label={`${stars} of 3 stars`}><Stars count={stars} /></span>
-            </p>
-            <p className="text-sm font-medium text-muted-foreground">{line}</p>
-          </div>
-        </div>
-        <IconButton icon="restart" label="Try again" onClick={onReset} />
-      </div>
-  )
-}
-
 /* ---------- practice ---------- */
 
 
@@ -205,7 +186,7 @@ function MatchingWidget({ data }) {
   const dot = "absolute top-1/2 size-4 -translate-y-1/2 rounded-full border-[3px] border-card shadow ring-2"
   return (
       <Frame kind="Match the pairs" type="matching" title={data.title} badge={`${linkedCount}/${data.pairs.length}`} saved={data}>
-        <p className="mb-4 text-xs font-bold text-muted-foreground">Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</p>
+        <GameHint>Draw a line from each term to its definition — drag between the dots, or tap a term and then a definition. Tap a linked term to undo it.</GameHint>
         <div ref={box} className="relative grid grid-cols-2 gap-x-5 gap-y-2.5 @md:gap-x-12 @xl:gap-x-20" >
           <svg className="pointer-events-none absolute inset-0 z-10 overflow-visible" width={dots.w} height={dots.h} aria-hidden="true">
             {Object.entries(links).map(([t, m]) => {
@@ -256,12 +237,8 @@ function MatchingWidget({ data }) {
             })}
           </ul>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <IconButton icon="check" primary label="Check matches" disabled={!linkedCount} onClick={() => setChecked(true)} />
-          <IconButton icon="restart" label="Reset" onClick={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
-        </div>
-        {checked && right < data.pairs.length ? <Feedback ok={false}>{right} of {data.pairs.length} lines are right -- re-draw the red ones.</Feedback> : null}
-        {checked && right === data.pairs.length ? <Score right={right} total={data.pairs.length} onReset={() => { setLinks({}); setChecked(false); setMatches(shuffled(data.pairs.map((p) => p.match))) }} /> : null}
+        {checked && linkedCount === data.pairs.length ? <Celebration right={right} total={data.pairs.length} noun="lines right" /> : null}
+        <GameFooter onCheck={() => setChecked(true)} checkDisabled={!linkedCount} score={checked ? `${right} of ${data.pairs.length} lines right${right < data.pairs.length ? " — re-draw the red ones" : ""}` : `${linkedCount} of ${data.pairs.length} matched`} onRestart={() => { setLinks({}); setChecked(false); setFrom(null); setMatches(shuffled(data.pairs.map((p) => p.match))) }} />
       </Frame>
   )
 }
@@ -286,7 +263,7 @@ function OrderingWidget({ data }) {
   const right = order.filter((x, i) => x === data.items[i]).length
   return (
       <Frame kind="Put in order" type="ordering" title={data.title} saved={data}>
-        <p className="mb-3 text-xs font-bold text-muted-foreground">Drag the cards into order — or tap one card, then tap where it goes. The arrows work too.</p>
+        <GameHint>Drag the cards into order — or tap one card, then tap where it goes. The arrows work too.</GameHint>
         <ol className="space-y-2">
           {order.map((item, i) => {
             const ok = checked && item === data.items[i]
@@ -307,15 +284,9 @@ function OrderingWidget({ data }) {
             )
           })}
         </ol>
-        <div className="mt-3 flex gap-2">
-          <IconButton icon="check" primary label="Check order" onClick={() => setChecked(true)} />
-          <IconButton icon="shuffle" label="Shuffle" onClick={() => { setOrder(fresh()); setChecked(false) }} />
-        </div>
-        {checked ? (
-            <Feedback ok={right === order.length}>
-              {right === order.length ? data.explanation : `${right} of ${order.length} in the right place -- keep moving the red ones.`}
-            </Feedback>
-        ) : null}
+        {checked ? <Celebration right={right} total={order.length} noun="in the right place" /> : null}
+        <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${order.length} in the right place${right < order.length ? " — keep moving the red ones" : ""}` : `${order.length} cards to order`} onRestart={() => { setOrder(fresh()); setChecked(false) }} />
+        {checked && right === order.length ? <Feedback ok>{data.explanation}</Feedback> : null}
       </Frame>
   )
 }
@@ -329,6 +300,7 @@ function FillBlankWidget({ data }) {
   const right = data.blanks.filter(isRight).length
   return (
       <Frame kind="Fill in the blank" type="fill_blank" title={data.title} saved={data}>
+        <GameHint>Type the missing word in each blank, then check your answers.</GameHint>
         <ol className="space-y-3">
           {data.blanks.map((b, i) => {
             const [before, ...rest] = b.sentence.split("___")
@@ -351,11 +323,8 @@ function FillBlankWidget({ data }) {
             )
           })}
         </ol>
-        <div className="mt-3 flex gap-2">
-          <IconButton icon="check" primary label="Check answers" onClick={() => setChecked(true)} />
-          <IconButton icon="clear" label="Clear answers" onClick={() => { setValues({}); setChecked(false) }} />
-        </div>
-        {checked ? <Feedback ok={right === data.blanks.length}>{right} of {data.blanks.length} right.</Feedback> : null}
+        {checked && data.blanks.every((_, i) => String(values[i] ?? "").trim()) ? <Celebration right={right} total={data.blanks.length} noun="blanks right" /> : null}
+        <GameFooter onCheck={() => setChecked(true)} score={checked ? `${right} of ${data.blanks.length} right` : `${data.blanks.filter((_, i) => String(values[i] ?? "").trim()).length} of ${data.blanks.length} filled`} onRestart={() => { setValues({}); setChecked(false) }} />
       </Frame>
   )
 }
@@ -367,6 +336,7 @@ function TrueFalseWidget({ data }) {
   const right = data.claims.filter((c, i) => answers[i] === c.isTrue).length
   return (
       <Frame kind="Myth or fact" type="true_false" title={data.title} badge={`${answered}/${total}`} saved={data}>
+        <GameHint>Decide whether each statement is a fact or a myth.</GameHint>
         <ol className="space-y-4">
           {data.claims.map((c, i) => (
               <li key={i} className="rounded-2xl bg-[var(--tg-softer)] p-3">
@@ -391,7 +361,8 @@ function TrueFalseWidget({ data }) {
               </li>
           ))}
         </ol>
-        {answered === total ? <Score right={right} total={total} onReset={() => setAnswers({})} /> : null}
+        {answered === total ? <Celebration right={right} total={total} /> : null}
+        <GameFooter score={`${right} of ${answered} correct · ${answered} of ${total} answered`} onRestart={() => setAnswers({})} />
       </Frame>
   )
 }
@@ -675,7 +646,17 @@ export function TutorWidget({ widget, persistenceKey }) {
 
 export function TutorWidgets({ widgets, persistenceScope }) {
   const ref = useRef(null)
+  // Saved progress comes from the learner's account first, so a game reopens
+  // where it was left on any device. A failed load falls back to this browser.
+  const hydrated = useQuery({
+    queryKey: ["activity-progress", persistenceScope, ...(widgets ?? []).map((widget, i) => widgetProgressKey(persistenceScope, widget, i))],
+    queryFn: () => hydrateProgress(persistenceScope, widgets),
+    enabled: Boolean(persistenceScope && widgets?.length),
+    staleTime: Infinity,
+    retry: 0,
+  })
   if (!widgets?.length) return null
+  if (hydrated.isLoading) return <div className="my-3 h-40 w-full animate-pulse rounded-[1.1rem] bg-muted/40" aria-label="Loading your progress" />
   return (
       <div ref={ref} className="w-full">
         {widgets.map((widget, i) => <TutorWidget key={i} widget={widget} persistenceKey={widgetProgressKey(persistenceScope, widget, i)} />)}

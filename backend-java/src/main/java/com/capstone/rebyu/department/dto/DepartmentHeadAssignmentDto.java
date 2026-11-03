@@ -27,4 +27,14 @@ public class DepartmentHeadAssignmentDto {
     private DepartmentHeadAssignment.Status status = DepartmentHeadAssignment.Status.active;
 
     private LocalDateTime removedAt;
+
+    // Read-only display fields, filled on reads so non-owner heads can see who
+    // their co-authorities are without the owner-only member listing.
+    private String email;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String headRole;
 }

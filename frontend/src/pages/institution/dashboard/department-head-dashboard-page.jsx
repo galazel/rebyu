@@ -138,6 +138,9 @@ const TrendingUpIconSafe = ({ className = "", "aria-hidden": ariaHidden }) => (
 
 /* #3 Readiness & Mastery Analytics: the four readiness bands, in the order the
    backend names them, with the labels a head reads them by. */
+// Average completion a section should reach; same 60% line the original section tile used.
+const SECTION_BENCHMARK = 60
+
 const READINESS_TIERS = [
   { band: "needs_review", label: "Needs review" },
   { band: "developing", label: "Developing" },
@@ -436,9 +439,35 @@ export default function DepartmentHeadDashboardPage() {
     [statsQuery.data]
   )
   const cohortPredictedPass = statsQuery.data?.cohortPredictedPass ?? 0
+  /* Points are days (yyyy-MM-dd) for a week or a month, months (yyyy-MM)
+     for a year or longer; the backend picks from the window's length. */
+  const monthlyTrend = useMemo(() => {
+    const rows = Array.isArray(statsQuery.data?.monthlyTrend) ? statsQuery.data.monthlyTrend : []
+    const daily = String(rows[0]?.month ?? "").length === 10
+    const spansYears = rows[0]?.month?.slice(0, 4) !== rows.at(-1)?.month?.slice(0, 4)
+    return rows.map((row) => {
+      const [year, month, day = 1] = String(row.month).split("-").map(Number)
+      const date = new Date(year, month - 1, day)
+      return {
+        ...row,
+        label: date.toLocaleDateString(
+          undefined,
+          daily
+            ? { month: "short", day: "numeric" }
+            : { month: "short", ...(spansYears ? { year: "2-digit" } : {}) }
+        ),
+      }
+    })
+  }, [statsQuery.data])
+  // The export's "mastery trend" sheet reads the same monthly series.
   const masteryTrend = useMemo(
-    () => (Array.isArray(statsQuery.data?.masteryTrend) ? statsQuery.data.masteryTrend : []),
-    [statsQuery.data]
+    () =>
+      monthlyTrend.map((row) => ({
+        week: row.month,
+        cohortMastery: row.averageScore,
+        benchmark: SECTION_BENCHMARK,
+      })),
+    [monthlyTrend]
   )
   const benchmarks = useMemo(
     () => (Array.isArray(statsQuery.data?.benchmarks) ? statsQuery.data.benchmarks : []),
@@ -474,6 +503,14 @@ export default function DepartmentHeadDashboardPage() {
       }
       if (daysSince != null && daysSince >= STALE_DAYS) {
         return `No activity in ${daysSince} days`
+      }
+      // A learner who already earned every assigned credential is done; a low
+      // lifetime attempt average from practice runs is not a reason to call them.
+      const finished =
+        Number(member.assignedCertifications ?? 0) > 0 &&
+        Number(member.completedCertifications ?? 0) >= Number(member.assignedCertifications)
+      if (finished) {
+        return null
       }
       if (member.averageScore != null && member.averageScore < 50) {
         return `Averaging ${member.averageScore}% across ${member.gradedAttempts} attempt${member.gradedAttempts === 1 ? "" : "s"}`
@@ -560,6 +597,7 @@ export default function DepartmentHeadDashboardPage() {
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
     queryFn: () => getDepartmentHeadCodeInvitations(primaryDeptId),
+    // Only the institution owner may list invitation codes; anyone else gets 403.
     enabled: primaryDeptId != null && isOwner,
     retry: 1,
   })
@@ -589,6 +627,7 @@ export default function DepartmentHeadDashboardPage() {
     queryFn: () => getDepartmentPrograms(primaryDeptId),
     enabled: primaryDeptId != null,
   })
+  const deptProgramsQuery = programsQuery
   const programs = useMemo(
     () => (Array.isArray(programsQuery.data) ? programsQuery.data : []),
     [programsQuery.data]
@@ -913,13 +952,8 @@ export default function DepartmentHeadDashboardPage() {
     [deptLearners]
   )
 
-  const needingSupport = useMemo(
-    () =>
-      deptLearners.filter(
-        (member) => member.activeCertifications > 0 && Number(member.averageProgress ?? 0) < 30
-      ).length,
-    [deptLearners]
-  )
+  // Same definition as the roster's "flagged" pill and the alert strip.
+  const needingSupport = flaggedCount
 
   const buildCsv = () =>
     toCsv([
@@ -933,11 +967,13 @@ export default function DepartmentHeadDashboardPage() {
         rows: [
           ["Students", deptLearners.length],
           ["Average completion (%)", summary.averageProgress],
-          ["Pass rate (%)", summary.passRate],
+          ["Attempt pass rate (%)", summary.passRate],
           ["Average score (%)", summary.averageScore],
           ["Graded attempts", summary.gradedAttempts],
           ["Lessons completed", summary.lessonsCompleted],
-          ["Needing support", needingSupport],
+          ["Needing support (flagged)", needingSupport],
+          ["Dormant (no activity in 14+ days)", dormantCount],
+          ["Sections", sections.length],
           ["Seats used", summary.seatsUsed],
           ["Seats total", summary.seatsTotal],
         ],
@@ -956,7 +992,7 @@ export default function DepartmentHeadDashboardPage() {
       },
       {
         title: "Programme period comparison",
-        columns: ["Programme", "Current Pass Rate (%)", "Baseline Pass Rate (%)", "Delta Pass Rate", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
+        columns: ["Programme", "Current Certified (%)", "Baseline Certified (%)", "Delta Certified", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
         rows: (periodComp?.certificationsComparison ?? []).map((c) => [
           c.title,
           c.currentPassRate,
@@ -1013,55 +1049,54 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
-        title: "Cohort mastery by lesson",
-        columns: ["Lesson", "Category", "Cohort mastery (%)", "Band", "Learners assessed"],
-        rows: cohortMastery.map((row) => [
-          row.lessonTitle, row.categoryTitle, row.cohortMastery, row.band, row.learnersAssessed,
-        ]),
-      },
-      {
-        title: "Weak areas",
-        columns: ["Lesson", "Accuracy (%)", "Correct", "Incorrect", "Answered", "Severity", "Learners"],
-        rows: weakAreas.map((row) => [
-          row.lessonTitle, row.accuracyRate, row.correctCount, row.incorrectCount,
-          row.answeredCount, row.severity, row.learners,
-        ]),
-      },
-      {
         title: "Readiness distribution",
         columns: ["Band", "Students"],
         rows: readinessDistribution.map((row) => [row.tier, row.learners]),
       },
       {
-        title: "Predicted pass",
-        columns: ["Learner", "Readiness (%)", "Predicted pass (%)", "Band"],
-        rows: predictedPass.map((row) => [
-          row.name, row.readinessScore, row.predictedPassProbability, row.band,
+        title: `Over time (${monthlyTrend[0]?.month?.length === 10 ? "by day" : "by month"})`,
+        columns: ["Period", "Graded attempts", "Avg score (%)", "Pass rate (%)", "Lessons done", "Active students"],
+        rows: monthlyTrend.map((row) => [
+          row.month, row.gradedAttempts, row.averageScore, row.passRate, row.lessonsCompleted, row.activeLearners,
         ]),
-      },
-      {
-        title: "Mastery trend",
-        columns: ["Week", "Cohort mastery (%)", "Benchmark (%)"],
-        rows: masteryTrend.map((row) => [row.week, row.cohortMastery, row.benchmark]),
       },
       {
         title: "Sections",
-        columns: ["Section", "Learners", "Finished", "Avg completion (%)"],
-        rows: groupStats.map((group) => [
-          group.departmentName, group.learners, group.completedLearners,
-          Math.round(Number(group.averageProgress ?? 0)),
-        ]),
+        columns: ["Section", "Program", "Certification", "Students", "Finished", "Need help", "Avg completion (%)", "Pending invites"],
+        rows: sections.map((section) => {
+          const members = deptLearners.filter((l) => l.sectionId === section.sectionId)
+          const finished = members.filter(
+            (l) =>
+              Number(l.assignedCertifications ?? 0) > 0 &&
+              Number(l.completedCertifications ?? 0) >= Number(l.assignedCertifications)
+          ).length
+          return [
+            section.sectionName,
+            section.programName ?? "",
+            section.certificationTitle ||
+              (deptProgramsQuery.data ?? []).find((p) => p.programId === section.programId)?.certifications?.map((c) => c.title).join(" / ") ||
+              "",
+            Number(section.learnerCount ?? members.length),
+            finished,
+            members.filter((l) => l.flag).length,
+            members.length
+              ? Math.round(members.reduce((sum, l) => sum + Number(l.averageProgress ?? 0), 0) / members.length)
+              : 0,
+            Number(section.pendingInvitationCount ?? 0),
+          ]
+        }),
       },
       {
         title: "Roster",
         columns: [
-          "Learner", "Needs attention", "Completion (%)", "Lessons",
-          "Attempts", "Avg score (%)",
+          "Learner", "Section", "Needs attention", "Completion (%)", "Lessons",
+          "Attempts", "Avg score (%)", "Last activity",
         ],
         rows: deptLearners.map((learner) => [
-          learner.name, learner.flag,
+          learner.name, learner.sectionName ?? "Unassigned", learner.flag ?? "",
           Math.round(Number(learner.averageProgress ?? 0)),
           learner.lessonsCompleted, learner.gradedAttempts, learner.averageScore,
+          learner.lastActivityAt ? String(learner.lastActivityAt).slice(0, 10) : "",
         ]),
       },
     ])
@@ -1353,6 +1388,68 @@ export default function DepartmentHeadDashboardPage() {
         ),
       },
       {
+        id: "dept-monthly-trend",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 6,
+        element: (
+          <BentoTile col={6} row={2}>
+            <DashboardCardHeader
+              icon={TrendingUpIconSafe}
+              kicker="Over Time"
+              title="How the department worked across the period"
+              hint="Follows the date picker at the top: a year shows months, a month or week shows days."
+            />
+            {monthlyTrend.every((row) => !row.gradedAttempts && !row.lessonsCompleted) ? (
+              <p className="text-sm text-muted-foreground">No graded work or finished lessons in this period.</p>
+            ) : (
+              <div className="grid min-w-0 gap-6 md:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Marks (%)</p>
+                  <TrendLineChart
+                    data={monthlyTrend}
+                    xKey="label"
+                    height={200}
+                    unit="%"
+                    dot
+                    series={[
+                      { key: "averageScore", name: "Average score" },
+                      { key: "passRate", name: "Pass rate" },
+                    ]}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Activity (count)</p>
+                  <TrendLineChart
+                    data={monthlyTrend}
+                    xKey="label"
+                    height={200}
+                    dot
+                    domain={[
+                      0,
+                      Math.max(
+                        1,
+                        Math.ceil(
+                          Math.max(
+                            ...monthlyTrend.map((row) => Math.max(row.gradedAttempts, row.lessonsCompleted))
+                          ) * 1.15
+                        )
+                      ),
+                    ]}
+                    series={[
+                      { key: "gradedAttempts", name: "Graded attempts" },
+                      { key: "lessonsCompleted", name: "Lessons done" },
+                      { key: "activeLearners", name: "Active students" },
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
+          </BentoTile>
+        ),
+      },
+      {
         id: "dept-hard-topics",
         element: (
           <div id="dept-hard-topics" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
@@ -1539,6 +1636,491 @@ export default function DepartmentHeadDashboardPage() {
           />
         ),
       },
+// Section management & cohort breakdown
+      {
+        id: "dept-section-breakdown",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 14,
+        element: (
+          <BentoTile col={6} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={Layers}
+                kicker="Section Management"
+                title="Sections & Cohorts"
+                hint="Click a class to see its students in the roster below. Manage opens it to add or move students."
+                action={
+                  primaryDeptId ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => setCreateSectionOpen(true)}
+                      >
+                        <Plus className="size-3.5" aria-hidden="true" />
+                        New section
+                      </Button>
+                    </div>
+                  ) : null
+                }
+              />
+              {sectionsQuery.isLoading ? (
+                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                  <p>Loading sections...</p>
+                </div>
+              ) : sectionsQuery.isError ? (
+                <p className="text-sm text-muted-foreground">Section stats could not be loaded.</p>
+              ) : sections.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center text-sm text-muted-foreground">
+                  <Layers className="mb-2 size-8 text-muted-foreground/40" />
+                  <p>No sections created yet in this department.</p>
+                  <p className="text-xs text-muted-foreground/70 mb-3">
+                    Create classes or cohorts to organize learners into groups.
+                  </p>
+                  {primaryDeptId ? (
+                    <Button
+                      size="sm"
+                      onClick={() => setCreateSectionOpen(true)}
+                      className="gap-1.5"
+                    >
+                      <Plus className="size-3.5" aria-hidden="true" />
+                      Create first section
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {sections.map((section) => {
+                    const sectionLearners = deptLearners.filter(
+                      (l) => l.sectionId === section.sectionId
+                    )
+                    const totalInSection =
+                      section.learnerCount != null
+                        ? Number(section.learnerCount)
+                        : sectionLearners.length
+                    const progress = sectionLearners.length
+                      ? Math.round(
+                          sectionLearners.reduce(
+                            (sum, l) => sum + Number(l.averageProgress ?? 0),
+                            0
+                          ) / sectionLearners.length
+                        )
+                      : 0
+                    const pendingCount = Number(section.pendingInvitationCount ?? 0)
+                    const finishedCount = sectionLearners.filter(
+                      (l) =>
+                        Number(l.assignedCertifications ?? 0) > 0 &&
+                        Number(l.completedCertifications ?? 0) >= Number(l.assignedCertifications)
+                    ).length
+                    const needHelpCount = sectionLearners.filter((l) => l.flag).length
+                    const gap = SECTION_BENCHMARK - progress
+                    const showInRoster = () => {
+                      setSelectedSectionFilter(String(section.sectionId))
+                      setRosterStatusFilter("all")
+                      document
+                        .getElementById("dept-learner-table")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+
+                    return (
+                      <div
+                        key={section.sectionId}
+                        role="button"
+                        tabIndex={0}
+                        title="Show this class in the roster below"
+                        onClick={(event) => {
+                          if (!event.target.closest("a")) showInRoster()
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            showInRoster()
+                          }
+                        }}
+                        className="cursor-pointer space-y-2 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 sm:min-w-[180px]">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {section.sectionName}
+                            </span>
+                            {pendingCount > 0 ? (
+                              <Badge
+                                variant="secondary"
+                                className="gap-1 border-amber-500/20 bg-amber-500/10 text-[10px] text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                              >
+                                <MailIcon className="size-3" aria-hidden="true" />
+                                {pendingCount} pending
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {section.programName ? `${section.programName} · ` : ""}
+                            {section.certificationTitle ||
+                              (deptProgramsQuery.data ?? [])
+                                .find((program) => program.programId === section.programId)
+                                ?.certifications?.map((cert) => cert.title)
+                                .join(", ") ||
+                              "General"}
+                            {section.description ? ` · ${section.description}` : ""}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
+                            <Link
+                              to={`/institution/departments/${primaryDeptId}?tab=learners${section.programId ? `&programId=${section.programId}` : ""}`}
+                            >
+                              Manage
+                            </Link>
+                          </Button>
+                        </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Progress value={progress} className="h-2 flex-1" />
+                          <span className="w-10 text-right text-xs font-bold tabular-nums text-foreground">
+                            {progress}%
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <span>
+                            <strong className="text-foreground tabular-nums">{count(totalInSection)}</strong>{" "}
+                            {totalInSection === 1 ? "student" : "students"}
+                          </span>
+                          <span>
+                            <strong className="text-foreground tabular-nums">{finishedCount}</strong> finished
+                          </span>
+                          <span className={needHelpCount ? "text-amber-700 dark:text-amber-400" : undefined}>
+                            <strong className="tabular-nums">{needHelpCount}</strong> need help
+                          </span>
+                          <span
+                            className={`ml-auto font-semibold ${totalInSection > 0 && gap <= 0 ? "text-rb-leaf" : "text-muted-foreground"}`}
+                          >
+                            {totalInSection === 0
+                              ? "No students yet"
+                              : gap <= 0
+                                ? `On track (goal ${SECTION_BENCHMARK}%)`
+                                : `${gap} pts below the ${SECTION_BENCHMARK}% goal`}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
+        id: "dept-co-authorities",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 10,
+        element: (
+          <BentoTile tone="plain" col={6} row={2}>
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={ShieldCheck}
+                kicker="Delegation & Faculty Leadership"
+                title="Co-Authorities & Pending Invitations"
+                hint={`${activeHeadAssignments.length} active ${activeHeadAssignments.length === 1 ? "authority" : "authorities"}${isOwner ? ` · ${pendingHeadInvitations.length} pending code invitation${pendingHeadInvitations.length === 1 ? "" : "s"}` : ""}`}
+                action={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCoAuthoritiesOpen(true)}
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                  >
+                    <UserPlus className="size-3.5" aria-hidden="true" />
+                    Manage Co-Authorities
+                  </Button>
+                }
+              />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <StatBox
+                  label="Active Authorities"
+                  value={count(activeHeadAssignments.length)}
+                  icon={ShieldCheck}
+                  iconClass="text-emerald-600 dark:text-emerald-400"
+                />
+                <StatBox
+                  label="Pending Invitations"
+                  value={isOwner ? count(pendingHeadInvitations.length) : "—"}
+                  icon={MailIcon}
+                  iconClass={
+                    pendingHeadInvitations.length > 0
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-muted-foreground"
+                  }
+                />
+                <StatBox
+                  label="Assigned Department"
+                  value={overviewGroup?.departmentName || overviewGroup?.name || "Department"}
+                  icon={Building2}
+                  iconClass="text-sky-600 dark:text-sky-400"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/20 px-3.5 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                  <span className="font-medium text-foreground">
+                    {pendingHeadInvitations.length > 0
+                      ? `${pendingHeadInvitations.length} invitation code${pendingHeadInvitations.length === 1 ? "" : "s"} waiting to be claimed by faculty`
+                      : "Faculty and assistant deans can co-manage curricula, cohorts, and assessments."}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCoAuthoritiesOpen(true)}
+                    className="h-7 text-xs font-semibold text-primary hover:text-primary"
+                  >
+                    Open Delegation Flow
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
+        id: "dept-learner-table",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 16,
+        element: (
+          <BentoTile col={6} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={Building2}
+                kicker="Department Roster"
+                title="Student roster & who needs a conversation"
+                hint="Anyone flagged sits at the top, with the reason beside their name."
+                action={
+                  sections.length > 1 || selectedSectionFilter !== "all" || deptLearners.some((l) => l.sectionId == null) ? (
+                    <div className="w-48">
+                      <Select
+                        value={selectedSectionFilter}
+                        onValueChange={setSelectedSectionFilter}
+                      >
+                        <SelectTrigger className="h-7 text-xs bg-background">
+                          <SelectValue placeholder="All sections" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All sections ({deptLearners.length})</SelectItem>
+                          {sections.map((s) => {
+                            const c = deptLearners.filter((l) => l.sectionId === s.sectionId).length
+                            return (
+                              <SelectItem key={s.sectionId} value={String(s.sectionId)}>
+                                {s.sectionName} ({c})
+                              </SelectItem>
+                            )
+                          })}
+                          <SelectItem value="none">
+                            Unassigned ({deptLearners.filter((l) => l.sectionId == null).length})
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null
+                }
+                chip={
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setRosterStatusFilter("all")}
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                        rosterStatusFilter === "all"
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      All ({deptLearners.length})
+                    </button>
+                    {flaggedCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRosterStatusFilter(rosterStatusFilter === "flagged" ? "all" : "flagged")
+                        }
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                          rosterStatusFilter === "flagged"
+                            ? "border border-amber-500/50 bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/40"
+                            : "border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 hover:bg-amber-500/20"
+                        }`}
+                      >
+                        <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                        <span>{flaggedCount} flagged</span>
+                      </button>
+                    ) : null}
+                    {dormantCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRosterStatusFilter(rosterStatusFilter === "dormant" ? "all" : "dormant")
+                        }
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold transition-colors ${
+                          rosterStatusFilter === "dormant"
+                            ? "border border-sky-500/50 bg-sky-500/20 text-sky-800 dark:text-sky-300 ring-1 ring-sky-500/40"
+                            : "border border-sky-500/20 bg-sky-500/10 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300 hover:bg-sky-500/20"
+                        }`}
+                      >
+                        <UsersRoundIcon className="size-3 shrink-0" aria-hidden="true" />
+                        <span>{dormantCount} dormant</span>
+                      </button>
+                    ) : null}
+                    {rosterStatusFilter !== "all" ? (
+                      <button
+                        type="button"
+                        onClick={() => setRosterStatusFilter("all")}
+                        className="text-[11px] text-muted-foreground underline hover:text-foreground ml-1"
+                      >
+                        Reset filter
+                      </button>
+                    ) : null}
+                  </div>
+                }
+              />
+
+              {statsQuery.isError ? (
+                <p className="text-sm text-muted-foreground">
+                  Department learners could not be loaded.
+                </p>
+              ) : deptLearners.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
+                  <Building2 className="mb-2 size-8 text-muted-foreground/40" />
+                  <p>No learners assigned to your department yet.</p>
+                </div>
+              ) : (
+                <div className="min-h-0 flex-1 overflow-x-auto">
+                  <table className="w-full text-sm" style={{ minWidth: 680 }}>
+                    <colgroup>
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "16%" }} />
+                      <col style={{ width: "20%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "8%" }} />
+                    </colgroup>
+                    <thead className="sticky top-0 bg-background z-10">
+                      <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
+                        <th className="py-2.5 pl-2 pr-3 text-left">Student Name</th>
+                        <th className="py-2.5 px-3 text-left">Section</th>
+                        <th className="py-2.5 px-3 text-left">Needs attention</th>
+                        <th className="py-2.5 px-3 text-left">Progress</th>
+                        <th className="py-2.5 px-2 text-center">Lessons</th>
+                        <th className="py-2.5 px-2 text-center">Attempts</th>
+                        <th className="py-2.5 px-2 text-center">Avg Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLearners.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-6 text-center text-xs text-muted-foreground">
+                            {rosterStatusFilter === "flagged" ? (
+                              <div className="space-y-1">
+                                <p>No flagged learners found in this view.</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-primary"
+                                  onClick={() => setRosterStatusFilter("all")}
+                                >
+                                  View all students
+                                </Button>
+                              </div>
+                            ) : rosterStatusFilter === "dormant" ? (
+                              <div className="space-y-1">
+                                <p>No dormant learners found in this view.</p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-primary"
+                                  onClick={() => setRosterStatusFilter("all")}
+                                >
+                                  View all students
+                                </Button>
+                              </div>
+                            ) : (
+                              "No students in this section."
+                            )}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredLearners.map((learner) => (
+                          <tr
+                            key={learner.learnerId}
+                            className="border-b border-border/40 hover:bg-muted/40 transition-colors"
+                          >
+                            <td className="py-2.5 pl-2 pr-3">
+                              <Link
+                                to={`/institution/departments/${learner.departmentId || groups[0]?.departmentId || groups[0]?.id}/learners/${learner.learnerId}`}
+                                className="font-bold text-foreground hover:underline text-xs"
+                              >
+                                {learner.name || `Learner #${learner.learnerId}`}
+                              </Link>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {learner.sectionName ? (
+                                <Badge variant="outline" className="text-[11px] font-medium border-border/80">
+                                  {learner.sectionName}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/60 italic">Unassigned</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {learner.flag ? (
+                                <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
+                                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                                  <span className="truncate">{learner.flag}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2 max-w-[140px]">
+                                <Progress
+                                  value={Number(learner.averageProgress ?? 0)}
+                                  className="h-2 flex-1 rounded-full"
+                                />
+                                <span className="shrink-0 tabular-nums text-xs font-bold text-foreground">
+                                  {percent(learner.averageProgress)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                              {count(learner.lessonsCompleted)}
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                              {count(learner.gradedAttempts)}
+                            </td>
+                            <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
+                              {percent(learner.averageScore)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
     ]
   }, [
     summary,
@@ -1553,6 +2135,7 @@ export default function DepartmentHeadDashboardPage() {
     predictedPass,
     cohortPredictedPass,
     masteryTrend,
+    monthlyTrend,
     benchmarkRows,
     readinessTarget,
     benchmarks,
@@ -1566,6 +2149,7 @@ export default function DepartmentHeadDashboardPage() {
     periodComp.certificationsComparison,
     periodComp.learnerMomentum,
     periodComp.insights,
+    deptProgramsQuery.data,
     periodComp.comparisonRange,
     periodComp.isLoading,
     periodComp.isError,
@@ -1674,6 +2258,17 @@ export default function DepartmentHeadDashboardPage() {
 
       {/* Mobile Sticky Rearrange Floating Card */}
       
+
+      {createSectionOpen && primaryDeptId ? (
+        <SectionDialog
+          open={createSectionOpen}
+          onOpenChange={setCreateSectionOpen}
+          departmentId={primaryDeptId}
+          institutionCertId={overviewGroup?.institutionCertId ?? null}
+          certifications={overviewGroup?.certifications ?? []}
+          programs={Array.isArray(deptProgramsQuery.data) ? deptProgramsQuery.data : []}
+        />
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
         <MetricsSidebar
