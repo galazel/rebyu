@@ -62,6 +62,7 @@ const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/pract
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
 const DepartmentHeadDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-dashboard-page.jsx"))
+const DepartmentHeadOverviewPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-overview-page.jsx"))
 const DepartmentHeadProgramsPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-programs-page.jsx"))
 const InstitutionDepartmentWorkspacePage = lazyRoute(() => import("./pages/institution/departments/institution-department-workspace-page.jsx"))
 const InstitutionDepartmentLearnerPage = lazyRoute(() => import("./pages/institution/departments/institution-department-learner-page.jsx"))
@@ -375,7 +376,7 @@ export function App() {
                     <Route index element={<InstitutionHome />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
-                    <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
+                    <Route path="department-head" element={<DepartmentHeadOverviewPage />} />
                     <Route path="programs" element={<DepartmentHeadProgramsPage />} />
                     <Route path="metrics" element={<InstitutionMetricsEntry />} />
                     <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
