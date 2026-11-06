@@ -115,6 +115,11 @@ export async function getWorldCupBracket(bracketId) {
   return base(`worldcup/brackets/${bracketId}`)
 }
 
+/** The bracket a match belongs to, even after it has finished. */
+export async function getWorldCupBracketForMatch(matchId) {
+  return base(`worldcup/matches/${matchId}/bracket`)
+}
+
 export async function getMyWorldCupBracket() {
   return base("worldcup/my-bracket")
 }

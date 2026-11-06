@@ -8,7 +8,7 @@ import { categoryClass, GameIcon } from "@/components/learner/tutor-game-kit.jsx
  *  same layout as the practice quiz and flashcard rounds. */
 export function LibraryItemShell({ tool, title, lessonTitle, loading, error, onRetry, children }) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10">
       <Link to="/learner/library" className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-rb-feather-lip hover:underline">
         <ArrowLeft className="size-4" /> Library
       </Link>

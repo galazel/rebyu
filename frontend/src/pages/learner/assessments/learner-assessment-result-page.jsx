@@ -1,3 +1,4 @@
+import ChallengeResult from "@/components/challenges/challenge-result.jsx"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 
@@ -326,12 +327,7 @@ export default function LearnerAssessmentResultPage() {
   const result = resultQuery.data
   const fromChallenge = fromChallengeState || String(result?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
 
-  const leaderboardQuery = useQuery({
-    queryKey: ["challenge-leaderboard"],
-    queryFn: () => getChallengeLeaderboard(10),
-    enabled: fromChallenge,
-    staleTime: 30_000,
-  })
+  const leaderboardQuery = { data: [], isLoading: false } // challenges render ChallengeResult below
 
   const backPath =
     resumePath ??
@@ -389,6 +385,11 @@ export default function LearnerAssessmentResultPage() {
         </RebyuCard>
       </div>
     )
+  }
+
+  // A challenge run ends like a game round, not an assessment report.
+  if (fromChallenge) {
+    return <ChallengeResult result={result} state={location.state} marking={marking} />
   }
 
   const percentage = Number(result.percentage ?? 0)

@@ -283,6 +283,7 @@ public class WorldCupTournamentService {
       Map<String, Object> entry = new LinkedHashMap<>();
       entry.put("bracketId", bracketId);
       entry.put("createdAt", bracket.getCreatedAt());
+      entry.put("certificationId", bracket.getCertificationId());
       entry.put("status", bracket.getCurrentRound());
       entry.put("won", won);
       entry.put("bestRound", bestRound);
@@ -291,6 +292,14 @@ public class WorldCupTournamentService {
       history.add(entry);
     }
     return history;
+  }
+
+  /** The bracket a match belongs to, finished or not (for a round's result screen). */
+  @Transactional(readOnly = true)
+  public BracketView bracketForMatch(Long matchId) {
+    WorldCupMatch match = matchRepo.findById(matchId)
+        .orElseThrow(() -> new EntityNotFoundException("Match not found"));
+    return getBracket(match.getBracketId());
   }
 
   @Transactional(readOnly = true)
@@ -561,30 +570,17 @@ public class WorldCupTournamentService {
     );
   }
 
+  /** How many questions a round's match answers: the size of that stage's set. */
   private int questionCountForRound(String round, Long bracketId) {
-    if (ROUND_QF.equals(round)) return 10;
-    if (ROUND_SF.equals(round)) return 15;
-    if (ROUND_FINAL.equals(round)) {
-      WorldCupBracket bracket = bracketRepo.findById(bracketId).orElse(null);
-      if (bracket != null) {
-        Exam exam = findWorldCupExam();
-        if (exam != null) {
-          int nodeIndex = ROUND_NODE.get(ROUND_FINAL);
-          List<ExamQuestion> finalQs = examQuestionRepo.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId()).stream()
-              .filter(eq -> {
-                ChallengeArenaConfig config = arenaConfigRepo.findById(ARENA_ID).orElse(null);
-                if (config == null || config.getNodeLayoutJson() == null) return false;
-                List<Integer> layout = readLayout(config.getNodeLayoutJson());
-                int idx = eq.getDisplayOrder() - 1;
-                return idx >= 0 && idx < layout.size() && layout.get(idx) == nodeIndex;
-              })
-              .toList();
-          if (!finalQs.isEmpty()) return finalQs.size();
-        }
-      }
-      return 20;
+    Integer node = ROUND_NODE.get(round);
+    if (node == null) return 0;
+    ChallengeArenaConfig config = arenaConfigRepo.findById(ARENA_ID).orElse(null);
+    if (config == null || config.getNodeLayoutJson() == null) return 0;
+    int count = 0;
+    for (Integer stage : readLayout(config.getNodeLayoutJson())) {
+      if (stage != null && stage.intValue() == node) count++;
     }
-    return 10;
+    return count;
   }
 
   private Exam findWorldCupExam() {

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
-import { ArrowLeft, CalendarDays, ChevronRight, Loader2, Shield, Trophy, Users, Zap } from "@/components/icons"
+import { ArrowLeft, CalendarDays, ChevronRight, Crown, HistoryIcon, Loader2, Shield, Trophy, Users, Zap } from "@/components/icons"
 import { PathBackdrop, Plinth } from "@/components/challenges/arena-lobby.jsx"
+import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
 
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { getWorldCupTracks } from "@/lib/arenas.js"
@@ -19,6 +20,7 @@ import {
   getWorldCupHistory,
   getWorldCupActiveEdition,
   fillWorldCupWithBots,
+  getWorldCupBracketForMatch,
 } from "@/services/challengeService.js"
 
 const ROUND_LABELS = {
@@ -69,14 +71,47 @@ const SEAT_H = 44
 const PAIR_GAP = 22
 const GROUP_GAP = 40
 const SEMI_GAP = 106
-const SEAT_W = 168
+const SEAT_W = 176
 
-function Seat({ name, variant = "outer", isWinner, isLoser, isYou }) {
+/*
+ * One seat in the bracket. Every state reads at a glance:
+ * you (solid green), a winner (orange, with their score), knocked out (faded and
+ * struck through), still to play (white), or a round not drawn yet (dashed "TBD").
+ */
+function Seat({ seat }) {
+  if (!seat || seat.empty) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-full border-2 border-dashed border-rb-swan text-xs font-bold text-rb-hare"
+        style={{ height: SEAT_H }}
+      >
+        TBD
+      </div>
+    )
+  }
+  const tone = seat.loser
+    ? "border-2 border-rb-swan bg-rb-polar text-rb-hare"
+    : seat.you
+      ? "bg-rb-feather text-white shadow-[0_4px_0_var(--color-rb-feather-lip)]"
+      : seat.winner
+        ? "bg-rb-fox text-white shadow-[0_4px_0_var(--color-rb-fox-lip)]"
+        : "border-2 border-rb-swan bg-rb-snow text-rb-eel shadow-[0_3px_0_var(--color-rb-swan)]"
   return (
-    <div className={`rb-seat rb-seat-${variant} ${isYou ? "!border-rb-feather !bg-rb-feather-wash" : ""} ${isWinner ? "!font-extrabold" : ""} ${isLoser ? "line-through opacity-50" : ""}`}>
-      {isWinner && <Zap className="mr-1.5 size-3.5 shrink-0 text-rb-fox" aria-hidden="true" />}
-      <span className="truncate">{name ?? "—"}</span>
-      {isLoser && <span className="ml-auto text-xs text-rb-cardinal" aria-hidden="true">✕</span>}
+    <div
+      className={`flex items-center gap-2 rounded-full px-3.5 text-sm font-extrabold ${tone} ${
+        seat.you && seat.winner ? "ring-2 ring-rb-fox ring-offset-2" : ""
+      }`}
+      style={{ height: SEAT_H }}
+      title={seat.name}
+    >
+      {seat.winner ? <Zap className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+      <span className={`min-w-0 flex-1 truncate ${seat.loser ? "line-through" : ""}`}>{seat.name}</span>
+      {seat.you ? (
+        <span className="shrink-0 rounded-full bg-white/25 px-1.5 text-[10px] font-extrabold uppercase">you</span>
+      ) : null}
+      {seat.score != null ? (
+        <span className="shrink-0 font-rb-display text-base tabular-nums">{Math.round(seat.score)}</span>
+      ) : null}
     </div>
   )
 }
@@ -87,9 +122,7 @@ function Elbow({ side }) {
     <div
       aria-hidden="true"
       style={{ marginTop: SEAT_H / 2, marginBottom: SEAT_H / 2 }}
-      className={`relative w-6 shrink-0 ${
-        isLeft ? "border-r-2 border-rb-swan" : "border-l-2 border-rb-swan"
-      }`}
+      className={`relative w-6 shrink-0 ${isLeft ? "border-r-2 border-rb-swan" : "border-l-2 border-rb-swan"}`}
     >
       <span className={`absolute top-0 h-0.5 w-6 bg-rb-swan ${isLeft ? "-left-6" : "-right-6"}`} />
       <span className={`absolute bottom-0 h-0.5 w-6 bg-rb-swan ${isLeft ? "-left-6" : "-right-6"}`} />
@@ -102,8 +135,8 @@ function QuarterPair({ pair, side }) {
   return (
     <div className={`flex items-stretch ${side === "right" ? "flex-row-reverse" : ""}`}>
       <div className="flex shrink-0 flex-col" style={{ width: SEAT_W, gap: PAIR_GAP }}>
-        {pair.map((p, i) => (
-          <Seat key={i} name={p.name} variant={p.alive ? "outer" : "out"} isWinner={p.isWinner} isLoser={p.isLoser} isYou={p.isYou} />
+        {pair.map((seat, i) => (
+          <Seat key={i} seat={seat} />
         ))}
       </div>
       <Elbow side={side} />
@@ -122,8 +155,8 @@ function BranchSide({ side, quarters, semis }) {
       </div>
       <div className={`flex items-stretch ${reverse ? "flex-row-reverse" : ""}`}>
         <div className="flex shrink-0 flex-col" style={{ width: SEAT_W, gap: SEMI_GAP }}>
-          {semis.map((p, i) => (
-            <Seat key={i} name={p.name} variant={p.alive ? "inner" : "out"} isWinner={p.isWinner} isLoser={p.isLoser} isYou={p.isYou} />
+          {semis.map((seat, i) => (
+            <Seat key={i} seat={seat} />
           ))}
         </div>
         <Elbow side={side} />
@@ -132,74 +165,150 @@ function BranchSide({ side, quarters, semis }) {
   )
 }
 
+const ROUND_HEADINGS = ["Quarterfinals", "Semifinals"]
+
+function initialsOf(name) {
+  const parts = String(name ?? "?").trim().split(/\s+/).filter(Boolean)
+  return (parts.length > 1 ? parts[0][0] + parts[1][0] : String(name ?? "?").slice(0, 2)).toUpperCase()
+}
+
+/* The learner's next match, as a face-off: you, the opponent, and one play button. */
+function FaceOff({ round, questionCount, you, opponent, onPlay }) {
+  const reduceMotion = useReducedMotion()
+  const side = (name, mine) => (
+    <motion.div
+      className="flex w-28 flex-col items-center sm:w-36"
+      initial={reduceMotion ? false : { opacity: 0, x: mine ? -24 : 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ type: "spring", stiffness: 220, damping: 20 }}
+    >
+      <span
+        className={`grid size-16 place-items-center rounded-full font-rb-display text-xl font-extrabold sm:size-20 sm:text-2xl ${
+          mine
+            ? "bg-rb-feather text-white shadow-[0_4px_0_var(--color-rb-feather-lip)]"
+            : "bg-rb-snow text-rb-eel ring-2 ring-rb-swan shadow-[0_4px_0_var(--color-rb-swan)]"
+        }`}
+      >
+        {initialsOf(name)}
+      </span>
+      <span className="mt-2 w-full truncate text-center text-sm font-extrabold text-rb-eel" title={name}>
+        {name}
+      </span>
+      <span className="text-[11px] font-bold uppercase text-rb-wolf">{mine ? "you" : "opponent"}</span>
+    </motion.div>
+  )
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-fox-lip">your match is ready</p>
+      <p className="font-rb-display text-3xl font-extrabold text-rb-eel">{round}</p>
+      <div className="mt-4 flex items-center justify-center gap-4 sm:gap-8">
+        {side(you, true)}
+        <motion.span
+          className="font-rb-display text-3xl font-extrabold text-rb-fox"
+          animate={reduceMotion ? undefined : { scale: [1, 1.15, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          vs
+        </motion.span>
+        {side(opponent, false)}
+      </div>
+      <p className="mt-3 text-xs font-bold text-rb-wolf">
+        {questionCount} question{questionCount === 1 ? "" : "s"} · higher score goes through
+      </p>
+      <TactileButton variant="fox" className="mt-4 w-full sm:w-auto sm:px-10" onClick={onPlay}>
+        <Zap className="mr-1.5 size-4" aria-hidden="true" />
+        play round
+      </TactileButton>
+    </div>
+  )
+}
+
 function LiveBracket({ bracket, myLearnerId }) {
   if (!bracket) return null
 
   const playerMap = {}
-  for (const p of bracket.players) {
-    playerMap[p.learnerId] = p
+  for (const p of bracket.players) playerMap[p.learnerId] = p
+
+  const byRound = {}
+  for (const m of bracket.matches) (byRound[m.round] ??= []).push(m)
+  const sorted = (round) => (byRound[round] ?? []).slice().sort((a, b) => a.matchIndex - b.matchIndex)
+  const qf = sorted("QUARTERFINAL")
+  const sf = sorted("SEMIFINAL")
+  const fin = sorted("FINAL")
+
+  const seatOf = (match, playerId) => {
+    if (!match || playerId == null) return { empty: true }
+    const done = match.status === "COMPLETED"
+    const first = match.player1?.learnerId === playerId
+    return {
+      name: playerMap[playerId]?.displayName ?? (first ? match.player1 : match.player2)?.displayName ?? "Player",
+      you: playerId === myLearnerId,
+      winner: done && match.winnerLearnerId === playerId,
+      loser: done && match.winnerLearnerId !== playerId,
+      score: first ? match.player1Score : match.player2Score,
+    }
   }
+  const pairOf = (match) => [seatOf(match, match?.player1?.learnerId), seatOf(match, match?.player2?.learnerId)]
 
-  const matchesByRound = {}
-  for (const m of bracket.matches) {
-    if (!matchesByRound[m.round]) matchesByRound[m.round] = []
-    matchesByRound[m.round].push(m)
-  }
-
-  const getName = (id) => playerMap[id]?.displayName ?? "—"
-  const isYou = (id) => id === myLearnerId
-  const qfMatches = (matchesByRound["QUARTERFINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
-  const sfMatches = (matchesByRound["SEMIFINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
-  const finalMatches = (matchesByRound["FINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
-
-  const seatOf = (match, playerId) => ({
-    name: getName(playerId),
-    alive: match.status !== "COMPLETED" || match.winnerLearnerId === playerId,
-    isWinner: match.status === "COMPLETED" && match.winnerLearnerId === playerId,
-    isLoser: match.status === "COMPLETED" && match.winnerLearnerId !== playerId,
-    isYou: isYou(playerId),
-  })
-
-  const leftQF = qfMatches.slice(0, 2).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
-  const rightQF = qfMatches.slice(2, 4).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
-
-  const leftSF = sfMatches.length > 0
-    ? [seatOf(sfMatches[0], sfMatches[0].player1?.learnerId), seatOf(sfMatches[0], sfMatches[0].player2?.learnerId)]
-    : [{ name: "—", alive: true }, { name: "—", alive: true }]
-  const rightSF = sfMatches.length > 1
-    ? [seatOf(sfMatches[1], sfMatches[1].player1?.learnerId), seatOf(sfMatches[1], sfMatches[1].player2?.learnerId)]
-    : [{ name: "—", alive: true }, { name: "—", alive: true }]
-
-  const finalist1 = finalMatches.length > 0 ? getName(finalMatches[0].player1?.learnerId) : "—"
-  const finalist2 = finalMatches.length > 0 ? getName(finalMatches[0].player2?.learnerId) : "—"
+  const leftQF = [qf[0], qf[1]].map(pairOf)
+  const rightQF = [qf[2], qf[3]].map(pairOf)
+  const leftSF = pairOf(sf[0])
+  const rightSF = pairOf(sf[1])
+  const [final1, final2] = pairOf(fin[0])
+  const champion = bracket.winnerLearnerId != null ? playerMap[bracket.winnerLearnerId] : null
 
   return (
-    <div className="flex items-center justify-center gap-3">
-      <BranchSide side="left" quarters={leftQF} semis={leftSF} />
-
-      <div className="flex w-[260px] shrink-0 flex-col items-center px-2 lg:w-[300px]">
-        <div className="rb-halo relative">
-          <Trophy className="size-24 text-rb-fox lg:size-28" aria-hidden="true" />
+    <div>
+      {/* Round labels over each column */}
+      <div className="mb-3 flex items-center justify-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-rb-wolf">
+        <div className="flex">
+          {ROUND_HEADINGS.map((label) => (
+            <span key={label} className="text-center" style={{ width: SEAT_W + 24 }}>
+              {label}
+            </span>
+          ))}
         </div>
-        <div className="mt-4 font-rb-display text-2xl font-extrabold text-rb-eel">The final</div>
-        <div className="mt-5 flex w-full items-center gap-2">
-          <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist1}</div>
-          <span className="font-rb-display text-lg font-extrabold lowercase text-rb-wolf">vs</span>
-          <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist2}</div>
+        <span className="w-[260px] text-center lg:w-[300px]">Final</span>
+        <div className="flex flex-row-reverse">
+          {ROUND_HEADINGS.map((label) => (
+            <span key={label} className="text-center" style={{ width: SEAT_W + 24 }}>
+              {label}
+            </span>
+          ))}
         </div>
-        {bracket.winnerLearnerId ? (
-          <div className="mt-5 inline-flex items-center gap-1.5 rounded-rb-pill bg-rb-fox px-5 py-2 text-sm font-extrabold text-white">
-            <Trophy className="size-4" aria-hidden="true" />
-            {getName(bracket.winnerLearnerId)} wins
-          </div>
-        ) : (
-          <span className="mt-5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold text-rb-wolf">
-            {ROUND_LABELS[bracket.currentRound] ?? bracket.currentRound}
-          </span>
-        )}
       </div>
 
-      <BranchSide side="right" quarters={rightQF} semis={rightSF} />
+      <div className="flex items-center justify-center gap-3">
+        <BranchSide side="left" quarters={leftQF} semis={leftSF} />
+
+        <div className="flex w-[260px] shrink-0 flex-col items-center px-2 lg:w-[300px]">
+          <div className="relative aspect-[4/3] w-44">
+            <TrophyArt />
+          </div>
+          <div className="mt-1 font-rb-display text-2xl font-extrabold text-rb-eel">The final</div>
+          <div className="mt-4 flex w-full items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <Seat seat={final1} />
+            </div>
+            <span className="font-rb-display text-lg font-extrabold text-rb-hare">vs</span>
+            <div className="min-w-0 flex-1">
+              <Seat seat={final2} />
+            </div>
+          </div>
+          {champion ? (
+            <div className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-rb-fox px-5 py-2 text-sm font-extrabold text-white shadow-[0_3px_0_var(--color-rb-fox-lip)]">
+              <Crown className="size-4" aria-hidden="true" />
+              {champion.learnerId === myLearnerId ? "You won the cup" : `${champion.displayName} won the cup`}
+            </div>
+          ) : (
+            <span className="mt-5 rounded-full border-2 border-rb-swan bg-rb-snow px-3 py-1.5 text-xs font-extrabold text-rb-wolf">
+              Now playing: {ROUND_LABELS[bracket.currentRound] ?? bracket.currentRound}
+            </span>
+          )}
+        </div>
+
+        <BranchSide side="right" quarters={rightQF} semis={rightSF} />
+      </div>
     </div>
   )
 }
@@ -211,12 +320,29 @@ export default function WorldCupPage() {
   // Back returns to wherever the learner came from (e.g. their learning path);
   // the link target is only the fallback when the page was opened directly.
   const goBack = (event) => {
-    if (location.key !== "default") {
+    // A past tournament goes back to the history list it was opened from.
+    if (phase === "review") {
       event.preventDefault()
-      navigate(-1)
+      if (location.key !== "default") navigate(-1)
+      else navigate("/learner/challenges/world-cup/history", { replace: true })
+      return
     }
+    // From a live bracket, back is the main Champions Cup page.
+    if (phase === "bracket") {
+      event.preventDefault()
+      setBracket(null)
+      setPhase("track")
+      navigate("/learner/challenges/world-cup", { replace: true })
+      return
+    }
+    // The main page goes back to the certification's learning path, never to
+    // another Champions Cup screen still in the browser history.
+    event.preventDefault()
+    const certificationId = activeEditionRef.current ?? searchParams.get("track")
+    navigate(certificationId ? `/learner/learning/${certificationId}` : "/learner/challenges")
   }
   const queryClient = useQueryClient()
+  const activeEditionRef = useRef(null)
   const [phase, setPhase] = useState("track")
   const [track, setTrack] = useState(null)
   const [bracket, setBracket] = useState(null)
@@ -248,6 +374,7 @@ export default function WorldCupPage() {
     staleTime: 60_000,
   })
   const activeEdition = activeEditionQuery.data ?? null
+  activeEditionRef.current = activeEdition?.certificationId ?? null
 
   const worldCup = (arenasQuery.data ?? []).find((row) => row.arenaId === "worldcup") ?? null
   const locked =
@@ -255,6 +382,37 @@ export default function WorldCupPage() {
 
   const [searchParams] = useSearchParams()
   const preferredTrack = searchParams.get("track")
+  // Coming back from a round's result: open that match's bracket, live or finished.
+  const openMatch = searchParams.get("match")
+  const openBracketId = searchParams.get("bracket")
+  useEffect(() => {
+    if (!openBracketId) return
+    let cancelled = false
+    getWorldCupBracket(openBracketId)
+      .then((view) => {
+        if (cancelled || !view) return
+        setBracket(view)
+        setPhase(view.currentRound === "COMPLETED" ? "review" : "bracket")
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [openBracketId])
+  useEffect(() => {
+    if (!openMatch) return
+    let cancelled = false
+    getWorldCupBracketForMatch(openMatch)
+      .then((view) => {
+        if (cancelled || !view) return
+        setBracket(view)
+        setPhase(view.currentRound === "COMPLETED" ? "review" : "bracket")
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [openMatch])
   const tracks = useMemo(() => {
     if (!activeEdition) return []
     return getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds).filter(
@@ -376,6 +534,26 @@ export default function WorldCupPage() {
 
   useEffect(() => () => stopPolling(), [stopPolling])
 
+  // Leaving the matchmaking screen (back, exit, any other page) cancels the queue
+  // spot, so nobody is drawn into a bracket they have walked away from.
+  const queuedTrackRef = useRef(null)
+  useEffect(() => {
+    queuedTrackRef.current = phase === "lobby" && track ? track.id : null
+  }, [phase, track])
+  useEffect(() => {
+    const cancel = () => {
+      if (queuedTrackRef.current) {
+        leaveWorldCupQueue(queuedTrackRef.current).catch(() => {})
+        queuedTrackRef.current = null
+      }
+    }
+    window.addEventListener("pagehide", cancel)
+    return () => {
+      window.removeEventListener("pagehide", cancel)
+      cancel()
+    }
+  }, [])
+
   useEffect(() => {
     if (phase !== "bracket" || !bracket?.bracketId) return undefined
     const id = setInterval(async () => {
@@ -388,6 +566,23 @@ export default function WorldCupPage() {
     return () => clearInterval(id)
   }, [phase, bracket?.bracketId])
 
+  // A past tournament opens read-only: its whole bracket plus the learner's own results.
+  const [reviewLoading, setReviewLoading] = useState(null)
+  const openReview = async (bracketId) => {
+    setReviewLoading(bracketId)
+    try {
+      const view = await getWorldCupBracket(bracketId)
+      setBracket(view)
+      setTrack(null)
+      setPhase("review")
+      window.scrollTo({ top: 0 })
+    } catch {
+      // stays on the list
+    } finally {
+      setReviewLoading(null)
+    }
+  }
+
   const handleTrackSelect = (item) => {
     setTrack(item)
     joinMutation.mutate(item.id)
@@ -396,6 +591,18 @@ export default function WorldCupPage() {
   const handleLeaveQueue = () => {
     if (track) leaveMutation.mutate(track.id)
   }
+
+  // Only this certification's tournaments (each week's cup is on one certification).
+  const focusCertification = String(activeEdition?.certificationId ?? preferredTrack ?? "")
+  const myHistory = (historyQuery.data ?? []).filter(
+    (h) => h.certificationId == null || !focusCertification || String(h.certificationId) === focusCertification
+  )
+  const daysLeft = useMemo(() => {
+    const [y, m, d] = String(activeEdition?.weekStart ?? "").split("-").map(Number)
+    if (!y) return null
+    const end = new Date(y, m - 1, d + 6, 23, 59, 59)
+    return Math.max(0, Math.floor((end - new Date()) / 86_400_000))
+  }, [activeEdition?.weekStart])
 
   const thisWeekLabel = useMemo(() => {
     // The active edition's week (it can be last published week when this one has none).
@@ -410,6 +617,7 @@ export default function WorldCupPage() {
 
   const SUBTITLE = {
     track: "Choose your certification track",
+    review: "Past tournament",
     lobby: "Matchmaking · 8-player tournament",
     found: "Match found!",
     bracket: bracket?.currentRound ? ROUND_LABELS[bracket.currentRound] ?? "Tournament" : "Tournament bracket",
@@ -477,11 +685,24 @@ export default function WorldCupPage() {
       <PathBackdrop />
 
       <div
-        className={`mx-auto px-4 pb-16 pt-5 sm:px-6 lg:px-8 ${phase === "bracket" ? "max-w-[1600px]" : "max-w-5xl"}`}
+        className={`mx-auto px-4 pb-16 pt-5 sm:px-6 lg:px-8 ${phase === "bracket" || phase === "review" ? "max-w-[1600px]" : "max-w-5xl"}`}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           {backLink}
           <div className="flex flex-wrap items-center gap-2">
+            {phase === "track" ? (
+              <TactileButton asChild variant="ghost" size="sm">
+                <Link to="/learner/challenges/world-cup/history" aria-label="Your tournament history" title="Your tournament history">
+                  <HistoryIcon className="size-4" aria-hidden="true" />
+                  <span className="ml-1.5 hidden sm:inline">history</span>
+                  {(historyQuery.data ?? []).length > 0 ? (
+                    <span className="ml-1.5 rounded-full bg-rb-fox px-1.5 text-[10px] font-extrabold tabular-nums text-white">
+                      {historyQuery.data.length}
+                    </span>
+                  ) : null}
+                </Link>
+              </TactileButton>
+            ) : null}
             {track ? (
               <span className="rounded-full border border-rb-swan bg-rb-snow px-3 py-1 text-xs font-bold text-rb-eel">
                 {track.name}
@@ -511,20 +732,47 @@ export default function WorldCupPage() {
         {phase === "track" ? (
           <section className="mt-6 grid items-center gap-6 md:grid-cols-[1.2fr_1fr]">
             <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">challenge</p>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">
+                weekly challenge · {thisWeekLabel}
+              </p>
               <h1 className="mt-1 font-rb-display text-4xl font-extrabold leading-none text-rb-eel sm:text-5xl">
                 Champions Cup
               </h1>
+              {activeEdition?.certificationTitle ? (
+                <p className="mt-1 font-rb-display text-xl font-extrabold text-rb-fox-lip sm:text-2xl">
+                  {activeEdition.certificationTitle}
+                </p>
+              ) : null}
               <div className="mt-3 h-[3px] w-24 rounded-full bg-rb-fox" />
               <p className="mt-3 max-w-md text-sm leading-6 text-rb-wolf">
-                Pick a certification track and enter the queue. When 8 challengers are ready, the bracket begins:
-                quarterfinals, semifinals, then the final.
+                This week's knockout on {activeEdition?.certificationTitle ?? "your certification"}. Eight players,
+                three rounds, each with its own questions. If nobody else joins within two minutes, bots take the
+                empty seats.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-bold text-rb-wolf">
-                <InfoChip icon={CalendarDays}>{thisWeekLabel}</InfoChip>
                 <InfoChip icon={Users}>8 players</InfoChip>
-                <InfoChip icon={Shield}>3 rounds</InfoChip>
+                <InfoChip icon={Shield}>3 knockout rounds</InfoChip>
+                {daysLeft != null ? (
+                  <InfoChip icon={CalendarDays}>
+                    {daysLeft === 0 ? "last day" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+                  </InfoChip>
+                ) : null}
               </div>
+              {tracks.length > 0 ? (
+                <TactileButton
+                  variant="fox"
+                  className="mt-6 w-full sm:w-auto"
+                  disabled={joinMutation.isPending}
+                  onClick={() => handleTrackSelect(tracks[0])}
+                >
+                  {joinMutation.isPending ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Zap className="mr-2 size-4" aria-hidden="true" />
+                  )}
+                  enter the queue
+                </TactileButton>
+              ) : null}
             </div>
             <div className="relative mx-auto aspect-[4/3] w-full max-w-[16rem] md:max-w-[18rem]">
               <TrophyArt />
@@ -560,77 +808,56 @@ export default function WorldCupPage() {
         {phase === "track" && tracks.length > 0 ? (
           <>
             <section className="mt-12">
-              <SectionHeading
-                eyebrow={activeEdition?.thisWeek ? "this week" : "latest week"}
-                title={activeEdition?.thisWeek ? "This week's track" : "Latest week's track"}
-              />
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {tracks.map((item) => (
-                  <TrackCard
-                    key={item.id}
-                    item={item}
-                    preferred={item.id === preferredTrack}
-                    weekLabel={thisWeekLabel}
-                    disabled={joinMutation.isPending}
-                    onSelect={() => handleTrackSelect(item)}
-                  />
+              <SectionHeading eyebrow="how it runs" title="Three rounds to the cup" />
+              <ol className="mx-auto mt-5 grid max-w-2xl grid-cols-3 gap-2 sm:gap-6">
+                {[
+                  { name: "Quarterfinals", note: "8 players · 4 matches", depth: 14 },
+                  { name: "Semifinals", note: "4 players · 2 matches", depth: 26 },
+                  { name: "Final", note: "2 players · 1 match", depth: 40, final: true },
+                ].map((round, i) => (
+                  <li key={round.name} className="flex flex-col items-center text-center">
+                    <div className="relative" style={{ width: 96, height: 48 + round.depth }}>
+                      <Plinth
+                        w={96}
+                        h={48}
+                        d={round.depth}
+                        lift={0}
+                        top={round.final ? "color-mix(in oklab, var(--color-rb-fox) 84%, white)" : "var(--color-rb-snow)"}
+                        face={round.final ? "var(--color-rb-fox)" : "var(--color-rb-polar)"}
+                        lip={round.final ? "var(--color-rb-fox-lip)" : "var(--color-rb-swan)"}
+                      />
+                      <span
+                        className={`absolute inset-x-0 top-0 grid place-items-center font-rb-display text-xl font-extrabold ${
+                          round.final ? "text-white" : "text-rb-fox-lip"
+                        }`}
+                        style={{ height: 48 }}
+                      >
+                        {round.final ? <Trophy className="size-6" aria-hidden="true" /> : i + 1}
+                      </span>
+                    </div>
+                    <p className="mt-2 font-rb-display text-sm font-extrabold text-rb-eel sm:text-base">{round.name}</p>
+                    <p className="text-[11px] font-semibold text-rb-wolf">{round.note}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </section>
 
-            {(historyQuery.data ?? []).length > 0 ? (
-              <section className="mt-12">
-                <SectionHeading eyebrow="history" title="Past tournaments" />
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {historyQuery.data.map((h) => (
-                    <div
-                      key={h.bracketId}
-                      className={`flex flex-col gap-3 rounded-2xl border-2 p-4 ${
-                        h.won ? "border-rb-fox/40 bg-rb-fox-wash" : "border-rb-swan bg-rb-snow"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-rb-wolf">
-                          {new Date(h.createdAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
-                        {h.won ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rb-fox px-2 py-0.5 text-[10px] font-extrabold text-white">
-                            <Trophy className="size-3" aria-hidden="true" /> champion
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rb-polar px-2 py-0.5 text-[10px] font-bold text-rb-wolf">
-                            <Shield className="size-3" aria-hidden="true" />
-                            {h.bestRound ? ROUND_LABELS[h.bestRound] ?? h.bestRound : "—"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <p className="font-rb-display text-2xl font-extrabold tabular-nums text-rb-eel">
-                            {h.bestScore != null ? Math.round(h.bestScore) : "—"}
-                          </p>
-                          <p className="text-[11px] font-bold text-rb-wolf">best score</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-rb-display text-lg font-extrabold tabular-nums text-rb-eel">{h.rounds ?? "—"}</p>
-                          <p className="text-[11px] font-bold text-rb-wolf">rounds played</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            <ArenaPodium arenaId="worldcup" title="Champions Cup rankings" />
           </>
         ) : null}
 
+        {phase === "review" && bracket ? (
+          <section className="mt-6">
+            <MyResults bracket={bracket} myLearnerId={myLearnerId} />
+            <FitToWidth className="mt-6">
+              <LiveBracket bracket={bracket} myLearnerId={myLearnerId} />
+            </FitToWidth>
+          </section>
+        ) : null}
+
         {phase === "lobby" ? (
-          <section className="mx-auto mt-8 flex max-w-2xl flex-col items-center rounded-3xl border-2 border-rb-swan bg-rb-snow px-5 py-8 shadow-[0_4px_0_var(--color-rb-swan)]">
-            <div className="relative grid size-36 place-items-center">
+          <section className="mx-auto flex min-h-[calc(100dvh-14rem)] w-full max-w-5xl flex-col items-center justify-center py-8">
+            <div className="relative grid size-56 place-items-center sm:size-64">
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
                 <circle cx="80" cy="80" r="70" fill="none" stroke="var(--color-rb-swan)" strokeWidth="8" />
                 <circle
@@ -647,7 +874,7 @@ export default function WorldCupPage() {
                 />
               </svg>
               <span
-                className={`font-rb-display text-4xl font-extrabold tabular-nums ${
+                className={`font-rb-display text-6xl font-extrabold tabular-nums sm:text-7xl ${
                   queueTimer <= 30 ? "text-rb-cardinal-lip" : "text-rb-eel"
                 }`}
               >
@@ -655,38 +882,40 @@ export default function WorldCupPage() {
               </span>
             </div>
 
-            <p className="mt-4 font-rb-display text-xl font-extrabold text-rb-eel">Finding opponents…</p>
-            <p className="mt-1 text-xs font-semibold text-rb-wolf">If nobody else joins before the timer runs out, bots fill the empty seats.</p>
+            <p className="mt-6 font-rb-display text-3xl font-extrabold text-rb-eel sm:text-4xl">Finding opponents…</p>
+            <p className="mt-2 max-w-md text-center text-sm font-semibold text-rb-wolf">If nobody else joins before the timer runs out, bots fill the empty seats.</p>
 
-            <div className="mt-8 grid w-full grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-8">
+            <div className="mt-12 grid w-full max-w-4xl grid-cols-4 gap-x-3 gap-y-6 sm:grid-cols-8">
               {Array.from({ length: queueRequired }).map((_, i) => {
                 const filled = i < queueSize
+                // Smaller seats on phones so four fit across.
+                const seat = typeof window !== "undefined" && window.innerWidth < 640 ? 64 : 92
                 return (
                   <div key={i} className="flex flex-col items-center">
-                    <div className="relative" style={{ width: 60, height: 58 }}>
+                    <div className="relative" style={{ width: seat, height: seat * 0.98 }}>
                       <Plinth
-                        w={60}
-                        h={30}
-                        d={10}
-                        lift={18}
+                        w={seat}
+                        h={seat / 2}
+                        d={Math.round(seat * 0.17)}
+                        lift={Math.round(seat * 0.3)}
                         top={filled ? "color-mix(in oklab, var(--color-rb-fox) 84%, white)" : "var(--color-rb-snow)"}
                         face={filled ? "var(--color-rb-fox)" : "var(--color-rb-polar)"}
                         lip={filled ? "var(--color-rb-fox-lip)" : "var(--color-rb-swan)"}
                       />
                       <span
                         className={`absolute inset-x-0 top-0 grid place-items-center ${filled ? "rb-pop-in text-white" : "text-rb-hare"}`}
-                        style={{ height: 33 }}
+                        style={{ height: Math.round(seat * 0.3 + seat / 4) }}
                       >
                         {filled ? (
-                          <span className="font-rb-display text-lg font-extrabold drop-shadow-[0_2px_1px_rgb(0_0_0/0.2)]">
+                          <span className="font-rb-display text-2xl font-extrabold drop-shadow-[0_2px_1px_rgb(0_0_0/0.2)]">
                             {i + 1}
                           </span>
                         ) : (
-                          <Users className="size-4" aria-hidden="true" />
+                          <Users className="size-6" aria-hidden="true" />
                         )}
                       </span>
                     </div>
-                    <span className={`mt-1 text-[11px] font-bold ${filled ? "text-rb-fox-lip" : "text-rb-hare"}`}>
+                    <span className={`mt-1.5 text-sm font-bold ${filled ? "text-rb-fox-lip" : "text-rb-hare"}`}>
                       {filled ? (i === 0 ? "you" : "ready") : "open"}
                     </span>
                   </div>
@@ -694,7 +923,7 @@ export default function WorldCupPage() {
               })}
             </div>
 
-            <p className="mt-6 text-sm font-bold text-rb-wolf">
+            <p className="mt-8 text-base font-bold text-rb-wolf">
               <span className="tabular-nums text-rb-eel">
                 {queueSize} / {queueRequired}
               </span>{" "}
@@ -718,30 +947,23 @@ export default function WorldCupPage() {
         {phase === "bracket" && bracket ? (
           <section className="mt-6">
             {myCurrentMatch && !isEliminated && !hasSubmittedCurrentRound ? (
-              <div className="mx-auto flex w-full max-w-lg flex-wrap items-center gap-3 rounded-2xl border-2 border-rb-fox/40 bg-rb-fox-wash p-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold text-rb-eel">
-                    Your {ROUND_LABELS[bracket.currentRound]} match is ready
-                  </p>
-                  <p className="mt-1 text-xs text-rb-wolf">
-                    {myCurrentMatch.questionCount} questions · vs{" "}
-                    {myCurrentMatch.player1?.learnerId === myLearnerId
-                      ? myCurrentMatch.player2?.displayName
-                      : myCurrentMatch.player1?.displayName}
-                  </p>
-                </div>
-                <TactileButton
-                  variant="fox"
-                  onClick={() => {
-                    if (worldCup?.examId) {
-                      navigate(`/learner/assessments/${worldCup.examId}?arena=worldcup&matchId=${myCurrentMatch.matchId}`)
-                    }
-                  }}
-                >
-                  <Zap className="mr-1.5 size-4" aria-hidden="true" />
-                  play round
-                </TactileButton>
-              </div>
+              <FaceOff
+                round={ROUND_LABELS[bracket.currentRound] ?? "Your match"}
+                questionCount={myCurrentMatch.questionCount}
+                you={
+                  (myCurrentMatch.player1?.learnerId === myLearnerId ? myCurrentMatch.player1 : myCurrentMatch.player2)
+                    ?.displayName ?? "You"
+                }
+                opponent={
+                  (myCurrentMatch.player1?.learnerId === myLearnerId ? myCurrentMatch.player2 : myCurrentMatch.player1)
+                    ?.displayName ?? "Opponent"
+                }
+                onPlay={() => {
+                  if (worldCup?.examId) {
+                    navigate(`/learner/assessments/${worldCup.examId}?arena=worldcup&matchId=${myCurrentMatch.matchId}`)
+                  }
+                }}
+              />
             ) : null}
 
             {isEliminated ? (
@@ -799,6 +1021,74 @@ function FitToWidth({ children, className = "" }) {
       >
         {children}
       </div>
+    </div>
+  )
+}
+
+/* The learner's own matches in a tournament, round by round. */
+function MyResults({ bracket, myLearnerId }) {
+  const mine = (bracket.matches ?? [])
+    .filter((m) => m.player1?.learnerId === myLearnerId || m.player2?.learnerId === myLearnerId)
+    .sort((a, b) => ["QUARTERFINAL", "SEMIFINAL", "FINAL"].indexOf(a.round) - ["QUARTERFINAL", "SEMIFINAL", "FINAL"].indexOf(b.round))
+  const champion = bracket.winnerLearnerId != null && bracket.winnerLearnerId === myLearnerId
+  const winner = (bracket.players ?? []).find((p) => p.learnerId === bracket.winnerLearnerId)
+  const when = bracket.createdAt
+    ? new Date(bracket.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+    : null
+
+  return (
+    <div className="mx-auto w-full max-w-2xl rounded-3xl border-2 border-rb-swan bg-rb-snow p-5 shadow-[0_4px_0_var(--color-rb-swan)]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">your results{when ? ` · ${when}` : ""}</p>
+          <p className="font-rb-display text-xl font-extrabold text-rb-eel">
+            {champion ? "You won the cup" : winner ? `${winner.displayName} won the cup` : "Not finished"}
+          </p>
+        </div>
+        {champion ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-rb-fox px-3 py-1 text-xs font-extrabold text-white">
+            <Trophy className="size-3.5" aria-hidden="true" /> champion
+          </span>
+        ) : null}
+      </div>
+
+      {mine.length === 0 ? (
+        <p className="mt-3 text-sm text-rb-wolf">You did not play a match in this bracket.</p>
+      ) : (
+        <ol className="mt-4 space-y-2">
+          {mine.map((m) => {
+            const meFirst = m.player1?.learnerId === myLearnerId
+            const myScore = meFirst ? m.player1Score : m.player2Score
+            const theirScore = meFirst ? m.player2Score : m.player1Score
+            const opponent = meFirst ? m.player2 : m.player1
+            const done = m.status === "COMPLETED"
+            const won = done && m.winnerLearnerId === myLearnerId
+            return (
+              <li
+                key={m.matchId}
+                className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5 ${
+                  !done ? "border-rb-swan bg-rb-polar" : won ? "border-rb-feather/40 bg-rb-feather-wash" : "border-rb-cardinal/30 bg-rb-cardinal-wash"
+                }`}
+              >
+                <span className="w-24 shrink-0 text-xs font-extrabold text-rb-wolf">{ROUND_LABELS[m.round] ?? m.round}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-bold text-rb-eel">vs {opponent?.displayName ?? "—"}</span>
+                <span className="shrink-0 font-rb-display text-base font-extrabold tabular-nums text-rb-eel">
+                  {myScore != null ? Math.round(myScore) : "—"}
+                  <span className="mx-1 text-rb-hare">–</span>
+                  {theirScore != null ? Math.round(theirScore) : "—"}
+                </span>
+                <span
+                  className={`w-12 shrink-0 text-right text-[11px] font-extrabold uppercase ${
+                    !done ? "text-rb-wolf" : won ? "text-rb-feather-ink" : "text-rb-cardinal-lip"
+                  }`}
+                >
+                  {!done ? "open" : won ? "won" : "lost"}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
     </div>
   )
 }

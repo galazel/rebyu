@@ -248,6 +248,13 @@
    larger type throughout, so a game reads like the practice quiz rounds.
    Sizes, not zoom, so drag-and-drop coordinates stay true. */
 .tg-stage > * > .tg-frame, .tg-stage .tg-frame { margin-top: 0; }
+/* On its own Library page the item fills the page: no card frame around it. */
+.tg-stage .tg-frame { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+/* Games sized for the lesson's tutor panel (word search, jigsaw, sliding puzzle)
+   grow to use the full-width Library page. */
+.tg-stage .max-w-md { max-width: 40rem; }
+.tg-stage .max-w-sm { max-width: 34rem; }
+.tg-stage .max-w-xs { max-width: 24rem; }
 .tg-stage .text-\[10px\], .tg-stage .text-\[11px\] { font-size: 0.8125rem; }
 .tg-stage .text-xs { font-size: 0.875rem; line-height: 1.35rem; }
 .tg-stage .text-sm { font-size: 1.0625rem; line-height: 1.6rem; }

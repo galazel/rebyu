@@ -71,6 +71,8 @@ import {
 import { GeneratedQuizArena } from "@/components/practice/generated-quiz-arena.jsx"
 import { AdaptiveAttemptRunner } from "@/components/assessments/attempt/adaptive-attempt-runner.jsx"
 import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
+import { getMyWorldCupBracket } from "@/services/challengeService.js"
+import { getLearnerPortalData } from "@/services/learnerService.js"
 
 function toDraftDto(attemptQuestionId, answer) {
   const subAnswers = answer.subAnswers ?? {}
@@ -495,6 +497,14 @@ function useNoCopyDuringAttempt() {
   }, [])
 }
 
+/* The other player in a Champions Cup match: whichever seat is not the learner's. */
+function opponentName(match, me) {
+  const p1 = match.player1
+  const p2 = match.player2
+  if (me != null) return (p1?.learnerId === me ? p2 : p1)?.displayName ?? "your opponent"
+  return [p1?.displayName, p2?.displayName].filter(Boolean).join(" / ")
+}
+
 export default function LearnerAssessmentAttemptPage() {
   useNoCopyDuringAttempt()
   const { examId } = useParams()
@@ -503,6 +513,23 @@ export default function LearnerAssessmentAttemptPage() {
   const totalProblems = searchParams.get("total") != null ? Number(searchParams.get("total")) : null
   const arenaId = searchParams.get("arena")
   const matchId = searchParams.get("matchId")
+  // Champions Cup: which round this is and who the opponent is, for the header.
+  const worldCupBracketQuery = useQuery({
+    queryKey: ["worldcup-my-bracket"],
+    queryFn: getMyWorldCupBracket,
+    enabled: arenaId === "worldcup" && matchId != null,
+    staleTime: 30_000,
+  })
+  const worldCupMeQuery = useQuery({
+    queryKey: ["learner-portal-data"],
+    queryFn: getLearnerPortalData,
+    enabled: arenaId === "worldcup" && matchId != null,
+    staleTime: 5 * 60 * 1000,
+  })
+  const worldCupMatch = useMemo(() => {
+    const matches = worldCupBracketQuery.data?.matches ?? []
+    return matches.find((m) => String(m.matchId) === String(matchId)) ?? null
+  }, [worldCupBracketQuery.data, matchId])
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -668,6 +695,27 @@ export default function LearnerAssessmentAttemptPage() {
   const isChallenge = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
   const isWorldCupChallenge = false
   const isSingleProblemChallenge = isChallenge && arenaId !== "worldcup"
+  const isWorldCup = isChallenge && arenaId === "worldcup"
+  // A challenge is played, not sat: its screen speaks of rounds and challenges.
+  const ROUND_NAMES = { QUARTERFINAL: "Quarterfinals", SEMIFINAL: "Semifinals", FINAL: "Final" }
+  const worldCupRound = worldCupMatch ? ROUND_NAMES[worldCupMatch.round] ?? "Match" : "Match"
+  const copy = isChallenge
+    ? {
+        title: isWorldCup ? "Champions Cup" : attempt?.assessmentTitle,
+        finish: isWorldCup ? "Submit round" : "Submit challenge",
+        submitTitle: isWorldCup ? `Submit your ${worldCupRound.toLowerCase()} answers?` : "Submit this challenge?",
+        leaveTitle: isWorldCup ? "Leave this round?" : "Leave this challenge?",
+        keep: "Keep playing",
+        leave: isWorldCup ? "Leave round" : "Leave challenge",
+      }
+    : {
+        title: attempt?.assessmentTitle,
+        finish: "Finish attempt",
+        submitTitle: "Submit assessment?",
+        leaveTitle: "Leave this attempt?",
+        keep: "Keep Taking Assessment",
+        leave: "Leave Attempt",
+      }
 
   const answeredIds = useMemo(() => {
     const set = new Set()
@@ -794,7 +842,13 @@ export default function LearnerAssessmentAttemptPage() {
       } else if (challengeType) {
         navigate(`/learner/results/${result.assessmentAttemptId}`, {
           replace: true,
-          state: { returnTo: "/learner/challenges", fromChallenge: true },
+          state: {
+            returnTo: { codestrike: "/learner/challenges/codestrike", blueprint: "/learner/challenges/blueprint-arena" }[arenaId] ?? "/learner/challenges",
+            fromChallenge: true,
+            arenaId,
+            questionIndex,
+            totalProblems,
+          },
         })
       } else {
         navigate(`/learner/results/${result.assessmentAttemptId}`, {
@@ -939,12 +993,16 @@ export default function LearnerAssessmentAttemptPage() {
             </button>
             <div className="min-w-0">
               <p className="truncate font-rb-display text-lg font-extrabold text-foreground">
-                {attempt.assessmentTitle}
+                {copy.title}
               </p>
               <p className="truncate text-xs font-semibold text-muted-foreground">
                 {isSingleProblemChallenge
                   ? `Problem ${(questionIndex ?? 0) + 1}${totalProblems ? ` of ${totalProblems}` : ""}`
-                  : `Question ${currentIndex + 1} of ${questions.length} · Attempt ${attempt.attemptNumber}`}
+                  : isWorldCup
+                    ? `${worldCupRound} · question ${currentIndex + 1} of ${questions.length}${
+                        worldCupMatch ? ` · vs ${opponentName(worldCupMatch, worldCupMeQuery.data?.learnerId)}` : ""
+                      }`
+                    : `Question ${currentIndex + 1} of ${questions.length} · Attempt ${attempt.attemptNumber}`}
               </p>
             </div>
             <span className="tg-chip max-sm:hidden">
@@ -1000,7 +1058,7 @@ export default function LearnerAssessmentAttemptPage() {
                   disabled={submitMutation.isPending}
               >
                 <CheckIcon aria-hidden="true" />
-                Finish attempt
+                {copy.finish}
               </button>
             )}
           </div>
@@ -1244,7 +1302,7 @@ export default function LearnerAssessmentAttemptPage() {
                         onClick={() => setFinishOpen(true)}
                         disabled={submitMutation.isPending}
                     >
-                      Finish attempt
+                      {copy.finish}
                     </button>
                 ) : (
                     <button
@@ -1268,7 +1326,7 @@ export default function LearnerAssessmentAttemptPage() {
         <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
           <AlertDialogContent className="rebyu-ds">
             <AlertDialogHeader>
-              <AlertDialogTitle>Leave this attempt?</AlertDialogTitle>
+              <AlertDialogTitle>{copy.leaveTitle}</AlertDialogTitle>
               <AlertDialogDescription>
                 You have answered {answeredIds.size} of {questions.length}{" "}
                 question(s)
@@ -1279,10 +1337,10 @@ export default function LearnerAssessmentAttemptPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel className="rb-btn rb-btn-ghost">
-                Keep Taking Assessment
+                {copy.keep}
               </AlertDialogCancel>
               <AlertDialogAction className="rb-btn" onClick={() => navigate(-1)}>
-                Leave Attempt
+                {copy.leave}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1291,11 +1349,11 @@ export default function LearnerAssessmentAttemptPage() {
         <AlertDialog open={finishOpen} onOpenChange={setFinishOpen}>
           <AlertDialogContent className="rebyu-ds">
             <AlertDialogHeader>
-              <AlertDialogTitle>Submit assessment?</AlertDialogTitle>
+              <AlertDialogTitle>{copy.submitTitle}</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm">
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <dt className="text-muted-foreground">Total items</dt>
+                    <dt className="text-muted-foreground">{isChallenge ? "Questions" : "Total items"}</dt>
                     <dd className="text-right tabular-nums">
                       {questions.length}
                     </dd>
@@ -1307,12 +1365,16 @@ export default function LearnerAssessmentAttemptPage() {
                     <dd className="text-right tabular-nums">
                       {questions.length - answeredIds.size}
                     </dd>
-                    <dt className="text-muted-foreground">Flagged</dt>
-                    <dd className="text-right tabular-nums">{flagged.size}</dd>
-                    <dt className="text-muted-foreground">XP on completion</dt>
-                    <dd className="text-right tabular-nums">
-                      {ASSESSMENT_XP.attempted}–{ASSESSMENT_XP.perfect} XP
-                    </dd>
+                    {isChallenge ? null : (
+                      <>
+                        <dt className="text-muted-foreground">Flagged</dt>
+                        <dd className="text-right tabular-nums">{flagged.size}</dd>
+                        <dt className="text-muted-foreground">XP on completion</dt>
+                        <dd className="text-right tabular-nums">
+                          {ASSESSMENT_XP.attempted}–{ASSESSMENT_XP.perfect} XP
+                        </dd>
+                      </>
+                    )}
                     {remainingSeconds != null ? (
                         <>
                           <dt className="text-muted-foreground">Time remaining</dt>
@@ -1326,7 +1388,9 @@ export default function LearnerAssessmentAttemptPage() {
                       <p className="text-destructive">
                         {isDiagnostic && !timeUp
                           ? "Answer every question before submitting. Your diagnostic decides where your study plan starts."
-                          : "Unanswered items may receive no score."}
+                          : isWorldCup
+                            ? "Unanswered questions score nothing, and the higher score goes through."
+                            : "Unanswered items may receive no score."}
                       </p>
                   ) : null}
                 </div>
@@ -1337,7 +1401,7 @@ export default function LearnerAssessmentAttemptPage() {
                   className="rb-btn rb-btn-ghost"
                   disabled={submitMutation.isPending}
               >
-                Review Answers
+                {isChallenge ? "Keep playing" : "Review Answers"}
               </AlertDialogCancel>
               {isDiagnostic && !timeUp && questions.length - answeredIds.size > 0 ? (
                 <AlertDialogAction
@@ -1362,7 +1426,7 @@ export default function LearnerAssessmentAttemptPage() {
                     }}
                     disabled={submitMutation.isPending}
                 >
-                  {submitMutation.isPending ? "Submitting..." : "Submit Assessment"}
+                  {submitMutation.isPending ? "Submitting..." : isChallenge ? copy.finish : "Submit Assessment"}
                 </AlertDialogAction>
               )}
             </AlertDialogFooter>
@@ -1374,8 +1438,9 @@ export default function LearnerAssessmentAttemptPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Time is up</AlertDialogTitle>
               <AlertDialogDescription>
-                The time limit for this assessment has been reached. Editing is
-                locked — submit your answers now.
+                {isChallenge
+                  ? "Time is up for this round. Your answers are locked in; submit them now."
+                  : "The time limit for this assessment has been reached. Editing is locked — submit your answers now."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1386,7 +1451,7 @@ export default function LearnerAssessmentAttemptPage() {
                     submitMutation.mutate()
                   }}
               >
-                Submit Assessment
+                {isChallenge ? copy.finish : "Submit Assessment"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

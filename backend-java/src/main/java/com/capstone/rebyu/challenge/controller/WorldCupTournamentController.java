@@ -63,6 +63,12 @@ public class WorldCupTournamentController {
     return tournament.getBracket(bracketId);
   }
 
+  @GetMapping("/matches/{matchId}/bracket")
+  public BracketView bracketForMatch(@AuthenticationPrincipal Jwt jwt, @PathVariable Long matchId) {
+    learnerId(jwt);
+    return tournament.bracketForMatch(matchId);
+  }
+
   @PostMapping("/matches/{matchId}/score")
   public MatchView reportScore(
       @AuthenticationPrincipal Jwt jwt,

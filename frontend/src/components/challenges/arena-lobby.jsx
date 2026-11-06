@@ -7,6 +7,7 @@ import { ArrowLeft, Check, ChevronRight, Clock, Code2, Loader2, Lock, Network, T
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { CHALLENGE_ARENAS_KEY, getChallengeArenas, getArenaProblems, getArenaProgress } from "@/services/challengeService.js"
 import { cn } from "@/lib/utils"
+import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
 
 /*
  * The arena lobby is drawn in the learning path's own language: isometric plinths
@@ -188,6 +189,8 @@ export function ArenaLobby({ arenaId, name, blurb }) {
             totalPoints={totalPoints}
           />
         )}
+
+        {configured ? <ArenaPodium arenaId={arenaId} title={`${name} rankings`} /> : null}
       </div>
     </div>
   )

@@ -44,7 +44,7 @@ export function ChallengeRail({ certificationId }) {
   // Gentle bob + a soft pulsing ring, staggered so the buttons don't move in step;
   // a quick wiggle on hover. All of it is off when the device asks for reduced motion.
   const buttons = challenges.map(({ arena, to }, index) => (
-    <Link key={arena.id} to={to} aria-label={`Challenge: ${arena.name}`} title={`Challenge: ${arena.name}`} className={railButton}>
+    <Link key={arena.id} to={to} aria-label={`Challenge: ${arena.name}`} className={railButton}>
       {reduceMotion ? null : (
         <motion.span
           aria-hidden="true"

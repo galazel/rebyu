@@ -78,6 +78,7 @@ const CompilerArea = lazyRoute(() => import("./pages/challenges/compiler-area-pa
 const CodeStrikePage = lazyRoute(() => import("./pages/learner/challenges/codestrike-page.jsx"))
 const BlueprintArenaPage = lazyRoute(() => import("./pages/learner/challenges/blueprint-arena-page.jsx"))
 const WorldCupPage = lazyRoute(() => import("./pages/learner/challenges/world-cup-page.jsx"))
+const WorldCupHistoryPage = lazyRoute(() => import("./pages/learner/challenges/world-cup-history-page.jsx"))
 const SkeletonPreviewPage = lazyRoute(() => import("./pages/dev/skeleton-preview-page.jsx"))
 const LearnerCertificationCurriculumPage = lazyRoute(() =>
     import("./pages/learner/learning/learner-certification-curriculum-page.jsx")
@@ -358,6 +359,7 @@ export function App() {
                 <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
                 <Route path="/learner/challenges/blueprint-arena" element={<BlueprintArenaPage />} />
                 <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
+                <Route path="/learner/challenges/world-cup/history" element={<WorldCupHistoryPage />} />
 
                 <Route path="/challenges" element={<CompilerArea />} />
 

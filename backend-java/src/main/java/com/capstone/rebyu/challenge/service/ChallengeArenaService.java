@@ -514,6 +514,6 @@ public class ChallengeArenaService {
     return Map.of(
         "codestrike", "CodeStrike",
         "blueprint", "Blueprint Arena",
-        "worldcup", "World Cup").getOrDefault(arenaId, arenaId);
+        "worldcup", "Champions Cup").getOrDefault(arenaId, arenaId);
   }
 }

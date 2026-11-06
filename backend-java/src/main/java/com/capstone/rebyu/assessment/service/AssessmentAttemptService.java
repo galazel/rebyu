@@ -341,15 +341,35 @@ public class AssessmentAttemptService {
                 && matchId != null) {
             WorldCupMatch match = worldCupMatchRepository.findById(matchId).orElse(null);
             if (match != null) {
-                int limit = switch (match.getRound()) {
-                    case "QUARTERFINAL" -> 10;
-                    case "SEMIFINAL"    -> 15;
-                    default             -> questionsToUse.size();
+                // Each bracket stage has its own question set (the weekly exam's stages):
+                // a match answers only the set for its round, never the other stages'.
+                int node = switch (match.getRound()) {
+                    case "QUARTERFINAL" -> 1;
+                    case "SEMIFINAL"    -> 2;
+                    default             -> 3;
                 };
-                if (limit < questionsToUse.size()) {
-                    List<Question> shuffled = new ArrayList<>(questionsToUse);
-                    java.util.Collections.shuffle(shuffled);
-                    questionsToUse = shuffled.subList(0, limit);
+                List<Integer> layout = arenaConfigRepository.findById("worldcup")
+                        .map(ChallengeArenaConfig::getNodeLayoutJson)
+                        .map(json -> {
+                            try {
+                                return objectMapper.readValue(json,
+                                        new com.fasterxml.jackson.core.type.TypeReference<List<Integer>>() {});
+                            } catch (Exception e) {
+                                return List.<Integer>of();
+                            }
+                        })
+                        .orElse(List.of());
+                if (!layout.isEmpty()) {
+                    List<Question> stage = new ArrayList<>();
+                    for (int i = 0; i < questionsToUse.size() && i < layout.size(); i++) {
+                        if (layout.get(i) != null && layout.get(i) == node) {
+                            stage.add(questionsToUse.get(i));
+                        }
+                    }
+                    if (stage.isEmpty()) {
+                        throw new IllegalArgumentException("This week's exam has no questions for this round yet.");
+                    }
+                    questionsToUse = stage;
                 }
             }
         }
@@ -1074,7 +1094,7 @@ public class AssessmentAttemptService {
             if ("worldcup".equals(exam.getTargetScope())
                     && !learnerEntitlementService.hasLearnerEntitlement(
                             learnerId, Entitlements.WORLD_CUP_ACCESS, null)) {
-                return "World Cup is part of REBYU Pro. Upgrade to enter the bracket.";
+                return "Champions Cup is part of REBYU Pro. Upgrade to enter the bracket.";
             }
             return null;
         }
