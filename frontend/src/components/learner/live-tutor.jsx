@@ -9,6 +9,7 @@ import { LiveTeachingController, cleanSpeechText } from "@/lib/live-teaching-con
 import { createLessonActions } from "@/lib/live-lesson-actions.js"
 import { useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { LiveTurnCoordinator } from "@/lib/live-turn-coordinator.js"
+import { isTutorLocked, useTutorConduct } from "@/lib/tutor-conduct.js"
 
 const WAVE_BAR_COUNT = 40
 
@@ -133,8 +134,20 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
     setDraft(value)
   }
 
+  // A conduct lockout ends the live session at once -- voice included -- wherever the
+  // Live Tutor is open; the app-wide conduct modal explains why.
+  const conduct = useTutorConduct(base)
+  useEffect(() => {
+    if (!conduct.locked) return
+    disposedRef.current = true
+    controllerRef.current?.dispose()
+    conversationRef.current?.endSession().catch(() => {})
+    onExit?.()
+  }, [conduct.locked])
+
   function reportTurn(action, data) {
     return turnRef.current?.event(action, data).catch(() => {
+      if (isTutorLocked()) return
       if (!graphErrorShownRef.current && !disposedRef.current) toast.error("Teaching coordination could not sync", { description: "Automatic teaching will wait. Your unsent draft stays here; retry Send when the connection recovers." })
       graphErrorShownRef.current = true
     })
@@ -514,7 +527,7 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
       setDraft("")
       setComposing(false)
     } catch {
-      toast.error("Your response has not been sent", { description: "LangGraph is unavailable or teaching is paused. Your draft is saved here; retry Send." })
+      if (!isTutorLocked()) toast.error("Your response has not been sent", { description: "LangGraph is unavailable or teaching is paused. Your draft is saved here; retry Send." })
     } finally {
       setSending(false)
     }

@@ -1,5 +1,6 @@
 import axios from "axios"
 import { supabase } from "@/lib/supabase.js"
+import { announceConduct, TUTOR_LOCKED } from "@/lib/tutor-conduct.js"
 
 const deployedApiOrigin = import.meta.env.VITE_API_URL?.replace(/\/+$/, "")
 
@@ -84,8 +85,15 @@ async function request(endpoint, options = {}) {
       timeout: options.timeout,
     })
 
+    // An AI-tutor conduct warning rides along on the reply (see lib/tutor-conduct.js).
+    if (response.data && typeof response.data === "object" && response.data.conductNotice) {
+      announceConduct({ conduct: response.data.conductNotice })
+    }
     return response.data
   } catch (error) {
+    if (error.response?.status === 423 && error.response.data?.code === TUTOR_LOCKED) {
+      announceConduct({ lockedUntil: error.response.data.lockedUntil })
+    }
     if (
       error.response?.status === 401 &&
       hadToken &&

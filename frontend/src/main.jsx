@@ -15,6 +15,7 @@ import "@/lib/supabase.js"
 import { AuthProvider } from "@/context/auth-context.jsx"
 import { LoadingOverlayProvider } from "@/components/loading-overlay.jsx"
 import { MotionConfig } from "framer-motion"
+import { TutorConductHost } from "@/components/learner/tutor-conduct.jsx"
 
 
 const rootElement = document.getElementById("root")
@@ -46,6 +47,7 @@ createRoot(rootElement).render(
                 <Toaster />
                 <XpAwardModal />
                 <CertificationCompletionHost />
+                <TutorConductHost />
               </AuthProvider>
             </QueryClientProvider>
           </TooltipProvider>

@@ -160,6 +160,21 @@ public class AiServiceClient {
         }
     }
 
+    private static final Duration SCREEN_TIMEOUT = Duration.ofSeconds(5);
+
+    /** The strike-worthy reason a learner message is blocked for, or null (see tutor_guard.severe_reason). */
+    @SuppressWarnings("unchecked")
+    public String screenTutorMessage(String message) {
+        Map<String, Object> result = webClient.post()
+                .uri("/tutor/screen")
+                .bodyValue(Map.of("message", message.length() > 20000 ? message.substring(0, 20000) : message))
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block(SCREEN_TIMEOUT);
+        return result != null && Boolean.TRUE.equals(result.get("severe")) && result.get("reason") instanceof String reason
+                ? reason : null;
+    }
+
     private static final Duration DIALOGUE_TIMEOUT = Duration.ofSeconds(90);
 
     @SuppressWarnings("unchecked")

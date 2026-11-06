@@ -15,4 +15,7 @@ public class ChatResponse {
     private String sessionId;
 
     private List<Map<String, Object>> resources;
+
+    /** A conduct warning to show with this reply (see TutorConductService); null when none. */
+    private Map<String, Object> conductNotice;
 }

@@ -34,6 +34,7 @@ public class AiChatController {
     private final LearnerEntitlementService entitlements;
     private final S3StorageService storage;
     private final AiGenerationQuotaService generationQuota;
+    private final com.capstone.rebyu.aigateway.service.TutorConductService conduct;
 
     /** Tutor replies count against the learner's message limits; admins are not metered. */
     private Long meteredLearner(CurrentUserDto user) {
@@ -48,6 +49,7 @@ public class AiChatController {
         if (user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role())) {
             entitlements.requireLearnerEntitlement(user.learnerId(), Entitlements.AI_TUTOR, null);
         }
+        conduct.requireAllowed(user);
         return user;
     }
 
@@ -92,17 +94,28 @@ public class AiChatController {
     @PostMapping("/tutor")
     public ChatResponse chat(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
+        var notice = conduct.screen(user, request.getMessage(), "chat");
         Long learnerId = meteredLearner(user);
         java.util.function.Supplier<ChatResponse> reply = () -> { storeSnip(request, user); return aiChatService.chat(request); };
-        return learnerId == null ? reply.get() : generationQuota.authorizeTutor(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT, reply);
+        ChatResponse response = learnerId == null ? reply.get() : generationQuota.authorizeTutor(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT, reply);
+        if (response != null) response.setConductNotice(notice);
+        return response;
     }
 
     @PostMapping(value = "/tutor/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
+        var notice = conduct.screen(user, request.getMessage(), "chat");
         Long learnerId = meteredLearner(user);
         storeSnip(request, user);
-        return aiChatService.streamChat(request, learnerId);
+        return aiChatService.streamChat(request, learnerId, notice);
+    }
+
+    /** The learner's conduct standing: strikes so far, and whether the tutor is locked. */
+    @GetMapping("/tutor/conduct")
+    public java.util.Map<String, Object> conductStatus(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) throw new IllegalArgumentException("Authentication is required");
+        return conduct.status(auth.syncCurrentUser(jwt, jwt.getTokenValue()));
     }
 
     /** The signed-in learner's past chats for one lesson; the prefix is built here, never taken from the client. */

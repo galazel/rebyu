@@ -21,7 +21,7 @@ class LiveTutorControllerTest {
     private final LiveTeachingService teaching = mock(LiveTeachingService.class);
     private final AiServiceClient ai = mock(AiServiceClient.class);
     private final LiveTutorQuotaService quota = mock(LiveTutorQuotaService.class);
-    private final LiveTutorController controller = new LiveTutorController(auth, mock(LearnerEntitlementService.class), teaching, mock(ElevenLabsSettingsService.class), quota, ai);
+    private final LiveTutorController controller = new LiveTutorController(auth, mock(LearnerEntitlementService.class), teaching, mock(ElevenLabsSettingsService.class), quota, ai, mock(com.capstone.rebyu.aigateway.service.TutorConductService.class));
     private final CurrentUserDto user = new CurrentUserDto(7L, "", "LEARNER", 9L, null, null, "", "", "", "");
     private final Jwt jwt = Jwt.withTokenValue("test").header("alg", "none").subject("user").build();
     private final UUID id = UUID.randomUUID(), connection = UUID.randomUUID();

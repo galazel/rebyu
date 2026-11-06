@@ -52,6 +52,8 @@ import { AuthedImage } from "@/lib/authed-media.jsx"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
+import { TutorLockedPanel } from "@/components/learner/tutor-conduct.jsx"
+import { announceConduct, TUTOR_LOCKED, useTutorConduct } from "@/lib/tutor-conduct.js"
 import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
 import { LearningToolsPicker } from "@/components/learner/learning-tools-picker.jsx"
 import { friendlyActivityRequest } from "@/lib/friendly-activity-request.js"
@@ -107,6 +109,9 @@ async function streamTutorAnswer(body, entry) {
     // A refusal (daily limit reached, no Pro access): surface the server's
     // message instead of retrying without streaming, which would be refused too.
     const payload = await response.json().catch(() => null)
+    if (response.status === 423 && payload?.code === TUTOR_LOCKED) {
+      announceConduct({ lockedUntil: payload.lockedUntil })
+    }
     const refusal = new Error(payload?.message ?? "The AI Tutor is not available right now.")
     refusal.code = payload?.code
     throw refusal
@@ -147,6 +152,8 @@ async function streamTutorAnswer(body, entry) {
     } else if (type === "widget" && event.widget) {
       widgets.push(event.widget)
       entry.onWidgets?.([...widgets])
+    } else if (type === "conduct" && event.conduct) {
+      announceConduct({ conduct: event.conduct })
     } else if (type === "resources") {
       resources = event.resources
     } else if (type === "error") {
@@ -695,6 +702,7 @@ export function LessonAiTutor({
   const [chatListOpen, setChatListOpen] = useState(false)
   const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
+  const conduct = useTutorConduct(base)
   const aiUsage = useAiUsage()
   const tutorExhausted = isBucketExhausted(aiUsage.bucket("tutor"))
   const sessionId = buildTutorSessionId(learnerId, lessonId)
@@ -1045,6 +1053,9 @@ export function LessonAiTutor({
           </div>
         </header>
 
+        {conduct.locked ? (
+            <TutorLockedPanel lockedUntil={conduct.lockedUntil} />
+        ) : (<>
         {chatListOpen && !dialogueOpen && !liveTutorOpen ? (
             <ChatList
                 learnerId={learnerId}
@@ -1420,6 +1431,7 @@ export function LessonAiTutor({
           </div>
         </form>
         )}
+        </>)}
       </section>
   )
 }

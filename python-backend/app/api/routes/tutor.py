@@ -61,6 +61,18 @@ class LiveTurnRequest(BaseModel):
         return self
 
 
+class ScreenRequest(BaseModel):
+    message: str = Field(default="", max_length=20_000)
+
+
+@router.post("/screen")
+async def screen(payload: ScreenRequest) -> dict:
+    """Whether a learner message earns a conduct strike. Java asks before every tutor
+    turn and keeps the strike count; the turn itself still goes through the full guard."""
+    reason = tutor_guard.severe_reason(payload.message)
+    return {"severe": reason is not None, "reason": reason}
+
+
 @router.post("/live/turn")
 async def live_turn(payload: LiveTurnRequest) -> dict:
     thread_id = f"live-turn:{payload.ownerId}:{payload.sessionId}:{payload.connectionId}"

@@ -48,7 +48,7 @@ class AiChatServiceTest {
         verify(quota, timeout(3000)).settleTutor(9L, 7L, false);
     }
     @Test void emptySynchronousReplyIsAnErrorInsteadOfChargedSuccess() {
-        when(client.chat(request)).thenReturn(new ChatResponse(" ", "9-246", null));
+        when(client.chat(request)).thenReturn(new ChatResponse(" ", "9-246", null, null));
         assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> service.chat(request));
     }
     @Test void anActivityThatCannotBeSavedIsNotCharged() {

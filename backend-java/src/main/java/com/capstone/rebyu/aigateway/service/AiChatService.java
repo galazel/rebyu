@@ -40,7 +40,22 @@ public class AiChatService {
     }
 
     public SseEmitter streamChat(ChatRequest request, Long learnerId) {
+        return streamChat(request, learnerId, null);
+    }
+
+    /** As above; a conduct warning, when there is one, goes out as the stream's first event. */
+    public SseEmitter streamChat(ChatRequest request, Long learnerId, java.util.Map<String, Object> conduct) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
+        if (conduct != null) {
+            try {
+                java.util.Map<String, Object> event = new java.util.LinkedHashMap<>();
+                event.put("type", "conduct");
+                event.put("conduct", conduct);
+                emitter.send(SseEmitter.event().name("conduct").data(objectMapper.writeValueAsString(event)));
+            } catch (Exception unsent) {
+                log.debug("Could not send the conduct notice: {}", unsent.toString());
+            }
+        }
         Long reservation = learnerId == null ? null : generationQuota.reserveTutor(learnerId, com.capstone.rebyu.billing.service.AiGenerationQuotaService.KIND_TUTOR_CHAT);
         var settled = new AtomicBoolean();
         var hasOutput = new AtomicBoolean();

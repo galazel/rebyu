@@ -36,6 +36,7 @@ public class TutorDialogueController {
     private final LearnerEntitlementService entitlements;
     private final LessonDialogueSessionRepository sessions;
     private final AiGenerationQuotaService generationQuota;
+    private final com.capstone.rebyu.aigateway.service.TutorConductService conduct;
 
     public record TurnRequest(String action, Long lessonId, String lessonName,
                               List<String> topics, List<Map<String, Object>> history, List<String> avoid) {}
@@ -49,6 +50,13 @@ public class TutorDialogueController {
         List<Map<String, Object>> history = request.history() == null ? List.of() : request.history();
         if (history.size() > MAX_HISTORY) {
             history = history.subList(history.size() - MAX_HISTORY, history.size());
+        }
+
+        Map<String, Object> notice = null;
+        if ("reply".equals(request.action()) && !history.isEmpty()
+                && "learner".equals(history.get(history.size() - 1).get("role"))
+                && history.get(history.size() - 1).get("content") instanceof String said) {
+            notice = conduct.screen(user, said, "dialogue");
         }
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -89,6 +97,11 @@ public class TutorDialogueController {
             saved.put("completedAt", session.getCompletedAt());
             return saved;
         }
+        if (notice != null && result != null) {
+            Map<String, Object> withNotice = new LinkedHashMap<>(result);
+            withNotice.put("conductNotice", notice);
+            return withNotice;
+        }
         return result;
     }
 
@@ -122,6 +135,7 @@ public class TutorDialogueController {
         if (user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role())) {
             entitlements.requireLearnerEntitlement(user.learnerId(), Entitlements.AI_TUTOR, null);
         }
+        conduct.requireAllowed(user);
         return user;
     }
 }

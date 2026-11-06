@@ -35,6 +35,7 @@ public class LiveTutorController {
     private final ElevenLabsSettingsService provider;
     private final LiveTutorQuotaService quota;
     private final AiServiceClient ai;
+    private final com.capstone.rebyu.aigateway.service.TutorConductService conduct;
 
     public record TurnRequest(UUID connectionId, Long sequence, String action, Boolean active, String message) {}
     private static final java.util.Set<String> TURN_ACTIONS = java.util.Set.of("open", "typing", "submit", "continue", "agent_message", "pause", "resume", "close");
@@ -42,6 +43,7 @@ public class LiveTutorController {
     @PostMapping("/sessions/{id}/turn")
     public Map<String, Object> coordinate(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @RequestBody TurnRequest request) {
         var user = requireTutor(jwt);
+        conduct.requireAllowed(user);
         teaching.requireOwner(user, id);
         if (request == null || request.connectionId() == null || request.sequence() == null || request.sequence() < 1 || request.sequence() > 1000000
                 || request.action() == null || !TURN_ACTIONS.contains(request.action())
@@ -56,7 +58,13 @@ public class LiveTutorController {
         body.put("sequence", request.sequence()); body.put("action", request.action());
         if (request.active() != null) body.put("active", request.active());
         if (submitted) body.put("message", request.message());
-        return ai.liveTutorTurn(body);
+        // Only what the learner typed is screened -- never the agent's own words.
+        var notice = "submit".equals(request.action()) ? conduct.screen(user, request.message(), "live") : null;
+        var result = ai.liveTutorTurn(body);
+        if (notice == null || result == null) return result;
+        var withNotice = new java.util.LinkedHashMap<String, Object>(result);
+        withNotice.put("conductNotice", notice);
+        return withNotice;
     }
 
     public record StartSessionRequest(Long lessonId, String lessonName) {}
@@ -66,6 +74,7 @@ public class LiveTutorController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody(required = false) StartSessionRequest request) {
         CurrentUserDto user = requireTutor(jwt);
+        conduct.requireAllowed(user);
         if (request == null || request.lessonId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A lesson ID is required.");
         }

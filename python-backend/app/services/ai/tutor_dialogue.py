@@ -306,11 +306,8 @@ _INJECTION = re.compile(
     r"mark\s+(everything|it|all)\s+(as\s+)?correct|give\s+me\s+full\s+marks",
     re.IGNORECASE,
 )
-_UNSAFE = re.compile(
-    r"\b(hack|hacking|exploit|crack|ddos|malware|keylogger|phish\w*|steal\s+(password|data)|"
-    r"bypass\s+(login|security)|sql\s+injection|cheat\s+on)\b",
-    re.IGNORECASE,
-)
+# The chat's intent-based rule: "what is phishing?" is a lesson question, not a request.
+_UNSAFE = tutor_guard._UNSAFE
 
 
 _UNSURE = re.compile(r"\b(i\s*(don'?t|do\s+not)\s*know|idk|not\s+sure|no\s+idea)\b", re.IGNORECASE)
@@ -339,7 +336,7 @@ def _mashed(word: str) -> bool:
     return not re.search(r"[aeiouy]", word, re.I) or len(set(word.lower())) == 1 or _keyboard_run(word)
 
 
-def screen_answer(text: str, *, explanation: bool = False) -> str | None:
+def screen_answer(text: str, *, explanation: bool = False, vocabulary: str = "") -> str | None:
     """Why a learner message is plainly not an answer, or None if it may be one.
     ``explanation`` is set for Feynman turns, which need at least a short sentence;
     an honest "I don't know" still passes so the summary can score it."""
@@ -355,7 +352,7 @@ def screen_answer(text: str, *, explanation: bool = False) -> str | None:
     if _BEGGING.search(stripped):
         return "begging"
     words = re.findall(r"[a-zA-Z]{2,}", stripped)
-    if not words or all(_mashed(w) for w in words):
+    if not words or all(_mashed(w) for w in words) or tutor_guard.is_gibberish(stripped, vocabulary):
         return "gibberish"
     if explanation and len(words) < _MIN_EXPLAIN_WORDS and not _UNSURE.search(stripped):
         return "too_short"
@@ -614,14 +611,19 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
     if request.action == "reply":
         last = next((m for m in reversed(request.history) if m.role == "learner"), None)
         previous = _last_question(request.history)
+        vocabulary = f"{plan.material(max(0, answered - 1))}\n{previous.content if previous else ''}"
         if last is not None:
-            guard = await asyncio.to_thread(tutor_guard.check_learner_message, last.content)
+            guard = await asyncio.to_thread(tutor_guard.check_learner_message, last.content, vocabulary)
+            if guard.blocked and guard.reason in ("self_harm", "abuse"):
+                # Someone who may be at risk gets the support message alone -- no quiz question after it.
+                return DialogueResponse(reply=guard.redirect, topics=topics,
+                                        topicIndex=max(0, answered - 1), counted=False)
             if guard.blocked:
                 return _repeat_question(previous, guard.redirect, topics, answered - 1)
             last.content = guard.text or last.content
         if last is not None and _is_hint_request(last.content):
             return await _hint(plan, max(0, answered), previous, topics)
-        reason = screen_answer(last.content, explanation=answered >= 2) if last else None
+        reason = screen_answer(last.content, explanation=answered >= 2, vocabulary=vocabulary) if last else None
         if not reason and last is not None and answered >= 2:
             earlier = [m.content.strip().lower() for m in request.history[:-1]
                        if m.role == "learner" and not m.ignored]
@@ -637,8 +639,11 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
             turn: DialogueTurn = await _invoke(_turn_agent, (
                 f"{_block('LESSON MATERIAL', plan.material(len(topics) - 1))}\n\n"
                 f"Recent transcript:\n{recent}\n\n{_FEEDBACK_RULE} Then close the session in one "
-                "sentence and say their session summary is coming up next. Ask no question."
+                "sentence and say their session summary is coming up next. Ask no question.\n\n"
+                f"{_OFF_TOPIC_RULE}"
             ))
+            if not turn.onTopic:
+                return _repeat_question(previous, _first_sentence(turn.reply), topics, answered - 1)
             return DialogueResponse(
                 reply=_spaced(turn.reply), topics=topics,
                 topicIndex=len(topics) - 1, sessionComplete=True,
@@ -665,17 +670,45 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
 
     summary: DialogueSummary = await _invoke(_summary_agent, (
         f"The Dialogue covered these parts of the lesson '{request.lessonName}': {'; '.join(topics[1:])}.\n\n"
-        f"Transcript:\n{_transcript(request.history)}\n\n"
+        f"Transcript:\n{_transcript(_graded_history(request.history))}\n\n"
         f"RUBRIC:\n{rubric_text()}\n\n"
         "The learner's FIRST answer was a warm-up with no wrong answer: do not score, quote or criticise "
         "it. Write the learner's session summary. Judge only what the learner actually said. Score EVERY "
         "rubric criterion by its descriptors -- 'I don't know', blank or off-topic replies are evidence "
         "of level 1, never of a higher level. Strengths must be specific to their answers and match the "
         "criteria they scored highest on; improvements must name lesson concepts they got wrong, missed "
-        "or explained loosely, tied to their lowest criteria."
+        "or explained loosely, tied to their lowest criteria. Random letters, nonsense or off-topic text "
+        "is NOT an answer: never quote it as evidence of anything above level 1, and never invent a "
+        "strength the learner did not show -- leave strengths empty if there is none. The closing must be "
+        "honest: only praise a session that earned it."
     ))
     summary.rubric = _complete_rubric(summary.rubric)
+    _keep_summary_honest(summary, request.history)
     return DialogueResponse(topics=topics, topicIndex=len(topics) - 1, sessionComplete=True, summary=summary)
+
+
+def _rejected(message: DialogueMessage) -> bool:
+    return message.role == "learner" and (message.ignored or tutor_guard.is_gibberish(message.content))
+
+
+def _graded_history(history: list[DialogueMessage]) -> list[DialogueMessage]:
+    """The transcript the summary judges. Learner messages rejected as non-answers
+    (gibberish, vulgar, off-topic...) are left out, so they are never quoted or scored."""
+    return [m for m in history if not _rejected(m)]
+
+
+def _keep_summary_honest(summary: DialogueSummary, history: list[DialogueMessage]) -> None:
+    """The closing line and strengths must match the scores, whatever the model wrote."""
+    levels = [score.level for score in summary.rubric] or [1]
+    average = sum(levels) / len(levels)
+    rejected = sum(1 for m in history if _rejected(m))
+    if average < 2 or rejected >= 2:
+        summary.closing = ("Go back over the lesson, then try the Dialogue again and answer each "
+                           "question in your own words -- that's how you'll get real feedback.")
+    elif average < 3:
+        summary.closing = "You're getting there -- review the areas above, then try again to level up."
+    if average <= 1:
+        summary.strengths = []
 
 
 def _complete_rubric(scores: list[RubricScore]) -> list[RubricScore]:

@@ -9,7 +9,6 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  UserPlus,
   Users,
 } from "@/components/icons"
 
@@ -273,7 +272,6 @@ function LearnerTypeBadge({ type }) {
 }
 
 export default function Learners({
-                                   onCreate,
                                    onView,
                                    onEdit,
                                    onDelete,
@@ -524,10 +522,6 @@ export default function Learners({
               Individual learners
             </p>
           </div>
-          <Button type="button" className="ml-auto" onClick={onCreate}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Learner
-          </Button>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

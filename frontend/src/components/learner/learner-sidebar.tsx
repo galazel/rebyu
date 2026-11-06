@@ -47,7 +47,6 @@ const learnerNav = {
     items: [
       { name: "Progress", url: "/learner/analytics", icon: TrendingUpIcon, tone: "explain", activeUrls: ["/learner/progress"] },
       { name: "Certifications", url: "/learner/certifications", icon: AwardIcon, tone: "insight" },
-      { name: "My Learning", url: "/learner/learning", activeUrls: ["/learner/lessons"], icon: BookOpenIcon, tone: "recall" },
       { name: "Mistake bank", url: "/learner/mistakes", icon: TargetIcon, tone: "decision" },
     ],
   },
@@ -60,6 +59,7 @@ const learnerNav = {
   account: {
     name: "My account",
     items: [
+      { name: "My Learning", url: "/learner/learning", activeUrls: ["/learner/lessons"], icon: BookOpenIcon, tone: "recall" },
       { name: "Account settings", url: "/learner/account", icon: UserRound, tone: "worked" },
       { name: "Study calendar", url: "/learner/plan", icon: CalendarDays, tone: "timed" },
       { name: "Library", url: "/learner/library", icon: LibraryBig, tone: "word" },

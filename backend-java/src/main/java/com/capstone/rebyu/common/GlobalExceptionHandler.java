@@ -191,6 +191,17 @@ public class GlobalExceptionHandler {
         log.debug("Client disconnected before response was complete");
     }
 
+    @ExceptionHandler(com.capstone.rebyu.aigateway.common.TutorLockedException.class)
+    public ResponseEntity<java.util.Map<String, Object>> handleTutorLocked(
+            com.capstone.rebyu.aigateway.common.TutorLockedException ex) {
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("status", HttpStatus.LOCKED.value());
+        body.put("code", com.capstone.rebyu.aigateway.common.TutorLockedException.CODE);
+        body.put("message", ex.getMessage());
+        body.put("lockedUntil", ex.getLockedUntil().toString());
+        return ResponseEntity.status(HttpStatus.LOCKED).body(body);
+    }
+
     @ExceptionHandler(com.capstone.rebyu.billing.entitlement.PremiumAccessRequiredException.class)
     public ResponseEntity<java.util.Map<String, Object>> handlePremiumAccess(
             com.capstone.rebyu.billing.entitlement.PremiumAccessRequiredException ex) {
