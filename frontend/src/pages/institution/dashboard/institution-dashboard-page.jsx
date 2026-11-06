@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
+import { ExportButton, tableFromObject, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -33,6 +34,7 @@ import {
 import { BentoTile } from "@/components/commons/bento.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
+import { INSTITUTION_DEFAULT } from "@/components/commons/dashboard-tile-labels.js"
 import { InstitutionMetricsSidebar } from "@/components/institution/institution-metrics-sidebar.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { getInstitutionDashboard } from "@/services/institutionDashboardService.js"
@@ -863,6 +865,21 @@ export default function InstitutionDashboardPage() {
         actions={
           <div className="flex items-center gap-2">
             <InstitutionVerifiedBadge verified={institution.isVerified} />
+            <ExportButton
+              filename="rebyu-institution-dashboard"
+              report="Institution dashboard"
+              details={[["Institution", institution.institutionName], ["Period", from || to ? `${from ?? "start"} to ${to ?? "today"}` : "All time"]]}
+              disabled={dashboardQuery.isLoading || dashboardQuery.isError}
+              sections={() => [
+                tableFromObject("Summary", summary),
+                tableFromObjects("Certifications", certifications),
+                tableFromObjects("Departments", departments),
+                tableFromObjects("Enrolments", enrollments),
+                tableFromObjects("Progress bands", progressBuckets),
+                tableFromObjects("Activity over time", dashboard.trend ?? []),
+                tableFromObjects("Recent invitations", invitations.recent ?? []),
+              ]}
+            />
           </div>
         }
       />
@@ -903,6 +920,8 @@ export default function InstitutionDashboardPage() {
               <DashboardBoard
                 tiles={tiles}
                 layout={layout.tileLayout}
+                defaultOrder={INSTITUTION_DEFAULT.order}
+                defaultCols={INSTITUTION_DEFAULT.cols}
                 editing={layout.rearranging}
                 onLayoutChange={layout.handleLayoutChange}
               />

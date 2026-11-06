@@ -3,11 +3,7 @@ import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
-  AlertTriangle,
   Building2,
-  Check,
-  ChevronDown,
-  CreditCard,
   Layers,
   Loader2,
   MailIcon,
@@ -19,7 +15,6 @@ import {
   ShieldCheck,
   Trash2,
   UserPlus,
-  UsersRoundIcon,
 } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -53,7 +48,6 @@ import {
 } from "@/components/ui/select"
 import { SectionDialog } from "@/components/institution/sections-tab.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
-import { formatDate } from "@/components/institution/institution-ui.jsx"
 import {
   archiveDepartmentAnnouncement,
   createDepartmentAnnouncement,
@@ -61,48 +55,34 @@ import {
   getDepartmentAnnouncements,
   getDepartmentHeadAssignments,
   getDepartmentHeadCodeInvitations,
-  getDepartmentPrograms,
-  getGroupLearnerRoster,
   getGroupSections,
-  getMyInstitutionInvoices,
   removeLearnerFromGroup,
-  startInvoiceCheckout,
   updateDepartmentAnnouncement,
 } from "@/services/institutionService.js"
+import { LEARNER_STATUS, relativeDays, useDepartmentOverview } from "@/hooks/use-my-department.js"
+import { cn } from "@/lib/utils"
+import { ExportButton } from "@/components/commons/export-button.jsx"
+import {
+  ANNOUNCEMENT_COLUMNS,
+  FORMER_LEARNER_COLUMNS,
+  LEARNER_COLUMNS,
+  SECTION_COLUMNS,
+  announcementRow,
+  formerLearnerRow,
+  learnerRow,
+  sectionRow,
+} from "@/lib/department-export.js"
+
+const ROSTER_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "at_risk", label: "At risk" },
+  { id: "dormant", label: "Gone quiet" },
+  { id: "not_started", label: "Not started" },
+  { id: "unsectioned", label: "No section" },
+]
 
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
-}
-
-function percent(value, digits = 0) {
-  return value == null ? "—" : `${Number(value).toFixed(digits)}%`
-}
-
-function money(amount, currency = "PHP") {
-  if (amount == null) return "—"
-  const val = Number(amount)
-  if (Number.isNaN(val)) return "—"
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: currency || "PHP",
-    maximumFractionDigits: 2,
-  }).format(val)
-}
-
-function formatRelativeTime(dateValue) {
-  if (!dateValue) return null
-  const now = Date.now()
-  const then = new Date(dateValue).getTime()
-  if (Number.isNaN(then)) return null
-  const diffSec = Math.floor((now - then) / 1000)
-  if (diffSec < 60) return "Just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-  return formatDate(dateValue)
 }
 
 function DashboardCardHeader({
@@ -181,6 +161,8 @@ export function DepartmentManagementBoard({
   department = null,
   isOwner = false,
   activeFeature = "dept-section-breakdown",
+  initialRosterFilter = "all",
+  initialSectionFilter = "all",
 }) {
   const queryClient = useQueryClient()
   const primaryDeptId = departmentId ?? department?.departmentId ?? department?.id
@@ -194,8 +176,10 @@ export function DepartmentManagementBoard({
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
 
   // Learner Roster States
-  const [selectedSectionFilter, setSelectedSectionFilter] = useState("all")
-  const [rosterStatusFilter, setRosterStatusFilter] = useState("all")
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState(String(initialSectionFilter ?? "all"))
+  const [rosterStatusFilter, setRosterStatusFilter] = useState(
+    ROSTER_FILTERS.some((f) => f.id === initialRosterFilter) ? initialRosterFilter : "all"
+  )
   const [rosterSearch, setRosterSearch] = useState("")
   const [removingLearner, setRemovingLearner] = useState(null)
 
@@ -216,14 +200,25 @@ export function DepartmentManagementBoard({
     return Array.isArray(sectionsQuery.data) ? sectionsQuery.data : []
   }, [sectionsQuery.data])
 
-  const rosterQuery = useQuery({
-    queryKey: ["department-learner-roster", primaryDeptId],
-    queryFn: () => getGroupLearnerRoster(primaryDeptId),
-    enabled: primaryDeptId != null,
-  })
-  const deptLearners = useMemo(() => {
-    return Array.isArray(rosterQuery.data) ? rosterQuery.data : []
-  }, [rosterQuery.data])
+  // Learner status, reason and last activity are decided by the backend once,
+  // so the roster here agrees with the dashboard's alerts and watchlist.
+  const overviewQuery = useDepartmentOverview(primaryDeptId)
+  const deptLearners = useMemo(
+    () => (Array.isArray(overviewQuery.data?.learners) ? overviewQuery.data.learners : []),
+    [overviewQuery.data]
+  )
+  const formerLearners = useMemo(
+    () => (Array.isArray(overviewQuery.data?.formerLearners) ? overviewQuery.data.formerLearners : []),
+    [overviewQuery.data]
+  )
+  const sectionStatsById = useMemo(
+    () => new Map((overviewQuery.data?.sections ?? []).map((row) => [row.sectionId, row])),
+    [overviewQuery.data]
+  )
+  const invalidateOverview = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["department-overview", primaryDeptId] }),
+    [queryClient, primaryDeptId]
+  )
 
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", primaryDeptId],
@@ -269,23 +264,13 @@ export function DepartmentManagementBoard({
     })
   }, [announcements])
 
-  const invoicesQuery = useQuery({
-    queryKey: ["institution-invoices"],
-    queryFn: getMyInstitutionInvoices,
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
-  const invoices = useMemo(
-    () => (Array.isArray(invoicesQuery.data) ? invoicesQuery.data : []),
-    [invoicesQuery.data]
-  )
-
   // Mutations
   const removeSectionMutation = useMutation({
     mutationFn: (sectionId) => deleteGroupSection(primaryDeptId, sectionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-sections", primaryDeptId] })
       queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      invalidateOverview()
       toast.success("Section archived. Its learners remain in the department.")
       setArchivingSection(null)
     },
@@ -298,6 +283,7 @@ export function DepartmentManagementBoard({
     mutationFn: (learnerId) => removeLearnerFromGroup(primaryDeptId, learnerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-learner-roster", primaryDeptId] })
+      invalidateOverview()
       toast.success("Learner removed from department.")
       setRemovingLearner(null)
     },
@@ -319,6 +305,7 @@ export function DepartmentManagementBoard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      invalidateOverview()
       toast.success(editingAnnouncement ? "Announcement updated." : "Announcement posted.")
       setAnnouncementTitle("")
       setAnnouncementBody("")
@@ -339,6 +326,7 @@ export function DepartmentManagementBoard({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      invalidateOverview()
       toast.success("Pin status updated.")
     },
     onError: (err) => {
@@ -350,6 +338,7 @@ export function DepartmentManagementBoard({
     mutationFn: (announcementId) => archiveDepartmentAnnouncement(primaryDeptId, announcementId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-announcements", primaryDeptId] })
+      invalidateOverview()
       toast.success("Announcement archived.")
       setDeletingAnnouncement(null)
     },
@@ -358,29 +347,14 @@ export function DepartmentManagementBoard({
     },
   })
 
-  const checkoutMutation = useMutation({
-    mutationFn: (invoiceId) => startInvoiceCheckout(invoiceId),
-    onSuccess: ({ checkoutUrl }) => {
-      window.location.assign(checkoutUrl)
-    },
-    onError: (error) => {
-      toast.error(error?.response?.data?.message ?? error?.message ?? "Could not open PayMongo checkout.")
-    },
-  })
-
   // Learner filtering
-  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
-  const dormantCount = useMemo(() => {
-    const now = Date.now()
-    return deptLearners.filter((l) => {
-      if (!l.lastActivityAt) return true
-      const time = new Date(l.lastActivityAt).getTime()
-      return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
-    }).length
-  }, [deptLearners])
-
-  const flaggedCount = useMemo(() => {
-    return deptLearners.filter((l) => l.flag).length
+  const statusCounts = useMemo(() => {
+    const counts = { all: deptLearners.length, unsectioned: 0 }
+    for (const learner of deptLearners) {
+      counts[learner.status] = (counts[learner.status] ?? 0) + 1
+      if (learner.sectionId == null) counts.unsectioned += 1
+    }
+    return counts
   }, [deptLearners])
 
   const filteredLearners = useMemo(() => {
@@ -392,24 +366,17 @@ export function DepartmentManagementBoard({
       list = list.filter((l) => l.sectionId === targetSectionId)
     }
 
-    if (rosterStatusFilter === "flagged") {
-      list = list.filter((l) => Boolean(l.flag))
-    } else if (rosterStatusFilter === "dormant") {
-      const now = Date.now()
-      list = list.filter((l) => {
-        if (!l.lastActivityAt) return true
-        const time = new Date(l.lastActivityAt).getTime()
-        return !Number.isNaN(time) && now - time > FOURTEEN_DAYS_MS
-      })
+    if (rosterStatusFilter === "unsectioned") {
+      list = list.filter((l) => l.sectionId == null)
+    } else if (rosterStatusFilter !== "all") {
+      list = list.filter((l) => l.status === rosterStatusFilter)
     }
 
     if (rosterSearch.trim()) {
-      const q = rosterSearch.toLowerCase()
-      list = list.filter((l) => {
-        const name = (l.name || "").toLowerCase()
-        const email = (l.email || "").toLowerCase()
-        return name.includes(q) || email.includes(q)
-      })
+      const q = rosterSearch.trim().toLowerCase()
+      list = list.filter((l) =>
+        [l.name, l.username].some((value) => String(value ?? "").toLowerCase().includes(q))
+      )
     }
 
     return list
@@ -428,6 +395,20 @@ export function DepartmentManagementBoard({
                   action={
                     primaryDeptId ? (
                       <div className="flex items-center gap-2">
+                        <ExportButton
+                          filename="rebyu-department-sections"
+                          report="Department sections"
+                          details={[["Department", department?.departmentName]]}
+                          className="h-8 text-xs"
+                          disabled={sections.length === 0}
+                          sections={() => [
+                            {
+                              title: "Sections",
+                              columns: SECTION_COLUMNS,
+                              rows: sections.map((section) => sectionRow(section, sectionStatsById.get(section.sectionId))),
+                            },
+                          ]}
+                        />
                         <Button
                           size="sm"
                           variant="outline"
@@ -471,10 +452,13 @@ export function DepartmentManagementBoard({
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {sections.map((section) => {
-                      const sectionLearners = deptLearners.filter((l) => l.sectionId === section.sectionId)
+                      const stats = sectionStatsById.get(section.sectionId)
                       const totalInSection =
-                        section.learnerCount != null ? Number(section.learnerCount) : sectionLearners.length
+                        section.learnerCount != null ? Number(section.learnerCount) : Number(stats?.learners ?? 0)
                       const pendingCount = Number(section.pendingInvitationCount ?? 0)
+                      const sectionProgress =
+                        stats?.averageProgress == null ? null : Math.round(Number(stats.averageProgress))
+                      const needCheckIn = Number(stats?.atRisk ?? 0) + Number(stats?.dormant ?? 0)
 
                       return (
                         <div
@@ -496,8 +480,23 @@ export function DepartmentManagementBoard({
                               ) : null}
                             </div>
                             <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                              {section.description || "Active department cohort"}
+                              {[section.programName, section.certificationTitle].filter(Boolean).join(" · ") ||
+                                "No program"}
                             </p>
+                            <div className="mt-2 space-y-1">
+                              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                <span>Completion</span>
+                                <span className="font-semibold tabular-nums text-foreground">
+                                  {sectionProgress == null ? "—" : `${sectionProgress}%`}
+                                </span>
+                              </div>
+                              <Progress value={sectionProgress ?? 0} className="h-1.5" />
+                              {needCheckIn > 0 ? (
+                                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                                  {needCheckIn} need{needCheckIn === 1 ? "s" : ""} a check-in
+                                </p>
+                              ) : null}
+                            </div>
                           </div>
 
                           <div className="flex items-center justify-between border-t border-border/40 pt-2 text-xs">
@@ -543,7 +542,37 @@ export function DepartmentManagementBoard({
                   icon={Building2}
                   kicker="Department Roster"
                   title="Student Roster & Directory"
-                  hint="Flagged students appear at the top with intervention context."
+                  hint="Learners who need a check-in are listed first, with the reason."
+                  action={
+                    <ExportButton
+                      filename="rebyu-department-roster"
+                      report="Department roster"
+                      details={() => [
+                        ["Department", department?.departmentName],
+                        ["Status filter", ROSTER_FILTERS.find((f) => f.id === rosterStatusFilter)?.label ?? "All"],
+                        [
+                          "Section filter",
+                          selectedSectionFilter === "all"
+                            ? "All sections"
+                            : selectedSectionFilter === "none"
+                              ? "No section"
+                              : sections.find((s) => String(s.sectionId) === selectedSectionFilter)?.sectionName,
+                        ],
+                        ["Search", rosterSearch.trim() || null],
+                        ["Learners in file", `${filteredLearners.length} of ${deptLearners.length}`],
+                      ]}
+                      className="h-8 text-xs"
+                      disabled={filteredLearners.length === 0}
+                      sections={() => [
+                        { title: "Learners", columns: LEARNER_COLUMNS, rows: filteredLearners.map(learnerRow) },
+                        {
+                          title: "Former learners (removed; figures as they stood when they left)",
+                          columns: FORMER_LEARNER_COLUMNS,
+                          rows: formerLearners.map(formerLearnerRow),
+                        },
+                      ]}
+                    />
+                  }
                 />
 
                 {/* Filter bar */}
@@ -579,44 +608,40 @@ export function DepartmentManagementBoard({
                       </div>
                     )}
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setRosterStatusFilter("all")}
-                        className={`h-8 px-2.5 text-xs font-semibold rounded-lg transition-all ${
-                          rosterStatusFilter === "all"
-                            ? "bg-foreground text-background"
-                            : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        All ({deptLearners.length})
-                      </button>
-                      {flaggedCount > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setRosterStatusFilter(rosterStatusFilter === "flagged" ? "all" : "flagged")}
-                          className={`h-8 px-2.5 text-xs font-semibold rounded-lg gap-1.5 inline-flex items-center ${
-                            rosterStatusFilter === "flagged"
-                              ? "bg-amber-500/20 text-amber-800 dark:text-amber-300 ring-1 ring-amber-500/40"
-                              : "border border-amber-500/30 bg-amber-500/10 text-amber-700"
-                          }`}
-                        >
-                          <AlertTriangle className="size-3 text-amber-600" />
-                          {flaggedCount} flagged
-                        </button>
-                      ) : null}
+                    <div className="flex flex-wrap items-center gap-1">
+                      {ROSTER_FILTERS.map((filter) => {
+                        const total = statusCounts[filter.id] ?? 0
+                        if (filter.id !== "all" && total === 0 && rosterStatusFilter !== filter.id) return null
+                        return (
+                          <button
+                            key={filter.id}
+                            type="button"
+                            aria-pressed={rosterStatusFilter === filter.id}
+                            onClick={() => setRosterStatusFilter(filter.id)}
+                            className={cn(
+                              "h-8 rounded-lg px-2.5 text-xs font-semibold transition-all",
+                              rosterStatusFilter === filter.id
+                                ? "bg-foreground text-background"
+                                : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted"
+                            )}
+                          >
+                            {filter.label} ({total})
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
 
                 {/* Table */}
-                <div className="min-h-0 max-h-[360px] overflow-x-auto overflow-y-auto mt-3">
+                <div className="min-h-0 max-h-[560px] overflow-x-auto overflow-y-auto mt-3">
                   <table className="w-full text-xs border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
                       <tr className="text-muted-foreground uppercase tracking-wider text-[10px]">
                         <th className="py-2 pl-3 pr-2 text-left">Student</th>
                         <th className="py-2 px-2 text-left">Section</th>
-                        <th className="py-2 px-2 text-left">Last Active</th>
+                        <th className="py-2 px-2 text-right">Completion</th>
+                        <th className="py-2 px-2 text-left">Last active</th>
                         <th className="py-2 px-2 text-left">Status</th>
                         <th className="py-2 pr-3 text-right">Actions</th>
                       </tr>
@@ -624,7 +649,7 @@ export function DepartmentManagementBoard({
                     <tbody>
                       {filteredLearners.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-xs text-muted-foreground">
+                          <td colSpan={6} className="py-6 text-center text-xs text-muted-foreground">
                             No learners match the current filter.
                           </td>
                         </tr>
@@ -632,26 +657,36 @@ export function DepartmentManagementBoard({
                         filteredLearners.map((learner) => (
                           <tr key={learner.learnerId} className="border-b border-border/40 hover:bg-muted/30">
                             <td className="py-2.5 pl-3 pr-2">
-                              <span className="font-semibold text-foreground">
+                              <Link
+                                to={`/institution/departments/${primaryDeptId}/learners/${learner.learnerId}`}
+                                className="font-semibold text-foreground hover:underline"
+                              >
                                 {learner.name || `Learner #${learner.learnerId}`}
-                              </span>
+                              </Link>
                             </td>
                             <td className="py-2.5 px-2">
                               <Badge variant="outline" className="text-[10px]">
                                 {learner.sectionName || "Unassigned"}
                               </Badge>
                             </td>
+                            <td className="py-2.5 px-2 text-right font-semibold tabular-nums">
+                              {learner.averageProgress == null ? "—" : `${Math.round(Number(learner.averageProgress))}%`}
+                            </td>
                             <td className="py-2.5 px-2 text-muted-foreground">
-                              {formatRelativeTime(learner.lastActivityAt) || "Never"}
+                              {relativeDays(learner.daysInactive)}
                             </td>
                             <td className="py-2.5 px-2">
-                              {learner.flag ? (
-                                <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 text-[10px]">
-                                  {learner.flag}
+                              <div className="space-y-0.5">
+                                <Badge
+                                  variant="outline"
+                                  className={cn("text-[10px]", LEARNER_STATUS[learner.status]?.className)}
+                                >
+                                  {LEARNER_STATUS[learner.status]?.label ?? learner.status}
                                 </Badge>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                                {learner.reason && learner.status !== "completed" ? (
+                                  <p className="text-[10px] text-muted-foreground">{learner.reason}</p>
+                                ) : null}
+                              </div>
                             </td>
                             <td className="py-2.5 pr-3 text-right">
                               <Button
@@ -669,6 +704,42 @@ export function DepartmentManagementBoard({
                     </tbody>
                   </table>
                 </div>
+
+                {formerLearners.length > 0 ? (
+                  <details className="mt-4 rounded-xl border border-border/60 bg-muted/10">
+                    <summary className="cursor-pointer px-3 py-2.5 text-xs font-semibold text-foreground">
+                      Former learners ({formerLearners.length}) — removed from the department; their history stays in exports
+                    </summary>
+                    <div className="overflow-x-auto px-3 pb-3">
+                      <table className="w-full text-xs">
+                        <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          <tr>
+                            <th className="py-2 pr-2 text-left">Learner</th>
+                            <th className="py-2 px-2 text-left">Section</th>
+                            <th className="py-2 px-2 text-left">Joined</th>
+                            <th className="py-2 px-2 text-left">Removed</th>
+                            <th className="py-2 px-2 text-right">Completion</th>
+                            <th className="py-2 pl-2 text-right">Avg score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formerLearners.map((l) => (
+                            <tr key={l.learnerId} className="border-t border-border/40">
+                              <td className="py-2 pr-2 font-medium text-foreground">{l.name}</td>
+                              <td className="py-2 px-2 text-muted-foreground">{l.sectionName ?? "No section"}</td>
+                              <td className="py-2 px-2 text-muted-foreground">{l.joinedAt ? String(l.joinedAt).slice(0, 10) : "—"}</td>
+                              <td className="py-2 px-2 text-muted-foreground">{l.removedAt ? String(l.removedAt).slice(0, 10) : "—"}</td>
+                              <td className="py-2 px-2 text-right tabular-nums">
+                                {l.averageProgress == null ? "—" : `${Math.round(Number(l.averageProgress))}%`}
+                              </td>
+                              <td className="py-2 pl-2 text-right tabular-nums">{l.averageScore == null ? "—" : `${l.averageScore}%`}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                ) : null}
         </div>
       )}
 
@@ -729,6 +800,18 @@ export function DepartmentManagementBoard({
                   kicker="Department Communications"
                   title="Announcements & Quick-Compose"
                   hint={`${announcements.length} announcement${announcements.length === 1 ? "" : "s"} · Direct bulletins`}
+                  action={
+                    <ExportButton
+                      filename="rebyu-department-announcements"
+                      report="Department announcements"
+                      details={[["Department", department?.departmentName]]}
+                      className="h-8 text-xs"
+                      disabled={announcements.length === 0}
+                      sections={() => [
+                        { title: "Announcements", columns: ANNOUNCEMENT_COLUMNS, rows: sortedAnnouncements.map(announcementRow) },
+                      ]}
+                    />
+                  }
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-auto">
@@ -774,7 +857,7 @@ export function DepartmentManagementBoard({
                       <span>Recent Department Bulletins</span>
                       <span>{announcements.length} total</span>
                     </div>
-                    <div className="space-y-2 overflow-y-auto max-h-[220px] pr-1">
+                    <div className="space-y-2 overflow-y-auto max-h-[480px] pr-1">
                       {announcementsQuery.isLoading ? (
                         <div className="space-y-2 py-1">
                           <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
@@ -786,7 +869,7 @@ export function DepartmentManagementBoard({
                           <p>No announcements posted for this department yet.</p>
                         </div>
                       ) : (
-                        sortedAnnouncements.slice(0, 5).map((item) => (
+                        sortedAnnouncements.map((item) => (
                           <div
                             key={item.departmentAnnouncementId}
                             className="flex items-start justify-between gap-3 rounded-xl border border-border/60 bg-card p-3 text-xs"
@@ -845,76 +928,6 @@ export function DepartmentManagementBoard({
         </div>
       )}
 
-      {/* 5. Invoices Page View */}
-      {activeFeature === "dept-invoices" && (
-        <div id="dept-invoices" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
-          <DashboardCardHeader
-                  icon={CreditCard}
-                  kicker="Billing & Payments"
-                  title="Invoices Summary"
-                  hint={`${invoices.length} total invoice${invoices.length === 1 ? "" : "s"}`}
-                  action={
-                    <Button variant="ghost" size="sm" asChild className="h-7 text-xs font-semibold text-primary">
-                      <Link to="/institution/invoices">View all</Link>
-                    </Button>
-                  }
-                />
-
-                {invoicesQuery.isLoading ? (
-                  <div className="space-y-2 py-2">
-                    <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
-                    <div className="h-10 w-full animate-pulse rounded-lg bg-muted/50" />
-                  </div>
-                ) : invoices.length === 0 ? (
-                  <div className="my-auto flex flex-col items-center justify-center p-4 text-center text-xs text-muted-foreground">
-                    <CreditCard className="size-8 text-muted-foreground/40 mb-2" />
-                    <p className="font-semibold text-foreground">No invoices</p>
-                    <p className="mt-0.5">Your institution has no billing records yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 my-auto">
-                    {invoices.slice(0, 4).map((inv) => {
-                      const isPayable = inv.status !== "paid" && (inv.payable ?? true)
-                      return (
-                        <div
-                          key={inv.institutionInvoiceId}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/70 bg-card p-2.5 text-xs"
-                        >
-                          <div className="min-w-0">
-                            <span className="font-mono font-bold text-foreground">
-                              {inv.invoiceNumber || `Invoice #${inv.institutionInvoiceId}`}
-                            </span>
-                            <span className="ml-2 text-muted-foreground">
-                              {formatDate(inv.issuedAt)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold tabular-nums">
-                              {money(inv.totalAmount, inv.currency)}
-                            </span>
-                            {isPayable ? (
-                              <Button
-                                size="sm"
-                                className="h-7 px-2.5 text-xs font-semibold"
-                                onClick={() => checkoutMutation.mutate(inv.institutionInvoiceId)}
-                                disabled={checkoutMutation.isPending}
-                              >
-                                Pay now
-                              </Button>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] uppercase font-bold">
-                                {inv.status || "PAID"}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-        </div>
-      )}
-
       {/* Modal Dialogs */}
       {createSectionOpen && primaryDeptId ? (
         <SectionDialog
@@ -965,7 +978,10 @@ export function DepartmentManagementBoard({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove “{removingLearner?.name || `Learner #${removingLearner?.learnerId}`}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the learner from this department.
+              They leave {department?.departmentName ?? "the department"} and the institution: their section,
+              department assessments and announcements are removed and their seat is freed. They keep their own
+              enrolment in the certification and all their progress. Their history stays in this department's
+              exports under “Former learners”.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

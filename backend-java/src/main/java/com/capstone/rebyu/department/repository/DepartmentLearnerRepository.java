@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLearner, Long> {
     List<DepartmentLearner> findByDepartment_DepartmentId(Long departmentId);
 
+    List<DepartmentLearner> findByInstitutionCertLearner_InstitutionCertLearnerIdIn(java.util.Collection<Long> ids);
+
     /**
      * A department's learners with the enrollment and section the DTO reads, in one
      * query -- loaded lazily, each was a further round trip to the database.

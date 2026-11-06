@@ -26,6 +26,12 @@ import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import { useUnpaidInvoicePaths } from "@/hooks/use-unpaid-invoice-paths.js"
 import { getDepartments, getMyDepartmentHeads } from "@/services/institutionService.js"
 import { ManageGroupDialog } from "@/pages/institution/departments/institution-departments-page.jsx"
+import {
+  AllocationLearnersButton,
+  CertificationArchives,
+  certificationsPageCsv,
+} from "@/components/institution/allocation-learners.jsx"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 
 export default function InstitutionCertificationsPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
@@ -142,7 +148,7 @@ export default function InstitutionCertificationsPage() {
                     {assignedCount} learner(s) assigned
                   </p>
                 </CardContent>
-                <CardFooter className="gap-2">
+                <CardFooter className="flex-wrap gap-2">
                   {institutionCert.status === "pending" ? (
                     <Button asChild size="sm" variant="outline">
                       <Link to={invoicePathFor(institutionCert.certificationId)}>Pay invoice to unlock</Link>
@@ -154,6 +160,12 @@ export default function InstitutionCertificationsPage() {
                       </Link>
                     </Button>
                   )}
+                  {institutionCert.status !== "pending" ? (
+                    <AllocationLearnersButton
+                      allocation={institutionCert}
+                      title={certification?.title ?? `Certification #${institutionCert.certificationId}`}
+                    />
+                  ) : null}
                 </CardFooter>
               </Card>
             )
@@ -179,6 +191,22 @@ export default function InstitutionCertificationsPage() {
       <InstitutionPageHeader
         title="Certifications"
         subtitle="Your departments and the certifications under each. Manage a department's head, learners and groups from here."
+        actions={
+          data.institutionCerts.length ? (
+            <ExportButton
+              filename="rebyu-institution-certifications"
+              report="Certifications, learners and archives"
+              details={[["Institution", institution?.institutionName], ["Certifications", data.institutionCerts.length]]}
+              label="Export everything"
+              sections={() =>
+                certificationsPageCsv(
+                  data.institutionCerts,
+                  (a) => data.certificationById.get(a.certificationId)?.title ?? `Certification #${a.certificationId}`
+                )
+              }
+            />
+          ) : null
+        }
       />
 
       {data.isError ? (
@@ -219,6 +247,8 @@ export default function InstitutionCertificationsPage() {
           ))}
         </div>
       )}
+
+      <CertificationArchives />
 
       <ManageGroupDialog
         group={manageGroup}

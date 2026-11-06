@@ -26,8 +26,9 @@ public class ChallengeStandingsController {
     @GetMapping("/leaderboard")
     public List<ChallengeLeaderboardRow> leaderboard(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam(defaultValue = "10") int limit) {
-        return challengeStandingsService.leaderboard(learnerId(jwt), limit);
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) String arenaId) {
+        return challengeStandingsService.leaderboard(learnerId(jwt), limit, arenaId);
     }
 
     @GetMapping("/me/record")

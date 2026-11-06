@@ -35,7 +35,12 @@ public class ChallengeStandingsService {
     private record Standing(Long learnerId, String name, int points, int completed, int bestScore) {}
 
     public List<ChallengeLeaderboardRow> leaderboard(Long viewerLearnerId, int limit) {
-        List<Standing> standings = standings();
+        return leaderboard(viewerLearnerId, limit, null);
+    }
+
+    /** One challenge's ranking when {@code arenaId} is set, every challenge combined otherwise. */
+    public List<ChallengeLeaderboardRow> leaderboard(Long viewerLearnerId, int limit, String arenaId) {
+        List<Standing> standings = standings(arenaId);
         int size = Math.min(Math.max(limit, 1), MAX_LEADERBOARD_ROWS);
 
         List<ChallengeLeaderboardRow> rows = new ArrayList<>();
@@ -53,7 +58,7 @@ public class ChallengeStandingsService {
     }
 
     public ChallengeRecord record(Long learnerId) {
-        List<Standing> standings = standings();
+        List<Standing> standings = standings(null);
         Long rank = null;
         Standing mine = null;
         for (int index = 0; index < standings.size(); index++) {
@@ -89,10 +94,13 @@ public class ChallengeStandingsService {
                 recent);
     }
 
-    private List<Standing> standings() {
+    private List<Standing> standings(String arenaId) {
         Map<Long, int[]> totals = new LinkedHashMap<>();
         for (AssessmentAttempt run : attempts.findByStatusAndExam_ExamType_ExamTypeText(
                 AssessmentAttempt.Status.SUBMITTED, ChallengeArenaService.CHALLENGE_EXAM_TYPE)) {
+            if (arenaId != null && (run.getExam() == null || !arenaId.equals(run.getExam().getTargetScope()))) {
+                continue;
+            }
             Integer score = score(run);
             if (score == null || run.getLearnerId() == null) {
                 continue;

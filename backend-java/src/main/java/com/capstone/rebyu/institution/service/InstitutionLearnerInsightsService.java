@@ -66,6 +66,7 @@ public class InstitutionLearnerInsightsService {
     private final AssessmentAttemptRepository assessmentAttemptRepository;
     private final ExamRepository examRepository;
     private final AssessmentAttemptService assessmentAttemptService;
+    private final InstitutionMembershipService membershipService;
 
     /** One attempt at a department assessment, as the department head sees it in a list. */
     public record AttemptSummary(
@@ -283,19 +284,29 @@ public class InstitutionLearnerInsightsService {
             Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
-        DepartmentLearner assignee = activeAssignee(departmentId, learnerId)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Learner not assigned to this group: " + learnerId));
+        // Every certification the learner holds through this department.
+        List<DepartmentLearner> memberships = departmentLearnerRepository
+                .findByDepartment_DepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
+                .filter(assignee -> {
+                    Learner learner = learnerOf(assignee);
+                    return learner != null && learner.getLearnerId().equals(learnerId);
+                })
+                .toList();
+        if (memberships.isEmpty()) {
+            throw new EntityNotFoundException("Learner not assigned to this group: " + learnerId);
+        }
 
-        assignee.setStatus(DepartmentLearner.Status.archived);
-        assignee.setRemovedAt(LocalDateTime.now());
-        departmentLearnerRepository.save(assignee);
+        // Freezes their record (so exports keep their history), archives the memberships,
+        // revokes the institution enrolment, frees the seats and keeps their own enrolment.
+        int released = membershipService.release(
+                memberships.stream().map(DepartmentLearner::getInstitutionCertLearner)
+                        .filter(java.util.Objects::nonNull).distinct().toList(),
+                com.capstone.rebyu.institution.entity.InstitutionLearnerRecord.Reason.removed,
+                null, LocalDateTime.now());
 
-        group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
-        departmentRepository.save(group);
-
-        log.info("Learner {} removed from group {} by userId={}; 1 slot restored",
-                learnerId, departmentId, callerUserId);
+        log.info("Learner {} removed from department {} ({} certification(s)) by userId={}",
+                learnerId, departmentId, released, callerUserId);
     }
 
     private Department requireDepartmentAccess(

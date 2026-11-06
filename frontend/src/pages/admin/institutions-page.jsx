@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -329,6 +330,14 @@ export default function Institutions({ onEdit, onDelete }) {
   return (
       <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-baseline gap-x-10 gap-y-3 border-b border-border pb-4">
+          <ExportButton
+            filename="rebyu-admin-institutions"
+            report="Institutions"
+            details={() => [["Institutions in file", `${sortedInstitutions.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
+            className="order-last ml-auto self-center"
+            disabled={sortedInstitutions.length === 0}
+            sections={() => [tableFromObjects("Institutions", sortedInstitutions)]}
+          />
           <div className="flex items-baseline gap-2">
             <Building2 className="h-4 w-4 self-center text-primary" />
             <p className="text-xl font-semibold tabular-nums">{list.length}</p>

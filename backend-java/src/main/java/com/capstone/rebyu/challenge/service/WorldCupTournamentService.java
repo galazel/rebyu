@@ -55,6 +55,31 @@ public class WorldCupTournamentService {
 
   private static final List<String> ROUND_ORDER = List.of(ROUND_QF, ROUND_SF, ROUND_FINAL);
 
+  /** How long a learner waits in the queue before bots fill the empty seats. */
+  public static final int BOT_WAIT_SECONDS = 120;
+
+  /*
+   * Bots are seats with negative ids -1..-99 (the old test bots use -100 and below).
+   * They have no learner account, answer their match as soon as it is drawn, and a
+   * bot-against-bot match settles on its own, so a bracket with bots keeps moving.
+   */
+  private static final List<String> BOT_NAMES = List.of(
+      "Bot Ada", "Bot Turing", "Bot Grace", "Bot Linus", "Bot Hedy", "Bot Dijkstra", "Bot Ritchie",
+      "Bot Lovelace", "Bot Knuth", "Bot Hopper", "Bot Babbage", "Bot Shannon", "Bot Liskov", "Bot Kay", "Bot Wirth");
+
+  public static boolean isBot(Long id) {
+    return id != null && id < 0 && id > -100;
+  }
+
+  private static String botName(Long id) {
+    return BOT_NAMES.get((int) ((-id - 1) % BOT_NAMES.size()));
+  }
+
+  /** A bot's score for one match: steady mid-range so humans can beat them. */
+  private static double botScore() {
+    return Math.round((40 + Math.random() * 45) * 10.0) / 10.0;
+  }
+
   private final WorldCupQueueRepository queueRepo;
   private final WorldCupBracketRepository bracketRepo;
   private final WorldCupMatchRepository matchRepo;
@@ -109,6 +134,13 @@ public class WorldCupTournamentService {
   public QueueStatus joinQueue(Long learnerId, Long certificationId) {
     if (learnerId == null) throw new IllegalArgumentException("A learner account is required");
     if (certificationId == null) throw new IllegalArgumentException("Choose a track first");
+    // Only the active weekly exam's certification is open; its questions are the bracket.
+    Long openTrack = editionRepo.findActive(java.time.LocalDate.now())
+        .map(com.capstone.rebyu.challenge.entity.WorldCupEdition::getCertificationId)
+        .orElse(null);
+    if (!certificationId.equals(openTrack)) {
+      throw new IllegalArgumentException("This week's Champions Cup is not played on that certification");
+    }
 
     Optional<WorldCupQueue> existing = queueRepo.findByLearnerIdAndCertificationId(learnerId, certificationId);
     if (existing.isPresent()) {
@@ -148,6 +180,52 @@ public class WorldCupTournamentService {
     return queueStatus(learnerId, certificationId);
   }
 
+  /**
+   * After {@link #BOT_WAIT_SECONDS} in the queue with nobody else to fill the bracket,
+   * draws it now: every learner waiting on this track plus bots for the empty seats.
+   */
+  @Transactional
+  public QueueStatus fillWithBots(Long learnerId, Long certificationId) {
+    if (learnerId == null) throw new IllegalArgumentException("A learner account is required");
+    if (certificationId == null) throw new IllegalArgumentException("Choose a track first");
+
+    Optional<WorldCupQueue> mine = queueRepo.findByLearnerIdAndCertificationId(learnerId, certificationId);
+    if (mine.isEmpty()) {
+      // Someone else's timer already drew the bracket, or the learner left.
+      return queueStatus(learnerId, certificationId);
+    }
+    LocalDateTime joined = mine.get().getJoinedAt();
+    if (joined != null && joined.plusSeconds(BOT_WAIT_SECONDS - 5).isAfter(LocalDateTime.now())) {
+      throw new IllegalArgumentException("Bots join after " + (BOT_WAIT_SECONDS / 60) + " minutes in the queue.");
+    }
+
+    int required = lobbySize();
+    List<WorldCupQueue> waiting = queueRepo.findByCertificationIdOrderByPointsDesc(certificationId).stream()
+        .filter(q -> q.getLearnerId() != null && q.getLearnerId() > 0)
+        .limit(required)
+        .toList();
+
+    List<WorldCupQueue> seats = new ArrayList<>(waiting);
+    // Bots seed below every human, so a learner meets them from the top of the bracket.
+    int offset = (int) (Math.random() * BOT_NAMES.size());
+    for (int i = 0; seats.size() < required; i++) {
+      WorldCupQueue bot = new WorldCupQueue();
+      bot.setLearnerId(-1L - ((offset + i) % BOT_NAMES.size()));
+      bot.setCertificationId(certificationId);
+      bot.setPoints(-1 - i);
+      seats.add(bot);
+    }
+
+    WorldCupBracket bracket = createBracket(certificationId, seats);
+    queueRepo.deleteAll(waiting);
+    queueRepo.flush();
+    log.info("World Cup bracket {} drawn with {} bot(s) after the queue wait", bracket.getBracketId(),
+        required - waiting.size());
+
+    BracketView view = bracketView(bracket, matchRepo.findByBracketIdOrderByRoundAscMatchIndexAsc(bracket.getBracketId()));
+    return new QueueStatus(false, 0, required, certificationId, view);
+  }
+
   @Transactional
   public QueueStatus leaveQueue(Long learnerId, Long certificationId) {
     queueRepo.deleteByLearnerIdAndCertificationId(learnerId, certificationId);
@@ -168,7 +246,7 @@ public class WorldCupTournamentService {
     List<Long> bracketIds = matchRepo.findBracketIdsByLearnerId(learnerId);
     for (Long bracketId : bracketIds) {
       WorldCupBracket bracket = bracketRepo.findById(bracketId).orElse(null);
-      if (bracket != null && !ROUND_COMPLETED.equals(bracket.getCurrentRound())) {
+      if (bracket != null && isLive(bracket)) {
         List<WorldCupMatch> matches = matchRepo.findByBracketIdOrderByRoundAscMatchIndexAsc(bracketId);
         return bracketView(bracket, matches);
       }
@@ -284,9 +362,9 @@ public class WorldCupTournamentService {
     bracket.setCurrentRound(ROUND_QF);
     bracket.setCreatedAt(LocalDateTime.now());
 
-    editionRepo.findAllByOrderByWeekStartDesc().stream()
-        .filter(e -> e.isPublished() && Objects.equals(e.getCertificationId(), certificationId))
-        .findFirst()
+    // Drawn from this week's exam (the only open track), never a past or future week.
+    editionRepo.findActive(java.time.LocalDate.now())
+        .filter(e -> Objects.equals(e.getCertificationId(), certificationId))
         .ifPresent(e -> bracket.setEditionId(e.getEditionId()));
 
     WorldCupBracket saved = bracketRepo.save(bracket);
@@ -305,7 +383,8 @@ public class WorldCupTournamentService {
 
     log.info("World Cup bracket created: bracketId={}, cert={}, players={}",
         saved.getBracketId(), certificationId, playerIds);
-    return saved;
+    playBots(saved.getBracketId(), ROUND_QF);
+    return bracketRepo.findById(saved.getBracketId()).orElse(saved);
   }
 
   private void resolveMatch(WorldCupMatch match) {
@@ -360,11 +439,48 @@ public class WorldCupTournamentService {
     }
 
     log.info("World Cup bracket {} advanced to {}", bracket.getBracketId(), nextRound);
+    playBots(bracket.getBracketId(), nextRound);
+  }
+
+  /** Bots hand in their score as soon as a round is drawn; bot-vs-bot matches settle now. */
+  private void playBots(Long bracketId, String round) {
+    for (WorldCupMatch match : matchRepo.findByBracketIdAndRound(bracketId, round)) {
+      if (STATUS_COMPLETED.equals(match.getStatus())) continue;
+      boolean changed = false;
+      if (isBot(match.getPlayer1Id()) && match.getPlayer1Score() == null) {
+        match.setPlayer1Score(botScore());
+        changed = true;
+      }
+      if (isBot(match.getPlayer2Id()) && match.getPlayer2Score() == null) {
+        match.setPlayer2Score(botScore());
+        changed = true;
+      }
+      if (!changed) continue;
+      matchRepo.save(match);
+      if (match.getPlayer1Score() != null && match.getPlayer2Score() != null) {
+        resolveMatch(match);
+        matchRepo.save(match);
+      }
+    }
+  }
+
+  /**
+   * A bracket a learner is still playing: not finished, and drawn for this week's exam.
+   * Finished brackets and ones from an expired week are history, so they never send a
+   * learner back to an old bracket instead of a new queue.
+   */
+  private boolean isLive(WorldCupBracket bracket) {
+    if (ROUND_COMPLETED.equals(bracket.getCurrentRound())) return false;
+    Long activeEditionId = editionRepo.findActive(java.time.LocalDate.now())
+        .map(com.capstone.rebyu.challenge.entity.WorldCupEdition::getEditionId)
+        .orElse(null);
+    return activeEditionId != null && activeEditionId.equals(bracket.getEditionId());
   }
 
   private BracketView findActiveBracket(Long learnerId, Long certificationId) {
     List<WorldCupBracket> brackets = bracketRepo.findByCertificationIdOrderByCreatedAtDesc(certificationId);
     for (WorldCupBracket bracket : brackets) {
+      if (!isLive(bracket)) continue;
       List<Long> playerIds = readPlayerIds(bracket.getPlayersJson());
       if (playerIds.contains(learnerId)) {
         List<WorldCupMatch> matches = matchRepo.findByBracketIdOrderByRoundAscMatchIndexAsc(bracket.getBracketId());
@@ -381,6 +497,10 @@ public class WorldCupTournamentService {
 
     Map<Long, Double> pointsMap = new HashMap<>();
     for (Long pid : playerIds) {
+      if (isBot(pid)) {
+        pointsMap.put(pid, 0.0);
+        continue;
+      }
       try {
         ChallengeRecord rec = standingsService.record(pid);
         pointsMap.put(pid, rec != null ? rec.points() : 0.0);
@@ -391,7 +511,7 @@ public class WorldCupTournamentService {
 
     List<PlayerInfo> players = playerIds.stream().map(pid -> {
       Learner l = learners.get(pid);
-      String name = l != null ? displayName(l) : "Player " + pid;
+      String name = isBot(pid) ? botName(pid) : l != null ? displayName(l) : "Player " + pid;
       String avatar = l != null ? l.getAvatarKey() : null;
       return new PlayerInfo(pid, name, avatar, pointsMap.getOrDefault(pid, 0.0));
     }).toList();
@@ -426,6 +546,7 @@ public class WorldCupTournamentService {
 
   private PlayerInfo playerInfo(Long learnerId) {
     if (learnerId == null) return null;
+    if (isBot(learnerId)) return new PlayerInfo(learnerId, botName(learnerId), null, 0);
     Learner l = learnerRepo.findById(learnerId).orElse(null);
     double pts = 0;
     try {
@@ -567,13 +688,13 @@ public class WorldCupTournamentService {
   @Transactional
   public void cleanupTestData() {
     queueRepo.findAll().stream()
-        .filter(q -> q.getLearnerId() < 0)
+        .filter(q -> q.getLearnerId() <= -100)
         .forEach(queueRepo::delete);
 
     bracketRepo.findAll().stream()
         .filter(b -> {
           List<Long> ids = readPlayerIds(b.getPlayersJson());
-          return ids.stream().anyMatch(id -> id < 0);
+          return ids.stream().anyMatch(id -> id <= -100);
         })
         .forEach(b -> {
           matchRepo.findByBracketIdOrderByRoundAscMatchIndexAsc(b.getBracketId())

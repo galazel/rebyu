@@ -317,6 +317,19 @@ public class AssessmentAttemptService {
             questionsToUse = questionsToUse.subList(0, Entitlements.FREE_ARENA_PROBLEM_LIMIT);
         }
 
+        // CodeStrike and Blueprint unlock in order: a problem opens once the one before
+        // it has been handed in.
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && CAPPED_ARENAS.contains(exam.getTargetScope())
+                && questionIndex != null
+                && questionIndex > 0 && questionIndex < questionsToUse.size()) {
+            Long previous = questionsToUse.get(questionIndex - 1).getQuestionId();
+            if (!attemptQuestionRepository.findSubmittedSourceQuestionIds(learnerId, exam.getExamId()).contains(previous)) {
+                throw new IllegalArgumentException(
+                        "Finish problem " + questionIndex + " first to unlock problem " + (questionIndex + 1) + ".");
+            }
+        }
+
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
                 && questionIndex != null
                 && questionIndex >= 0 && questionIndex < questionsToUse.size()) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -476,6 +477,14 @@ export default function Learners({
   return (
       <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center gap-x-10 gap-y-3 border-b border-border pb-4">
+          <ExportButton
+            filename="rebyu-admin-learners"
+            report="Learners"
+            details={() => [["Learners in file", `${sortedLearners.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
+            className="order-last ml-auto"
+            disabled={sortedLearners.length === 0}
+            sections={() => [tableFromObjects("Learners", sortedLearners)]}
+          />
           <div className="flex items-baseline gap-2">
             <Users className="self-center h-4 w-4 text-primary" />
             <p className="text-xl font-semibold tabular-nums">

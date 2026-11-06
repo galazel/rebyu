@@ -70,6 +70,23 @@ public class ChallengeArenaController {
 
   public record SetLiveRequest(Boolean live) {}
 
+  @PutMapping("/{arenaId}/certifications")
+  public ChallengeArenaService.ArenaStatus assignCertifications(
+      @AuthenticationPrincipal Jwt jwt,
+      @PathVariable String arenaId,
+      @RequestBody AssignRequest request) {
+    requireAdmin(jwt);
+    return arenas.setAssignedCertifications(arenaId, request == null ? List.of() : request.certificationIds());
+  }
+
+  public record AssignRequest(List<Long> certificationIds) {}
+
+  /** The challenges a certification's learners see on their learning path. */
+  @GetMapping("/for-certification/{certificationId}")
+  public List<ChallengeArenaService.ArenaStatus> forCertification(@PathVariable Long certificationId) {
+    return arenas.forCertification(certificationId);
+  }
+
   @PutMapping("/worldcup/tracks")
   public ChallengeArenaService.ArenaStatus setDisabledTracks(
       @AuthenticationPrincipal Jwt jwt, @RequestBody SetTracksRequest request) {
@@ -79,6 +96,26 @@ public class ChallengeArenaController {
 
   public record SetTracksRequest(List<Long> disabledCertificationIds) {}
 
+
+  /** The signed-in learner's handed-in problems for an arena; the next one unlocks. */
+  @GetMapping("/{arenaId}/my-progress")
+  public MyProgress myProgress(@AuthenticationPrincipal Jwt jwt, @PathVariable String arenaId) {
+    if (jwt == null) {
+      throw new IllegalArgumentException("Authentication is required");
+    }
+    CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    return new MyProgress(arenas.completedProblemIds(arenaId, user.learnerId()));
+  }
+
+  public record MyProgress(List<Long> completedQuestionIds) {}
+
+  /** The weekly exam learners can play now; `edition` is null when none is published. */
+  @GetMapping("/worldcup/active-edition")
+  public ActiveEditionResponse activeEdition() {
+    return new ActiveEditionResponse(arenas.activeWorldCupEdition().orElse(null));
+  }
+
+  public record ActiveEditionResponse(ChallengeArenaService.ActiveEdition edition) {}
 
   @GetMapping("/worldcup/editions")
   public List<WorldCupEditionService.EditionSummary> editions(@AuthenticationPrincipal Jwt jwt) {

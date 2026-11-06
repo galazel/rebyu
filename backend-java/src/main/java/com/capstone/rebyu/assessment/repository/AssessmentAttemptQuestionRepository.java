@@ -20,6 +20,16 @@ public interface AssessmentAttemptQuestionRepository
 
     long countByAttempt_AssessmentAttemptId(Long assessmentAttemptId);
 
+    /** Questions the learner has handed in at least once on this exam (an arena's problems). */
+    @Query("""
+            SELECT DISTINCT q.sourceQuestionId
+            FROM AssessmentAttemptQuestion q JOIN q.attempt a
+            WHERE a.learnerId = :learnerId
+              AND a.exam.examId = :examId
+              AND a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
+            """)
+    List<Long> findSubmittedSourceQuestionIds(@Param("learnerId") Long learnerId, @Param("examId") Long examId);
+
     interface ExposureView {
         Long getSourceQuestionId();
         long getTimesSeen();

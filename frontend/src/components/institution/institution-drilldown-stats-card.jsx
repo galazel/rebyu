@@ -883,139 +883,72 @@ export default function InstitutionDrilldownStatsCard({
   const isLevel2PanelVisible = Boolean(currentActiveCert || isCardHovered)
   const displayLevel2Item = currentActiveCert || lastActiveCert || level2Data[0]
 
+  /* A plain summary of what the chart shows, from the same numbers. It states
+     facts only — no advice the data cannot support. */
   const remarksData = useMemo(() => {
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
     if (currentLevel === 1) {
-      if (!level1Data.length || totalLevel1Enrolled === 0) {
-        return {
-          tag: "Critical Inactivity",
-          diagnosis: `Allocated capacity is 100% idle (${totalLevel1Enrolled} of ${totalLevel1Slots} seats used, ${overallLevel1ReachPct}% capacity). All department tracks report zero active learner participation.`,
-          recommendation: "Activate department cohorts immediately by assigning designated certification tracks and onboarding students.",
-        }
-      }
-
       const emptyDepts = level1Data.filter((d) => d.enrolled === 0).length
-
-      if (overallLevel1ReachPct < 50) {
-        return {
-          tag: "Severe Underutilization",
-          diagnosis: `Allotted seats are critically under-utilized at only ${overallLevel1ReachPct}% capacity (${totalLevel1Enrolled} of ${totalLevel1Slots} seats taken)${
-            emptyDepts > 0 ? `, with ${emptyDepts} department(s) recording zero active enrollees` : ""
-          }. Student achievement remains lagging with an institutional average progress score of ${level1SummaryStats.avgScore}.`,
-          recommendation: "Reallocate vacant seat licenses from dormant departments to active cohorts and mandate refresher reviews.",
-        }
+      if (!level1Data.length) {
+        return { diagnosis: "No department has seats allotted yet." }
       }
-
-      if (overallLevel1ReachPct < 80) {
-        return {
-          tag: "Moderate Throughput",
-          diagnosis: `Seat occupancy is moderate at ${overallLevel1ReachPct}% (${totalLevel1Enrolled} of ${totalLevel1Slots} seats occupied), yet average student performance score stands at ${level1SummaryStats.avgScore}. The persistent gap between seat reservations and completed reviews indicates significant learner drop-off.`,
-          recommendation: "Introduce milestone checkpoints and automated reminder nudges to push in-progress learners toward mock exams.",
-        }
-      }
-
       return {
-        tag: "High Engagement",
-        diagnosis: `Seat allocation is robust at ${overallLevel1ReachPct}% capacity (${totalLevel1Enrolled} of ${totalLevel1Slots} seats filled). However, overall average performance of ${level1SummaryStats.avgScore} reflects room for higher curriculum mastery.`,
-        recommendation: "Conduct targeted mock assessment clinics to transition active enrollees into completed certifications.",
+        diagnosis: `${totalLevel1Enrolled} of ${totalLevel1Slots} seats in use (${overallLevel1ReachPct}%) across ${plural(
+          level1Data.length, "department", "departments"
+        )}${emptyDepts ? `; ${plural(emptyDepts, "department has", "departments have")} no learners yet` : ""}. ${
+          level1SummaryStats.totalCompleted
+        } earned the review badge and ${level1SummaryStats.totalInProgress} are in progress. Average graded score in this period: ${
+          level1SummaryStats.avgScore
+        }.`,
       }
     }
 
     if (currentLevel === 2) {
       if (!level2Data.length) {
-        return {
-          tag: "Zero Allocation",
-          diagnosis: `No active certification tracks are currently provisioned for ${selectedDepartment?.name || "this department"}, leaving allocated capacity unassigned.`,
-          recommendation: "Assign relevant industry certifications to this department's study plan to begin onboarding students.",
-        }
+        return { diagnosis: `${selectedDepartment?.name || "This department"} has no certification assigned yet.` }
       }
       const deptTotalEnrolled = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
-      const reachPct =
-        totalLevel2Slots > 0
-          ? Math.round((deptTotalEnrolled / totalLevel2Slots) * 100)
-          : 0
-      const unassignedCerts = level2Data.filter((c) => c.enrolled === 0).length
-
+      const reachPct = totalLevel2Slots > 0 ? Math.round((deptTotalEnrolled / totalLevel2Slots) * 100) : 0
+      const untouched = level2Data.filter((c) => c.enrolled === 0).length
       return {
-        tag: reachPct < 50 ? "Low Department Uptake" : "Department In-Progress",
-        diagnosis: `In ${selectedDepartment?.name || "this department"}, seat utilization is at ${reachPct}% (${deptTotalEnrolled} of ${totalLevel2Slots} seats filled)${
-          unassignedCerts > 0 ? `, with ${unassignedCerts} certification path(s) completely untouched` : ""
-        }. Average cohort progress (${level2SummaryStats.avgProgress}) underscores sluggish skill attainment.`,
-        recommendation: "Encourage department faculty leads to set weekly completion goals and review mock exam readiness reports.",
+        diagnosis: `${selectedDepartment?.name || "This department"}: ${deptTotalEnrolled} of ${totalLevel2Slots} seats in use (${reachPct}%) across ${plural(
+          level2Data.length, "certification", "certifications"
+        )}${untouched ? `; ${plural(untouched, "has", "have")} no learners yet` : ""}. Average completion: ${level2SummaryStats.avgProgress}.`,
       }
     }
 
     if (currentLevel === 3) {
-      if (!level3Data) {
-        return {
-          tag: "Data Pending",
-          diagnosis: "Slot utilization metrics are currently loading or unavailable.",
-          recommendation: "Refresh the data or verify assigned licenses for this certification.",
-        }
-      }
-
+      if (!level3Data) return { diagnosis: "Loading this certification's seats…" }
       if (!level3Data.slotsKnown) {
         return {
-          tag: "No Slot Allotment",
-          diagnosis: `${selectedDepartment?.name || "This department"} has no seats allotted for this track, so there is no capacity to measure its ${level3Data.enrolledInDept} enrollee(s) against.`,
-          recommendation: "Allot slots to this department so its seat usage can be tracked against a target.",
+          diagnosis: `${plural(level3Data.enrolledInDept, "learner is", "learners are")} on this certification. No seats are allotted to ${
+            selectedDepartment?.name || "this department"
+          } for it, so there is no seat count to compare against.`,
         }
       }
-
-      if (level3Data.percentFilled === 0) {
-        return {
-          tag: "Zero Uptake",
-          diagnosis: `None of the ${level3Data.totalSlots} provisioned slots for this track have been claimed by learners in ${selectedDepartment?.name || "this department"}. Allocated capacity is completely idle.`,
-          recommendation: "Distribute access links and enroll candidates in this track to begin certification prep.",
-        }
-      }
-
-      if (level3Data.percentFilled < 50) {
-        return {
-          tag: "Underutilized Allocation",
-          diagnosis: `Only ${level3Data.percentFilled}% of allocated capacity is utilized (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats). With ${level3Data.remainingSlots} seats remaining idle, this department is trailing its target enrollment schedule.`,
-          recommendation: "Review pending cohort invitations and onboard eligible candidates to prevent slot wastage.",
-        }
-      }
-
-      if (level3Data.percentFilled < 90) {
-        return {
-          tag: "Healthy Utilization",
-          diagnosis: `Slot uptake is healthy at ${level3Data.percentFilled}% capacity (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats filled, with ${level3Data.remainingSlots} remaining). Average learner progress across this cohort is ${avgLearnerProgress}%.`,
-          recommendation: "Monitor learner progression through milestone check-ins to ensure on-time mock exam readiness.",
-        }
-      }
-
       return {
-        tag: "Near Full Capacity",
-        diagnosis: `This certification track has achieved ${level3Data.percentFilled}% capacity (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats active). Available seat pool is nearly exhausted.`,
-        recommendation: "Request additional seat quotas from the institutional pool if more department learners need enrollment.",
+        diagnosis: `${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats in use (${level3Data.percentFilled}%), ${
+          level3Data.remainingSlots
+        } free. Average learner completion: ${avgLearnerProgress}%.`,
       }
     }
 
     if (currentLevel === 4) {
       if (!level4Learners.length) {
         return {
-          tag: "No Enrollees",
-          diagnosis: `No learners are currently assigned to ${selectedCertification?.title || "this certification"} in ${selectedDepartment?.name || "this department"}.`,
-          recommendation: "Assign learners to begin tracking individual completion milestones.",
+          diagnosis: `No learners are on ${selectedCertification?.title || "this certification"} in ${
+            selectedDepartment?.name || "this department"
+          } yet.`,
         }
       }
-
       const readyCount = level4Learners.filter((l) => l.progress >= 75).length
       const laggingCount = level4Learners.filter((l) => l.progress < 25).length
-
       return {
-        tag: readyCount > 0 ? "Readiness Tracking" : "Cohort In-Progress",
-        diagnosis: `Tracking ${level4Learners.length} student(s) in ${selectedCertification?.title}. ${readyCount} learner(s) have reached mock-exam threshold (>=75% progress), while ${laggingCount} student(s) remain below 25%.`,
-        recommendation: "Prioritize 1-on-1 tutoring sessions for students below 25% progress to prevent cohort attrition.",
+        diagnosis: `${plural(level4Learners.length, "learner", "learners")} on ${selectedCertification?.title}: ${readyCount} at 75% completion or more, ${laggingCount} under 25%.`,
       }
     }
 
-    return {
-      tag: "Analytics Current",
-      diagnosis: "All departmental and curriculum metrics are synchronized with current institutional records.",
-      recommendation: "Continue regular performance monitoring.",
-    }
+    return { diagnosis: "" }
   }, [
     currentLevel,
     level1Data,
@@ -1317,13 +1250,13 @@ export default function InstitutionDrilldownStatsCard({
                         </span>
                         <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
                           {hoveredStatMetric === "enrollees"
-                            ? "Avg Enrollees"
+                            ? "Enrolled / dept"
                             : hoveredStatMetric === "certified"
-                            ? "Avg Certified"
+                            ? "Badge earned / dept"
                             : hoveredStatMetric === "inProgress"
-                            ? "Avg In-Progress"
+                            ? "In progress / dept"
                             : hoveredStatMetric === "score"
-                            ? "Avg Score"
+                            ? "Avg graded score"
                             : hoveredDept
                             ? (getDepartmentAbbreviation(hoveredDept.name) || hoveredDept.name)
                             : "Slots filled"}
@@ -1437,7 +1370,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level1SummaryStats.avgEnrollees}
                       </span>
-                      <span>Avg Enrollees</span>
+                      <span>Enrolled / dept</span>
                     </button>
                     <button
                       type="button"
@@ -1458,7 +1391,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level1SummaryStats.avgCertified}
                       </span>
-                      <span>Avg Certified</span>
+                      <span>Badge earned / dept</span>
                     </button>
                     <button
                       type="button"
@@ -1479,7 +1412,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level1SummaryStats.avgInProgress}
                       </span>
-                      <span>Avg In-Progress</span>
+                      <span>In progress / dept</span>
                     </button>
                     <button
                       type="button"
@@ -1500,7 +1433,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level1SummaryStats.avgScore}
                       </span>
-                      <span>Avg Score</span>
+                      <span>Avg graded score</span>
                     </button>
                   </div>
                 </div>
@@ -1630,11 +1563,11 @@ export default function InstitutionDrilldownStatsCard({
                         </span>
                         <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
                           {hoveredStatMetric === "enrollees"
-                            ? "Avg Enrollees"
+                            ? "Enrolled / dept"
                             : hoveredStatMetric === "certified"
-                            ? "Avg Certified"
+                            ? "Badge earned / dept"
                             : hoveredStatMetric === "inProgress"
-                            ? "Avg In-Progress"
+                            ? "In progress / dept"
                             : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
                             ? "Avg Progress"
                             : hoveredCert
@@ -1753,7 +1686,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level2SummaryStats.avgEnrollees}
                       </span>
-                      <span>Avg Enrollees</span>
+                      <span>Enrolled / dept</span>
                     </button>
                     <button
                       type="button"
@@ -1774,7 +1707,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level2SummaryStats.avgCertified ?? level2SummaryStats.certified}
                       </span>
-                      <span>Avg Certified</span>
+                      <span>Badge earned / dept</span>
                     </button>
                     <button
                       type="button"
@@ -1795,7 +1728,7 @@ export default function InstitutionDrilldownStatsCard({
                       >
                         {level2SummaryStats.avgInProgress ?? level2SummaryStats.inProgress}
                       </span>
-                      <span>Avg In-Progress</span>
+                      <span>In progress / dept</span>
                     </button>
                     <button
                       type="button"
@@ -2124,7 +2057,7 @@ export default function InstitutionDrilldownStatsCard({
             <div className="min-w-0 flex-1 leading-snug">
               <div className="flex items-center gap-1.5 pb-0.5">
                 <span className="font-bold uppercase tracking-wider text-[9px] text-amber-800 dark:text-amber-300">
-                  Diagnostic Analysis
+                  At a glance
                 </span>
               </div>
               <p className="text-foreground/90 text-[11px] leading-snug">

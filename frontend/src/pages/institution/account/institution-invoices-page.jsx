@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -167,7 +168,25 @@ function InvoiceList() {
 
   return (
     <div className="space-y-6">
-      <InstitutionPageHeader title="Invoices" subtitle="What your institution has been billed for certification access." />
+      <InstitutionPageHeader
+        title="Invoices"
+        subtitle="What your institution has been billed for certification access."
+        actions={
+          <ExportButton
+            filename="rebyu-institution-invoices"
+            report="Invoices"
+            details={[["Invoices in file", invoices.length]]}
+            disabled={invoices.length === 0}
+            sections={() => [tableFromObjects("Invoices", invoices, { omit: ["items"] }),
+              tableFromObjects(
+                "Invoice lines",
+                invoices.flatMap((invoice) =>
+                  (invoice.items ?? []).map((item) => ({ invoiceNumber: invoice.invoiceNumber, ...item }))
+                )
+              )]}
+          />
+        }
+      />
       {invoices.length === 0 ? (
         <InstitutionEmptyState
           icon={CreditCard}

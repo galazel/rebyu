@@ -26,6 +26,20 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     List<Question> findByParentQuestionIsNullAndLesson_LessonIdOrderByQuestionIdAsc(Long lessonId);
 
+    /** Just id and stem of a lesson's top-level questions: enough for the duplicate check. */
+    interface StemView {
+        Long getQuestionId();
+        String getQuestionText();
+    }
+
+    @Query("""
+            SELECT q.questionId AS questionId, q.questionText AS questionText
+            FROM Question q
+            WHERE q.parentQuestion IS NULL AND q.lesson.lessonId = :lessonId
+            ORDER BY q.questionId ASC
+            """)
+    List<StemView> findStemsByLesson(@Param("lessonId") Long lessonId);
+
     List<Question> findByParentQuestionIsNullAndLesson_MiddleCategory_MiddleCategoryIdOrderByQuestionIdAsc(
             Long middleCategoryId);
 

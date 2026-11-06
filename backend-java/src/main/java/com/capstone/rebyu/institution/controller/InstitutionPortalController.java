@@ -50,6 +50,9 @@ public class InstitutionPortalController {
     private final DepartmentHeadService departmentHeadService;
     private final com.capstone.rebyu.institution.service.CertificationAnalyticsService certificationAnalyticsService;
     private final InstitutionRepository institutionRepository;
+    private final com.capstone.rebyu.institution.repository.InstitutionCertificateRepository institutionCertificateRepository;
+    private final com.capstone.rebyu.institution.service.InstitutionMembershipService membershipService;
+    private final com.capstone.rebyu.institution.service.InstitutionCertificateArchiveService archiveService;
     private final CognitoAuthService auth;
 
     @GetMapping("/profile")
@@ -66,11 +69,12 @@ public class InstitutionPortalController {
     public InstitutionLearningStatsDto learningStats(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long departmentId) {
         CurrentUserDto user = institutionUser(jwt);
         return learningStatsService.learningStats(
                 user.institutionId(),
-                myDepartmentIds(user),
+                scopedDepartmentIds(user, departmentId),
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.atTime(java.time.LocalTime.MAX));
     }
@@ -92,12 +96,50 @@ public class InstitutionPortalController {
     @GetMapping("/group-stats")
     public List<DepartmentProgressDto> groupStats(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long departmentId) {
         CurrentUserDto user = institutionUser(jwt);
         return learningStatsService.groupProgress(
                 user.institutionId(),
-                myDepartmentIds(user),
+                scopedDepartmentIds(user, departmentId),
                 to == null ? null : to.atTime(java.time.LocalTime.MAX));
+    }
+
+    /** Everyone on one of the institution's certifications: current learners and those who left. */
+    @GetMapping("/certifications/{institutionCertId}/learners")
+    public AllocationLearners allocationLearners(@AuthenticationPrincipal Jwt jwt, @PathVariable Long institutionCertId) {
+        CurrentUserDto user = requireOwner(jwt);
+        var allocation = institutionCertificateRepository.findById(institutionCertId)
+                .filter(a -> a.getInstitution() != null && a.getInstitution().getInstitutionId().equals(user.institutionId()))
+                .orElseThrow(() -> new EntityNotFoundException("Certification not found: " + institutionCertId));
+        return new AllocationLearners(membershipService.currentRecords(allocation), membershipService.formerRecords(institutionCertId));
+    }
+
+    public record AllocationLearners(
+            List<com.capstone.rebyu.institution.service.InstitutionMembershipService.LearnerRecordDto> current,
+            List<com.capstone.rebyu.institution.service.InstitutionMembershipService.LearnerRecordDto> former) {}
+
+    /** Finished access terms, newest first. */
+    @GetMapping("/certification-archives")
+    public List<com.capstone.rebyu.institution.entity.InstitutionCertificateArchive> archives(@AuthenticationPrincipal Jwt jwt) {
+        return archiveService.archivesOf(requireOwner(jwt).institutionId());
+    }
+
+    /** The learners of one archived term, as they stood when it ended. */
+    @GetMapping("/certification-archives/{archiveId}/learners")
+    public List<com.capstone.rebyu.institution.service.InstitutionMembershipService.LearnerRecordDto> archiveLearners(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long archiveId) {
+        CurrentUserDto user = requireOwner(jwt);
+        archiveService.requireArchive(archiveId, user.institutionId());
+        return membershipService.archivedRecords(archiveId);
+    }
+
+    private CurrentUserDto requireOwner(Jwt jwt) {
+        CurrentUserDto user = institutionUser(jwt);
+        if (!"owner".equalsIgnoreCase(user.departmentHeadRole())) {
+            throw new org.springframework.security.access.AccessDeniedException("Only the institution administrator can see this.");
+        }
+        return user;
     }
 
     @GetMapping("/members")
@@ -154,6 +196,17 @@ public class InstitutionPortalController {
             throw new IllegalArgumentException("An institution account is required");
         }
         return user;
+    }
+
+    /* One department when the caller names one it may see (404 otherwise),
+       else every department the caller heads (null = the whole institution). */
+    private List<Long> scopedDepartmentIds(CurrentUserDto user, Long departmentId) {
+        if (departmentId == null) {
+            return myDepartmentIds(user);
+        }
+        departmentService.getAccessibleById(departmentId, user.institutionId(), user.userId(),
+                "owner".equalsIgnoreCase(user.departmentHeadRole()));
+        return List.of(departmentId);
     }
 
     private List<Long> myDepartmentIds(CurrentUserDto user) {

@@ -24,7 +24,16 @@ import java.util.List;
 public class InstitutionLearnerInsightsController {
 
     private final InstitutionLearnerInsightsService insightsService;
+    private final com.capstone.rebyu.institution.service.DepartmentOverviewService overviewService;
     private final CognitoAuthService auth;
+
+    /** The department head's dashboard for one department, in one response. */
+    @GetMapping("/{departmentId}/overview")
+    public com.capstone.rebyu.institution.service.DepartmentOverviewService.DepartmentOverview overview(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId) {
+        CurrentUserDto user = requireInstitution(jwt);
+        return overviewService.overview(departmentId, user.institutionId(), user.userId(), isOwner(user));
+    }
 
     @GetMapping("/{departmentId}/learners")
     public List<DepartmentLearnerRow> roster(

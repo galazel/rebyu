@@ -198,6 +198,7 @@ export function usePeriodComparison({
   enabled = true,
   comparisonType = "previous_period",
   currentStats = null,
+  departmentId = null,
 }) {
   const comparisonRange = useMemo(
     () => computeComparisonRange(range, comparisonType),
@@ -207,16 +208,16 @@ export function usePeriodComparison({
   const { current, previous } = comparisonRange
 
   const prevStatsQuery = useQuery({
-    queryKey: ["department-head-learning-stats-prev", previous.fromStr, previous.toStr],
-    queryFn: () => getInstitutionLearningStats({ from: previous.fromStr, to: previous.toStr }),
+    queryKey: ["department-head-learning-stats-prev", departmentId, previous.fromStr, previous.toStr],
+    queryFn: () => getInstitutionLearningStats({ from: previous.fromStr, to: previous.toStr, departmentId }),
     enabled: enabled && Boolean(previous.fromStr && previous.toStr),
     staleTime: 60_000,
     retry: 1,
   })
 
   const prevGroupStatsQuery = useQuery({
-    queryKey: ["department-head-group-stats-prev", previous.toStr],
-    queryFn: () => getDepartmentStats({ to: previous.toStr }),
+    queryKey: ["department-head-group-stats-prev", departmentId, previous.toStr],
+    queryFn: () => getDepartmentStats({ to: previous.toStr, departmentId }),
     enabled: enabled && Boolean(previous.toStr),
     staleTime: 60_000,
     retry: 1,

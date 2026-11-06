@@ -1,7 +1,7 @@
 import { base } from "./base.js"
 
-export async function getChallengeLeaderboard(limit = 10) {
-  const rows = await base(`challenges/leaderboard?limit=${limit}`)
+export async function getChallengeLeaderboard(limit = 10, arenaId = null) {
+  const rows = await base(`challenges/leaderboard?limit=${limit}${arenaId ? `&arenaId=${encodeURIComponent(arenaId)}` : ""}`)
   return Array.isArray(rows) ? rows : []
 }
 
@@ -21,6 +21,12 @@ export async function saveArenaProblems(arenaId, { certificationId, timeLimitMin
     method: "PUT",
     data: { certificationId, timeLimitMinutes, problems },
   })
+}
+
+/** Ids of the arena problems the signed-in learner has handed in. */
+export async function getArenaProgress(arenaId) {
+  const response = await base(`challenge-arenas/${arenaId}/my-progress`)
+  return Array.isArray(response?.completedQuestionIds) ? response.completedQuestionIds : []
 }
 
 export async function getArenaProblems(arenaId) {
@@ -43,6 +49,12 @@ export async function setWorldCupDisabledTracks(disabledCertificationIds) {
   })
 }
 
+
+/** The weekly exam learners can play now, or null when none is published. */
+export async function getWorldCupActiveEdition() {
+  const response = await base("challenge-arenas/worldcup/active-edition")
+  return response?.edition ?? null
+}
 
 export const WORLD_CUP_EDITIONS_KEY = "world-cup-editions"
 
@@ -81,6 +93,11 @@ export async function clearArenaProblems(arenaId) {
   return base(`challenge-arenas/${arenaId}/problems`, { method: "DELETE" })
 }
 
+
+/** After two minutes in the queue: fill the empty seats with bots and start. */
+export async function fillWorldCupWithBots(certificationId) {
+  return base("worldcup/queue/bots", { method: "POST", data: { certificationId } })
+}
 
 export async function joinWorldCupQueue(certificationId) {
   return base("worldcup/queue", { method: "POST", data: { certificationId } })
@@ -123,3 +140,16 @@ export async function cleanupWorldCupTest() {
   return base("worldcup/test/cleanup", { method: "POST" })
 }
 
+
+/** The certifications whose learners see this challenge on their learning path. */
+export async function setArenaCertifications(arenaId, certificationIds) {
+  return base(`challenge-arenas/${arenaId}/certifications`, {
+    method: "PUT",
+    data: { certificationIds },
+  })
+}
+
+/** Live challenges assigned to a certification, for its learning path. */
+export async function getChallengesForCertification(certificationId) {
+  return base(`challenge-arenas/for-certification/${certificationId}`)
+}

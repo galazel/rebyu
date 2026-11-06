@@ -12,6 +12,11 @@ import {
   Plus,
   Trash2,
   ArrowLeftIcon,
+  BookOpen,
+  CircleHelp,
+  Layers,
+  MailIcon,
+  ShieldCheck,
 } from "@/components/icons"
 import { toast } from "sonner"
 
@@ -42,7 +47,6 @@ import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionPageHeader,
   InstitutionStatusBadge,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
@@ -55,7 +59,8 @@ import {
   publishExam,
 } from "@/services/assessmentService.js"
 import { getQuestions } from "@/services/questionService.js"
-import { CertificationViewer } from "@/pages/institution/certifications/institution-certification-viewer-page.jsx"
+import { CurriculumOverview } from "@/components/institution/curriculum-overview.jsx"
+import { cn } from "@/lib/utils"
 import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications/institution-question-bank-page.jsx"
 import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
 import { getCertificationSummary } from "@/services/certificationService.js"
@@ -551,32 +556,52 @@ export default function InstitutionDepartmentWorkspacePage() {
 
   return (
     <div className="space-y-6">
-      {program ? (
-        <Button asChild variant="ghost" size="sm" className="min-h-[44px] self-start text-xs sm:text-sm font-medium gap-1.5 px-2">
-          <Link to="/institution/programs">
-            <ArrowLeftIcon className="size-4" />
-            All programs
-          </Link>
-        </Button>
-      ) : null}
-      <InstitutionPageHeader
-        title={
-          program
-            ? program.programCode
-              ? `${program.programCode} · ${program.programName}`
-              : program.programName
-            : group?.departmentName || group?.name || "Department Workspace"
-        }
-        subtitle={
-          program
-            ? undefined
-            : group?.departmentDescription || group?.description || "Your assigned group workspace."
-        }
-        actions={<Badge variant="secondary" className="text-xs font-semibold">{program ? "Program" : "Assigned department"}</Badge>}
-      />
-      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 px-2 text-xs font-medium">
+        <Link to="/institution/departments?view=programs">
+          <ArrowLeftIcon className="size-4" />
+          All programs
+        </Link>
+      </Button>
+
+      <header className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:flex-row sm:items-center">
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary text-sm font-extrabold tracking-wide text-primary-foreground">
+          {(program?.programCode || group?.departmentName || "?").slice(0, 4).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            {program ? `Program · ${group?.departmentName ?? ""}` : "Department workspace"}
+          </p>
+          <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">
+            {program ? program.programName : group?.departmentName || "Department workspace"}
+          </h1>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {coveredCertifications.map((cert) => (
+              <span
+                key={cert.institutionCertId}
+                className="rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              >
+                {cert.title}
+              </span>
+            ))}
+          </div>
+        </div>
+        <dl className="grid shrink-0 grid-cols-3 gap-2 text-center">
+          {[
+            ["Learners", learners.length],
+            ["Assessments", ownGroupExams.length],
+            ["Published", ownGroupExams.filter((exam) => exam.status === "PUBLISHED").length],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</dt>
+              <dd className="text-lg font-extrabold tabular-nums text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </header>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
+      <div className="order-first lg:order-last lg:sticky lg:top-20 lg:self-start">
       <WorkspaceSidebar
-        heading={program ? program.programCode || program.programName : "Department"}
         certifications={coveredCertifications}
         activeTab={activeTab}
         activeCertificationId={groupCertificationId}
@@ -589,15 +614,11 @@ export default function InstitutionDepartmentWorkspacePage() {
           })
         }
       />
+      </div>
       <Tabs value={activeTab} className="min-w-0">
         <TabsContent value="curriculum" className="mt-0 space-y-6">
           {groupCertificationId != null ? (
-            <CertificationViewer
-              key={groupCertificationId}
-              certificationId={groupCertificationId}
-              departmentId={id}
-              embedded
-            />
+            <CurriculumOverview key={groupCertificationId} certificationId={groupCertificationId} departmentId={id} />
           ) : null}
 
         </TabsContent>
@@ -783,34 +804,39 @@ export default function InstitutionDepartmentWorkspacePage() {
   )
 }
 
-const WORKSPACE_PAGES = [
-  { tab: "learners", label: "Sections & learners" },
-  { tab: "authorities", label: "Co-authorities" },
-  { tab: "announcements", label: "Announcements" },
-  { tab: "curriculum", label: "Curriculum" },
-  { tab: "question-bank", label: "Question Bank" },
-  { tab: "assessments", label: "Assessments" },
+const WORKSPACE_GROUPS = [
+  {
+    label: "Teaching",
+    pages: [
+      { tab: "curriculum", label: "Curriculum", icon: BookOpen },
+      { tab: "question-bank", label: "Question bank", icon: CircleHelp },
+      { tab: "assessments", label: "Assessments", icon: ClipboardCheckIcon },
+    ],
+  },
+  {
+    label: "Class",
+    pages: [
+      { tab: "learners", label: "Sections & learners", icon: Layers },
+      { tab: "authorities", label: "Co-authorities", icon: ShieldCheck },
+      { tab: "announcements", label: "Announcements", icon: MailIcon },
+    ],
+  },
 ]
 
 // One certification picker, then the same pages for whichever is chosen.
-function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificationId, onSelect }) {
-  const item = (active) =>
-    `flex shrink-0 items-center rounded-lg px-3.5 py-2.5 text-left text-sm font-semibold transition-colors whitespace-nowrap min-h-[44px] lg:min-h-0 ${
-      active ? "bg-primary text-primary-foreground shadow-xs" : "text-foreground hover:bg-muted"
-    }`
+function WorkspaceSidebar({ certifications, activeTab, activeCertificationId, onSelect }) {
   return (
-    <nav aria-label="Workspace" className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-      <p className="px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">{heading}</p>
-      {certifications.length ? (
-        <div className="space-y-1.5 px-1">
-          <Label htmlFor="workspace-certification" className="px-2 text-xs text-muted-foreground">
+    <nav aria-label="Workspace" className="space-y-3 rounded-2xl border border-border/60 bg-card/80 p-2 shadow-xs">
+      {certifications.length > 1 ? (
+        <div className="space-y-1.5 px-1 pt-1">
+          <Label htmlFor="workspace-certification" className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             Certification
           </Label>
           <Select
             value={activeCertificationId != null ? String(activeCertificationId) : undefined}
             onValueChange={(value) => onSelect(activeTab, Number(value))}
           >
-            <SelectTrigger id="workspace-certification" className="w-full min-h-[44px] lg:min-h-0">
+            <SelectTrigger id="workspace-certification" className="h-9 w-full">
               <SelectValue placeholder="Choose a certification" />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -823,29 +849,35 @@ function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificat
           </Select>
         </div>
       ) : null}
-
-      {/* Horizontal scroll on mobile & tablet with right-fade gradient, vertical list on lg+ */}
-      <div>
-        <div className="relative">
-          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-8">
-            {WORKSPACE_PAGES.map((page) => (
-              <button
-                key={page.tab}
-                type="button"
-                aria-current={activeTab === page.tab ? "page" : undefined}
-                className={item(activeTab === page.tab)}
-                onClick={() => onSelect(page.tab)}
-              >
-                {page.label}
-              </button>
-            ))}
+      <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none lg:flex-col lg:space-y-3 lg:overflow-visible lg:pb-0">
+        {WORKSPACE_GROUPS.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="hidden px-2.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 lg:block">
+              {group.label}
+            </p>
+            <div className="flex gap-1.5 lg:flex-col lg:gap-0.5">
+              {group.pages.map((page) => {
+                const Icon = page.icon
+                const active = activeTab === page.tab
+                return (
+                  <button
+                    key={page.tab}
+                    type="button"
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => onSelect(page.tab)}
+                    className={cn(
+                      "flex min-h-[38px] items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-all lg:min-h-0",
+                      active ? "bg-primary font-semibold text-primary-foreground shadow-xs" : "text-foreground hover:bg-muted/70"
+                    )}
+                  >
+                    <Icon className={cn("size-3.5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground")} aria-hidden="true" />
+                    {page.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          {/* Right-fade gradient to indicate overflow on mobile/tablet horizontal scroll */}
-          <div
-            className="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-background via-background/70 to-transparent lg:hidden"
-            aria-hidden="true"
-          />
-        </div>
+        ))}
       </div>
     </nav>
   )

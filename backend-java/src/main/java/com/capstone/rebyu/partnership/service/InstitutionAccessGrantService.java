@@ -73,7 +73,8 @@ public class InstitutionAccessGrantService {
                         .accessExpiryDate(end)
                         .status(InstitutionCertificate.Status.active)
                         .build());
-            } else if (existing.getStatus() == InstitutionCertificate.Status.pending) {
+            } else if (existing.getStatus() == InstitutionCertificate.Status.pending
+                    || existing.getStatus() == InstitutionCertificate.Status.expired) {
                 existing.setTotalSlots(slots);
                 existing.setAccessStartDate(start);
                 existing.setAccessExpiryDate(end);

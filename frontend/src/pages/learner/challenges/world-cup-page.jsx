@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CalendarDays, ChevronRight, Clock, Lock, Loader2, Shield, Sparkles, Trophy, Users, Zap } from "@/components/icons"
+import { motion, useReducedMotion } from "framer-motion"
+import { ArrowLeft, CalendarDays, ChevronRight, Loader2, Shield, Trophy, Users, Zap } from "@/components/icons"
+import { PathBackdrop, Plinth } from "@/components/challenges/arena-lobby.jsx"
 
-import { ProgressBar, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { getWorldCupTracks } from "@/lib/arenas.js"
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import {
@@ -15,19 +17,9 @@ import {
   getWorldCupBracket,
   getMyWorldCupBracket,
   getWorldCupHistory,
+  getWorldCupActiveEdition,
+  fillWorldCupWithBots,
 } from "@/services/challengeService.js"
-
-const BLADE_TONE = {
-  bee: { bg: "bg-gradient-to-b from-rb-bee via-rb-macaw to-rb-humpback-lip" },
-  macaw: { bg: "bg-gradient-to-b from-rb-macaw via-rb-feather to-rb-feather-lip" },
-  beetle: { bg: "bg-gradient-to-b from-rb-beetle via-rb-humpback to-rb-humpback-lip" },
-}
-
-const TRACK_TONE = {
-  bee: { wash: "bg-rb-bee-wash", ink: "text-rb-bee-ink" },
-  macaw: { wash: "bg-rb-macaw-wash", ink: "text-rb-macaw-lip" },
-  beetle: { wash: "bg-rb-beetle-wash", ink: "text-rb-beetle-lip" },
-}
 
 const ROUND_LABELS = {
   QUARTERFINAL: "Quarterfinals",
@@ -82,9 +74,9 @@ const SEAT_W = 168
 function Seat({ name, variant = "outer", isWinner, isLoser, isYou }) {
   return (
     <div className={`rb-seat rb-seat-${variant} ${isYou ? "!border-rb-feather !bg-rb-feather-wash" : ""} ${isWinner ? "!font-extrabold" : ""} ${isLoser ? "line-through opacity-50" : ""}`}>
-      {isWinner && <Zap className="mr-1.5 size-3.5 shrink-0 text-amber-500" aria-hidden="true" />}
+      {isWinner && <Zap className="mr-1.5 size-3.5 shrink-0 text-rb-fox" aria-hidden="true" />}
       <span className="truncate">{name ?? "—"}</span>
-      {isLoser && <span className="ml-auto text-xs text-red-400" aria-hidden="true">✕</span>}
+      {isLoser && <span className="ml-auto text-xs text-rb-cardinal" aria-hidden="true">✕</span>}
     </div>
   )
 }
@@ -187,22 +179,18 @@ function LiveBracket({ bracket, myLearnerId }) {
 
       <div className="flex w-[260px] shrink-0 flex-col items-center px-2 lg:w-[300px]">
         <div className="rb-halo relative">
-          <Trophy
-            className="size-28 text-rb-bee drop-shadow-[0_6px_14px_rgba(255,200,0,0.5)] lg:size-32"
-            aria-hidden="true"
-          />
+          <Trophy className="size-24 text-rb-fox lg:size-28" aria-hidden="true" />
         </div>
-        <div className="mt-5 font-rb-display text-2xl font-extrabold lowercase text-rb-eel">
-          the final
-        </div>
+        <div className="mt-4 font-rb-display text-2xl font-extrabold text-rb-eel">The final</div>
         <div className="mt-5 flex w-full items-center gap-2">
           <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist1}</div>
           <span className="font-rb-display text-lg font-extrabold lowercase text-rb-wolf">vs</span>
           <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist2}</div>
         </div>
         {bracket.winnerLearnerId ? (
-          <div className="mt-5 rounded-rb-pill bg-rb-bee px-5 py-2 text-sm font-extrabold text-[#4a3600]">
-            🏆 {getName(bracket.winnerLearnerId)} wins!
+          <div className="mt-5 inline-flex items-center gap-1.5 rounded-rb-pill bg-rb-fox px-5 py-2 text-sm font-extrabold text-white">
+            <Trophy className="size-4" aria-hidden="true" />
+            {getName(bracket.winnerLearnerId)} wins
           </div>
         ) : (
           <span className="mt-5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold text-rb-wolf">
@@ -219,6 +207,15 @@ function LiveBracket({ bracket, myLearnerId }) {
 
 export default function WorldCupPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Back returns to wherever the learner came from (e.g. their learning path);
+  // the link target is only the fallback when the page was opened directly.
+  const goBack = (event) => {
+    if (location.key !== "default") {
+      event.preventDefault()
+      navigate(-1)
+    }
+  }
   const queryClient = useQueryClient()
   const [phase, setPhase] = useState("track")
   const [track, setTrack] = useState(null)
@@ -244,13 +241,26 @@ export default function WorldCupPage() {
     staleTime: 60_000,
   })
 
-  const worldCup = (arenasQuery.data ?? []).find((row) => row.arenaId === "worldcup") ?? null
-  const locked = arenasQuery.isSuccess && !worldCup?.configured
+  // Each week has one weekly exam on one certification, so that is the only open track.
+  const activeEditionQuery = useQuery({
+    queryKey: ["worldcup-active-edition"],
+    queryFn: getWorldCupActiveEdition,
+    staleTime: 60_000,
+  })
+  const activeEdition = activeEditionQuery.data ?? null
 
-  const tracks = useMemo(
-    () => getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds),
-    [portalQuery.data, worldCup?.disabledTrackIds],
-  )
+  const worldCup = (arenasQuery.data ?? []).find((row) => row.arenaId === "worldcup") ?? null
+  const locked =
+    (arenasQuery.isSuccess && !worldCup?.configured) || (activeEditionQuery.isSuccess && !activeEdition)
+
+  const [searchParams] = useSearchParams()
+  const preferredTrack = searchParams.get("track")
+  const tracks = useMemo(() => {
+    if (!activeEdition) return []
+    return getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds).filter(
+      (t) => t.id === String(activeEdition.certificationId)
+    )
+  }, [portalQuery.data, worldCup?.disabledTrackIds, activeEdition])
 
   useEffect(() => {
     if (portalQuery.data?.learnerId) {
@@ -347,8 +357,20 @@ export default function WorldCupPage() {
   }, [stopPolling])
 
   useEffect(() => {
-    if (phase === "lobby" && queueTimer === 0) {
-      handleLeaveQueue()
+    // Nobody else joined within 2 minutes: bots fill the empty seats and the bracket starts.
+    if (phase === "lobby" && queueTimer === 0 && track) {
+      stopPolling()
+      fillWorldCupWithBots(track.id)
+        .then((data) => {
+          if (data?.activeBracket) {
+            setBracket(data.activeBracket)
+            setPhase("found")
+            setTimeout(() => setPhase("bracket"), 2000)
+          } else {
+            handleLeaveQueue()
+          }
+        })
+        .catch(() => handleLeaveQueue())
     }
   }, [queueTimer, phase])
 
@@ -376,14 +398,15 @@ export default function WorldCupPage() {
   }
 
   const thisWeekLabel = useMemo(() => {
-    const now = new Date()
-    const monday = new Date(now)
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+    // The active edition's week (it can be last published week when this one has none).
+    const [y, m, d] = String(activeEdition?.weekStart ?? "").split("-").map(Number)
+    const monday = y ? new Date(y, m - 1, d) : new Date()
+    if (!y) monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
     const sunday = new Date(monday)
     sunday.setDate(sunday.getDate() + 6)
     const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
     return `${fmt(monday)} – ${fmt(sunday)}, ${sunday.getFullYear()}`
-  }, [])
+  }, [activeEdition?.weekStart])
 
   const SUBTITLE = {
     track: "Choose your certification track",
@@ -419,346 +442,501 @@ export default function WorldCupPage() {
     return false
   }, [bracket, myLearnerId])
 
+  const backLink = (
+    <TactileButton asChild variant="ghost" size="sm">
+      <Link to="/learner/challenges" onClick={goBack}>
+        <ArrowLeft className="mr-1.5 size-4" aria-hidden="true" />
+        back
+      </Link>
+    </TactileButton>
+  )
+
   if (locked) {
     return (
-      <div className="rebyu-ds grid min-h-dvh place-items-center px-5 py-12" style={{ background: "#0c1018" }}>
-        <div className="w-full max-w-lg text-center">
-          <div className="mx-auto grid size-24 place-items-center rounded-full bg-white/[0.06]">
-            <Lock className="size-12 text-white/30" aria-hidden="true" />
+      <div className="rebyu-ds rb-arena relative isolate min-h-dvh overflow-x-hidden">
+        <PathBackdrop />
+        <div className="mx-auto max-w-5xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
+          {backLink}
+          <div className="mx-auto mt-10 max-w-sm text-center">
+            <div className="relative mx-auto aspect-[4/3] w-full max-w-[14rem]">
+              <TrophyArt locked />
+            </div>
+            <h1 className="mt-4 font-rb-display text-2xl font-extrabold text-rb-eel">Not open yet</h1>
+            <p className="mt-2 text-sm text-rb-wolf">
+              There is no Champions Cup this week. Each week's exam closes when the week ends; the next bracket
+              opens as soon as an admin publishes this week's exam.
+            </p>
           </div>
-          <h1 className="mt-6 font-rb-display text-3xl font-extrabold lowercase text-white">not open yet</h1>
-          <p className="mt-3 text-sm leading-6 text-white/40">
-            No Champions Cup week has been published yet. The bracket opens as soon as an
-            admin publishes one.
-          </p>
-          <Link
-            to="/learner/challenges"
-            className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/15"
-          >
-            back to arenas
-          </Link>
         </div>
       </div>
     )
   }
 
-  const TRACK_GLOW = {
-    bee: { from: "from-amber-500/20", ring: "ring-amber-400/40", glow: "shadow-amber-500/25" },
-    macaw: { from: "from-emerald-500/20", ring: "ring-emerald-400/40", glow: "shadow-emerald-500/25" },
-    beetle: { from: "from-cyan-500/20", ring: "ring-cyan-400/40", glow: "shadow-cyan-500/25" },
-  }
-
   return (
-    <div className="rebyu-ds rb-arena flex h-dvh flex-col overflow-hidden" style={{ background: "#0c1018" }}>
-      <header className="relative z-10 shrink-0">
-        <div className="flex items-center gap-4 px-5 pt-5 pb-4 lg:px-8">
-          <Link to="/learner/challenges" className="grid size-9 place-items-center rounded-xl bg-white/[0.06] text-white/50 transition hover:bg-white/10 hover:text-white">
-            <ChevronRight className="size-4 rotate-180" aria-hidden="true" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <Trophy className="size-5 text-amber-400" aria-hidden="true" />
-              <h1 className="font-rb-display text-lg font-extrabold lowercase tracking-tight text-white sm:text-xl">
-                champions cup
-              </h1>
-            </div>
-            <p className="mt-0.5 truncate text-[0.6875rem] font-semibold text-white/40">
-              {SUBTITLE[phase]}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {phase === "lobby" ? (
-              <>
-                <span className="rb-numeric text-sm text-white/50">{queueSize} / {queueRequired}</span>
-                <button
-                  type="button"
-                  onClick={handleLeaveQueue}
-                  className="rounded-xl bg-white/[0.06] px-4 py-2 text-xs font-bold text-white/60 transition hover:bg-red-500/20 hover:text-red-400"
-                >
-                  leave queue
-                </button>
-              </>
-            ) : null}
+    <div className="rebyu-ds rb-arena relative isolate min-h-dvh overflow-x-hidden">
+      <PathBackdrop />
+
+      <div
+        className={`mx-auto px-4 pb-16 pt-5 sm:px-6 lg:px-8 ${phase === "bracket" ? "max-w-[1600px]" : "max-w-5xl"}`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {backLink}
+          <div className="flex flex-wrap items-center gap-2">
             {track ? (
-              <span className="rounded-xl bg-white/[0.08] px-3.5 py-1.5 text-xs font-bold text-white/70">
+              <span className="rounded-full border border-rb-swan bg-rb-snow px-3 py-1 text-xs font-bold text-rb-eel">
                 {track.name}
               </span>
             ) : null}
+            {phase === "lobby" ? (
+              <TactileButton variant="ghost" size="sm" onClick={handleLeaveQueue} disabled={leaveMutation.isPending}>
+                leave queue
+              </TactileButton>
+            ) : null}
             {phase === "bracket" && bracket?.currentRound === "COMPLETED" ? (
-              <button
-                type="button"
-                onClick={() => { setPhase("track"); setTrack(null); setBracket(null) }}
-                className="rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-300 transition hover:bg-amber-500/30"
+              <TactileButton
+                variant="fox"
+                size="sm"
+                onClick={() => {
+                  setPhase("track")
+                  setTrack(null)
+                  setBracket(null)
+                }}
               >
                 play again
-              </button>
+              </TactileButton>
             ) : null}
           </div>
         </div>
-        <div aria-hidden="true" className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </header>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
+        {phase === "track" ? (
+          <section className="mt-6 grid items-center gap-6 md:grid-cols-[1.2fr_1fr]">
+            <div>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">challenge</p>
+              <h1 className="mt-1 font-rb-display text-4xl font-extrabold leading-none text-rb-eel sm:text-5xl">
+                Champions Cup
+              </h1>
+              <div className="mt-3 h-[3px] w-24 rounded-full bg-rb-fox" />
+              <p className="mt-3 max-w-md text-sm leading-6 text-rb-wolf">
+                Pick a certification track and enter the queue. When 8 challengers are ready, the bracket begins:
+                quarterfinals, semifinals, then the final.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-bold text-rb-wolf">
+                <InfoChip icon={CalendarDays}>{thisWeekLabel}</InfoChip>
+                <InfoChip icon={Users}>8 players</InfoChip>
+                <InfoChip icon={Shield}>3 rounds</InfoChip>
+              </div>
+            </div>
+            <div className="relative mx-auto aspect-[4/3] w-full max-w-[16rem] md:max-w-[18rem]">
+              <TrophyArt />
+            </div>
+          </section>
+        ) : (
+          <div className="mt-6 border-b-2 border-rb-swan pb-2">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">champions cup</p>
+            <h1 className="font-rb-display text-2xl font-extrabold text-rb-eel sm:text-3xl">{SUBTITLE[phase]}</h1>
+          </div>
+        )}
+
         {phase === "track" && portalQuery.isLoading ? (
-          <div className="grid flex-1 place-items-center px-5">
-            <Loader2 className="size-6 animate-spin text-white/30" />
+          <div className="flex items-center justify-center gap-2 py-20 text-sm font-semibold text-rb-wolf">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading tracks…
           </div>
         ) : null}
 
-        {phase === "track" && !portalQuery.isLoading && tracks.length === 0 ? (
-          <div className="grid flex-1 place-items-center px-5 pb-10">
-            <div className="max-w-md text-center">
-              <Trophy className="mx-auto size-12 text-white/20" aria-hidden="true" />
-              <div className="mt-5 font-rb-display text-2xl font-extrabold lowercase text-white">
-                no tracks yet
-              </div>
-              <p className="mt-3 text-sm leading-6 text-white/50">
-                The Champions Cup is played on a certification you are enrolled in. Enrol in
-                one and its track appears here.
-              </p>
-              <Link
-                to="/learner/certifications"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/15"
-              >
-                browse certifications
-              </Link>
-            </div>
+        {phase === "track" && !portalQuery.isLoading && activeEdition && tracks.length === 0 ? (
+          <div className="mx-auto mt-12 max-w-sm text-center">
+            <h2 className="font-rb-display text-2xl font-extrabold text-rb-eel">Not your track this week</h2>
+            <p className="mt-2 text-sm text-rb-wolf">
+              This week's Champions Cup is played on {activeEdition.certificationTitle ?? "another certification"}.
+              Enrol in it to enter the bracket.
+            </p>
+            <TactileButton asChild variant="fox" size="sm" className="mt-5">
+              <Link to="/learner/certifications">browse certifications</Link>
+            </TactileButton>
           </div>
         ) : null}
 
         {phase === "track" && tracks.length > 0 ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 pt-6 lg:px-8">
-            <div className="mx-auto mb-8 max-w-2xl text-center">
-              <div className="relative mx-auto mb-6 grid size-20 place-items-center">
-                <div aria-hidden="true" className="absolute inset-0 animate-pulse rounded-full bg-amber-500/20 blur-xl" />
-                <Trophy className="relative size-10 text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]" aria-hidden="true" />
-              </div>
-              <h2 className="font-rb-display text-3xl font-extrabold lowercase tracking-tight text-white sm:text-4xl">
-                choose your arena
-              </h2>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/40">
-                Pick your certification track and enter the queue. When 8 challengers are ready,
-                the bracket begins.
-              </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
-                  <CalendarDays className="size-3.5 text-white/30" aria-hidden="true" />
-                  {thisWeekLabel}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
-                  <Users className="size-3.5 text-white/30" aria-hidden="true" />
-                  8 players
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
-                  <Zap className="size-3.5 text-white/30" aria-hidden="true" />
-                  3 rounds
-                </span>
-              </div>
-            </div>
-
-            <div className="mx-auto grid w-full max-w-4xl flex-1 grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3">
-              {tracks.map((item) => {
-                const glow = TRACK_GLOW[item.tone] ?? TRACK_GLOW.bee
-                return (
-                  <button
+          <>
+            <section className="mt-12">
+              <SectionHeading
+                eyebrow={activeEdition?.thisWeek ? "this week" : "latest week"}
+                title={activeEdition?.thisWeek ? "This week's track" : "Latest week's track"}
+              />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {tracks.map((item) => (
+                  <TrackCard
                     key={item.id}
-                    type="button"
+                    item={item}
+                    preferred={item.id === preferredTrack}
+                    weekLabel={thisWeekLabel}
                     disabled={joinMutation.isPending}
-                    onClick={() => handleTrackSelect(item)}
-                    className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-left transition-all hover:border-white/20 hover:shadow-xl hover:${glow.glow} hover:scale-[1.02] active:scale-[0.98]`}
-                  >
-                    <div aria-hidden="true" className={`pointer-events-none absolute -top-20 left-1/2 size-40 -translate-x-1/2 rounded-full bg-gradient-to-b ${glow.from} to-transparent blur-3xl transition-opacity group-hover:opacity-100 opacity-50`} />
-
-                    <div className="relative">
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.08] px-2.5 py-1 text-[0.625rem] font-extrabold uppercase tracking-widest text-white/40">
-                        <Trophy className="size-3" aria-hidden="true" />
-                        bracket
-                      </span>
-                      <h3 className="mt-4 font-rb-display text-2xl font-extrabold lowercase leading-tight tracking-tight text-white lg:text-3xl">
-                        {item.name}
-                      </h3>
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/40">
-                        {item.blurb}
-                      </p>
-                    </div>
-
-                    <div className="relative mt-auto flex items-center gap-2 pt-6">
-                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white transition group-hover:bg-white group-hover:text-[#0c1018]">
-                        enter queue
-                        <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                      </span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+                    onSelect={() => handleTrackSelect(item)}
+                  />
+                ))}
+              </div>
+            </section>
 
             {(historyQuery.data ?? []).length > 0 ? (
-              <div className="mx-auto w-full max-w-4xl pb-10">
-                <h3 className="mb-4 font-rb-display text-lg font-extrabold lowercase tracking-tight text-white/70">
-                  past tournaments
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <section className="mt-12">
+                <SectionHeading eyebrow="history" title="Past tournaments" />
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {historyQuery.data.map((h) => (
                     <div
                       key={h.bracketId}
-                      className={`flex flex-col gap-3 rounded-2xl border p-5 ${
-                        h.won
-                          ? "border-amber-400/30 bg-amber-500/10"
-                          : "border-white/[0.08] bg-white/[0.04]"
+                      className={`flex flex-col gap-3 rounded-2xl border-2 p-4 ${
+                        h.won ? "border-rb-fox/40 bg-rb-fox-wash" : "border-rb-swan bg-rb-snow"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white/40">
-                          {new Date(h.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-rb-wolf">
+                          {new Date(h.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </span>
                         {h.won ? (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-2 py-0.5 text-[0.625rem] font-extrabold text-amber-300">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rb-fox px-2 py-0.5 text-[10px] font-extrabold text-white">
                             <Trophy className="size-3" aria-hidden="true" /> champion
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-0.5 text-[0.625rem] font-bold text-white/40">
-                            <Shield className="size-3" aria-hidden="true" /> {h.bestRound ? ROUND_LABELS[h.bestRound] ?? h.bestRound : "—"}
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rb-polar px-2 py-0.5 text-[10px] font-bold text-rb-wolf">
+                            <Shield className="size-3" aria-hidden="true" />
+                            {h.bestRound ? ROUND_LABELS[h.bestRound] ?? h.bestRound : "—"}
                           </span>
                         )}
                       </div>
                       <div className="flex items-end justify-between">
                         <div>
-                          <p className="rb-numeric text-2xl font-extrabold text-white">
+                          <p className="font-rb-display text-2xl font-extrabold tabular-nums text-rb-eel">
                             {h.bestScore != null ? Math.round(h.bestScore) : "—"}
                           </p>
-                          <p className="text-[0.625rem] font-bold text-white/30">best score</p>
+                          <p className="text-[11px] font-bold text-rb-wolf">best score</p>
                         </div>
                         <div className="text-right">
-                          <p className="rb-numeric text-lg font-extrabold text-white/70">{h.rounds ?? "—"}</p>
-                          <p className="text-[0.625rem] font-bold text-white/30">rounds played</p>
+                          <p className="font-rb-display text-lg font-extrabold tabular-nums text-rb-eel">{h.rounds ?? "—"}</p>
+                          <p className="text-[11px] font-bold text-rb-wolf">rounds played</p>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </section>
             ) : null}
-          </div>
+          </>
         ) : null}
 
         {phase === "lobby" ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 lg:px-8">
-            <div className="relative grid size-40 place-items-center">
-              <div aria-hidden="true" className={`absolute inset-0 rounded-full blur-2xl transition-colors duration-700 ${queueTimer <= 30 ? "bg-red-500/15" : "bg-amber-500/10"}`} />
-              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
-                <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+          <section className="mx-auto mt-8 flex max-w-2xl flex-col items-center rounded-3xl border-2 border-rb-swan bg-rb-snow px-5 py-8 shadow-[0_4px_0_var(--color-rb-swan)]">
+            <div className="relative grid size-36 place-items-center">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
+                <circle cx="80" cy="80" r="70" fill="none" stroke="var(--color-rb-swan)" strokeWidth="8" />
                 <circle
-                  cx="80" cy="80" r="72" fill="none"
-                  stroke={queueTimer <= 30 ? "#ef4444" : "#f59e0b"}
-                  strokeWidth="5" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 72}
-                  strokeDashoffset={2 * Math.PI * 72 * (1 - queueTimer / QUEUE_TIMEOUT)}
+                  cx="80"
+                  cy="80"
+                  r="70"
+                  fill="none"
+                  stroke={queueTimer <= 30 ? "var(--color-rb-cardinal)" : "var(--color-rb-fox)"}
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 70}
+                  strokeDashoffset={2 * Math.PI * 70 * (1 - queueTimer / QUEUE_TIMEOUT)}
                   className="transition-[stroke-dashoffset] duration-1000 ease-linear"
-                  style={{ filter: `drop-shadow(0 0 8px ${queueTimer <= 30 ? "rgba(239,68,68,0.5)" : "rgba(245,158,11,0.4)"})` }}
                 />
               </svg>
-              <div className="relative text-center">
-                <span className={`rb-numeric text-4xl font-extrabold ${queueTimer <= 30 ? "text-red-400" : "text-white"}`}>
-                  {Math.floor(queueTimer / 60)}:{String(queueTimer % 60).padStart(2, "0")}
-                </span>
-              </div>
+              <span
+                className={`font-rb-display text-4xl font-extrabold tabular-nums ${
+                  queueTimer <= 30 ? "text-rb-cardinal-lip" : "text-rb-eel"
+                }`}
+              >
+                {Math.floor(queueTimer / 60)}:{String(queueTimer % 60).padStart(2, "0")}
+              </span>
             </div>
 
-            <p className="mt-5 text-sm font-extrabold text-white">Finding opponents…</p>
-            <p className="mt-1 text-xs text-white/30">Queue auto-cancels when the timer runs out</p>
+            <p className="mt-4 font-rb-display text-xl font-extrabold text-rb-eel">Finding opponents…</p>
+            <p className="mt-1 text-xs font-semibold text-rb-wolf">If nobody else joins before the timer runs out, bots fill the empty seats.</p>
 
-            <div className="mt-10 grid w-full max-w-2xl grid-cols-4 gap-3 sm:grid-cols-8">
+            <div className="mt-8 grid w-full grid-cols-4 gap-x-2 gap-y-4 sm:grid-cols-8">
               {Array.from({ length: queueRequired }).map((_, i) => {
                 const filled = i < queueSize
                 return (
-                  <div key={i} className={`flex flex-col items-center gap-2 rounded-2xl border px-2 py-4 transition-all ${filled ? "border-amber-400/30 bg-amber-500/10 rb-pop-in" : "border-dashed border-white/[0.08] bg-white/[0.03]"}`}>
-                    <div className={`grid size-10 place-items-center rounded-full ${filled ? "bg-amber-500 text-[#0c1018]" : "bg-white/[0.06] text-white/20"}`}>
-                      {filled
-                        ? <span className="text-sm font-extrabold">{i + 1}</span>
-                        : <Users className="size-4" aria-hidden="true" />}
+                  <div key={i} className="flex flex-col items-center">
+                    <div className="relative" style={{ width: 60, height: 58 }}>
+                      <Plinth
+                        w={60}
+                        h={30}
+                        d={10}
+                        lift={18}
+                        top={filled ? "color-mix(in oklab, var(--color-rb-fox) 84%, white)" : "var(--color-rb-snow)"}
+                        face={filled ? "var(--color-rb-fox)" : "var(--color-rb-polar)"}
+                        lip={filled ? "var(--color-rb-fox-lip)" : "var(--color-rb-swan)"}
+                      />
+                      <span
+                        className={`absolute inset-x-0 top-0 grid place-items-center ${filled ? "rb-pop-in text-white" : "text-rb-hare"}`}
+                        style={{ height: 33 }}
+                      >
+                        {filled ? (
+                          <span className="font-rb-display text-lg font-extrabold drop-shadow-[0_2px_1px_rgb(0_0_0/0.2)]">
+                            {i + 1}
+                          </span>
+                        ) : (
+                          <Users className="size-4" aria-hidden="true" />
+                        )}
+                      </span>
                     </div>
-                    <span className={`text-[0.625rem] font-bold ${filled ? "text-amber-300" : "text-white/20"}`}>
-                      {filled ? (i === 0 ? "you" : "ready") : "—"}
+                    <span className={`mt-1 text-[11px] font-bold ${filled ? "text-rb-fox-lip" : "text-rb-hare"}`}>
+                      {filled ? (i === 0 ? "you" : "ready") : "open"}
                     </span>
                   </div>
                 )
               })}
             </div>
 
-            <div className="mt-6 flex items-center gap-2">
-              <span className="rb-numeric text-sm font-bold text-white/60">{queueSize} / {queueRequired}</span>
-              <span className="text-xs text-white/30">players in queue</span>
-            </div>
-          </div>
+            <p className="mt-6 text-sm font-bold text-rb-wolf">
+              <span className="tabular-nums text-rb-eel">
+                {queueSize} / {queueRequired}
+              </span>{" "}
+              players in the queue
+            </p>
+          </section>
         ) : null}
 
         {phase === "found" ? (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-5">
-            <div className="rb-pop-in text-center">
-              <div aria-hidden="true" className="mx-auto mb-4 size-24 animate-pulse rounded-full bg-amber-500/20 blur-2xl" />
-              <div className="font-rb-display text-4xl font-extrabold lowercase text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.5)] sm:text-6xl">
-                match found!
+          <div className="fixed inset-0 z-50 grid place-items-center bg-rb-eel/50 px-5 backdrop-blur-sm">
+            <div className="rb-pop-in w-full max-w-sm rounded-3xl border-2 border-rb-swan bg-rb-snow p-8 text-center shadow-[0_6px_0_var(--color-rb-swan)]">
+              <div className="relative mx-auto aspect-[4/3] w-40">
+                <TrophyArt />
               </div>
-              <p className="mt-4 text-lg text-white/60">Bracket is being formed…</p>
+              <p className="mt-2 font-rb-display text-3xl font-extrabold text-rb-eel">Match found!</p>
+              <p className="mt-2 text-sm text-rb-wolf">The bracket is being drawn…</p>
             </div>
           </div>
         ) : null}
 
         {phase === "bracket" && bracket ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 lg:px-8">
+          <section className="mt-6">
             {myCurrentMatch && !isEliminated && !hasSubmittedCurrentRound ? (
-              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-feather bg-rb-feather-wash p-4">
-                <div className="flex-1">
+              <div className="mx-auto flex w-full max-w-lg flex-wrap items-center gap-3 rounded-2xl border-2 border-rb-fox/40 bg-rb-fox-wash p-4">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-extrabold text-rb-eel">
-                    Your {ROUND_LABELS[bracket.currentRound]} match is ready!
+                    Your {ROUND_LABELS[bracket.currentRound]} match is ready
                   </p>
                   <p className="mt-1 text-xs text-rb-wolf">
-                    {myCurrentMatch.questionCount} questions · vs {
-                      myCurrentMatch.player1?.learnerId === myLearnerId
-                        ? myCurrentMatch.player2?.displayName
-                        : myCurrentMatch.player1?.displayName
-                    }
+                    {myCurrentMatch.questionCount} questions · vs{" "}
+                    {myCurrentMatch.player1?.learnerId === myLearnerId
+                      ? myCurrentMatch.player2?.displayName
+                      : myCurrentMatch.player1?.displayName}
                   </p>
                 </div>
                 <TactileButton
+                  variant="fox"
                   onClick={() => {
                     if (worldCup?.examId) {
                       navigate(`/learner/assessments/${worldCup.examId}?arena=worldcup&matchId=${myCurrentMatch.matchId}`)
                     }
                   }}
                 >
-                  <Zap className="size-4" aria-hidden="true" />
+                  <Zap className="mr-1.5 size-4" aria-hidden="true" />
                   play round
                 </TactileButton>
               </div>
             ) : null}
 
             {isEliminated ? (
-              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-swan bg-rb-polar p-4">
-                <p className="text-sm font-bold text-rb-wolf">
-                  You've been eliminated. Watch the rest of the bracket!
-                </p>
-              </div>
+              <p className="mx-auto w-full max-w-lg rounded-2xl border-2 border-rb-swan bg-rb-snow p-4 text-sm font-bold text-rb-wolf">
+                You're out of this bracket. You can still follow the rest of it here.
+              </p>
             ) : null}
 
             {hasSubmittedCurrentRound && !isEliminated ? (
-              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-swan bg-rb-polar p-4">
+              <div className="mx-auto flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-swan bg-rb-snow p-4">
                 <Loader2 className="size-5 animate-spin text-rb-wolf" aria-hidden="true" />
-                <p className="text-sm font-bold text-rb-wolf">
-                  Waiting for your opponent to finish…
-                </p>
+                <p className="text-sm font-bold text-rb-wolf">Waiting for your opponent to finish…</p>
               </div>
             ) : null}
 
-            <div className="grid min-h-0 flex-1 place-items-center overflow-auto py-6">
-              <div className="origin-center xl:scale-110 2xl:scale-125">
-                <LiveBracket bracket={bracket} myLearnerId={myLearnerId} />
-              </div>
-            </div>
-          </div>
+            <FitToWidth className="mt-6">
+              <LiveBracket bracket={bracket} myLearnerId={myLearnerId} />
+            </FitToWidth>
+          </section>
         ) : null}
-      </main>
+      </div>
     </div>
   )
 }
+
+/* Scales its content down to the available width (never up), so a wide bracket
+   always shows whole instead of behind a scrollbar. */
+function FitToWidth({ children, className = "" }) {
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
+  const [fit, setFit] = useState({ scale: 1, height: undefined })
+
+  useEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return undefined
+    const measure = () => {
+      const natural = inner.scrollWidth
+      const scale = natural > 0 ? Math.min(1, outer.clientWidth / natural) : 1
+      setFit({ scale, height: inner.scrollHeight * scale })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(outer)
+    observer.observe(inner)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={outerRef} className={`w-full overflow-hidden ${className}`} style={{ height: fit.height }}>
+      <div
+        ref={innerRef}
+        className="relative left-1/2 w-max py-4"
+        style={{ transform: `translateX(-50%) scale(${fit.scale})`, transformOrigin: "top center" }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+const TRACK_TONES = {
+  bee: { faceVar: "var(--color-rb-bee)", lipVar: "var(--color-rb-bee-lip)" },
+  macaw: { faceVar: "var(--color-rb-macaw)", lipVar: "var(--color-rb-macaw-lip)" },
+  beetle: { faceVar: "var(--color-rb-beetle)", lipVar: "var(--color-rb-beetle-lip)" },
+}
+
+function InfoChip({ icon: Icon, children }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-rb-swan bg-rb-snow px-2.5 py-1">
+      <Icon className="size-3.5" aria-hidden="true" />
+      {children}
+    </span>
+  )
+}
+
+function SectionHeading({ eyebrow, title }) {
+  return (
+    <div className="border-b-2 border-rb-swan pb-2">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">{eyebrow}</p>
+      <h2 className="font-rb-display text-2xl font-extrabold text-rb-eel">{title}</h2>
+    </div>
+  )
+}
+
+function TrackCard({ item, preferred, weekLabel, disabled, onSelect }) {
+  const tone = TRACK_TONES[item.tone] ?? TRACK_TONES.macaw
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className={`group flex flex-col rounded-2xl border-2 bg-rb-snow p-4 text-left transition hover:-translate-y-0.5 active:translate-y-[3px] disabled:opacity-60 ${
+        preferred
+          ? "border-rb-fox/50 shadow-[0_4px_0_var(--color-rb-fox-wash)]"
+          : "border-rb-swan shadow-[0_4px_0_var(--color-rb-swan)] hover:border-rb-hare"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0" style={{ width: 76, height: 66 }}>
+          <Plinth
+            w={76}
+            h={38}
+            d={12}
+            lift={16}
+            top={`color-mix(in oklab, ${tone.faceVar} 84%, white)`}
+            face={tone.faceVar}
+            lip={tone.lipVar}
+          />
+          <span
+            className="absolute inset-x-0 top-0 grid place-items-center text-white drop-shadow-[0_4px_2px_rgb(0_0_0/0.18)] transition-transform duration-200 group-hover:-translate-y-1"
+            style={{ height: 35 }}
+          >
+            <Trophy className="size-7" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          {preferred ? (
+            <span className="mb-1 inline-block rounded-full bg-rb-fox-wash px-2 py-0.5 text-[10px] font-extrabold uppercase text-rb-fox-lip">
+              your learning path
+            </span>
+          ) : null}
+          <h3 className="font-rb-display text-lg font-extrabold leading-tight text-rb-eel">{item.name}</h3>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-rb-wolf">{item.blurb}</p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-3 border-t border-rb-swan pt-3">
+        <span className="flex items-center gap-1 text-[11px] font-bold text-rb-wolf">
+          <CalendarDays className="size-3.5" aria-hidden="true" />
+          {weekLabel} · 8-player bracket
+        </span>
+        <span className="flex w-full items-center justify-center gap-1 rounded-xl bg-rb-fox px-4 py-2.5 font-rb-display text-sm font-extrabold lowercase text-white shadow-[0_3px_0_var(--color-rb-fox-lip)] transition group-hover:brightness-105 group-active:translate-y-[2px] group-active:shadow-[0_1px_0_var(--color-rb-fox-lip)]">
+          enter queue
+          <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </span>
+      </div>
+    </button>
+  )
+}
+
+/* Inked trophy on a plinth, in the learning path's style. */
+function TrophyArt({ locked = false }) {
+  const reduceMotion = useReducedMotion()
+  const INK = "#2c2a26"
+  const gold = locked ? "color-mix(in oklab, var(--color-rb-swan) 78%, var(--color-rb-hare))" : "#f5b72f"
+  const goldLip = locked ? "var(--color-rb-hare)" : "#c98a12"
+  return (
+    <svg viewBox="0 0 220 165" className="size-full" aria-hidden="true">
+      <ellipse cx="110" cy="154" rx="78" ry="8" fill="rgb(0 0 0 / 0.12)" />
+      {/* plinth */}
+      <path d="M 40 122 L 110 140 L 110 152 L 40 134 Z" fill={locked ? "var(--color-rb-hare)" : "var(--color-rb-fox-lip)"} />
+      <path d="M 180 122 L 110 140 L 110 152 L 180 134 Z" fill={locked ? "var(--color-rb-swan)" : "var(--color-rb-fox)"} />
+      <path
+        d="M 110 104 L 180 122 L 110 140 L 40 122 Z"
+        fill={locked ? "var(--color-rb-snow)" : "color-mix(in oklab, var(--color-rb-fox) 84%, white)"}
+      />
+      <g stroke={INK} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round">
+        {/* base and stem */}
+        <rect x="88" y="104" width="44" height="14" rx="3" fill={goldLip} />
+        <path d="M 102 88 L 118 88 L 114 104 L 106 104 Z" fill={gold} />
+        {/* handles */}
+        <path d="M 74 34 Q 52 34 54 52 Q 56 68 80 70" fill="none" strokeWidth="5" stroke={INK} />
+        <path d="M 74 34 Q 52 34 54 52 Q 56 68 80 70" fill="none" strokeWidth="2.4" stroke={gold} />
+        <path d="M 146 34 Q 168 34 166 52 Q 164 68 140 70" fill="none" strokeWidth="5" stroke={INK} />
+        <path d="M 146 34 Q 168 34 166 52 Q 164 68 140 70" fill="none" strokeWidth="2.4" stroke={gold} />
+        {/* cup */}
+        <path d="M 70 24 L 150 24 Q 150 82 110 88 Q 70 82 70 24 Z" fill={gold} />
+        <path d="M 70 24 L 150 24" strokeWidth="3" />
+        {/* star plate */}
+        <path
+          d="M 110 38 L 114 47 L 124 48 L 116.5 54.5 L 119 64 L 110 59 L 101 64 L 103.5 54.5 L 96 48 L 106 47 Z"
+          fill={locked ? "var(--color-rb-snow)" : PAPER_TINT}
+          strokeWidth="2"
+        />
+      </g>
+      {/* cup sheen */}
+      <path d="M 82 32 Q 82 62 96 76" fill="none" stroke="rgb(255 255 255 / 0.45)" strokeWidth="3" strokeLinecap="round" />
+      {/* pennant */}
+      {locked ? null : (
+        <g>
+          <path d="M 176 30 L 176 104" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
+          <motion.path
+            d="M 176 32 L 204 40 L 176 50 Z"
+            fill="#e0506a"
+            stroke={INK}
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+            style={{ originX: "176px", originY: "41px" }}
+            animate={reduceMotion ? undefined : { scaleX: [1, 0.82, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </g>
+      )}
+    </svg>
+  )
+}
+
+const PAPER_TINT = "#fdfcf8"

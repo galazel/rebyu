@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, CalendarDays, Check, Loader2, Plus, Save, Trash2, Trophy } from "@/components/icons"
+import { ArrowLeft, CalendarDays, Check, Loader2, Plus, Save, Search, Trash2, Trophy } from "@/components/icons"
 import { toast } from "sonner"
 
 import {
@@ -69,6 +69,29 @@ function formatWeek(weekStart) {
     : `${month(start)} ${start.getDate()} – ${month(end)} ${end.getDate()}, ${end.getFullYear()}`
 }
 
+/* A published week is live only during that week; learners never see it after. */
+function editionStatus(edition) {
+  if (!edition.published) return { label: "Draft", variant: "secondary" }
+  const thisWeek = weekStartOf(new Date())
+  if (edition.weekStart < thisWeek) return { label: "Expired", variant: "outline" }
+  if (edition.weekStart > thisWeek) return { label: "Scheduled", variant: "secondary" }
+  return { label: "Live", variant: "default" }
+}
+
+function StepLabel({ step, title, hint }) {
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+        {step}
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-foreground">{title}</p>
+        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+    </div>
+  )
+}
+
 function emptyStages(arena) {
   return Object.fromEntries(arena.stages.map((stage) => [stage.id, []]))
 }
@@ -87,6 +110,7 @@ export default function WorldCupEditions({ arena }) {
   const [draftCertification, setDraftCertification] = useState("")
   const [draftLesson, setDraftLesson] = useState("")
   const [draftError, setDraftError] = useState("")
+  const [lessonSearch, setLessonSearch] = useState("")
 
   const { data: certifications = [] } = useQuery({
     queryKey: ["admin-certifications", "world-cup-editions"],
@@ -110,14 +134,46 @@ export default function WorldCupEditions({ arena }) {
     return (id) => byId.get(String(id)) ?? "Certification"
   }, [certifications])
 
-  const draftLessons = useMemo(() => {
+  // Lessons grouped by the syllabus (unit and topic), so a long list stays scannable.
+  const draftGroups = useMemo(() => {
     const certification = certifications.find(
       (item) => String(item.certificationId ?? item.id) === String(draftCertification),
     )
-    return (certification?.majorCategory ?? []).flatMap((major) =>
-      (major.middleCategory ?? []).flatMap((middle) => middle.lessons ?? []),
+    return (certification?.majorCategory ?? []).flatMap((major, mi) =>
+      (major.middleCategory ?? [])
+        .filter((middle) => (middle.lessons ?? []).length > 0)
+        .map((middle, ci) => ({
+          key: `${mi}-${ci}`,
+          title: [major.title, middle.title].filter(Boolean).join(" · ") || "Lessons",
+          lessons: middle.lessons ?? [],
+        })),
     )
   }, [certifications, draftCertification])
+  const draftLessons = useMemo(() => draftGroups.flatMap((group) => group.lessons), [draftGroups])
+  const lessonGroups = useMemo(() => {
+    const query = lessonSearch.trim().toLowerCase()
+    if (!query) return draftGroups
+    return draftGroups
+      .map((group) => ({
+        ...group,
+        lessons: group.title.toLowerCase().includes(query)
+          ? group.lessons
+          : group.lessons.filter((lesson) => String(lesson.name ?? "").toLowerCase().includes(query)),
+      }))
+      .filter((group) => group.lessons.length > 0)
+  }, [draftGroups, lessonSearch])
+  const draftLessonName = draftLessons.find((lesson) => String(lesson.lessonId) === draftLesson)?.name ?? null
+
+  // This week and the next three, marked when a week already has an exam.
+  const takenWeeks = useMemo(() => new Set(editions.map((edition) => edition.weekStart)), [editions])
+  const weekOptions = useMemo(() => {
+    const labels = ["This week", "Next week", "In 2 weeks", "In 3 weeks"]
+    return labels.map((label, i) => {
+      const monday = new Date(`${thisWeek}T00:00:00`)
+      monday.setDate(monday.getDate() + i * 7)
+      return { label, weekStart: toDateString(monday) }
+    })
+  }, [thisWeek])
 
   const createMutation = useMutation({
     mutationFn: createWorldCupEdition,
@@ -128,6 +184,7 @@ export default function WorldCupEditions({ arena }) {
       setDraftError("")
       setDraftCertification("")
       setDraftLesson("")
+      setLessonSearch("")
       setDraftWeek(thisWeek)
     },
     onError: (error) => setDraftError(apiMessage(error, "The week could not be created.")),
@@ -245,9 +302,7 @@ export default function WorldCupEditions({ arena }) {
                         {stage.name} {count}
                       </Badge>
                     ))}
-                    <Badge variant={edition.published ? "default" : "secondary"}>
-                      {edition.published ? "Published" : "Draft"}
-                    </Badge>
+                    <Badge variant={editionStatus(edition).variant}>{editionStatus(edition).label}</Badge>
                   </span>
                 </button>
               </li>
@@ -257,46 +312,75 @@ export default function WorldCupEditions({ arena }) {
       )}
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-[460px]">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 p-0 sm:max-w-[600px]">
+          <DialogHeader className="border-b px-6 pb-4 pt-6">
             <DialogTitle>Create weekly exam</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Learners can play it only during its week; it expires when the week ends.
+            </p>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="world-cup-week" className="text-sm font-bold">
-                Week starting
-              </Label>
-              <Input
-                id="world-cup-week"
-                type="date"
-                value={draftWeek}
-                className="mt-1.5"
-                onChange={(event) => {
-                  if (event.target.value) setDraftWeek(weekStartOf(event.target.value))
-                }}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                {formatWeek(draftWeek)} — any date snaps to that week&rsquo;s Monday.
-              </p>
-            </div>
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+            {/* 1. Week */}
+            <section>
+              <StepLabel step={1} title="Week" hint="Pick the week the bracket runs." />
+              <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Week">
+                {weekOptions.map((option) => {
+                  const taken = takenWeeks.has(option.weekStart)
+                  const active = draftWeek === option.weekStart
+                  return (
+                    <button
+                      key={option.weekStart}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      disabled={taken}
+                      onClick={() => setDraftWeek(option.weekStart)}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        active ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/60"
+                      }`}
+                    >
+                      <span className="block text-xs font-bold text-foreground">{option.label}</span>
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">{formatWeek(option.weekStart)}</span>
+                      {taken ? <span className="mt-1 block text-[10px] font-semibold text-muted-foreground">Already has an exam</span> : null}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <CalendarDays className="size-3.5" aria-hidden="true" />
+                <span>Another week:</span>
+                <Input
+                  id="world-cup-week"
+                  type="date"
+                  value={draftWeek}
+                  aria-label="Any date in the week"
+                  className="h-8 w-auto text-xs"
+                  onChange={(event) => {
+                    if (event.target.value) setDraftWeek(weekStartOf(event.target.value))
+                  }}
+                />
+                <span>snaps to its Monday</span>
+              </div>
+              {draftWeek < thisWeek ? (
+                <p className="mt-2 text-xs font-medium text-destructive">
+                  That week is over, so learners would never see this exam.
+                </p>
+              ) : null}
+            </section>
 
-            <div>
-              <Label htmlFor="world-cup-certification" className="text-sm font-bold">
-                Certification
-              </Label>
+            {/* 2. Certification */}
+            <section>
+              <StepLabel step={2} title="Certification" hint="Every player in the bracket answers from this syllabus." />
               <Select
                 value={draftCertification}
                 onValueChange={(value) => {
                   setDraftCertification(value)
                   setDraftLesson("")
+                  setLessonSearch("")
                 }}
               >
-                <SelectTrigger
-                  id="world-cup-certification"
-                  className="mt-1.5"
-                  aria-invalid={Boolean(draftError)}
-                >
+                <SelectTrigger id="world-cup-certification" className="mt-2.5 w-full">
                   <SelectValue placeholder="Select a certification" />
                 </SelectTrigger>
                 <SelectContent>
@@ -310,56 +394,97 @@ export default function WorldCupEditions({ arena }) {
                   })}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Every player in the bracket answers from this syllabus.
-              </p>
-            </div>
+            </section>
 
-            <div>
-              <Label htmlFor="world-cup-lesson" className="text-sm font-bold">
-                Lesson
-              </Label>
-              <Select
-                value={draftLesson}
-                onValueChange={setDraftLesson}
-                disabled={!draftCertification || draftLessons.length === 0}
-              >
-                <SelectTrigger id="world-cup-lesson" className="mt-1.5">
-                  <SelectValue
-                    placeholder={
-                      !draftCertification
-                        ? "Choose a certification first"
-                        : draftLessons.length === 0
-                          ? "This certification has no lessons"
-                          : "Select a lesson"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {draftLessons.map((lesson) => (
-                    <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
-                      {lesson.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Where the questions are stored. A bracket spans the whole
-                certification; the bank still files each question under a lesson.
-              </p>
-            </div>
-
-            {draftError ? <p className="text-xs text-destructive">{draftError}</p> : null}
+            {/* 3. Lesson */}
+            <section>
+              <StepLabel
+                step={3}
+                title="File questions under"
+                hint="The bracket spans the whole certification; this lesson is only where the bank stores its questions."
+              />
+              {!draftCertification ? (
+                <p className="mt-2.5 rounded-xl border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                  Choose a certification first.
+                </p>
+              ) : draftLessons.length === 0 ? (
+                <p className="mt-2.5 rounded-xl border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
+                  This certification has no lessons yet.
+                </p>
+              ) : (
+                <div className="mt-2.5 overflow-hidden rounded-xl border">
+                  <div className="relative border-b">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      value={lessonSearch}
+                      onChange={(event) => setLessonSearch(event.target.value)}
+                      placeholder={`Search ${draftLessons.length} lessons`}
+                      aria-label="Search lessons"
+                      className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none"
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto p-1.5" role="listbox" aria-label="Lessons">
+                    {lessonGroups.length === 0 ? (
+                      <p className="px-3 py-4 text-center text-xs text-muted-foreground">No lesson matches.</p>
+                    ) : (
+                      lessonGroups.map((group) => (
+                        <div key={group.key} className="mb-1 last:mb-0">
+                          <p className="sticky top-0 z-[1] bg-background/95 px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground backdrop-blur">
+                            {group.title}
+                          </p>
+                          {group.lessons.map((lesson) => {
+                            const selected = String(lesson.lessonId) === draftLesson
+                            return (
+                              <button
+                                key={lesson.lessonId}
+                                type="button"
+                                role="option"
+                                aria-selected={selected}
+                                onClick={() => setDraftLesson(String(lesson.lessonId))}
+                                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                                  selected ? "bg-primary/10 font-semibold text-primary" : "hover:bg-muted/70"
+                                }`}
+                              >
+                                <span className="min-w-0 flex-1">{lesson.name}</span>
+                                {selected ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={createEdition} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Creating..." : "Create exam"}
-            </Button>
-          </DialogFooter>
+          <div className="space-y-3 border-t px-6 py-4">
+            <div className="flex items-start gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5 text-xs">
+              <Trophy className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+              <p className="text-muted-foreground">
+                <span className="font-semibold text-foreground">{formatWeek(draftWeek)}</span>
+                {" · "}
+                {draftCertification ? certificationName(draftCertification) : "no certification yet"}
+                {draftLessonName ? ` · filed under ${draftLessonName}` : ""}
+                . Next you add questions for each stage, then publish.
+              </p>
+            </div>
+            {draftError ? <p className="text-xs font-medium text-destructive">{draftError}</p> : null}
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={createEdition} disabled={createMutation.isPending}>
+                {createMutation.isPending ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Plus className="mr-2 size-4" aria-hidden="true" />
+                )}
+                Create exam
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -545,8 +670,8 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold">
             {formatWeek(edition.weekStart)}
-            <Badge variant={edition.published ? "default" : "secondary"} className="ml-2">
-              {edition.published ? "Published" : "Draft"}
+            <Badge variant={editionStatus(edition).variant} className="ml-2">
+              {editionStatus(edition).label}
             </Badge>
           </h3>
           <p className="text-xs text-muted-foreground">

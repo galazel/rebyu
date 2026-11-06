@@ -135,6 +135,15 @@ public class InstitutionLearningStatsService {
                 .lessonsCompletedByLearnerIdsInCertifications(learnerIds, start, end, certificationIds).stream()
                 .collect(Collectors.toMap(LessonsDone::getLearnerId, LessonsDone::getLessonsCompleted));
 
+        // Last activity is the later of the last graded attempt and the last lesson
+        // finished: a learner who only reads is active, not dormant.
+        Map<Long, LocalDateTime> lastLesson = completedLessonRepository
+                .lastCompletionByLearnerIdsInCertifications(learnerIds, start, end, certificationIds).stream()
+                .filter(row -> row.getLastCompletedAt() != null)
+                .collect(Collectors.toMap(
+                        LearnerCompletedLessonRepository.LastCompletion::getLearnerId,
+                        LearnerCompletedLessonRepository.LastCompletion::getLastCompletedAt));
+
         Map<Long, Learner> learnerById = learnerRepository.findByLearnerIdIn(learnerIds).stream()
                 .collect(Collectors.toMap(Learner::getLearnerId, Function.identity()));
 
@@ -148,7 +157,8 @@ public class InstitutionLearningStatsService {
                     learnerById.get(learnerId),
                     assignmentsByLearner.getOrDefault(learnerId, List.of()),
                     attemptStats.get(learnerId),
-                    lessonsDone.getOrDefault(learnerId, 0L)));
+                    lessonsDone.getOrDefault(learnerId, 0L),
+                    lastLesson.get(learnerId)));
         }
 
         members.sort(Comparator.comparing(
@@ -462,6 +472,51 @@ public class InstitutionLearningStatsService {
         return rows;
     }
 
+    /**
+     * Learning stats for the given enrolments, counting only work done up to `until`
+     * (a former learner's figures as they stood when they left).
+     */
+    public Map<Long, MemberLearningStatsDto> memberStats(
+            List<InstitutionCertificationLearner> enrollments, LocalDateTime until) {
+        if (enrollments == null || enrollments.isEmpty()) return Map.of();
+        LocalDateTime end = until == null ? ALL_TIME_END : until;
+        Set<Long> learnerIds = enrollments.stream()
+                .map(a -> a.getLearner().getLearnerId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> certificationIds = enrollments.stream()
+                .map(InstitutionCertificationLearner::getInstitutionCert)
+                .filter(java.util.Objects::nonNull)
+                .map(InstitutionCertificate::getCertification)
+                .filter(java.util.Objects::nonNull)
+                .map(c -> c.getCertificationId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (certificationIds.isEmpty()) certificationIds = Set.of(-1L);
+
+        Map<Long, LearnerAttemptStats> attemptStats = attemptRepository
+                .statsByLearnerIdsInCertifications(learnerIds, AssessmentAttempt.Status.SUBMITTED, ALL_TIME_START, end, certificationIds)
+                .stream().collect(Collectors.toMap(LearnerAttemptStats::getLearnerId, Function.identity()));
+        Map<Long, Long> lessonsDone = completedLessonRepository
+                .lessonsCompletedByLearnerIdsInCertifications(learnerIds, ALL_TIME_START, end, certificationIds).stream()
+                .collect(Collectors.toMap(LessonsDone::getLearnerId, LessonsDone::getLessonsCompleted));
+        Map<Long, LocalDateTime> lastLesson = completedLessonRepository
+                .lastCompletionByLearnerIdsInCertifications(learnerIds, ALL_TIME_START, end, certificationIds).stream()
+                .filter(row -> row.getLastCompletedAt() != null)
+                .collect(Collectors.toMap(
+                        LearnerCompletedLessonRepository.LastCompletion::getLearnerId,
+                        LearnerCompletedLessonRepository.LastCompletion::getLastCompletedAt));
+        Map<Long, Learner> learnerById = learnerRepository.findByLearnerIdIn(learnerIds).stream()
+                .collect(Collectors.toMap(Learner::getLearnerId, Function.identity()));
+        Map<Long, List<InstitutionCertificationLearner>> byLearner = enrollments.stream()
+                .collect(Collectors.groupingBy(a -> a.getLearner().getLearnerId()));
+
+        Map<Long, MemberLearningStatsDto> out = new LinkedHashMap<>();
+        for (Long learnerId : learnerIds) {
+            out.put(learnerId, member(learnerId, learnerById.get(learnerId), byLearner.getOrDefault(learnerId, List.of()),
+                    attemptStats.get(learnerId), lessonsDone.getOrDefault(learnerId, 0L), lastLesson.get(learnerId)));
+        }
+        return out;
+    }
+
     public List<DepartmentProgressDto> groupProgress(Long institutionId) {
         return groupProgress(institutionId, null, null);
     }
@@ -491,7 +546,8 @@ public class InstitutionLearningStatsService {
             Learner learner,
             List<InstitutionCertificationLearner> assignments,
             LearnerAttemptStats stats,
-            long lessonsCompleted) {
+            long lessonsCompleted,
+            LocalDateTime lastLessonAt) {
 
         int active = 0;
         int completed = 0;
@@ -515,7 +571,9 @@ public class InstitutionLearningStatsService {
         long attempts = stats == null ? 0 : stats.getAttempts();
         long passed = stats == null ? 0 : stats.getPassedAttempts();
         Double average = stats == null ? null : stats.getAverageScore();
-        LocalDateTime lastActivity = stats == null ? null : stats.getLastSubmittedAt();
+        LocalDateTime lastAttemptAt = stats == null ? null : stats.getLastSubmittedAt();
+        LocalDateTime lastActivity = lastAttemptAt == null ? lastLessonAt
+                : lastLessonAt == null || lastAttemptAt.isAfter(lastLessonAt) ? lastAttemptAt : lastLessonAt;
 
         return new MemberLearningStatsDto(
                 learnerId,

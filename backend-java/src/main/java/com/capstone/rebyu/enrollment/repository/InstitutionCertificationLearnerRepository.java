@@ -12,10 +12,15 @@ import java.util.List;
 public interface InstitutionCertificationLearnerRepository extends JpaRepository<InstitutionCertificationLearner, Long> {
     boolean existsByInstitutionCertAndLearner(InstitutionCertificate institutionCert, Learner learner);
 
+    java.util.Optional<InstitutionCertificationLearner> findFirstByInstitutionCertAndLearner(
+            InstitutionCertificate institutionCert, Learner learner);
+
     List<InstitutionCertificationLearner> findByLearner_LearnerIdAndStatus(
             Long learnerId, InstitutionCertificationLearner.Status status);
 
     List<InstitutionCertificationLearner> findByLearner_LearnerId(Long learnerId);
+
+    List<InstitutionCertificationLearner> findByInstitutionCert_InstitutionCertId(Long institutionCertId);
 
     List<InstitutionCertificationLearner> findByInstitutionCert_Institution_InstitutionId(Long institutionId);
 

@@ -19,6 +19,7 @@ import {
 import { Link } from "react-router-dom"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
+import { ADMIN_DEFAULT } from "@/components/commons/dashboard-tile-labels.js"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { Button } from "@/components/ui/button"
 import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
@@ -764,6 +765,8 @@ export default function AdminDashboard() {
         layout={
           layout.tileLayout.some((item) => RETIRED_TILES.has(item.id)) ? [] : layout.tileLayout
         }
+        defaultOrder={ADMIN_DEFAULT.order}
+        defaultCols={ADMIN_DEFAULT.cols}
         editing={layout.rearranging}
         onLayoutChange={layout.handleLayoutChange}
       />

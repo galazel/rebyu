@@ -104,50 +104,26 @@ export const adminGroups = [
 
 const departmentHeadGroups = [
   {
-    label: "Department dashboard",
+    label: "Dashboard",
     icon: LayoutDashboard,
     items: [
       {
-        label: "Department dashboard",
+        label: "Dashboard",
         href: "/institution/department-head",
         icon: LayoutDashboard,
-        match: ["/institution/department-head"],
+        match: ["/institution/department-head", "/institution/metrics"],
       },
     ],
   },
   {
-    label: "Programs & sections",
-    icon: UsersRound,
-    items: [
-      {
-        label: "Programs & sections",
-        href: "/institution/programs",
-        icon: UsersRound,
-        match: ["/institution/programs"],
-      },
-    ],
-  },
-  {
-    label: "Department Management",
+    label: "Department",
     icon: Building2,
     items: [
       {
-        label: "Department Management",
+        label: "Department",
         href: "/institution/departments",
         icon: Building2,
-        match: ["/institution/departments"],
-      },
-    ],
-  },
-  {
-    label: "Metrics",
-    icon: BarChart3,
-    items: [
-      {
-        label: "Metrics",
-        href: "/institution/metrics",
-        icon: BarChart3,
-        match: ["/institution/metrics"],
+        match: ["/institution/departments", "/institution/programs"],
       },
     ],
   },
@@ -155,10 +131,10 @@ const departmentHeadGroups = [
 
 const departments = [
   {
-    label: "Institution dashboard",
+    label: "Dashboard",
     icon: LayoutDashboard,
     items: [
-      { label: "Institution dashboard", href: "/institution/dashboard", icon: LayoutDashboard },
+      { label: "Dashboard", href: "/institution/dashboard", icon: LayoutDashboard },
     ],
   },
   {
@@ -362,7 +338,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
           <nav
             className={cn(
               "hidden min-w-0 items-center gap-1 lg:flex",
-              isInstitutionRole(role) ? "justify-center shrink-0" : "flex-1 justify-start"
+              isInstitutionRole(role) ? "justify-end shrink-0" : "flex-1 justify-start"
             )}
             aria-label={`${role.toLowerCase()} navigation`}
           >
@@ -393,7 +369,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
           <div
             className={cn(
               "flex items-center justify-end gap-1.5",
-              isInstitutionRole(role) ? "flex-1 min-w-0" : "flex-1 lg:flex-none"
+              isInstitutionRole(role) ? "flex-1 lg:flex-none" : "flex-1 lg:flex-none"
             )}
           >
             {groups.length > 0 ? (

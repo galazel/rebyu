@@ -231,22 +231,29 @@ public class LearnerService {
                     "You already belong to " + otherSchool.get() + ". A learner can only belong to one school.");
         }
 
-        if (institutionCertificationLearnerRepository
-                .existsByInstitutionCertAndLearner(institutionCert, learner)) {
+        var previous = institutionCertificationLearnerRepository
+                .findFirstByInstitutionCertAndLearner(institutionCert, learner);
+        if (previous.isPresent() && previous.get().getStatus() != InstitutionCertificationLearner.Status.revoked) {
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.ALREADY_ENROLLED,
                     "You already have access to this certification.");
         }
 
-        InstitutionCertificationLearner enrollment =
-                InstitutionCertificationLearner.builder()
+        // A learner the institution removed earlier is re-admitted on their old enrolment row.
+        InstitutionCertificationLearner enrollment = previous
+                .map(row -> {
+                    row.setStatus(InstitutionCertificationLearner.Status.active);
+                    row.setAssignedAt(LocalDateTime.now());
+                    return row;
+                })
+                .orElseGet(() -> InstitutionCertificationLearner.builder()
                         .institutionCert(institutionCert)
                         .learner(learner)
                         .assignedAt(LocalDateTime.now())
                         .progressPercentage(BigDecimal.ZERO)
                         .completedAt(null)
                         .status(InstitutionCertificationLearner.Status.active)
-                        .build();
+                        .build());
         enrollment = institutionCertificationLearnerRepository.save(enrollment);
         ensureDirectCertificationEnrollment(learner, institutionCert.getCertification());
         orgEnrollmentProgressService.sync(enrollment);

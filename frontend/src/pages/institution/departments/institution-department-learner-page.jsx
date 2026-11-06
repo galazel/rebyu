@@ -15,7 +15,6 @@ import {
   TrendingDownIcon,
   TrendingUpIcon,
   ArrowLeft,
-  ChevronDown,
 } from "@/components/icons"
 
 import { cn } from "@/lib/utils"
@@ -37,6 +36,9 @@ import {
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import MemberAttemptReviewSheet from "@/components/institution/member-attempt-review-sheet.jsx"
+import { ExportButton } from "@/components/commons/export-button.jsx"
+import { learnerReportBlocks } from "@/lib/learner-export.js"
+import { LEARNER_STATUS, relativeDays, useDepartmentOverview } from "@/hooks/use-my-department.js"
 
 function toPercent(value) {
   const number = Number(value)
@@ -48,56 +50,49 @@ function formatPercent(value) {
   return percent == null ? "—" : `${Math.round(percent)}%`
 }
 
-function TopicList({ title, description, icon: Icon, topics, tone }) {
-  const isWeak = tone === "weak"
+function TopicList({ title, description, icon: Icon, topics }) {
   return (
-    <div className="space-y-3">
-      <div
-        className={cn(
-          "rounded-md border bg-card p-3.5 pl-4",
-          isWeak ? "border-l-4 border-l-destructive" : "border-l-4 border-l-primary"
+    <Card className="gap-0">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Icon className="size-4 text-destructive" aria-hidden="true" />
+          {title}
+        </CardTitle>
+        <CardDescription className="text-xs">{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {topics.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Not enough marked answers yet to rank topics.</p>
+        ) : (
+          <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2">
+            {topics.slice(0, 8).map((topic, index) => {
+              const value = Math.min(100, Math.max(0, toPercent(topic.masteryPercentage) ?? 0))
+              return (
+                <li key={topic.lessonId ?? index}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 text-xs font-medium leading-snug text-foreground">
+                      {topic.lessonTitle ?? `Topic ${index + 1}`}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-xs font-bold tabular-nums",
+                        value < 50 ? "text-destructive" : "text-foreground"
+                      )}
+                    >
+                      {formatPercent(topic.masteryPercentage)}
+                    </span>
+                  </div>
+                  <Progress value={value} className="mt-1 h-1.5" />
+                  {topic.categoryTitle ? (
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{topic.categoryTitle}</p>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
         )}
-      >
-        <div className="flex items-center gap-2">
-          <Icon
-            className={`size-4 shrink-0 ${isWeak ? "text-destructive" : "text-primary"}`}
-            aria-hidden="true"
-          />
-          <h3 className="font-heading text-sm font-semibold text-foreground">{title}</h3>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-      </div>
-
-      {topics.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">
-          Not enough assessment activity yet to rank topics.
-        </p>
-      ) : (
-        <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-card/50">
-          {topics.map((topic, index) => (
-            <li key={topic.lessonId ?? index} className="p-3 transition-colors hover:bg-muted/30">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                  {topic.lessonTitle ?? `Topic ${index + 1}`}
-                </span>
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                  {formatPercent(topic.masteryPercentage)}
-                </span>
-              </div>
-              <Progress
-                value={Math.min(100, Math.max(0, toPercent(topic.masteryPercentage) ?? 0))}
-                className="mt-1.5 h-1.5"
-              />
-              {topic.categoryTitle ? (
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {topic.categoryTitle}
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -111,17 +106,20 @@ function initialsOf(name) {
     .join("")
 }
 
-function ProfileStat({ icon: Icon, label, value, hint }) {
+function ProfileStat({ icon: Icon, label, value, hint, progress = null, alert = false }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5">
-      <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <dt className="truncate text-xs text-muted-foreground">{label}</dt>
-        {hint ? <dd className="truncate text-[11px] text-muted-foreground/80">{hint}</dd> : null}
+    <div className="space-y-1.5 px-3.5 py-3">
+      <div className="flex items-center gap-3">
+        <Icon className={cn("size-4 shrink-0", alert ? "text-destructive" : "text-muted-foreground")} aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <dt className="truncate text-xs font-medium text-foreground">{label}</dt>
+          {hint ? <dd className="truncate text-[11px] text-muted-foreground">{hint}</dd> : null}
+        </div>
+        <dd className={cn("shrink-0 font-heading text-lg font-bold tabular-nums", alert ? "text-destructive" : "text-foreground")}>
+          {value}
+        </dd>
       </div>
-      <dd className="shrink-0 font-heading text-base font-bold tabular-nums text-foreground">
-        {value}
-      </dd>
+      {progress != null ? <Progress value={Math.min(100, Math.max(0, progress))} className="h-1" /> : null}
     </div>
   )
 }
@@ -307,44 +305,27 @@ function AttemptMovement({ attempts }) {
   )
 }
 
-function AttemptBars({ attempts, onOpen }) {
+/** A strip of small bars, one per attempt, oldest first. Click one to open its answers. */
+function AttemptStrip({ attempts, onOpen }) {
   return (
-    <div className="mt-4 flex items-end gap-2 overflow-x-auto pb-1 sm:gap-3">
+    <div className="flex h-8 items-end gap-1">
       {attempts.map((attempt) => {
         const value = Math.min(100, Math.max(0, Number(attempt.score) || 0))
         return (
           <button
             type="button"
-            key={attempt.attemptId ?? attempt.attemptNumber ?? attempt.label}
+            key={attempt.attemptId ?? attempt.attemptNumber}
             disabled={!attempt.attemptId || !onOpen}
             onClick={() => onOpen?.(attempt.attemptId)}
-            className="flex min-w-[56px] shrink-0 flex-col items-center gap-2 rounded-md p-1 transition enabled:hover:bg-muted/50"
-            title={`Open every answer of attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
-              attempt.correctCount != null && attempt.itemCount != null
-                ? ` (${attempt.correctCount} of ${attempt.itemCount} correct)`
-                : ""
-            }${attempt.takenOn ? ` on ${attempt.takenOn}` : ""}`}
+            className="flex h-full w-3 items-end rounded-sm bg-muted/60 transition enabled:hover:ring-2 enabled:hover:ring-primary/40"
+            title={`Attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
+              attempt.correctCount != null && attempt.itemCount != null ? ` (${attempt.correctCount}/${attempt.itemCount})` : ""
+            }${attempt.takenOn ? ` on ${attempt.takenOn}` : ""} — open its answers`}
           >
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {Math.round(value)}%
-            </span>
-            {attempt.correctCount != null && attempt.itemCount != null ? (
-              <span className="-mt-1.5 text-[10px] tabular-nums text-muted-foreground/80">
-                {attempt.correctCount}/{attempt.itemCount}
-              </span>
-            ) : null}
-            <div className="flex h-24 w-full items-end border-b-2 border-dashed border-border px-1.5">
-              <div
-                className={cn(
-                  "w-full rounded-[6px]",
-                  attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail"
-                )}
-                style={{ height: `max(4px, ${value}%)` }}
-              />
-            </div>
-            <span className="text-xs font-bold text-muted-foreground">
-              #{attempt.attemptNumber ?? "—"}
-            </span>
+            <span
+              className={cn("w-full rounded-sm", attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail")}
+              style={{ height: `max(3px, ${value}%)` }}
+            />
           </button>
         )
       })}
@@ -352,75 +333,123 @@ function AttemptBars({ attempts, onOpen }) {
   )
 }
 
-function AssessmentAttemptPanel({ group, onOpen }) {
-  const { attempts } = group
-  const best = Math.max(...attempts.map((attempt) => attempt.score))
-  const typeLabel = formatAssessmentType(group.assessmentType)
-
-  return (
-    <li className="rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{group.title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {typeLabel ? `${typeLabel} · ` : ""}
-            {attempts.length} attempt{attempts.length === 1 ? "" : "s"}
-            {attempts.length > 1 ? ` · best ${Math.round(best)}%` : ""}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <AttemptMovement attempts={attempts} />
-          <AttemptOutcome passed={attempts.some((attempt) => attempt.passed)} />
-        </div>
-      </div>
-
-      <AttemptBars attempts={attempts} onOpen={onOpen} />
-    </li>
-  )
-}
+const RESULT_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "failing", label: "Not passed yet" },
+  { id: "retaken", label: "Retaken" },
+  { id: "exams", label: "Exams only" },
+]
 
 function AssessmentResultsSection({ groups, onOpen }) {
-  if (groups.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <HistoryIcon className="size-4 text-primary" aria-hidden="true" />
-            Assessment results
-          </CardTitle>
-          <CardDescription>Every assessment this learner has sat, attempt by attempt.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartEmpty message="No assessment has been graded yet." />
-        </CardContent>
-      </Card>
-    )
-  }
+  const [filter, setFilter] = useState("all")
+  const [showAll, setShowAll] = useState(false)
 
+  const rows = groups.map((group) => {
+    const scores = group.attempts.map((attempt) => attempt.score)
+    return {
+      ...group,
+      first: scores[0],
+      best: Math.max(...scores),
+      latest: scores[scores.length - 1],
+      passed: group.attempts.some((attempt) => attempt.passed),
+    }
+  })
+  const counts = {
+    all: rows.length,
+    failing: rows.filter((r) => !r.passed).length,
+    retaken: rows.filter((r) => r.attempts.length > 1).length,
+    exams: rows.filter((r) => r.assessmentType !== "LESSON_QUIZ").length,
+  }
+  const visible = rows.filter((r) =>
+    filter === "failing" ? !r.passed : filter === "retaken" ? r.attempts.length > 1 : filter === "exams" ? r.assessmentType !== "LESSON_QUIZ" : true
+  )
+  const shown = showAll ? visible : visible.slice(0, 12)
   const totalAttempts = groups.reduce((sum, group) => sum + group.attempts.length, 0)
-  const retaken = groups.filter((group) => group.attempts.length > 1).length
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="gap-0">
+      <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <HistoryIcon className="size-4 text-primary" aria-hidden="true" />
           Assessment results
         </CardTitle>
-        <CardDescription>
-          {groups.length} assessment{groups.length === 1 ? "" : "s"} sat ·{" "}
-          {totalAttempts} attempt{totalAttempts === 1 ? "" : "s"}
-          {retaken ? ` · ${retaken} retaken` : ""}. Each bar is one attempt, oldest on the left;
-          green cleared the assessment, red did not. Select a bar to see every answer. Practice
-          the learner generated in the AI tutor is not counted.
+        <CardDescription className="text-xs">
+          {groups.length} assessment{groups.length === 1 ? "" : "s"} · {totalAttempts} graded attempt
+          {totalAttempts === 1 ? "" : "s"} · one row per assessment. Click a bar to see that attempt's answers.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ul className="grid gap-3 lg:grid-cols-2">
-          {groups.map((group) => (
-            <AssessmentAttemptPanel key={group.examId ?? group.title} group={group} onOpen={onOpen} />
-          ))}
-        </ul>
+      <CardContent className="space-y-3">
+        {groups.length === 0 ? (
+          <ChartEmpty message="No assessment has been graded yet." />
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1">
+              {RESULT_FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={filter === item.id}
+                  onClick={() => {
+                    setFilter(item.id)
+                    setShowAll(false)
+                  }}
+                  className={cn(
+                    "h-7 rounded-lg px-2.5 text-xs font-semibold transition-colors",
+                    filter === item.id ? "bg-foreground text-background" : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {item.label} ({counts[item.id]})
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Assessment</th>
+                    <th className="px-2 py-2 text-right">Tries</th>
+                    <th className="px-2 py-2 text-right">First</th>
+                    <th className="px-2 py-2 text-right">Best</th>
+                    <th className="px-2 py-2 text-right">Latest</th>
+                    <th className="px-2 py-2 text-left">Attempts</th>
+                    <th className="px-3 py-2 text-left">Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {shown.map((row) => (
+                    <tr key={row.examId ?? row.title} className="hover:bg-muted/20">
+                      <td className="max-w-[18rem] px-3 py-2">
+                        <p className="truncate font-semibold text-foreground" title={row.title}>{row.title}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatAssessmentType(row.assessmentType)}
+                          {row.lastSubmittedAt ? ` · last ${row.lastSubmittedAt.toLocaleDateString()}` : ""}
+                        </p>
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">{row.attempts.length}</td>
+                      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{Math.round(row.first)}%</td>
+                      <td className="px-2 py-2 text-right font-semibold tabular-nums">{Math.round(row.best)}%</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{Math.round(row.latest)}%</td>
+                      <td className="px-2 py-2">
+                        <AttemptStrip attempts={row.attempts} onOpen={onOpen} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-0.5">
+                          <AttemptOutcome passed={row.passed} />
+                          <AttemptMovement attempts={row.attempts} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {visible.length > 12 ? (
+              <Button variant="ghost" size="sm" className="h-8 w-full text-xs" onClick={() => setShowAll((v) => !v)}>
+                {showAll ? "Show fewer" : `Show all ${visible.length}`}
+              </Button>
+            ) : null}
+          </>
+        )}
       </CardContent>
     </Card>
   )
@@ -466,7 +495,7 @@ function CredentialsCard({ query }) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm">
           <AwardIcon className="size-4 text-rb-bee" aria-hidden="true" />
-          Credentials earned
+          Badges earned
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -485,7 +514,7 @@ function CredentialsCard({ query }) {
           </p>
         ) : awards.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            No credentials yet.
+            No badge yet. A badge is earned by finishing the review — it is not the official certification.
           </p>
         ) : (
           <ul className="grid gap-2">
@@ -504,13 +533,14 @@ export default function InstitutionDepartmentLearnerPage() {
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
   const [reviewAttemptId, setReviewAttemptId] = useState(null)
-  const [profileExpanded, setProfileExpanded] = useState(false)
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", departmentIdNumber],
     queryFn: () => getGroupLearnerRoster(departmentIdNumber),
     enabled: Number.isFinite(departmentIdNumber),
   })
+  // Status and the reason for it, exactly as the dashboard and roster show them.
+  const overviewQuery = useDepartmentOverview(Number.isFinite(departmentIdNumber) ? departmentIdNumber : null)
 
   const analyticsQuery = useQuery({
     queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber],
@@ -530,12 +560,10 @@ export default function InstitutionDepartmentLearnerPage() {
   const learner = (Array.isArray(rosterQuery.data) ? rosterQuery.data : []).find(
     (row) => row.learnerId === learnerIdNumber
   )
+  const status = (overviewQuery.data?.learners ?? []).find((row) => row.learnerId === learnerIdNumber)
   const initials = initialsOf(learner?.name)
   const avatarUrl = useAvatarUrl(learner?.avatarKey ?? null)
   const analytics = analyticsQuery.data
-
-  const backToGroup = `/institution/departments/${departmentId}?tab=learners`
-
 
   const gradedAttempts = useMemo(
     () => (analytics?.scoreTrend ?? []).filter((point) => point.percentage != null),
@@ -565,6 +593,7 @@ export default function InstitutionDepartmentLearnerPage() {
         score: Math.round(Number(point.percentage) * 10) / 10,
         passed: point.passed,
         takenOn: submittedAt ? submittedAt.toLocaleDateString() : null,
+        submittedAt: point.submittedAt,
         correctCount: point.correctCount,
         itemCount: point.itemCount,
       })
@@ -572,146 +601,175 @@ export default function InstitutionDepartmentLearnerPage() {
         group.lastSubmittedAt = submittedAt
       }
     }
-
     return [...byExam.values()]
       .map((group) => ({
         ...group,
-        attempts: [...group.attempts].sort(
-          (a, b) => (a.attemptNumber ?? 0) - (b.attemptNumber ?? 0)
-        ),
+        attempts: [...group.attempts].sort((a, b) => (a.attemptNumber ?? 0) - (b.attemptNumber ?? 0)),
       }))
       .sort((a, b) => (b.lastSubmittedAt?.getTime() ?? 0) - (a.lastSubmittedAt?.getTime() ?? 0))
   }, [gradedAttempts])
 
   if (analyticsQuery.isLoading || rosterQuery.isLoading) {
-    return (
-      <div className="space-y-6">
-        <InstitutionLoadingSkeleton rows={4} />
-      </div>
-    )
+    return <InstitutionLoadingSkeleton rows={4} />
   }
-
   if (analyticsQuery.isError) {
     return (
-      <div className="space-y-4">
-        <InstitutionErrorState
-          title="Unable to load this learner's statistics"
-          description="They may no longer be assigned to this department."
-          onRetry={analyticsQuery.refetch}
-        />
-      </div>
+      <InstitutionErrorState
+        title="Unable to load this learner's statistics"
+        description="They may no longer be assigned to this department."
+        onRetry={analyticsQuery.refetch}
+      />
     )
   }
 
   const weakestTopics = analytics?.weakestTopics ?? []
-
   const completedLessons = analytics?.completedLessonCount ?? 0
   const totalLessons = analytics?.totalLessonCount ?? 0
   const passedAssessments = analytics?.passedAssessmentCount ?? 0
   const totalAssessments = analytics?.totalAssessmentCount ?? 0
   const totalAttempts = analytics?.totalAssessmentAttempts ?? 0
+  const lessonShare = totalLessons ? (completedLessons / totalLessons) * 100 : 0
+  const statusStyle = status ? LEARNER_STATUS[status.status] : null
+
+  const csv = () =>
+    learnerReportBlocks(analytics, [
+      ["Learner", learner?.name],
+      ["Username", learner?.username],
+      ["Status", statusStyle?.label ?? ""],
+      ["Why", status?.reason ?? ""],
+      ["Section", learner?.sectionName ?? "No section"],
+      ["Joined the department on", status?.joinedAt ?? learner?.assignedAt ?? ""],
+      ["Last active", status?.lastActivityAt ?? "Never"],
+      ["Passed a mock exam", Boolean(learner?.mockExamPassed)],
+      ["Best mock exam score (%)", learner?.bestMockExamScore == null ? null : Math.round(Number(learner.bestMockExamScore))],
+      ["Mock exam passed on", learner?.mockExamPassedAt ?? ""],
+    ])
+
+  const averageScore = toPercent(analytics?.averageAssessmentScore)
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:h-[calc(100dvh-6rem)]">
-      <aside className="space-y-4 lg:overflow-y-auto">
-        <div>
-          <div className="relative flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-muted sm:size-24">
-            <span className="font-heading text-2xl font-bold text-muted-foreground sm:text-3xl">
-              {initials}
-            </span>
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="absolute inset-0 size-full object-cover" />
-            ) : null}
+    <div className="grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
+      {/* Profile column (GitHub style) */}
+      <aside className="space-y-5 lg:sticky lg:top-20">
+        <div className="space-y-3">
+          <div className="relative grid aspect-square w-32 place-items-center overflow-hidden rounded-full border-2 border-border bg-muted lg:w-full lg:max-w-[16rem]">
+            <span className="font-heading text-4xl font-bold text-muted-foreground lg:text-6xl">{initials}</span>
+            {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 size-full object-cover" /> : null}
           </div>
 
-          <h1 className="mt-3 font-heading text-xl font-bold leading-tight tracking-tight text-foreground">
-            {learner?.name ?? "Learner"}
-          </h1>
-          {learner?.username ? (
-            <p className="text-base text-muted-foreground">@{learner.username}</p>
-          ) : null}
-          <p className="mt-2 text-sm text-muted-foreground">
-            {analytics?.certificationTitle ?? "Progress and performance"}
-          </p>
+          <div>
+            <h1 className="font-heading text-2xl font-bold leading-tight tracking-tight text-foreground">
+              {learner?.name ?? "Learner"}
+            </h1>
+            {learner?.username ? <p className="text-lg text-muted-foreground">@{learner.username}</p> : null}
+          </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {statusStyle ? (
+              <Badge variant="outline" className={cn("text-[11px]", statusStyle.className)}>
+                {statusStyle.label}
+              </Badge>
+            ) : null}
             {learner?.mockExamPassed ? (
-              <Badge className="gap-1">
-                <AwardIcon className="size-3.5" aria-hidden="true" />
+              <Badge className="gap-1 text-[11px]">
+                <AwardIcon className="size-3" aria-hidden="true" />
                 Mock exam passed
                 {Number.isFinite(Number(learner.bestMockExamScore))
                   ? ` · ${Math.round(Number(learner.bestMockExamScore))}%`
                   : ""}
               </Badge>
             ) : null}
-            {analytics?.bktAvailable === false ? (
-              <Badge variant="outline">Mastery data unavailable</Badge>
-            ) : null}
           </div>
+          {status?.reason && status.status !== "on_track" ? (
+            <p className="text-xs font-medium text-rose-700 dark:text-rose-300">{status.reason}</p>
+          ) : null}
 
-          <Button asChild variant="ghost" size="sm" className="mt-4 min-h-[44px] w-full justify-start gap-2 border sm:border-transparent">
-            <Link to={backToGroup}>
-              <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
-              <span>Back to roster</span>
-            </Link>
-          </Button>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            {analytics?.certificationTitle ? (
+              <li className="flex items-center gap-2">
+                <AwardIcon className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{analytics.certificationTitle}</span>
+              </li>
+            ) : null}
+            <li className="flex items-center gap-2">
+              <ClipboardListIcon className="size-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">{learner?.sectionName ?? "No section"}</span>
+            </li>
+            {status ? (
+              <li className="flex items-center gap-2">
+                <HistoryIcon className="size-4 shrink-0" aria-hidden="true" />
+                <span>Last active {relativeDays(status.daysInactive).toLowerCase()}</span>
+              </li>
+            ) : null}
+          </ul>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
+              <Link to="/institution/departments?view=roster">
+                <ArrowLeft className="size-4" aria-hidden="true" />
+                Roster
+              </Link>
+            </Button>
+            <ExportButton
+              filename="rebyu-learner-report"
+              report="Learner report"
+              details={[
+                ["Learner", learner?.name],
+                ["Username", learner?.username],
+                ["Certification", analytics?.certificationTitle],
+              ]}
+              className="h-9"
+              label="Export"
+              sections={csv}
+            />
+          </div>
         </div>
 
-        {/* Collapsible stats toggle for mobile (< lg) */}
-        <div className="lg:hidden">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setProfileExpanded((prev) => !prev)}
-            className="w-full justify-between"
-          >
-            <span>{profileExpanded ? "Hide profile details" : "View profile & stats summary"}</span>
-            <ChevronDown className={cn("size-4 transition-transform", profileExpanded && "rotate-180")} />
-          </Button>
-        </div>
+        <dl className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card">
+          <ProfileStat
+            icon={BookOpen}
+            label="Lessons completed"
+            value={`${completedLessons}/${totalLessons}`}
+            progress={lessonShare}
+            hint={totalLessons ? `${Math.round(lessonShare)}% of the curriculum` : "No lessons yet"}
+          />
+          <ProfileStat
+            icon={ClipboardListIcon}
+            label="Assessments passed"
+            value={`${passedAssessments}/${totalAssessments}`}
+            progress={totalAssessments ? (passedAssessments / totalAssessments) * 100 : 0}
+            hint={`${totalAttempts} graded attempt${totalAttempts === 1 ? "" : "s"}`}
+          />
+          <ProfileStat
+            icon={TargetIcon}
+            label="Average score"
+            value={formatPercent(averageScore)}
+            alert={averageScore != null && averageScore < 50}
+            hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
+          />
+          <ProfileStat
+            icon={GaugeIcon}
+            label="Readiness"
+            value={formatPercent(analytics?.readinessPercentage)}
+            progress={toPercent(analytics?.readinessPercentage) ?? 0}
+            hint="Chance of passing the real exam"
+          />
+        </dl>
 
-        <div className={cn("space-y-4", !profileExpanded && "hidden lg:block")}>
-          <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
-            <ProfileStat
-              icon={BookOpen}
-              label="Lessons completed"
-              value={`${completedLessons}/${totalLessons}`}
-              hint={
-                totalLessons
-                  ? `${Math.round(((completedLessons / totalLessons) * 100 + Number.EPSILON) * 10) / 10}% of the curriculum`
-                  : "No lessons yet"
-              }
-            />
-            <ProfileStat
-              icon={ClipboardListIcon}
-              label="Assessments passed"
-              value={`${passedAssessments}/${totalAssessments}`}
-              hint={
-                totalAssessments
-                  ? `${totalAttempts} attempt${totalAttempts === 1 ? "" : "s"}`
-                  : "None published yet"
-              }
-            />
-            <ProfileStat
-              icon={TargetIcon}
-              label="Average score"
-              value={formatPercent(analytics?.averageAssessmentScore)}
-              hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
-            />
-            <ProfileStat
-              icon={GaugeIcon}
-              label="Readiness"
-              value={formatPercent(analytics?.readinessPercentage)}
-              hint="Likelihood of passing"
-            />
-          </dl>
-
-          <CredentialsCard query={awardsQuery} />
-        </div>
+        <CredentialsCard query={awardsQuery} />
       </aside>
 
-      <div className="min-w-0 space-y-6 lg:overflow-y-auto">
+      {/* Main column */}
+      <div className="min-w-0 space-y-6">
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground">
+            {gradedAttempts.length} graded attempt{gradedAttempts.length === 1 ? "" : "s"} in the last year
+          </h2>
+          <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5">
+            <ActivityGrid attempts={gradedAttempts} />
+          </div>
+        </section>
+
         {!analytics?.hasAssessmentActivity && !analytics?.hasChallengeActivity ? (
           <InstitutionEmptyState
             icon={SparklesIcon}
@@ -720,37 +778,29 @@ export default function InstitutionDepartmentLearnerPage() {
           />
         ) : null}
 
-        <Card>
-          <CardContent className="pt-6">
-            <ActivityGrid attempts={gradedAttempts} />
-          </CardContent>
-        </Card>
-
         <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} />
-        <MemberAttemptReviewSheet
-          departmentId={departmentIdNumber}
-          learnerId={learnerIdNumber}
-          learnerName={learner?.name}
-          attemptId={reviewAttemptId}
-          onOpenChange={(open) => {
-            if (!open) setReviewAttemptId(null)
-          }}
-        />
 
         <TopicList
           title="Weakest topics"
           description={
             analytics?.bktAvailable === false
-              ? "Where this learner needs the most help — least accurate first, from their marked answers."
-              : "Where this learner needs the most help — lowest mastery first."
+              ? "Least accurate first, from their marked answers."
+              : "Lowest mastery first — where to help."
           }
           icon={TrendingDownIcon}
           topics={weakestTopics}
-          tone="weak"
         />
-
-        <p className="text-xs text-muted-foreground">Monitoring view only.</p>
       </div>
+
+      <MemberAttemptReviewSheet
+        departmentId={departmentIdNumber}
+        learnerId={learnerIdNumber}
+        learnerName={learner?.name}
+        attemptId={reviewAttemptId}
+        onOpenChange={(open) => {
+          if (!open) setReviewAttemptId(null)
+        }}
+      />
     </div>
   )
 }

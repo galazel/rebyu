@@ -13,6 +13,9 @@ public interface InstitutionCertificateRepository extends JpaRepository<Institut
 
     List<InstitutionCertificate> findByInstitution_InstitutionId(Long institutionId);
 
+    List<InstitutionCertificate> findByStatusAndAccessExpiryDateBefore(
+            InstitutionCertificate.Status status, java.time.LocalDate date);
+
     long countByInstitution_InstitutionIdAndStatus(
             Long institutionId, InstitutionCertificate.Status status);
 }

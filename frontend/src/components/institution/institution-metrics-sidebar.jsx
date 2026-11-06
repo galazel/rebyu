@@ -23,12 +23,14 @@ import { cn } from "@/lib/utils"
 const OWNER_METRIC_ITEMS = [
   { id: "ent-members", label: "Members & Certifications", icon: Users, category: "Core" },
   { id: "ent-seats", label: "Seat Allocations", icon: CreditCard, category: "Core" },
-  { id: "ent-activity", label: "Live Activity", icon: Activity, category: "Activity" },
-  { id: "ent-progress-spread", label: "Readiness Spread", icon: Award, category: "Academics" },
-  { id: "ent-departments", label: "Department Benchmarks", icon: Building2, category: "Academics" },
-  { id: "ent-trend", label: "Activity Trends", icon: TrendingUp, category: "Activity" },
-  { id: "ent-expiring", label: "Access Windows", icon: CalendarDays, category: "Administration" },
-  { id: "ent-invites", label: "Invitations", icon: Mail, category: "Administration" },
+  { id: "ent-progress", label: "Average Progress", icon: TrendingUp, category: "Academics" },
+  { id: "ent-member-table", label: "Member Table", icon: Users, category: "Core" },
+  { id: "ent-key-figures", label: "Key Figures", icon: Activity, category: "Activity" },
+  { id: "ent-completion-distribution", label: "Readiness Spread", icon: Award, category: "Academics" },
+  { id: "ent-group-completion", label: "Department Benchmarks", icon: Building2, category: "Academics" },
+  { id: "ent-activity-trend", label: "Activity Trends", icon: TrendingUp, category: "Activity" },
+  { id: "ent-allocations", label: "Access Windows", icon: CalendarDays, category: "Administration" },
+  { id: "ent-invitations", label: "Invitations", icon: Mail, category: "Administration" },
 ]
 
 export function InstitutionMetricsSidebar({
@@ -67,7 +69,7 @@ export function InstitutionMetricsSidebar({
               Institution Metrics
             </h2>
             <p className="text-[11px] text-muted-foreground/80 font-medium">
-              8 Analytical Tiles
+              {OWNER_METRIC_ITEMS.length} Analytical Tiles
             </p>
           </div>
         </div>

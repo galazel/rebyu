@@ -25,7 +25,7 @@ public class StudyDeskService {
 
     private static final int MAX_NOTE_LENGTH = 500;
     private static final int MAX_COL = 6;
-    private static final int MAX_ROW = 5;
+    private static final int MAX_ROW = 20;
 
     private final LearnerNoteRepository noteRepository;
     private final LearnerDashboardLayoutRepository layoutRepository;
@@ -75,7 +75,7 @@ public class StudyDeskService {
     }
 
 
-    public record TilePlacement(String id, Integer x, Integer y, Integer w, Integer h) {}
+    public record TilePlacement(String id, Integer x, Integer y, Integer w, Integer h, Boolean hidden) {}
 
     @Transactional(readOnly = true)
     public List<TilePlacement> dashboardLayout(Long learnerId) {
@@ -92,7 +92,8 @@ public class StudyDeskService {
                         clampToGrid(tile.x(), 0, MAX_COL - 1),
                         Math.max(0, tile.y() == null ? 0 : tile.y()),
                         clampToGrid(tile.w(), 1, MAX_COL),
-                        clampToGrid(tile.h(), 1, MAX_ROW)))
+                        clampToGrid(tile.h(), 1, MAX_ROW),
+                        Boolean.TRUE.equals(tile.hidden()) ? Boolean.TRUE : null))
                 .toList();
 
         LearnerDashboardLayout row = layoutRepository.findByLearner_LearnerId(learnerId)

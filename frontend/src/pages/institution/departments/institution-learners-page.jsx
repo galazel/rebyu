@@ -5,6 +5,7 @@ import { Search, UsersIcon } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TABLE_SURFACE } from "@/components/commons/data-table"
+import { ExportButton, isoDay, pct } from "@/components/commons/export-button.jsx"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -183,6 +184,38 @@ export default function InstitutionLearnersPage() {
                 ))}
               </SelectContent>
             </Select>
+            <ExportButton
+              filename="rebyu-institution-learners"
+              report="Institution learners"
+              details={() => [
+                ["Institution", institution?.institutionName],
+                ["Certification filter", certificationFilter === "all" ? "All certifications" : certificationOptions.find(([id]) => String(id) === certificationFilter)?.[1]],
+                ["Status filter", statusFilter === "all" ? "All statuses" : statusFilter],
+                ["Search", search.trim() || null],
+                ["Learners in file", rows.length],
+              ]}
+              className="ml-auto"
+              disabled={rows.length === 0}
+              sections={() => [
+                {
+                  title: "Learners",
+                  columns: [
+                    "Learner", "Username", "Certification", "Department", "Status", "Progress (%)",
+                    "Assigned on", "Completed on",
+                  ],
+                  rows: rows.map((row) => [
+                    row.name,
+                    row.learner?.username,
+                    row.certification?.title,
+                    row.group?.departmentName ?? "Not in a department",
+                    row.assignment.status,
+                    pct(row.assignment.progressPercentage),
+                    isoDay(row.assignment.assignedAt),
+                    isoDay(row.assignment.completedAt),
+                  ]),
+                },
+              ]}
+            />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[160px]" aria-label="Filter by status">
                 <SelectValue placeholder="Status" />

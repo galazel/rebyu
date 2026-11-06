@@ -1,16 +1,13 @@
-import { useEffect, useMemo, useState } from "react"
-import { Link, useOutletContext, useSearchParams } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  ChevronDown,
-  ChevronUpIcon,
   Loader2,
   Mail,
   Plus,
   ShieldCheck,
   Trash2,
   UserCog,
-  UserPlus,
   Users2,
   UsersRound,
 } from "@/components/icons"
@@ -18,26 +15,16 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -52,15 +39,17 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
-import { cn } from "@/lib/utils"
-import { DEPARTMENT_FUNCTIONAL_GROUPS, DepartmentsSidebar } from "@/components/institution/departments-sidebar.jsx"
+import {
+  DEPARTMENT_VIEW_ALIASES,
+  DEPARTMENT_VIEW_IDS,
+  DepartmentsSidebar,
+} from "@/components/institution/departments-sidebar.jsx"
+import { DepartmentProgramsPanel } from "@/components/institution/department-programs-panel.jsx"
+import { useMyDepartments } from "@/hooks/use-my-department.js"
 import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
-import {
-  getLearnerDisplayName,
-  useInstitutionData,
-} from "@/hooks/use-institution-data.js"
+import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import {
   cancelDepartmentHeadCode,
   getDepartmentHeadCodeInvitations,
@@ -68,11 +57,8 @@ import {
   addDepartmentLearner,
   assignDepartmentHeadAssignment,
   changeDepartmentLearnerRole,
-  createDepartment,
   getDepartmentLearners,
   getDepartmentHeadAssignments,
-  getDepartments,
-  getMyDepartmentHeads,
   removeDepartmentLearner,
   removeDepartmentHeadAssignment,
 } from "@/services/institutionService.js"
@@ -719,178 +705,32 @@ export function ManageGroupDialog({
   )
 }
 
-function DepartmentCard({ group, onManage }) {
-  const [showDetails, setShowDetails] = useState(false)
-  const coveredTitles = (group.certifications ?? []).map((cert) => cert.title).filter(Boolean)
-  const totalSlots = group.totalSlots ?? 0
-  const usedSlots = group.usedSlots ?? 0
-
-  return (
-    <Card className="flex flex-col">
-      <CardHeader className="space-y-2">
-        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="text-base truncate">{group.departmentName}</CardTitle>
-            <CardDescription className="line-clamp-2">
-              {coveredTitles.length > 0 ? coveredTitles.join(" · ") : "No certifications"}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 shrink-0 self-start">
-            <Badge variant="outline" className="text-[11px] font-medium border-border/70">
-              {usedSlots} / {totalSlots} slots
-            </Badge>
-            <InstitutionStatusBadge status={group.status} />
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 space-y-2 pt-0">
-        <button
-          type="button"
-          onClick={() => setShowDetails((prev) => !prev)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors min-h-[36px] sm:min-h-0 py-1"
-        >
-          {showDetails ? (
-            <ChevronUpIcon className="size-3.5 shrink-0" aria-hidden="true" />
-          ) : (
-            <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
-          )}
-          <span>{showDetails ? "Hide details" : "Details"}</span>
-        </button>
-
-        {showDetails ? (
-          <div className="rounded-lg border bg-muted/20 p-2.5 text-xs text-muted-foreground space-y-1 animate-in fade-in-50 duration-150">
-            <p>{group.departmentDescription || "No department description provided."}</p>
-            {group.certifications?.length > 0 ? (
-              <p className="text-[11px] text-muted-foreground/80">
-                Certifications: {group.certifications.length} active
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </CardContent>
-
-      <CardFooter className="gap-2 pt-2 border-t border-border/40">
-        <Button asChild size="sm" className="flex-1 min-h-[44px] sm:min-h-0 sm:h-9">
-          <Link to={`/institution/departments/${group.departmentId}`}>
-            Open workspace
-          </Link>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-[44px] sm:min-h-0 sm:h-9"
-          onClick={() => onManage(group)}
-        >
-          <UserCog className="size-4" aria-hidden="true" />
-          Manage
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
-
 export default function DepartmentsPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const { user } = useAuth()
   const isOwner = isInstitutionOwner(user)
-  const institutionId = institution?.institutionId
-  const [searchParams] = useSearchParams()
-  const scopedInstitutionCertIdParam = searchParams.get("institutionCertId")
-  const scopedInstitutionCertId = scopedInstitutionCertIdParam ? Number(scopedInstitutionCertIdParam) : null
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { departmentsQuery, departments: groups, department: activeDepartment, departmentId: activeDepartmentId, selectDepartment } =
+    useMyDepartments()
 
-  const data = useInstitutionData(institutionId)
-  const [manageGroup, setManageGroup] = useState(null)
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [activeFeature, setActiveFeature] = useState("dept-overview")
-  const [activeCategory, setActiveCategory] = useState("all")
-  const queryClient = useQueryClient()
+  // ?view=programs|roster|heads|announcements picks the panel, so the
+  // dashboard's alerts and the browser's back button land on the right one.
+  // Old #hash links (#dept-learner-table) still work.
+  const hashView = typeof window !== "undefined" ? window.location.hash.replace("#", "") : ""
+  const viewParam = searchParams.get("view")
+  const activeFeature =
+    DEPARTMENT_VIEW_IDS[DEPARTMENT_VIEW_ALIASES[viewParam] ?? viewParam] ??
+    (Object.values(DEPARTMENT_VIEW_IDS).includes(hashView) ? hashView : DEPARTMENT_VIEW_IDS.programs)
+  const rosterFilter = searchParams.get("filter") ?? "all"
+  const sectionFilter = searchParams.get("section") ?? "all"
 
-  const departmentsQuery = useQuery({
-    queryKey: ["departments", institutionId],
-    queryFn: () => getDepartments({ institutionId }),
-    enabled: institutionId != null,
-    retry: 1,
-  })
+  const selectFeature = (featureId) => {
+    const view = Object.keys(DEPARTMENT_VIEW_IDS).find((key) => DEPARTMENT_VIEW_IDS[key] === featureId)
+    setSearchParams(view ? { view } : {}, { replace: false })
+  }
 
-  const membersQuery = useQuery({
-    queryKey: ["department-heads", institutionId],
-    queryFn: () => getMyDepartmentHeads(),
-    enabled: institutionId != null,
-    retry: 1,
-  })
-
-  const members = Array.isArray(membersQuery.data) ? membersQuery.data : []
-
-  const userById = useMemo(
-    () => new Map(members.map((m) => [m.userId, m])),
-    [members]
-  )
-
-  const groups = (Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []).filter(
-    (group) =>
-      group.status === "active" &&
-      (scopedInstitutionCertId == null || (group.institutionCertIds ?? []).includes(scopedInstitutionCertId))
-  )
-
-  const filteredGroups = useMemo(() => {
-    return groups.filter((group) => {
-      if (selectedDepartmentId != null && group.departmentId !== selectedDepartmentId) {
-        return false
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const matchName = (group.departmentName || "").toLowerCase().includes(q)
-        const matchDesc = (group.departmentDescription || "").toLowerCase().includes(q)
-        const matchCert = (group.certifications || []).some((c) => (c.title || "").toLowerCase().includes(q))
-        if (!matchName && !matchDesc && !matchCert) return false
-      }
-      if (statusFilter === "available") {
-        const total = group.totalSlots ?? 0
-        const used = group.usedSlots ?? 0
-        if (used >= total) return false
-      }
-      return true
-    })
-  }, [groups, selectedDepartmentId, searchQuery, statusFilter])
-
-  const scopedCertification = scopedInstitutionCertId != null
-    ? data.certificationById.get(data.institutionCertById.get(scopedInstitutionCertId)?.certificationId)
-    : null
-
-  const activeDepartment = useMemo(() => {
-    if (selectedDepartmentId != null) {
-      return groups.find((g) => g.departmentId === selectedDepartmentId) ?? groups[0]
-    }
-    return groups[0]
-  }, [groups, selectedDepartmentId])
-  const activeDepartmentId = activeDepartment?.departmentId ?? activeDepartment?.id
-
-  const allManagementTileIds = useMemo(
-    () => [
-      "dept-overview",
-      "dept-section-breakdown",
-      "dept-learner-table",
-      "dept-co-authorities",
-      "dept-announcements",
-      "dept-invoices",
-    ],
-    []
-  )
-
-  useEffect(() => {
-    if (window.location.hash) {
-      const id = window.location.hash.replace("#", "")
-      if (allManagementTileIds.includes(id)) {
-        setActiveFeature(id)
-      }
-    }
-  }, [allManagementTileIds])
-
-  if (institutionLoading || (institution && data.isLoading)) {
+  if (institutionLoading || departmentsQuery.isLoading) {
     return <InstitutionLoadingSkeleton />
   }
   if (institutionError) {
@@ -900,155 +740,56 @@ export default function DepartmentsPage() {
     return (
       <InstitutionEmptyState
         title="No institution found"
-        description="Learner departments appear here once your institution is registered."
+        description="Your department appears here once your institution is registered."
       />
     )
   }
 
-  const hasAllocations = data.institutionCerts.some((cert) => String(cert.status ?? "").toLowerCase() === "active")
-  const awaitingPayment = data.institutionCerts.some((cert) => String(cert.status ?? "").toLowerCase() === "pending")
-
   return (
     <div className="space-y-6">
-
       <InstitutionPageHeader
-        title={scopedCertification ? `Departments — ${scopedCertification.title}` : "Departments"}
-        subtitle="Each certification your institution holds has one department, named after the certification's department. Assign its head and manage its learners here."
+        title={activeDepartment ? activeDepartment.departmentName : "Department"}
+        subtitle={(activeDepartment?.certifications ?? []).map((cert) => cert.title).join(" · ") || null}
       />
 
       {departmentsQuery.isError ? (
         <InstitutionErrorState onRetry={departmentsQuery.refetch} />
-      ) : !hasAllocations ? (
-        <InstitutionEmptyState
-          icon={UsersRound}
-          title={awaitingPayment ? "Pay your invoice to create departments" : "No certification allocations yet"}
-          description={
-            awaitingPayment
-              ? "Your certification access activates once the invoice is paid. Departments can be created after that."
-              : "Once your institution has a paid certification allocation, you can create departments under it."
-          }
-          action={
-            <Button asChild size="sm">
-              <Link to={awaitingPayment ? "/institution/invoices" : "/institution/partnership"}>
-                {awaitingPayment ? "Open invoices" : "Request partnership"}
-              </Link>
-            </Button>
-          }
-        />
       ) : groups.length === 0 ? (
         <InstitutionEmptyState
           icon={UsersRound}
-          title="No departments yet"
-          description="A department appears here automatically once your certification access is paid and active."
+          title="No active department"
+          description="A department appears here once your institution's certification access is active and you are assigned to it."
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] items-start">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
+
+          <div className="order-first lg:order-last lg:sticky lg:top-20 lg:self-start">
           <DepartmentsSidebar
-            departments={groups}
-            selectedDepartmentId={selectedDepartmentId}
-            onSelectDepartment={setSelectedDepartmentId}
-            activeFeature={activeFeature}
-            onSelectFeature={setActiveFeature}
-            activeCategory={activeCategory}
-            onSelectCategory={setActiveCategory}
-          />
+              departments={groups}
+              selectedDepartmentId={activeDepartmentId}
+              onSelectDepartment={selectDepartment}
+              activeFeature={activeFeature}
+              onSelectFeature={selectFeature}
+            />
+          </div>
           <div className="min-w-0 space-y-6">
-            {/* Mobile View Switcher */}
-            <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/40">
-              {DEPARTMENT_FUNCTIONAL_GROUPS.flatMap((g) => g.items).map((item) => {
-                const Icon = item.icon
-                const isActive = activeFeature === item.id
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveFeature(item.id)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors shrink-0",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "bg-muted/40 text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="size-3.5" aria-hidden="true" />
-                    <span>{item.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* If activeFeature === 'dept-overview', render the Department Allocations page view */}
-            {activeFeature === "dept-overview" && (
-              <div id="dept-overview" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-3">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground sm:text-base">Department Allocations</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Active departments, certification allocations, and seat quotas across your institution.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5">
-                      {groups.length} {groups.length === 1 ? "department" : "departments"}
-                    </Badge>
-                  </div>
-                </div>
-
-                {filteredGroups.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 p-10 text-center text-sm text-muted-foreground space-y-2">
-                    <p className="font-semibold text-foreground">No matching departments found</p>
-                    <p className="text-xs">Try adjusting your search query or filter selection.</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSearchQuery("")
-                        setSelectedDepartmentId(null)
-                        setStatusFilter("all")
-                      }}
-                      className="mt-2 text-xs"
-                    >
-                      Clear filters
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {filteredGroups.map((group) => (
-                      <DepartmentCard
-                        key={group.departmentId}
-                        group={group}
-                        onManage={setManageGroup}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* If activeFeature !== 'dept-overview', render the selected management feature page view */}
-            {activeFeature !== "dept-overview" && (
+            {activeFeature === DEPARTMENT_VIEW_IDS.programs ? (
+              <DepartmentProgramsPanel key={activeDepartmentId} department={activeDepartment} />
+            ) : (
               <DepartmentManagementBoard
+                key={`${activeDepartmentId}-${activeFeature}-${rosterFilter}-${sectionFilter}`}
                 departmentId={activeDepartmentId}
                 department={activeDepartment}
                 isOwner={isOwner}
                 activeFeature={activeFeature}
+                initialRosterFilter={rosterFilter}
+                initialSectionFilter={sectionFilter}
               />
             )}
           </div>
         </div>
       )}
 
-      <ManageGroupDialog
-        group={manageGroup}
-        open={manageGroup != null}
-        onOpenChange={(open) => !open && setManageGroup(null)}
-        members={members}
-        userById={userById}
-        assignments={data.assignments}
-        learnerById={data.learnerById}
-        invitations={data.invitations}
-        institutionCertById={data.institutionCertById}
-      />
     </div>
   )
 }

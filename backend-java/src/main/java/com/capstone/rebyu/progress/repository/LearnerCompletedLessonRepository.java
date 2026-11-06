@@ -106,4 +106,24 @@ public interface LearnerCompletedLessonRepository extends JpaRepository<LearnerC
     List<LessonsDone> lessonsCompletedInCertification(
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
             @org.springframework.data.repository.query.Param("certificationId") Long certificationId);
+
+    interface LastCompletion {
+        Long getLearnerId();
+        java.time.LocalDateTime getLastCompletedAt();
+    }
+
+    /** Each learner's most recent lesson completion on the given certifications. */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT l.learner.learnerId AS learnerId, MAX(l.completedAt) AS lastCompletedAt
+            FROM LearnerCompletedLesson l
+            WHERE l.learner.learnerId IN :learnerIds
+              AND l.completedAt >= :from AND l.completedAt <= :to
+              AND l.lesson.middleCategory.majorCategory.certification.certificationId IN :certificationIds
+            GROUP BY l.learner.learnerId
+            """)
+    List<LastCompletion> lastCompletionByLearnerIdsInCertifications(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds);
 }

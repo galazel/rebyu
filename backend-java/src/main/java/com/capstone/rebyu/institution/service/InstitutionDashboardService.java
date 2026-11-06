@@ -47,7 +47,10 @@ public class InstitutionDashboardService {
             long gradedAttempts,
             long passedAttempts,
             Integer passRate,
-            Integer averageScore) {}
+            Integer averageScore,
+            int atRisk,
+            int dormant,
+            int learnersNotStarted) {}
 
     public record CertificationDto(
             Long institutionCertId,
@@ -197,11 +200,40 @@ public class InstitutionDashboardService {
         int seatsTotal = certRows.stream().filter(c -> "active".equals(c.status())).mapToInt(CertificationDto::totalSlots).sum();
         int seatsUsed = certRows.stream().filter(c -> "active".equals(c.status())).mapToInt(CertificationDto::seatsUsed).sum();
 
+        // Needing support = the department pages' "needs a check-in": at risk, gone quiet
+        // or not started (per learner, over the period), so both portals agree.
+        Map<Long, List<Enrollment>> perLearner = new LinkedHashMap<>();
+        for (Enrollment e : roster) perLearner.computeIfAbsent(e.learnerId, k -> new ArrayList<>()).add(e);
+        int atRisk = 0, dormant = 0, learnersNotStarted = 0;
+        LocalDateTime now = LocalDateTime.now();
+        for (var entry : perLearner.entrySet()) {
+            Tally t = Tally.EMPTY;
+            int done = 0;
+            BigDecimal progress = BigDecimal.ZERO;
+            for (Enrollment e : entry.getValue()) {
+                t = t.plus(byEnrollment.get(e.enrollmentId));
+                if (e.completed) done++;
+                progress = progress.add(e.progress);
+            }
+            var member = new com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.MemberLearningStatsDto(
+                    entry.getKey(), null, null, entry.getValue().size(), entry.getValue().size(), done,
+                    progress.divide(BigDecimal.valueOf(entry.getValue().size()), 1, RoundingMode.HALF_UP),
+                    t.lessons, t.attempts, t.passed, t.passRate(), t.averageScore(), t.last);
+            switch (DepartmentOverviewService.statusOf(member, now)) {
+                case at_risk -> atRisk++;
+                case dormant -> dormant++;
+                case not_started -> learnersNotStarted++;
+                default -> { }
+            }
+        }
+        needingSupport = atRisk + dormant + learnersNotStarted;
+
         SummaryDto summary = new SummaryDto(
                 learners.size(), roster.size(), completed, inProgress, notStarted, needingSupport,
                 roster.isEmpty() ? null : progressSum.divide(BigDecimal.valueOf(roster.size()), 1, RoundingMode.HALF_UP),
                 seatsTotal, seatsUsed, activeLearners.size(),
-                total.lessons, total.attempts, total.passed, total.passRate(), total.averageScore());
+                total.lessons, total.attempts, total.passed, total.passRate(), total.averageScore(),
+                atRisk, dormant, learnersNotStarted);
 
         Map<Long, List<Enrollment>> byDepartment = new LinkedHashMap<>();
         List<Enrollment> unassigned = new ArrayList<>();
@@ -359,6 +391,7 @@ public class InstitutionDashboardService {
                        max(a.submitted_at) AS last_at
                   FROM assessment_attempts a
                   JOIN exams e ON e.exam_id = a.exam_id
+                  JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
                   JOIN roster r ON r.learner_id = a.learner_id AND r.certification_id = e.certification_id
                  WHERE a.status = 'SUBMITTED' AND a.submitted_at >= ? AND a.submitted_at < ?
                  GROUP BY a.learner_id, e.certification_id""",
@@ -395,6 +428,7 @@ public class InstitutionDashboardService {
                   SELECT a.submitted_at AS at, a.learner_id, 1 AS attempt, 0 AS lesson
                     FROM assessment_attempts a
                     JOIN exams e ON e.exam_id = a.exam_id
+                    JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
                     JOIN roster r ON r.learner_id = a.learner_id AND r.certification_id = e.certification_id
                    WHERE a.status = 'SUBMITTED' AND a.submitted_at >= ? AND a.submitted_at < ?
                   UNION ALL

@@ -26,6 +26,14 @@ public class WorldCupTournamentController {
     return tournament.joinQueue(learnerId(jwt), body.get("certificationId"));
   }
 
+  /** After two minutes in the queue, fill the empty seats with bots and start. */
+  @PostMapping("/queue/bots")
+  public QueueStatus fillWithBots(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestBody Map<String, Long> body) {
+    return tournament.fillWithBots(learnerId(jwt), body.get("certificationId"));
+  }
+
   @DeleteMapping("/queue")
   public QueueStatus leaveQueue(
       @AuthenticationPrincipal Jwt jwt,

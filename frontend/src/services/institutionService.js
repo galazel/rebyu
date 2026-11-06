@@ -150,6 +150,25 @@ export function uploadInstitutionFile(file) { const formData = new FormData(); f
 export function deleteInstitutionFile(id) { return base(`institution/files/${id}`, { method: "DELETE" }) }
 
 
+/** The department head's dashboard: seats, totals, learner statuses, sections, alerts. */
+export function getDepartmentOverview(departmentId) {
+  return base(`institution/me/departments/${departmentId}/overview`)
+}
+
+/** One certification's learners: current ones, and those who left (frozen records). Owner only. */
+export function getAllocationLearners(institutionCertId) {
+  return base(`institution/me/certifications/${institutionCertId}/learners`)
+}
+
+/** Finished access terms (expired certifications), newest first. Owner only. */
+export function getCertificationArchives() {
+  return base("institution/me/certification-archives")
+}
+
+export function getCertificationArchiveLearners(archiveId) {
+  return base(`institution/me/certification-archives/${archiveId}/learners`)
+}
+
 export function getGroupLearnerRoster(departmentId) {
   return base(`institution/me/departments/${departmentId}/learners`)
 }

@@ -47,6 +47,7 @@ class ChallengeArenaConfigTest {
   @Mock ChallengeArenaConfigRepository configs;
   @Mock QuestionMapper questionMapper;
   @Mock WorldCupEditionRepository editionRepo;
+  @Mock com.capstone.rebyu.assessment.repository.AssessmentAttemptQuestionRepository attemptQuestions;
 
   ChallengeArenaService arenas;
   WorldCupEditionService editions;
@@ -56,7 +57,7 @@ class ChallengeArenaConfigTest {
   @BeforeEach
   void setUp() {
     arenas = new ChallengeArenaService(
-        exams, examTypes, examQuestions, questions, certifications, configs, questionMapper);
+        exams, examTypes, examQuestions, questions, certifications, configs, editionRepo, attemptQuestions, questionMapper);
     editions = new WorldCupEditionService(editionRepo, certifications, questions, arenas);
 
     lenient().when(configs.findById(anyString()))

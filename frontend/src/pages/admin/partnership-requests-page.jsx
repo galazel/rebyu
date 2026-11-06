@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, Clock, XCircle } from "@/components/icons"
 import { toast } from "sonner"
@@ -198,6 +199,14 @@ export default function PartnershipRequests() {
         <SummaryCard icon={Clock} label="Pending" value={counts.PENDING} />
         <SummaryCard icon={CheckCircle2} label="Approved" value={counts.APPROVED} />
         <SummaryCard icon={XCircle} label="Rejected" value={counts.REJECTED} />
+        <ExportButton
+          filename="rebyu-admin-partnership-requests"
+          report="Partnership requests"
+          details={() => [["Requests in file", `${sorted.length} of ${requests.length}`], ["Status filter", statusFilter]]}
+          className="ml-auto"
+          disabled={sorted.length === 0}
+          sections={() => [tableFromObjects("Partnership requests", sorted)]}
+        />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

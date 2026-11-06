@@ -1,4 +1,7 @@
 import { LoadingNote } from "@/components/classroom/loading-note.jsx"
+import { LEARNER_PRESET } from "@/components/commons/dashboard-tile-labels.js"
+import { learnerReportBlocks } from "@/lib/learner-export.js"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -7,10 +10,10 @@ import { toast } from "sonner"
 import {
   ArrowRight,
   Brain,
-  BookOpen,
   Check,
-  ClipboardListIcon,
   GripHorizontal,
+  BookOpen,
+  ClipboardListIcon,
   Loader2,
   Target,
   TrendingUp,
@@ -1153,12 +1156,17 @@ export default function LearnerProgressPage() {
     saveLayoutMutation.mutate(nextLayout)
   }
 
-  const resetLayout = () => {
-    setLocalLayout([])
-    saveLayoutMutation.mutate([])
-  }
-
   const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
+
+  // Back to the default layout, out of rearrange mode.
+  const resetLayout = () => {
+    setRearranging(false)
+    setLayoutBeforeEdit(null)
+    setLocalLayout([])
+    queryClient.setQueryData([DASHBOARD_LAYOUT_KEY], { tiles: [] })
+    saveLayoutMutation.mutate([])
+    toast.success("Layout reset to default")
+  }
 
   const startRearranging = () => {
     setLayoutBeforeEdit(savedLayout)
@@ -1184,6 +1192,14 @@ export default function LearnerProgressPage() {
       <div className="rb-hub rb-progress-board space-y-6">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <h1 className="sr-only">My progress</h1>
+
+          <ExportButton
+            filename="rebyu-my-progress"
+            report="My progress"
+            details={[["Certification", selectedCertification?.title]]}
+            disabled={!analytics}
+            sections={() => learnerReportBlocks(analytics)}
+          />
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (
             <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -1285,6 +1301,7 @@ export default function LearnerProgressPage() {
             <DashboardBoard
               tiles={dashboardTiles}
               layout={tileLayout}
+              preset={LEARNER_PRESET}
               editing={rearranging}
               onLayoutChange={handleLayoutChange}
             />

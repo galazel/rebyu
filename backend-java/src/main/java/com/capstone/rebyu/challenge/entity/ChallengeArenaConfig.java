@@ -26,6 +26,10 @@ public class ChallengeArenaConfig {
   @Column(name = "disabled_tracks_json", columnDefinition = "TEXT")
   private String disabledTracksJson;
 
+  /** Certifications whose learners see this challenge on their learning path (JSON id list). */
+  @Column(name = "assigned_certifications_json", columnDefinition = "TEXT")
+  private String assignedCertificationsJson;
+
   @Column(name = "updated_at")
   private LocalDateTime updatedAt;
 }

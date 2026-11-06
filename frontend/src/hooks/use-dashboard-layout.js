@@ -20,6 +20,7 @@ export function useDashboardLayout(board) {
 
   const [rearranging, setRearranging] = useState(false)
   const [localLayout, setLocalLayout] = useState(null)
+  const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
 
   const savedLayout = localLayout ?? layoutQuery.data?.tiles ?? null
   const tileLayout = savedLayout ?? []
@@ -50,13 +51,13 @@ export function useDashboardLayout(board) {
   }
 
   const resetLayout = () => {
+    setRearranging(false)
+    setLayoutBeforeEdit(null)
     setLocalLayout([])
     queryClient.setQueryData(queryKey, { tiles: [] })
     saveLayoutMutation.mutate([])
     toast.success("Layout reset to default")
   }
-
-  const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
 
   const startRearranging = () => {
     setLayoutBeforeEdit(savedLayout)

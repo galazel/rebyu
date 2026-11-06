@@ -248,7 +248,7 @@ export default function ProblemGrid({ problems, onOpen, tone }) {
 
       <div
         ref={trackRef}
-        className="hidden [&::-webkit-scrollbar]:hidden sm:block sm:overflow-x-auto"
+        className="hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:block sm:overflow-x-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         onWheel={(event) => {
           const frame = event.currentTarget

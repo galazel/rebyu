@@ -122,57 +122,44 @@ function CertificationCard({
   )
 }
 
-function CategoryFilter({
-                          categories,
-                          categoryCounts,
-                          selectedCategories,
-                          onToggleCategory,
-                          onClear,
-                        }) {
+/* Category filter as a single row of rounded pills: "All" plus one per category,
+   each with its count. Several can be on at once; "All" clears them. */
+function CategoryFilter({ categories, categoryCounts, selectedCategories, onToggleCategory, onClear, total }) {
+  if (categories.length === 0) return null
+  const none = selectedCategories.size === 0
+
+  const pill = (active) =>
+    `inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw ${
+      active
+        ? "border-rb-feather bg-rb-feather text-white"
+        : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-hare hover:bg-rb-polar"
+    }`
+  const count = (active) =>
+    `rounded-full px-1.5 text-[11px] font-bold tabular-nums ${active ? "bg-white/20 text-white" : "bg-rb-polar text-rb-wolf"}`
+
   return (
-      <aside className="tg-cat-explain h-fit">
-        <section className="tg-frame">
-          <header className="tg-head flex items-center gap-2.5 px-4 py-3">
-            <span className="tg-badge-icon"><Layers3 className="size-4" aria-hidden="true" /></span>
-            <span className="tg-kicker flex-1">Categories</span>
-            <button
-                type="button"
-                onClick={onClear}
-                disabled={selectedCategories.size === 0}
-                className="tg-btn !px-3 !py-1 !text-xs"
-            >
-              Clear
-            </button>
-          </header>
-
-          <div className="space-y-2 p-3">
-            {categories.length === 0 ? (
-                <p className="px-1 py-2 text-sm text-muted-foreground">
-                  No categories available.
-                </p>
-            ) : (
-                categories.map((category) => {
-                  const checked = selectedCategories.has(category)
-
-                  return (
-                      <button
-                          key={category}
-                          type="button"
-                          aria-pressed={checked}
-                          onClick={() => onToggleCategory(category)}
-                          className={`tg-btn w-full !justify-between !text-left !text-sm ${checked ? "tg-btn-primary" : ""}`}
-                      >
-                        <span className="min-w-0 flex-1">{category}</span>
-                        <span className="shrink-0 text-xs tabular-nums opacity-80">
-                          {categoryCounts.get(category) ?? 0}
-                        </span>
-                      </button>
-                  )
-                })
-            )}
-          </div>
-        </section>
-      </aside>
+    <div role="group" aria-label="Filter by category" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+      <button type="button" aria-pressed={none} onClick={onClear} className={pill(none)}>
+        All
+        <span className={count(none)}>{total}</span>
+      </button>
+      {categories.map((category) => {
+        const active = selectedCategories.has(category)
+        return (
+          <button
+            key={category}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggleCategory(category)}
+            className={pill(active)}
+          >
+            {active ? <CheckCircle className="size-3.5" aria-hidden="true" /> : null}
+            <span className="whitespace-nowrap">{category}</span>
+            <span className={count(active)}>{categoryCounts.get(category) ?? 0}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -354,17 +341,9 @@ export default function LearnerCertificationsPage() {
             title="Certifications"
         />
 
-        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
-          <CategoryFilter
-              categories={categories}
-              categoryCounts={categoryCounts}
-              selectedCategories={selectedCategories}
-              onToggleCategory={toggleCategory}
-              onClear={clearCategories}
-          />
-
+        <div>
           <main className="min-w-0">
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
               <p className="text-sm text-muted-foreground">
                 Showing{" "}
                 <span className="font-semibold text-foreground">
@@ -390,6 +369,17 @@ export default function LearnerCertificationsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="mb-6">
+              <CategoryFilter
+                  categories={categories}
+                  categoryCounts={categoryCounts}
+                  selectedCategories={selectedCategories}
+                  onToggleCategory={toggleCategory}
+                  onClear={clearCategories}
+                  total={certifications.length}
+              />
             </div>
 
             {awardsQuery.isLoading ? (

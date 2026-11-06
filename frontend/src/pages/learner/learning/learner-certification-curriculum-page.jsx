@@ -10,6 +10,7 @@ import {
 } from "react-router-dom"
 import { returnState } from "@/lib/assessment-return"
 import { CurriculumDock } from "@/components/learner/curriculum-dock.jsx"
+import { ChallengeRail, useCertificationChallenges } from "@/components/learner/challenge-rail.jsx"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowRight,
@@ -866,6 +867,8 @@ export default function LearnerCertificationCurriculumPage() {
   const location = useLocation()
   const { narrow: narrowRoad, containerRef: roadContainerRef } = useRoadLayout()
   const { certificationId } = useParams()
+  // Start fetching the challenge rail now, in parallel with the curriculum.
+  useCertificationChallenges(certificationId)
   const { data } = useOutletContext()
 
   const [lock, setLock] = useState(null)
@@ -1224,6 +1227,8 @@ export default function LearnerCertificationCurriculumPage() {
         progress={headerProgress}
         showCalendar={diagnosticDone && hasPlan}
       />
+
+      <ChallengeRail certificationId={certificationId} />
 
       <main ref={roadContainerRef} className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
         {curriculum.majors.length === 0 ? (

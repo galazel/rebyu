@@ -151,3 +151,10 @@ export function getWorldCupTracks(enrolledCertifications = [], disabledTrackIds 
       "Questions drawn from this certification's own question bank.",
   }))
 }
+
+/** Where a learner plays each arena. */
+export const ARENA_LEARNER_PATHS = {
+  codestrike: "/learner/challenges/codestrike",
+  blueprint: "/learner/challenges/blueprint-arena",
+  worldcup: "/learner/challenges/world-cup",
+}

@@ -515,9 +515,12 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {isRoadmap ? (
-            <Badge variant="outline" className="tabular-nums">
-              {nodes.length}
-              {targetNodes ? ` / ${targetNodes}` : ""} nodes
+            <Badge
+              variant="outline"
+              className={`tabular-nums ${targetNodes && nodes.length > targetNodes ? "border-amber-500/60 text-amber-800 dark:text-amber-300" : ""}`}
+              title={targetNodes ? `The path is set to ${targetNodes} node${targetNodes === 1 ? "" : "s"} in Settings` : undefined}
+            >
+              {targetNodes ? `${nodes.length} of ${targetNodes} node${targetNodes === 1 ? "" : "s"}` : `${nodes.length} node${nodes.length === 1 ? "" : "s"}`}
             </Badge>
           ) : null}
 
@@ -536,6 +539,12 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
             </>
           ) : null}
 
+          {isRoadmap && targetNodes && nodes.length > targetNodes ? (
+            <span className="text-xs font-medium text-amber-800 dark:text-amber-300">
+              {nodes.length - targetNodes} more node{nodes.length - targetNodes === 1 ? "" : "s"} than the path shows. Raise
+              “Roadmap nodes” in Settings or remove the extra.
+            </span>
+          ) : null}
           {isRoadmap && targetNodes && nodes.length < targetNodes ? (
             <span className="text-xs text-muted-foreground">
               {targetNodes - nodes.length} more node

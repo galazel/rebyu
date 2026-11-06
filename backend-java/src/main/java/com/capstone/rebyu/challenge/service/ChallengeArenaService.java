@@ -6,6 +6,7 @@ import com.capstone.rebyu.assessment.entity.ExamType;
 import com.capstone.rebyu.assessment.dto.QuestionDto;
 import com.capstone.rebyu.assessment.entity.Question;
 import com.capstone.rebyu.assessment.mapper.QuestionMapper;
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptQuestionRepository;
 import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
 import com.capstone.rebyu.assessment.repository.ExamRepository;
 import com.capstone.rebyu.assessment.repository.ExamTypeRepository;
@@ -14,6 +15,7 @@ import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
 import com.capstone.rebyu.challenge.entity.ChallengeArenaConfig;
 import com.capstone.rebyu.challenge.repository.ChallengeArenaConfigRepository;
+import com.capstone.rebyu.challenge.repository.WorldCupEditionRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,6 +50,8 @@ public class ChallengeArenaService {
   private final QuestionRepository questions;
   private final CertificationRepository certifications;
   private final ChallengeArenaConfigRepository arenaConfigs;
+  private final WorldCupEditionRepository worldCupEditions;
+  private final AssessmentAttemptQuestionRepository attemptQuestions;
   private final QuestionMapper questionMapper;
 
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -84,7 +89,8 @@ public class ChallengeArenaService {
       Long examId,
       Long certificationId,
       Map<String, Integer> settings,
-      List<Long> disabledTrackIds) {}
+      List<Long> disabledTrackIds,
+      List<Long> assignedCertificationIds) {}
 
   public record ArenaProblemRequest(Long questionId, Integer nodeIndex, BigDecimal points) {}
 
@@ -113,10 +119,14 @@ public class ChallengeArenaService {
         .map(ChallengeArenaConfig::getDisabledTracksJson)
         .map(ChallengeArenaService::readIds)
         .orElse(List.of());
+    List<Long> assigned = config
+        .map(ChallengeArenaConfig::getAssignedCertificationsJson)
+        .map(ChallengeArenaService::readIds)
+        .orElse(List.of());
 
     Exam exam = findArenaExam(arenaId);
     if (exam == null) {
-      return new ArenaStatus(arenaId, false, live, 0, null, null, settings, disabledTracks);
+      return new ArenaStatus(arenaId, false, live, 0, null, null, settings, disabledTracks, assigned);
     }
 
     int count = examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId()).size();
@@ -128,7 +138,69 @@ public class ChallengeArenaService {
         exam.getExamId(),
         exam.getCertification() == null ? null : exam.getCertification().getCertificationId(),
         settings,
-        disabledTracks);
+        disabledTracks,
+        assigned);
+  }
+
+  /** The certifications this challenge shows on (on their learners' learning paths). */
+  @Transactional
+  public ArenaStatus setAssignedCertifications(String arenaId, List<Long> certificationIds) {
+    requireKnownArena(arenaId);
+    List<Long> ids = certificationIds == null
+        ? List.of()
+        : certificationIds.stream().filter(java.util.Objects::nonNull).distinct().sorted().toList();
+    for (Long id : ids) {
+      if (!certifications.existsById(id)) {
+        throw new EntityNotFoundException("Certification not found: " + id);
+      }
+    }
+    ChallengeArenaConfig config = configFor(arenaId);
+    config.setAssignedCertificationsJson(writeJson(ids));
+    config.setUpdatedAt(LocalDateTime.now());
+    arenaConfigs.save(config);
+    log.info("Arena {} assigned to certifications {}", arenaId, ids);
+    return status(arenaId);
+  }
+
+  /** Live, playable challenges assigned to a certification, for its learning path. */
+  @Transactional(readOnly = true)
+  public List<ArenaStatus> forCertification(Long certificationId) {
+    // Champions Cup is not assigned by hand: it shows on the certification that the
+    // active weekly exam is for (that is the only track its brackets play).
+    boolean hasWorldCupExam = certificationId != null
+        && activeWorldCupEdition().map(e -> certificationId.equals(e.certificationId())).orElse(false);
+    return statuses().stream()
+        .filter(ArenaStatus::live)
+        .filter(s -> "worldcup".equals(s.arenaId())
+            ? hasWorldCupExam && !s.disabledTrackIds().contains(certificationId)
+            : s.configured() && s.assignedCertificationIds().contains(certificationId))
+        .toList();
+  }
+
+  /** Which of an arena's problems this learner has handed in (they unlock in order). */
+  @Transactional(readOnly = true)
+  public List<Long> completedProblemIds(String arenaId, Long learnerId) {
+    requireKnownArena(arenaId);
+    Exam exam = findArenaExam(arenaId);
+    if (exam == null || learnerId == null) {
+      return List.of();
+    }
+    return attemptQuestions.findSubmittedSourceQuestionIds(learnerId, exam.getExamId());
+  }
+
+  /** The weekly exam Champions Cup is played on right now, for learners. */
+  public record ActiveEdition(
+      Long editionId, LocalDate weekStart, Long certificationId, String certificationTitle, boolean thisWeek) {}
+
+  @Transactional(readOnly = true)
+  public Optional<ActiveEdition> activeWorldCupEdition() {
+    LocalDate today = LocalDate.now();
+    return worldCupEditions.findActive(today).map(e -> new ActiveEdition(
+        e.getEditionId(),
+        e.getWeekStart(),
+        e.getCertificationId(),
+        certifications.findById(e.getCertificationId()).map(Certification::getTitle).orElse(null),
+        e.getWeekStart().equals(today.with(java.time.DayOfWeek.MONDAY))));
   }
 
   @Transactional

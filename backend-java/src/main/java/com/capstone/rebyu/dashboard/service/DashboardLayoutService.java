@@ -24,7 +24,7 @@ public class DashboardLayoutService {
     private final EntityManager entityManager;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public record TilePlacement(String id, Integer x, Integer y, Integer w, Integer h) {}
+    public record TilePlacement(String id, Integer x, Integer y, Integer w, Integer h, Boolean hidden) {}
 
     @Transactional(readOnly = true)
     public List<TilePlacement> layout(Long userId, String board) {
@@ -44,7 +44,8 @@ public class DashboardLayoutService {
                         tile.x() == null ? 0 : Math.max(0, tile.x()),
                         tile.y() == null ? 0 : Math.max(0, tile.y()),
                         tile.w() == null ? 1 : Math.max(1, tile.w()),
-                        tile.h() == null ? 1 : Math.max(1, tile.h())))
+                        tile.h() == null ? 1 : Math.max(1, tile.h()),
+                        Boolean.TRUE.equals(tile.hidden()) ? Boolean.TRUE : null))
                 .toList();
 
         UserDashboardLayout row = layoutRepository.findByUser_UserIdAndBoard(userId, key)

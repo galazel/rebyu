@@ -91,7 +91,8 @@ public class QuestionService {
                 ownerDepartment == null ? null : ownerDepartment.getDepartmentId());
         validateLesson(dto, restrictToInstitutionId);
         if (dto.getParentQuestionId() == null && dto.getQuestionText() != null) {
-            questionRepository.findByParentQuestionIsNullAndLesson_LessonIdOrderByQuestionIdAsc(dto.getLessonId()).stream()
+            // Stems only: loading whole entities here took ~60 s on big past-paper lessons.
+            questionRepository.findStemsByLesson(dto.getLessonId()).stream()
                     .filter(existing -> QuestionStem.sameQuestion(existing.getQuestionText(), dto.getQuestionText()))
                     .findFirst()
                     .ifPresent(existing -> {
