@@ -1,0 +1,256 @@
+/* One look for the whole learner portal: buttons first, then dialogs, toasts,
+   selects, text fields, menus, tabs and toggles further down.
+
+   Learner pages mixed three systems: the classroom `tg-btn` (tutor-games.css), the
+   shared shadcn <Button> and the old `rb-btn`. Every learner button now looks like
+   `tg-btn`: rounded, bold, with the small "pressable" bottom shadow, coloured by the
+   nearest `tg-cat-*` accent (green by default).
+
+   `body.learner-portal` is set on every /learner route (LearnerBodyClass), so this
+   also reaches dialogs and sheets, which render into <body>. Admin and institution
+   pages keep the shadcn look.
+
+   The shadcn <Button> keeps its API -- variant and size still mean something:
+     default      -> filled primary (tg-btn-primary)
+     outline,
+     secondary    -> card button (tg-btn)
+     ghost        -> borderless until hovered
+     destructive  -> the same shape, in red
+     link         -> untouched (it is text, not a button) */
+
+body.learner-portal {
+  /* The default accent, for buttons outside any tg-cat-* section. */
+  --tg: #2f8a5f; --tg-2: #5cc492;
+  --tg-soft: color-mix(in oklab, var(--tg) 12%, var(--card));
+  --tg-softer: color-mix(in oklab, var(--tg) 6%, var(--card));
+  --tg-line: color-mix(in oklab, var(--tg) 30%, var(--border));
+  --tg-ink: color-mix(in oklab, var(--tg) 70%, var(--foreground));
+}
+.dark body.learner-portal, body.learner-portal.dark { --tg: #6fd3a2; --tg-2: #2f8a5f; }
+
+/* ---- shared shape ---- */
+body.learner-portal [data-slot="button"]:not([data-variant="link"]) {
+  min-height: 2.5rem;
+  border-radius: 0.8rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+body.learner-portal [data-slot="button"]:not([data-variant="link"]) {
+  height: auto;
+  padding: 0.5rem 0.95rem;
+  gap: 0.4rem;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, filter .12s ease;
+}
+body.learner-portal [data-slot="button"]:not([data-variant="link"]):active:not(:disabled) { transform: translateY(1px); }
+body.learner-portal [data-slot="button"]:focus-visible { outline: 2px solid var(--tg); outline-offset: 2px; box-shadow: none; }
+
+/* ---- filled primary ---- */
+body.learner-portal [data-slot="button"][data-variant="default"] {
+  color: #fff;
+  border: 1px solid transparent;
+  background: linear-gradient(140deg, var(--tg-2), var(--tg));
+  box-shadow: 0 3px 0 color-mix(in oklab, var(--tg) 55%, #000);
+}
+body.learner-portal [data-slot="button"][data-variant="default"]:hover:not(:disabled) {
+  background: linear-gradient(140deg, var(--tg-2), var(--tg));
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 color-mix(in oklab, var(--tg) 55%, #000);
+}
+.dark body.learner-portal [data-slot="button"][data-variant="default"] { color: #10151a; }
+
+/* ---- card button ---- */
+body.learner-portal [data-slot="button"][data-variant="outline"],
+body.learner-portal [data-slot="button"][data-variant="secondary"] {
+  color: var(--foreground);
+  border: 1px solid var(--tg-line);
+  background: var(--card);
+  box-shadow: 0 2px 0 var(--tg-line);
+}
+body.learner-portal [data-slot="button"][data-variant="outline"]:hover:not(:disabled),
+body.learner-portal [data-slot="button"][data-variant="secondary"]:hover:not(:disabled) {
+  background: var(--tg-softer);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 var(--tg-line);
+}
+
+/* ---- ghost ---- */
+body.learner-portal [data-slot="button"][data-variant="ghost"] {
+  color: var(--foreground);
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+body.learner-portal [data-slot="button"][data-variant="ghost"]:hover:not(:disabled) { background: var(--tg-softer); }
+
+/* ---- destructive ---- */
+body.learner-portal [data-slot="button"][data-variant="destructive"] {
+  color: #fff;
+  border: 1px solid transparent;
+  background: linear-gradient(140deg, #f07a8a, #d6436b);
+  box-shadow: 0 3px 0 color-mix(in oklab, #d6436b 55%, #000);
+}
+body.learner-portal [data-slot="button"][data-variant="destructive"]:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+
+/* ---- sizes ---- */
+body.learner-portal [data-slot="button"][data-size="xs"] { min-height: 1.75rem; padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 0.6rem; }
+body.learner-portal [data-slot="button"][data-size="sm"] { min-height: 2.25rem; padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
+body.learner-portal [data-slot="button"][data-size="lg"] { min-height: 3rem; padding: 0.65rem 1.25rem; font-size: 1rem; }
+body.learner-portal [data-slot="button"][data-size^="icon"] { width: 2.5rem; min-height: 2.5rem; height: 2.5rem; padding: 0; border-radius: 999px; }
+body.learner-portal [data-slot="button"][data-size="icon-sm"],
+body.learner-portal [data-slot="button"][data-size="icon-xs"] { width: 2rem; min-height: 2rem; height: 2rem; }
+
+body.learner-portal [data-slot="button"]:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.learner-portal [data-slot="button"] { transition: none; }
+  body.learner-portal [data-slot="button"]:hover:not(:disabled),
+  body.learner-portal [data-slot="button"]:active:not(:disabled) { transform: none; }
+}
+
+
+/* =====================================================================================
+   The rest of the shared controls, in the same classroom style: rounded, a thin border
+   in the accent colour, the small bottom "lip" shadow, and the accent for focus,
+   selection and checked states. Same scope (body.learner-portal), so it reaches
+   dialogs, menus and toasts rendered into <body>.
+   ===================================================================================== */
+
+/* ---- dialogs, alert dialogs, sheets, drawers ---- */
+body.learner-portal :is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"], [data-slot="drawer-overlay"]) {
+  background: color-mix(in oklab, var(--tg) 12%, rgb(10 20 16 / 0.45));
+  backdrop-filter: blur(3px);
+}
+body.learner-portal :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+  border: 1px solid var(--tg-line);
+  border-radius: 1.25rem;
+  background: var(--card);
+  box-shadow: 0 5px 0 color-mix(in oklab, var(--tg) 22%, transparent), 0 24px 48px -20px rgb(10 20 16 / 0.45);
+}
+body.learner-portal :is([data-slot="sheet-content"], [data-slot="drawer-content"]) {
+  border-color: var(--tg-line);
+  background: var(--card);
+}
+body.learner-portal :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"]) {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+body.learner-portal [data-slot="dialog-close"] { border-radius: 999px; }
+body.learner-portal [data-slot="dialog-close"]:hover { background: var(--tg-softer); }
+
+/* ---- toasts ---- */
+body.learner-portal [data-sonner-toast].netacad-toast {
+  border: 1px solid var(--tg-line);
+  border-radius: 1rem;
+  background: var(--card);
+  box-shadow: 0 3px 0 var(--tg-line), 0 14px 28px -16px rgb(10 20 16 / 0.4);
+}
+body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-title { font-weight: 800; }
+body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-action {
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(140deg, var(--tg-2), var(--tg));
+  box-shadow: 0 2px 0 color-mix(in oklab, var(--tg) 55%, #000);
+}
+.dark body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-action { color: #10151a; }
+body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-cancel {
+  border: 1px solid var(--tg-line);
+  border-radius: 0.7rem;
+  font-weight: 700;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 2px 0 var(--tg-line);
+}
+body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-close { border-radius: 999px; }
+
+/* ---- text fields and select triggers ---- */
+body.learner-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+  border: 1px solid var(--tg-line);
+  border-radius: 0.8rem;
+  background: var(--card);
+  box-shadow: 0 2px 0 color-mix(in oklab, var(--tg-line) 60%, transparent);
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+body.learner-portal [data-slot="select-trigger"] { font-weight: 600; }
+body.learner-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--tg) 55%, var(--border));
+}
+body.learner-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible,
+body.learner-portal [data-slot="select-trigger"][data-state="open"] {
+  border-color: var(--tg);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--tg) 22%, transparent);
+}
+body.learner-portal :is([data-slot="input"], [data-slot="textarea"])[aria-invalid="true"] {
+  border-color: #d6436b;
+  box-shadow: 0 0 0 3px color-mix(in oklab, #d6436b 18%, transparent);
+}
+
+/* ---- pop-up lists: select, dropdown menu ---- */
+body.learner-portal :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]) {
+  border: 1px solid var(--tg-line);
+  border-radius: 1rem;
+  background: var(--card);
+  padding: 0.3rem;
+  box-shadow: 0 3px 0 var(--tg-line), 0 18px 36px -18px rgb(10 20 16 / 0.45);
+}
+body.learner-portal :is([data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"]) {
+  border-radius: 0.65rem;
+  font-weight: 600;
+}
+body.learner-portal :is([data-slot="select-item"], [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-slot="dropdown-menu-radio-item"], [data-slot="dropdown-menu-sub-trigger"]):is([data-highlighted], :focus) {
+  background: var(--tg-soft);
+  color: var(--tg-ink);
+}
+body.learner-portal [data-slot="select-item"][data-state="checked"] { color: var(--tg-ink); font-weight: 800; }
+body.learner-portal [data-slot="select-item"][data-state="checked"] svg { color: var(--tg); }
+body.learner-portal [data-slot="dropdown-menu-label"] {
+  font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tg-ink);
+}
+
+/* ---- tooltips ---- */
+body.learner-portal [data-slot="tooltip-content"] { border-radius: 0.65rem; font-weight: 600; }
+
+/* ---- tabs ---- */
+body.learner-portal [data-slot="tabs-list"] {
+  border-radius: 0.9rem;
+  background: var(--tg-softer);
+  box-shadow: inset 0 0 0 1px var(--tg-line);
+  padding: 0.25rem;
+}
+body.learner-portal [data-slot="tabs-trigger"] { border-radius: 0.7rem; font-weight: 700; }
+body.learner-portal [data-slot="tabs-trigger"][data-state="active"] {
+  background: var(--card);
+  color: var(--tg-ink);
+  box-shadow: 0 2px 0 var(--tg-line);
+}
+
+/* ---- checkboxes, radios, switches ---- */
+body.learner-portal [data-slot="checkbox"] { border-radius: 0.4rem; border-color: var(--tg-line); }
+body.learner-portal [data-slot="checkbox"][data-state="checked"] { border-color: var(--tg); background: var(--tg); color: #fff; }
+body.learner-portal [data-slot="radio-group-item"] { border-color: var(--tg-line); }
+body.learner-portal [data-slot="radio-group-item"][data-state="checked"] { border-color: var(--tg); color: var(--tg); }
+body.learner-portal [data-slot="radio-group-indicator"] svg { fill: var(--tg); color: var(--tg); }
+body.learner-portal [data-slot="switch"][data-state="checked"] { background: var(--tg); }
+body.learner-portal :is([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]):focus-visible {
+  outline: 2px solid var(--tg); outline-offset: 2px;
+}
+
+/* ---- progress bars ---- */
+body.learner-portal [data-slot="progress"] { background: color-mix(in oklab, var(--tg) 14%, transparent); border-radius: 999px; }
+body.learner-portal [data-slot="progress-indicator"] { background: linear-gradient(90deg, var(--tg-2), var(--tg)); border-radius: 999px; }
+
+/* ---- cards and badges ---- */
+body.learner-portal [data-slot="card"] {
+  border-color: var(--tg-line);
+  border-radius: 1.1rem;
+  box-shadow: 0 3px 0 color-mix(in oklab, var(--tg) 14%, transparent);
+}
+body.learner-portal [data-slot="badge"] { border-radius: 999px; font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.learner-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) { transition: none; }
+}

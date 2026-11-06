@@ -22,7 +22,7 @@ export default function CommunityModeration() {
 
   return <div className="mx-auto max-w-6xl space-y-6 p-6">
     <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="flex items-center gap-2 text-2xl font-bold"><ShieldAlert className="size-6 text-amber-600" />Community moderation</h1><p className="mt-1 text-sm text-muted-foreground">Review learner reports and remove content when necessary.</p></div>
+      <div><h1 className="sr-only"><ShieldAlert className="size-6 text-amber-600" />Community moderation</h1></div>
       <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="OPEN">Open</SelectItem><SelectItem value="RESOLVED">Resolved</SelectItem><SelectItem value="DISMISSED">Dismissed</SelectItem></SelectContent></Select>
     </div>
     <Card className={TABLE_SURFACE}><CardHeader><CardTitle>{status[0] + status.slice(1).toLowerCase()} reports</CardTitle><CardDescription>{reports.length} report{reports.length === 1 ? "" : "s"} in this view.</CardDescription></CardHeader><CardContent>

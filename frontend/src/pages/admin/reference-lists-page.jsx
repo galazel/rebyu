@@ -5,10 +5,7 @@ export default function ReferenceLists() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-8 overflow-y-auto">
       <div className="border-b border-border pb-4">
-        <h1 className="text-xl font-semibold">Reference lists</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The pick-lists every form draws from. Retired entries stay on the records that already use them.
-        </p>
+        <h1 className="sr-only">Reference lists</h1>
       </div>
       <div className="grid gap-8 lg:grid-cols-2">
         <DetailedReferenceList

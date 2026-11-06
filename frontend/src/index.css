@@ -9,6 +9,7 @@
 @import "shadcn/tailwind.css";
 @import "./styles/rebyu-ds.css";
 @import "./styles/tutor-games.css";
+@import "./styles/learner-ui.css";
 
 @custom-variant dark (&:is(.dark *));
 

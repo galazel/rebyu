@@ -12,22 +12,15 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
+/** Page title for screen readers only -- the sidebar already names the page, so no
+ *  visible introduction; any page actions sit on the right. (Same as LearnerPageHeader.)
+ *  `subtitle` is accepted for old call sites and ignored. */
 export function InstitutionPageHeader({ title, subtitle, actions }) {
-  if (!title && !subtitle && !actions) return null
   return (
-    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-      <div className="min-w-0 max-w-3xl">
-        {title ? (
-          <h1 className="font-rb-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-            {title}
-          </h1>
-        ) : null}
-        {subtitle ? (
-          <p className="mt-1 text-sm leading-6 text-muted-foreground">{subtitle}</p>
-        ) : null}
-      </div>
-      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
-    </div>
+    <>
+      {title ? <h1 className="sr-only">{title}</h1> : null}
+      {actions ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div> : null}
+    </>
   )
 }
 

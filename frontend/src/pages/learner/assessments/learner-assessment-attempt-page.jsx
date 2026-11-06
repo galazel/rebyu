@@ -664,17 +664,23 @@ export default function LearnerAssessmentAttemptPage() {
   useEffect(() => {
     if (!attempt?.expiresAt) return
     const endAt = new Date(attempt.expiresAt).getTime()
+    // Warn only when the clock CROSSES a mark while the learner is working: a quiz
+    // that starts with 10 minutes or less (or is resumed late) must not open with a
+    // "10 minutes remaining" warning.
+    let previous = null
+    const crossed = (left, mark) => previous != null && previous > mark && left <= mark
     const tick = () => {
       const left = Math.max(0, Math.round((endAt - Date.now()) / 1000))
       setRemainingSeconds(left)
-      if (left <= 600 && !warnedRef.current.ten) {
+      if (crossed(left, 600) && !warnedRef.current.ten) {
         warnedRef.current.ten = true
         toast.warning("10 minutes remaining.")
       }
-      if (left <= 60 && !warnedRef.current.one) {
+      if (crossed(left, 60) && !warnedRef.current.one) {
         warnedRef.current.one = true
         toast.warning("1 minute remaining.")
       }
+      previous = left
       if (left === 0) setTimeUp(true)
     }
     tick()
@@ -1336,10 +1342,10 @@ export default function LearnerAssessmentAttemptPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="rb-btn rb-btn-ghost">
+              <AlertDialogCancel className="tg-btn">
                 {copy.keep}
               </AlertDialogCancel>
-              <AlertDialogAction className="rb-btn" onClick={() => navigate(-1)}>
+              <AlertDialogAction className="tg-btn tg-btn-primary" onClick={() => navigate(-1)}>
                 {copy.leave}
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -1398,14 +1404,14 @@ export default function LearnerAssessmentAttemptPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel
-                  className="rb-btn rb-btn-ghost"
+                  className="tg-btn"
                   disabled={submitMutation.isPending}
               >
                 {isChallenge ? "Keep playing" : "Review Answers"}
               </AlertDialogCancel>
               {isDiagnostic && !timeUp && questions.length - answeredIds.size > 0 ? (
                 <AlertDialogAction
-                    className="rb-btn"
+                    className="tg-btn tg-btn-primary"
                     onClick={(event) => {
                       event.preventDefault()
                       const first = questions.findIndex(
@@ -1419,7 +1425,7 @@ export default function LearnerAssessmentAttemptPage() {
                 </AlertDialogAction>
               ) : (
                 <AlertDialogAction
-                    className="rb-btn"
+                    className="tg-btn tg-btn-primary"
                     onClick={(event) => {
                       event.preventDefault()
                       submitMutation.mutate()
@@ -1445,7 +1451,7 @@ export default function LearnerAssessmentAttemptPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogAction
-                  className="rb-btn"
+                  className="tg-btn tg-btn-primary"
                   onClick={(event) => {
                     event.preventDefault()
                     submitMutation.mutate()

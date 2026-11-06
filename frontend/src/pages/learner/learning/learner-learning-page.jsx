@@ -597,9 +597,7 @@ export default function LearnerLearningPage() {
             <>
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
               <main className="min-w-0 space-y-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <h2 className="text-base font-semibold text-foreground">Enrolled certifications</h2>
-
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="relative w-full sm:w-64">
                       <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

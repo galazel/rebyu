@@ -51,12 +51,9 @@ export default function InstitutionAccountPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-rb-display text-2xl font-extrabold tracking-tight">
+        <h1 className="sr-only">
           Institution
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your institution's details, partnership, and invoices.
-        </p>
       </div>
 
       <Tabs

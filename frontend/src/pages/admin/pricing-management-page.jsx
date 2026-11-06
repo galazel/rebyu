@@ -629,10 +629,7 @@ export default function PricingManagementPage() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-8 overflow-y-auto pb-10">
       <div className="border-b border-border pb-4">
-        <h1 className="text-xl font-semibold">Pricing & plans</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Subscription plans, partnership pricing, plan features, and AI credit limits.
-        </p>
+        <h1 className="sr-only">Pricing & plans</h1>
       </div>
 
       {isLoading ? (

@@ -171,7 +171,7 @@ function TutorPanel({ fileName, onClose }) {
         <TactileButton
           type="submit"
           size="sm"
-          className="rb-btn-icon shrink-0"
+          className="tg-btn tg-icon-btn shrink-0"
           disabled={!ready || pending || !draft.trim()}
           aria-label="Send message"
         >

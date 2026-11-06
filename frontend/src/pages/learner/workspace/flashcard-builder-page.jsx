@@ -178,7 +178,7 @@ export default function FlashcardBuilderPage() {
                     <TactileButton
                       variant="ghost"
                       size="sm"
-                      className="rb-btn-icon"
+                      className="tg-btn tg-icon-btn"
                       onClick={() => removeCard(card.id)}
                       aria-label={`Remove card ${index + 1}`}
                     >
@@ -265,7 +265,7 @@ export default function FlashcardBuilderPage() {
                   <TactileButton
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon"
+                    className="tg-btn tg-icon-btn"
                     disabled={preview === 0}
                     onClick={() => {
                       setPreview((index) => Math.max(0, index - 1))
@@ -281,7 +281,7 @@ export default function FlashcardBuilderPage() {
                   <TactileButton
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon"
+                    className="tg-btn tg-icon-btn"
                     disabled={preview >= complete.length - 1}
                     onClick={() => {
                       setPreview((index) => Math.min(complete.length - 1, index + 1))

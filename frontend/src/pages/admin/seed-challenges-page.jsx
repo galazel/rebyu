@@ -456,12 +456,9 @@ export default function SeedChallengesPage() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto pb-10">
       <div className="border-b border-border pb-4">
-        <h1 className="font-rb-display text-2xl font-extrabold lowercase">
+        <h1 className="sr-only">
           seed challenges
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Auto-generate test questions for all three arenas. Pick a certification, then seed.
-        </p>
       </div>
 
       <div className="max-w-md space-y-4">

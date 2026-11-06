@@ -121,20 +121,9 @@ function Certifications() {
       <section className="flex flex-col gap-6">
         <header className="rebyu-page-header">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+            <h1 className="sr-only">
               Certifications
             </h1>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              {filteredCertifications.length}
-              {contentFilter === "content"
-                  ? " with content"
-                  : contentFilter === "empty"
-                      ? " empty"
-                      : " total"}
-              {chosenDepartment === "all" ? "" : ` in ${chosenDepartment}`}
-              {isFetching ? " · updating…" : ""}
-            </p>
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">

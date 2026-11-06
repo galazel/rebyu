@@ -41,11 +41,7 @@ export default function AiSettingsPage() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-8 overflow-y-auto">
       <div className="border-b border-border pb-4">
-        <h1 className="text-xl font-semibold">AI settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          What is left to spend, which model each AI feature uses and where, and which model to use for it.
-          A change takes effect within about 30 seconds.
-        </p>
+        <h1 className="sr-only">AI settings</h1>
       </div>
 
       <LiveTutorSettingsCard />

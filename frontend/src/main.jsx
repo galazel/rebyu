@@ -16,6 +16,7 @@ import { AuthProvider } from "@/context/auth-context.jsx"
 import { LoadingOverlayProvider } from "@/components/loading-overlay.jsx"
 import { MotionConfig } from "framer-motion"
 import { TutorConductHost } from "@/components/learner/tutor-conduct.jsx"
+import { LearnerBodyClass } from "@/components/learner/learner-body-class.jsx"
 
 
 const rootElement = document.getElementById("root")
@@ -48,6 +49,7 @@ createRoot(rootElement).render(
                 <XpAwardModal />
                 <CertificationCompletionHost />
                 <TutorConductHost />
+                <LearnerBodyClass />
               </AuthProvider>
             </QueryClientProvider>
           </TooltipProvider>

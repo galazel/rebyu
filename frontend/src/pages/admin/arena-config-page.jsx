@@ -82,10 +82,7 @@ export default function ArenaConfigPage() {
     <div className="rebyu-page">
       <div className="rebyu-page-header">
         <div>
-          <h1 className="font-rb-display text-2xl font-extrabold lowercase">it olympics</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Open an arena to author its problems and set how a run is scored.
-          </p>
+          <h1 className="sr-only">it olympics</h1>
         </div>
       </div>
 

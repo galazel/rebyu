@@ -20,6 +20,7 @@ import { useNotifications } from "@/hooks/use-notifications.js"
 import { NotificationBell } from "@/components/notification-bell.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
+import { UpdatingPill } from "@/components/commons/updating-pill.jsx"
 
 function getInitials(name = "") {
   return (
@@ -80,6 +81,7 @@ export default function InstitutionLayout() {
   return (
     <div className="netacad-portal institution-portal flex min-h-screen flex-col">
       <PortalTopNavigation role={portalRole} institutionName={orgName} isOwner={!isDepartmentHead} actions={<>
+            <UpdatingPill show={scopedQuery.isFetching && Boolean(scopedQuery.data)} label="Updating your institution data…" />
             <NotificationBell
               items={notifications.items}
               unreadCount={notifications.unreadCount}

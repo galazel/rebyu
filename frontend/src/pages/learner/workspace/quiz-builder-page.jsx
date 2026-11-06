@@ -216,7 +216,7 @@ export default function QuizBuilderPage() {
                       <TactileButton
                         variant="ghost"
                         size="sm"
-                        className="rb-btn-icon"
+                        className="tg-btn tg-icon-btn"
                         onClick={() =>
                           setQuestions((current) =>
                             current.filter((entry) => entry.id !== question.id)

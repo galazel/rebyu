@@ -194,13 +194,10 @@ export default function GenerationWorkspacePage() {
 
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold tracking-tight">
+          <h1 className="sr-only">
             <Cpu className="size-5 shrink-0 text-primary" />
             Generation workspace
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Watch AI generation as it runs, and review what it produces.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

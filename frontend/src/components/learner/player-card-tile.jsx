@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { animate, motion } from "framer-motion"
 import { Flame } from "@/components/icons"
 
 import { BentoHeading, BentoTile } from "@/components/commons/bento.jsx"
@@ -6,6 +8,73 @@ import { base } from "@/services/base"
 
 
 const FLAME = "#e08a2c"
+
+/** A drawn, layered flame that flickers while the streak is alive, and sits grey and
+ *  still at zero. Reduced-motion users get it still (MotionConfig in main.jsx). */
+function StreakFlame({ lit }) {
+  return (
+    <motion.div
+      className="relative size-32 shrink-0"
+      initial={{ scale: 0.4, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 14 }}
+      aria-hidden="true"
+    >
+      {lit ? (
+        <motion.span
+          className="absolute inset-2 rounded-full blur-xl"
+          style={{ background: "radial-gradient(circle, #f6b34acc, #e08a2c00 70%)" }}
+          animate={{ opacity: [0.55, 0.95, 0.55], scale: [0.92, 1.08, 0.92] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ) : null}
+      <motion.svg
+        viewBox="0 0 64 80"
+        className="relative size-full drop-shadow-sm"
+        style={{ originY: 1 }}
+        animate={lit ? { scaleY: [1, 1.06, 0.97, 1.04, 1], rotate: [0, -1.5, 1.2, -0.6, 0] } : undefined}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <defs>
+          <linearGradient id="streak-outer" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={lit ? "#ffb347" : "#d4d4d4"} />
+            <stop offset="0.6" stopColor={lit ? "#f07a1a" : "#bdbdbd"} />
+            <stop offset="1" stopColor={lit ? "#d6431f" : "#a3a3a3"} />
+          </linearGradient>
+          <linearGradient id="streak-inner" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={lit ? "#fff3b0" : "#f0f0f0"} />
+            <stop offset="1" stopColor={lit ? "#ffc23d" : "#dcdcdc"} />
+          </linearGradient>
+        </defs>
+        <path
+          fill="url(#streak-outer)"
+          d="M32 2c3 12 14 18 18 30 3 9 4 15 2 23-3 13-13 23-20 23S12 72 10 58c-1-8 1-15 5-21 2 6 5 9 9 10-3-11 0-21 4-29 2-5 4-10 4-16z"
+        />
+        <motion.path
+          fill="url(#streak-inner)"
+          d="M33 34c2 8 9 12 10 21 1 9-5 17-11 17s-12-6-11-14c0-5 3-9 6-11 0 4 2 6 4 7-1-7 0-14 2-20z"
+          style={{ originY: 1 }}
+          animate={lit ? { scaleY: [1, 1.12, 0.94, 1.08, 1], opacity: [1, 0.85, 1, 0.9, 1] } : undefined}
+          transition={{ duration: 1.3, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </motion.svg>
+    </motion.div>
+  )
+}
+
+/** The streak number rolls up from 0 when the card appears. */
+function CountUp({ value, className, style }) {
+  const [shown, setShown] = useState(0)
+  useEffect(() => {
+    const controls = animate(0, value, {
+      duration: Math.min(1.2, 0.4 + value * 0.05),
+      ease: "easeOut",
+      onUpdate: (latest) => setShown(Math.round(latest)),
+    })
+    return () => controls.stop()
+  }, [value])
+  return <span className={className} style={style}>{shown}</span>
+}
 
 const GOALS = [3, 7, 14, 30, 60, 100, 180, 365]
 
@@ -90,40 +159,78 @@ export function PlayerCardTile({ portalData }) {
         }
       />
 
-      <div className="flex items-end justify-between gap-3">
-        <p className="leading-none">
-          <span
-            className="font-rb-display text-4xl font-black tabular-nums"
-            style={{ color: streak > 0 ? FLAME : undefined }}
-          >
-            {streak}
-          </span>
-          <span className="ml-1 text-xs font-bold text-muted-foreground">
-            day{streak === 1 ? "" : "s"}
-          </span>
-        </p>
+      <div className="flex w-full flex-1 flex-col justify-evenly gap-4 py-2">
+        <div className="flex items-center justify-center gap-6">
+          <StreakFlame lit={streak > 0} />
+          <div className="leading-none">
+            <CountUp
+              value={streak}
+              className="block font-rb-display text-8xl font-black tabular-nums tracking-tight"
+              style={{ color: streak > 0 ? FLAME : "var(--muted-foreground)" }}
+            />
+            <span className="mt-2 block text-base font-extrabold uppercase tracking-wide text-muted-foreground">
+              day{streak === 1 ? "" : "s"} streak
+            </span>
+          </div>
+        </div>
 
-        <div className="flex items-end gap-1.5" aria-label="Last 7 days">
-          {week.map((day) => (
-            <div key={day.key} className="flex flex-col items-center gap-0.5" title={day.label}>
-              <Flame
-                className="size-3.5"
-                style={{ color: day.kept ? FLAME : "var(--color-rb-swan, #e5e5e5)" }}
-                aria-hidden="true"
-              />
+        <div className="grid w-full grid-cols-7 gap-1" aria-label="Last 7 days">
+          {week.map((day, index) => (
+            <motion.div
+              key={day.key}
+              className="flex flex-col items-center gap-1.5"
+              title={`${day.label}${day.kept ? " · studied" : ""}`}
+              initial={{ opacity: 0, y: 8, scale: 0.6 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.15 + index * 0.06, type: "spring", stiffness: 420, damping: 18 }}
+            >
               <span
-                className={`text-[9px] font-bold uppercase leading-none ${
+                className={`relative grid size-11 place-items-center rounded-full ${
+                  day.kept ? "text-white shadow-sm" : "bg-muted text-muted-foreground/50"
+                }`}
+                style={day.kept ? { background: `linear-gradient(160deg, #f6b34a, ${FLAME} 55%, #d0582a)` } : undefined}
+              >
+                <Flame className="size-5" aria-hidden="true" />
+                {day.isToday ? (
+                  <motion.span
+                    className="absolute inset-0 rounded-full ring-2"
+                    style={{ "--tw-ring-color": day.kept ? FLAME : "var(--border)" }}
+                    animate={{ scale: [1, 1.22, 1], opacity: [0.9, 0, 0.9] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </span>
+              <span
+                className={`text-xs font-extrabold uppercase leading-none ${
                   day.isToday ? "text-foreground" : "text-muted-foreground"
                 }`}
               >
                 {day.label.slice(0, 2)}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
 
-      <p className="mt-auto flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-semibold text-muted-foreground">
+      {goal ? (
+        <div className="space-y-1">
+          <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: `linear-gradient(90deg, #f6b34a, ${FLAME})` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (streak / goal) * 100)}%` }}
+              transition={{ delay: 0.3, duration: 0.9, ease: "easeOut" }}
+            />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground">
+            {goal - streak} more day{goal - streak === 1 ? "" : "s"} to your {goal}-day goal
+          </p>
+        </div>
+      ) : null}
+
+      <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] font-semibold text-muted-foreground">
         <span>Next goal <strong className="text-foreground">{goal ?? "—"}</strong></span>
         <span>
           {level ? (

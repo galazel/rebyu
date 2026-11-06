@@ -46,7 +46,7 @@ export default function ProfileSettingsPage() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <User className="w-8 h-8 text-blue-500" />
-          <h1 className="text-4xl font-bold">Profile Settings</h1>
+          <h1 className="sr-only">Profile Settings</h1>
         </div>
 
         <Card className="mb-8">

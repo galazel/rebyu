@@ -227,10 +227,7 @@ export default function RewardsManagementPage() {
     <div className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto pb-10">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
         <div>
-          <h1 className="text-xl font-semibold">Rewards & XP</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Configure XP, coins, and AI credit amounts for every activity. Changes apply immediately and reset on server restart.
-          </p>
+          <h1 className="sr-only">Rewards & XP</h1>
         </div>
         {hasChanges ? (
           <div className="flex items-center gap-2">

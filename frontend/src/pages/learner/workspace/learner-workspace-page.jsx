@@ -41,11 +41,7 @@ export default function LearnerWorkspacePage() {
   return (
     <div className="mx-auto w-full max-w-4xl">
       <header className="px-4 py-6 lg:px-6">
-        <h1 className="rb-display rb-display-sm">Study workspace</h1>
-        <p className="mt-1 text-sm font-medium text-rb-wolf">
-          Bring your own material — a handout, a reviewer, your notes — and turn it
-          into something to study.
-        </p>
+        <h1 className="sr-only">Study workspace</h1>
       </header>
 
       <div className="grid gap-3 px-4 lg:px-6">

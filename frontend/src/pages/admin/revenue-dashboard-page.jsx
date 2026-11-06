@@ -57,7 +57,7 @@ export default function RevenueDashboardPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex items-center gap-3">
           <DollarSign className="size-8 text-rb-bee-lip" />
-          <h1 className="font-rb-display text-4xl font-extrabold tracking-tight">Revenue Dashboard</h1>
+          <h1 className="sr-only">Revenue Dashboard</h1>
         </div>
 
         <BentoGrid className="mb-8">

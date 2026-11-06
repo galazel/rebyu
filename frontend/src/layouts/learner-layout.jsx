@@ -28,6 +28,7 @@ import { DepartmentCodeCard } from "@/components/learner/department-code-card.js
 import { StudyActivityHost } from "@/components/learner/study-activity-host.jsx"
 import { PomodoroOverlay } from "@/components/learner/pomodoro-overlay.jsx"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
+import { UpdatingPill } from "@/components/commons/updating-pill.jsx"
 
 export default function LearnerLayout() {
   usePortalTheme()
@@ -146,6 +147,8 @@ export default function LearnerLayout() {
         <SidebarInset className="min-w-0">
           {!isTopicPage ? (
             <PortalTopbar role="learner" items={searchItems} loading={query.isPending} error={query.isError && !query.data} onRetry={() => query.refetch()} notifications={
+                <div className="flex items-center gap-2">
+                <UpdatingPill show={query.isFetching && Boolean(query.data)} label="Updating your learner data…" />
                 <NotificationBell
                   items={inbox.items}
                   unreadCount={inbox.unreadCount}
@@ -155,6 +158,7 @@ export default function LearnerLayout() {
                   onMarkAllRead={inbox.markAllRead}
                   onDelete={(item) => inbox.remove(item.id)}
                 />
+                </div>
             } />
           ) : null}
           <main data-route-content
@@ -174,19 +178,6 @@ export default function LearnerLayout() {
             <RouteSkeleton />
           ) : (
             <>
-              {query.isFetching ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="pointer-events-none fixed bottom-20 left-4 z-[70] flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-xs font-semibold text-foreground shadow-lg animate-in fade-in-0 slide-in-from-left-8 duration-300 sm:bottom-5 sm:left-5"
-                >
-                  <span
-                    className="size-3.5 animate-spin rounded-full border-2 border-rb-feather/25 border-t-rb-feather"
-                    aria-hidden="true"
-                  />
-                  Updating your learner data…
-                </div>
-              ) : null}
               {awaitingDepartmentCode ? (
                 <DepartmentCodeCard
                   initialCode={typeof awaitingDepartmentCode === "string" ? awaitingDepartmentCode : ""}

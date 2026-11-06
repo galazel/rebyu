@@ -85,12 +85,9 @@ export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
       <section className="space-y-6">
         <div className="rebyu-page-header">
           <div>
-            <h1 className="font-rb-display text-2xl font-extrabold lowercase">
+            <h1 className="sr-only">
               challenges
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Manage each arena&rsquo;s problems.
-            </p>
           </div>
         </div>
 

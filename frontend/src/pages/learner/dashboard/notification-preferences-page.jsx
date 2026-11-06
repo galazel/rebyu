@@ -22,7 +22,7 @@ export default function NotificationPreferencesPage() {
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <Bell className="w-8 h-8 text-blue-500" />
-          <h1 className="text-4xl font-bold">Notification Preferences</h1>
+          <h1 className="sr-only">Notification Preferences</h1>
         </div>
 
         <div className="space-y-4">
