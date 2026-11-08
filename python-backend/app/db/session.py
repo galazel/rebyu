@@ -11,11 +11,25 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+def _database_url(url: str) -> str:
+    """Use Supabase's transaction pooler for request-scoped database work.
+
+    The session-mode endpoint accepts only fifteen clients on the current plan.
+    SQLAlchemy already manages a bounded client pool, so routing those clients
+    through Supabase's transaction pooler prevents a second, smaller session
+    pool from rejecting otherwise healthy requests.
+    """
+    return url.replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/")
+
+
+database_url = _database_url(settings.database_url)
+
 engine_kwargs: dict[str, object] = {
     "echo": settings.sql_echo,
     "pool_pre_ping": True,
 }
-if not settings.database_url.startswith("sqlite"):
+if not database_url.startswith("sqlite"):
     engine_kwargs.update(
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
@@ -34,17 +48,7 @@ if not settings.database_url.startswith("sqlite"):
         },
     )
 
-_POOLER_HINTS = ("-pooler.", "pgbouncer")
-
-if any(hint in settings.database_url for hint in _POOLER_HINTS):
-    logging.getLogger(__name__).warning(
-        "DATABASE_URL points at a connection pooler. This service needs a direct "
-        "connection -- remove '-pooler' from the host. Symptoms otherwise: "
-        "'unsupported startup parameter', missing-table errors for tables that "
-        "exist, and checkpointer failures."
-    )
-
-engine = create_engine(settings.database_url, **engine_kwargs)
+engine = create_engine(database_url, **engine_kwargs)
 
 _log = logging.getLogger(__name__)
 
@@ -62,7 +66,7 @@ def _connect_finished(_dbapi_connection, conn_rec) -> None:
                   (time.perf_counter() - started) * 1000, engine.pool.status())
 
 
-if not settings.database_url.startswith("sqlite"):
+if not database_url.startswith("sqlite"):
 
     @event.listens_for(engine, "connect")
     def _set_search_path(dbapi_connection, _record) -> None:
@@ -103,7 +107,7 @@ def warm_pool() -> None:
     """Opens every pooled connection now, together, so the first requests after a
     start do not each wait for a new connection (about a second apiece through
     the pooler). Never fatal: a connection that cannot open here opens on use."""
-    if settings.database_url.startswith("sqlite"):
+    if database_url.startswith("sqlite"):
         return
     from concurrent.futures import ThreadPoolExecutor
 

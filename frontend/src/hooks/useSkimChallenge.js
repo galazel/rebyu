@@ -3,28 +3,53 @@ import { toast } from "sonner"
 
 import { createKnowledgeCheck, getKnowledgeCheckKey } from "@/services/knowledgeCheckService.js"
 import { startAssessmentAttempt } from "@/services/assessmentService.js"
-import { countSkimLesson, parseSkimLessons, skimChallengeShown, skimSessionKey } from "@/lib/skim-challenge-state.js"
 
-// Skims are counted silently across lessons; the challenge comes on the third lesson
-// skimmed, and the count starts over only once a challenge has actually been shown.
-function readStrikes(learnerId) {
+const challengeSessionKey = (learnerId, lessonId) => `rebyu:skim-challenge:v1:${learnerId}:${lessonId}`
+const handledSessionKey = (learnerId, lessonId) => `rebyu:skim-challenge:handled:v1:${learnerId}:${lessonId}`
+
+function readOffer(learnerId, lessonId) {
   try {
-    return parseSkimLessons(sessionStorage.getItem(skimSessionKey(learnerId)))
+    const stored = JSON.parse(sessionStorage.getItem(challengeSessionKey(learnerId, lessonId)) ?? "null")
+    return stored?.attempt?.assessmentAttemptId ? stored : null
   } catch {
-    return []
+    return null
   }
 }
 
-function writeStrikes(learnerId, lessons) {
+function writeOffer(learnerId, lessonId, offer) {
   try {
-    sessionStorage.setItem(skimSessionKey(learnerId), JSON.stringify(lessons))
+    sessionStorage.setItem(challengeSessionKey(learnerId, lessonId), JSON.stringify(offer))
+  } catch {
+  }
+}
+
+function clearOffer(learnerId, lessonId) {
+  try {
+    sessionStorage.removeItem(challengeSessionKey(learnerId, lessonId))
+  } catch {
+  }
+}
+
+function wasHandled(learnerId, lessonId) {
+  try {
+    return sessionStorage.getItem(handledSessionKey(learnerId, lessonId)) === "true"
+  } catch {
+    return false
+  }
+}
+
+function markHandled(learnerId, lessonId) {
+  try {
+    sessionStorage.setItem(handledSessionKey(learnerId, lessonId), "true")
   } catch {
   }
 }
 
 export function useSkimChallenge({ learnerId, lessonId, enabled }) {
   const [offer, setOffer] = useState(null)
+  const [warningOpen, setWarningOpen] = useState(false)
   const lessonRef = useRef(lessonId)
+  const learnerRef = useRef(learnerId)
   const askedRef = useRef(false)
   const busyRef = useRef(false)
   const skimmedRef = useRef(false)
@@ -33,30 +58,40 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
     contextRef.current = { learnerId, lessonId, enabled }
   }
   lessonRef.current = lessonId
+  learnerRef.current = learnerId
 
   useEffect(() => {
     askedRef.current = false
     skimmedRef.current = false
     busyRef.current = false
-    setOffer(null)
+    const restored = learnerId && lessonId ? readOffer(learnerId, lessonId) : null
+    if (restored) {
+      askedRef.current = true
+      skimmedRef.current = true
+      setOffer(restored)
+    } else {
+      const handled = learnerId && lessonId && wasHandled(learnerId, lessonId)
+      askedRef.current = Boolean(handled)
+      skimmedRef.current = Boolean(handled)
+      setOffer(null)
+    }
+    setWarningOpen(false)
   }, [lessonId, learnerId, enabled])
 
-  // Reading one lesson properly no longer wipes skims counted on other lessons.
+  // Kept for callers that clear a completed lesson's previous guard state.
   const clearStrikes = useCallback(() => {}, [])
 
   const trigger = useCallback(({ force = false } = {}) => {
     if (!enabled || !learnerId || !lessonRef.current) return
-    if (askedRef.current || busyRef.current) return
+    if (askedRef.current || busyRef.current) {
+      if (!busyRef.current) setWarningOpen(true)
+      return
+    }
 
     const lesson = lessonRef.current
 
-    if (!force) {
-      if (skimmedRef.current) return
-      skimmedRef.current = true
-      const result = countSkimLesson(readStrikes(learnerId), lesson)
-      writeStrikes(learnerId, result.lessons)
-      if (!result.challenge) return
-    }
+    if (!force && skimmedRef.current) return
+    skimmedRef.current = true
 
     askedRef.current = true
     busyRef.current = true
@@ -66,8 +101,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
       .then(async (check) => {
         if (contextRef.current !== requestContext) return
         if (!check?.examId) {
-          // Not enough quick questions on this lesson, or a challenge was served a minute ago:
-          // keep the count so the next skimmed lesson gets the challenge.
+          // Keep this lesson quiet when it has no available quick questions.
           askedRef.current = false
           return
         }
@@ -77,8 +111,10 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
           getKnowledgeCheckKey(check.examId).catch(() => []),
         ])
         if (contextRef.current !== requestContext) return
-        writeStrikes(learnerId, skimChallengeShown())
-        setOffer({ ...check, currentLessonOnly: true, attempt, answerKey })
+        const nextOffer = { ...check, currentLessonOnly: true, attempt, answerKey }
+        writeOffer(learnerId, lesson, nextOffer)
+        markHandled(learnerId, lesson)
+        setOffer(nextOffer)
       })
       .catch((error) => {
         if (contextRef.current !== requestContext) return
@@ -95,7 +131,12 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
 
   return {
     offer,
-    dismiss: useCallback(() => setOffer(null), []),
+    warningOpen,
+    dismissWarning: useCallback(() => setWarningOpen(false), []),
+    dismiss: useCallback(() => {
+      clearOffer(learnerRef.current, lessonRef.current)
+      setOffer(null)
+    }, []),
     trigger,
     clearStrikes,
   }

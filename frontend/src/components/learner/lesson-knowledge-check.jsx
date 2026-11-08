@@ -27,7 +27,7 @@ import { answerAdaptiveItems, startAssessmentAttempt, submitAssessmentAttempt } 
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 
-export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain }) {
+export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain, onComplete }) {
   const queryClient = useQueryClient()
 
   const [phase, setPhase] = useState("intro")
@@ -67,6 +67,8 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       mintingRef.current = true
       setAttempt(preparedAttempt)
       setServed(orderedItems(preparedAttempt))
+      // The attempt is ready, but learners should first see why it appeared.
+      setPhase("intro")
     }
   }, [open, preparedAttempt])
 
@@ -244,7 +246,9 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         data-no-snip
         className={cn(
           "max-h-[calc(100dvh-2rem)]",
-          phase === "playing" || phase === "submitting" || phase === "result" ? "flex flex-col overflow-hidden sm:max-w-4xl sm:p-8" : null,
+          phase === "playing" || phase === "submitting" || phase === "result"
+            ? "flex flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-white p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] sm:max-h-[760px] sm:max-w-[46rem]"
+            : null,
         )}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
@@ -266,33 +270,45 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogFooter>
           </>
         ) : phase === "result" && result ? (
-          <ResultScreen result={result} onDone={() => onDismiss?.()} onReadAgain={onReadAgain ? () => { onDismiss?.(); onReadAgain() } : null} />
+          <ResultScreen result={result} onDone={() => { onComplete?.(result); onDismiss?.() }} onReadAgain={onReadAgain ? () => { onComplete?.(result); onDismiss?.(); onReadAgain() } : null} />
         ) : phase === "playing" || phase === "submitting" ? (
           <>
-            <AlertDialogHeader className="items-start text-left sm:text-left">
-              <div className="flex w-full items-center justify-between gap-3">
-                <AlertDialogTitle className="flex items-center gap-2 text-base">
-                  <Zap className="size-4 text-rb-leaf" aria-hidden="true" />
-                  Skim challenge
-                </AlertDialogTitle>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-rb-wolf">
-                  {index + 1} / {total}
+            <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,rgba(239,250,244,0.96),rgba(255,255,255,1)_58%)] px-5 pb-5 pt-5 text-left sm:px-8 sm:pb-6 sm:pt-7">
+              <div className="flex w-full items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 place-items-center rounded-2xl bg-rb-leaf text-white shadow-[0_8px_18px_-10px_rgba(31,132,91,0.9)]">
+                    <Zap className="size-[18px]" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rb-leaf-lip">Focus check</p>
+                    <AlertDialogTitle className="mt-0.5 text-lg font-extrabold tracking-[-0.02em] text-rb-eel sm:text-xl">
+                      Skim challenge
+                    </AlertDialogTitle>
+                  </div>
+                </div>
+                <span className="rounded-full border border-rb-swan bg-white/90 px-3 py-1.5 text-xs font-bold tabular-nums text-rb-eel shadow-sm">
+                  {index + 1} <span className="font-medium text-rb-wolf">of {total}</span>
                 </span>
               </div>
-              <ProgressDots total={total} current={index} answers={answers} questions={questions} />
+              <div className="mt-5">
+                <ProgressDots total={total} current={index} answers={answers} questions={questions} />
+              </div>
               <AlertDialogDescription className="sr-only">
                 Question {index + 1} of {total}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             {current ? (
-              <div key={current.attemptQuestionId} className="-mx-1 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-1 py-1">
-                <p className="text-base font-medium leading-7 text-rb-eel sm:text-lg sm:leading-8">{current.question}</p>
+              <div key={current.attemptQuestionId} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-7">
+                <div className="max-h-[26dvh] overflow-y-auto overscroll-contain pr-2 sm:max-h-56">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-rb-wolf">Choose the best answer</p>
+                  <p className="text-base font-semibold leading-7 tracking-[-0.008em] text-rb-eel sm:text-lg sm:leading-8">{current.question}</p>
+                </div>
 
                 {isMultipleChoice(current) ? (
                   <div
                     className={cn(
-                      "grid gap-2",
+                      "grid gap-3",
                       // Long answers read better full width than squeezed into two columns.
                       (current.choices ?? []).every((choice) => String(choice.choiceText ?? "").length <= 60) && "sm:grid-cols-2",
                     )}
@@ -309,22 +325,22 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           aria-pressed={selected}
                           disabled={revealed}
                           className={cn(
-                            "flex min-h-12 items-start gap-3 rounded-xl border-2 px-3.5 py-3 text-left text-sm leading-6 transition sm:text-[15px]",
-                            !revealed && "active:translate-y-[2px]",
+                            "group flex min-h-[78px] items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-6 transition duration-200 sm:text-base",
+                            !revealed && "hover:-translate-y-px hover:shadow-[0_12px_24px_-20px_rgba(19,70,52,0.65)] active:translate-y-0",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
                               : isWrong
                                 ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                                 : selected
-                                  ? "border-rb-feather bg-rb-feather-wash text-rb-feather-ink shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-feather)_20%,transparent)]"
-                                  : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-feather/60 hover:bg-rb-polar",
+                                  ? "border-rb-leaf bg-rb-leaf-wash text-rb-eel shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-leaf)_16%,transparent)]"
+                                  : "border-rb-swan bg-white text-rb-eel hover:border-rb-leaf/50 hover:bg-rb-polar",
                             revealed && !isRight && !isWrong && "opacity-60",
                           )}
                         >
                           <span
                             className={cn(
                               "grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold",
-                              isRight ? "bg-rb-leaf text-white" : isWrong ? "bg-rb-cardinal text-white" : selected ? "bg-rb-feather text-white" : "bg-rb-polar text-rb-wolf",
+                              isRight ? "bg-rb-leaf text-white" : isWrong ? "bg-rb-cardinal text-white" : selected ? "bg-rb-leaf text-white" : "bg-rb-polar text-rb-wolf group-hover:bg-rb-leaf-wash group-hover:text-rb-leaf-lip",
                             )}
                           >
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
@@ -390,11 +406,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               </div>
             ) : null}
 
-            <AlertDialogFooter className="shrink-0 border-t border-rb-swan pt-3 sm:justify-between">
-              <span className="self-center text-xs text-rb-wolf">
-                {sources[0] ? `From: ${sources[0]}` : null}
+            <AlertDialogFooter className="shrink-0 border-t border-rb-swan/80 bg-rb-snow/55 px-5 py-4 sm:justify-between sm:px-8 sm:py-5">
+              <span className="max-w-[22rem] self-center text-xs leading-5 text-rb-wolf">
+                {sources[0] ? <><span className="font-semibold text-rb-eel">Lesson · </span>{sources[0]}</> : null}
               </span>
-              <Button onClick={next} disabled={!answered || phase === "submitting" || awaitingNext} className="gap-2">
+              <Button onClick={next} disabled={!answered || phase === "submitting" || awaitingNext} className="h-11 gap-2 rounded-xl px-5 shadow-[0_10px_20px_-14px_rgba(19,70,52,0.8)]">
                 {phase === "submitting" ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -424,11 +440,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               <AlertDialogMedia className="bg-rb-leaf-wash text-rb-leaf-lip">
                 <Zap aria-hidden="true" />
               </AlertDialogMedia>
-              <AlertDialogTitle>Oops, caught you skimming!</AlertDialogTitle>
+              <AlertDialogTitle>Quick focus check</AlertDialogTitle>
               <AlertDialogDescription>
-                That was faster than anyone can read. Prove you have got it:{" "}
-                {count} quick {count === 1 ? "question" : "questions"} on what you just scrolled
-                past. Get them right and carry on.
+                You moved through this lesson quickly. Before continuing, take{" "}
+                {count} quick {count === 1 ? "question" : "questions"} about the material you just passed.
+                You can begin when you are ready.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -449,13 +465,39 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                 ) : (
                   <>
                     <Zap className="size-4" aria-hidden="true" />
-                    Take the challenge
+                    Start focus check
                   </>
                 )}
               </Button>
             </AlertDialogFooter>
           </>
         )}
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+export function SkimWarningDialog({ open, onContinue, onReadAgain }) {
+  return (
+    <AlertDialog open={open}>
+      <AlertDialogContent
+        className="max-w-md rounded-[24px] border-rb-swan bg-white shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)]"
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        <AlertDialogHeader>
+          <AlertDialogMedia className="bg-amber-100 text-amber-700">
+            <AlertTriangle aria-hidden="true" />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Take a moment with this lesson</AlertDialogTitle>
+          <AlertDialogDescription className="leading-6">
+            You have already completed the focus check for this lesson. Moving through it quickly again may make key ideas easier to miss.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:justify-between">
+          <Button variant="outline" onClick={onReadAgain}>Read again</Button>
+          <Button onClick={onContinue}>Continue reading</Button>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   )
@@ -471,25 +513,29 @@ function ResultScreen({ result, onDone, onReadAgain }) {
 
   return (
     <>
-      <AlertDialogHeader>
-        <AlertDialogMedia className={cn(passed ? "bg-rb-leaf-wash text-rb-leaf-lip" : "bg-rb-fox-wash text-rb-fox-lip")}>
-          <Trophy aria-hidden="true" />
-        </AlertDialogMedia>
-        <AlertDialogTitle>
-          {perfect ? "Perfect round!" : passed ? "Nice recovery" : "Worth a re-read"}
-        </AlertDialogTitle>
-        <AlertDialogDescription>
-          {correct} of {total} correct
-          {pending > 0 ? ` · ${pending} awaiting review` : ""}
-          {perfect
-            ? " — you clearly got it. Carry on."
-            : passed
-              ? " — take the next sections a little slower."
-              : " — the answers below are the parts you scrolled past."}
-        </AlertDialogDescription>
+      <AlertDialogHeader className="shrink-0 border-b border-rb-swan/80 bg-rb-snow/55 px-5 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start gap-3">
+          <AlertDialogMedia className={cn("shrink-0", passed ? "bg-rb-leaf-wash text-rb-leaf-lip" : "bg-rb-fox-wash text-rb-fox-lip")}>
+            <Trophy aria-hidden="true" />
+          </AlertDialogMedia>
+          <div>
+            <AlertDialogTitle className="text-xl tracking-[-0.02em]">
+              {perfect ? "Perfect round!" : passed ? "Nice recovery" : "Worth a re-read"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-1.5 leading-6">
+              {correct} of {total} correct
+              {pending > 0 ? ` · ${pending} awaiting review` : ""}
+              {perfect
+                ? " — you clearly got it. Carry on."
+                : passed
+                  ? " — take the next sections a little slower."
+                  : " — the answers below are the parts you scrolled past."}
+            </AlertDialogDescription>
+          </div>
+        </div>
       </AlertDialogHeader>
 
-      <ol className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+      <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
         {answers.map((answer, position) => {
           const state = answer.pendingManualEvaluation ? "pending" : answer.isCorrect ? "correct" : "incorrect"
           return (
@@ -530,7 +576,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
         })}
       </ol>
 
-      <AlertDialogFooter className="sm:justify-between">
+      <AlertDialogFooter className="shrink-0 border-t border-rb-swan/80 bg-white px-5 py-4 sm:justify-between sm:px-8 sm:py-5">
         {onReadAgain ? (
           <Button variant={perfect || passed ? "outline" : "default"} onClick={onReadAgain}>
             Read the lesson again

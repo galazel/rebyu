@@ -52,9 +52,10 @@ import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
 import { LiveTutor } from "@/components/learner/live-tutor.jsx"
 import { LessonSnipOverlay, SelectionAskButton } from "@/components/learner/lesson-snip.jsx"
-import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
+import { LessonKnowledgeCheck, SkimWarningDialog } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
+import { useStudyTelemetry } from "@/hooks/useStudyTelemetry.js"
 import { Button } from "@/components/ui/button"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
@@ -1427,6 +1428,7 @@ export default function LearnerTopicPage() {
     lessonId: activeLessonId,
     enabled: Boolean(data?.learnerId) && !liveTutorOpen,
   })
+  const studyTelemetry = useStudyTelemetry({ lessonId: activeLessonId, enabled: Boolean(data?.learnerId) && Boolean(activeLessonId) })
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -1463,6 +1465,7 @@ export default function LearnerTopicPage() {
           if (activeLessonId) markSectionUnread(activeLessonId, key).catch(() => {})
         })
       }
+      studyTelemetry.recordRush()
       knowledgeCheck.trigger()
     },
   })
@@ -1905,7 +1908,17 @@ export default function LearnerTopicPage() {
         attempt={knowledgeCheck.offer?.attempt ?? null}
         answerKey={knowledgeCheck.offer?.answerKey ?? []}
         onDismiss={knowledgeCheck.dismiss}
+        onComplete={studyTelemetry.recordChallengeCompleted}
         onReadAgain={() => {
+          paceGuard.pause?.(2000)
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }}
+      />
+      <SkimWarningDialog
+        open={!liveTutorOpen && !knowledgeCheck.offer && knowledgeCheck.warningOpen}
+        onContinue={knowledgeCheck.dismissWarning}
+        onReadAgain={() => {
+          knowledgeCheck.dismissWarning()
           paceGuard.pause?.(2000)
           window.scrollTo({ top: 0, behavior: "smooth" })
         }}

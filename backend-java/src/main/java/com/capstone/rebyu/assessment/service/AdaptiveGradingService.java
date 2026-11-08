@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -193,6 +194,10 @@ public class AdaptiveGradingService {
     }
 
     private void tellLearner(Outcome outcome) {
+        if (outcome.title() != null && outcome.title().toLowerCase(Locale.ROOT).contains("challenge")) {
+            log.debug("Skipping inbox notification for challenge attempt {}", outcome.attemptId());
+            return;
+        }
         try {
             transactionTemplate.executeWithoutResult(status -> learnerRepository.findById(outcome.learnerId())
                     .map(Learner::getUser)

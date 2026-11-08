@@ -12,6 +12,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,12 @@ public class NotificationService {
 
     public void notify(User user, String title, String body, String href) {
         if (user == null) {
+            return;
+        }
+        // Challenges are intentionally kept inside the learning flow. They are
+        // not inbox events, so a learner is not repeatedly notified about
+        // skim-check or arena challenge attempts.
+        if (isChallengeNotification(title, body)) {
             return;
         }
         Notification saved = notificationRepository.save(Notification.builder()
@@ -73,13 +80,17 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationDto> forUser(Long userId) {
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId).stream()
+                .filter(notification -> !isChallengeNotification(notification.getTitle(), notification.getBody()))
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public long unreadCount(Long userId) {
-        return notificationRepository.countByUser_UserIdAndReadAtIsNull(userId);
+        return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId).stream()
+                .filter(notification -> notification.getReadAt() == null)
+                .filter(notification -> !isChallengeNotification(notification.getTitle(), notification.getBody()))
+                .count();
     }
 
     public void markRead(Long userId, Long notificationId) {
@@ -115,5 +126,11 @@ public class NotificationService {
         return new NotificationDto(
                 n.getNotificationId(), n.getTitle(), n.getBody(), n.getHref(),
                 n.getCreatedAt(), n.getReadAt() != null);
+    }
+
+    private boolean isChallengeNotification(String title, String body) {
+        String content = ((title == null ? "" : title) + " " + (body == null ? "" : body))
+                .toLowerCase(Locale.ROOT);
+        return content.contains("challenge");
     }
 }

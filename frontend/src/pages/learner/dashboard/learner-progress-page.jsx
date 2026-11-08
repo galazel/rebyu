@@ -69,6 +69,7 @@ import {
   getDashboardLayout,
   saveDashboardLayout,
 } from "@/services/studyDeskService.js"
+import { getStudyBehavior } from "@/services/studyTelemetryService.js"
 
 
 const SERIES_INK = ["#2f6b4f", "#c9962b", "#c8553d", "#8b5f7d"]
@@ -181,6 +182,23 @@ function MasteryRow({ title, caption, value, color = SERIES_INK[0], leading, evi
       </div>
     </div>
   )
+}
+
+function StudyBehaviorTile({ behavior }) {
+  const minutes = Number(behavior?.weekStudyMinutes ?? 0)
+  const pace = behavior?.readingPace ?? "Building"
+  return <BentoTile tone="leaf" col={2} row={2}>
+    <BentoHeading icon={TrendingUp} kicker="Study behavior" title="Focus & reading pace" hint="Saved from your lesson study sessions." />
+    <div className="grid grid-cols-2 gap-3">
+      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{minutes}</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">minutes this week</p></div>
+      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{behavior?.focusConsistency ?? 100}%</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">focus consistency</p></div>
+    </div>
+    <div className="mt-auto space-y-2 border-t border-rb-leaf/20 pt-3 text-xs font-semibold text-rb-eel">
+      <div className="flex justify-between"><span>Reading pace</span><span>{pace}</span></div>
+      <div className="flex justify-between"><span>Focus checks completed</span><span>{behavior?.challengeCompletions ?? 0}</span></div>
+      <div className="flex justify-between"><span>Fast-scroll events</span><span>{behavior?.rushEvents ?? 0}</span></div>
+    </div>
+  </BentoTile>
 }
 
 function NextUpTile({
@@ -492,6 +510,7 @@ export default function LearnerProgressPage() {
     },
   })
   const analytics = analyticsQuery.data
+  const behaviorQuery = useQuery({ queryKey: ["learner-study-behavior", selectedCertificationId], queryFn: () => getStudyBehavior(selectedCertificationId), enabled: Boolean(selectedCertificationId), staleTime: 30_000 })
 
 
   const lessons = useMemo(() => {
@@ -742,6 +761,14 @@ export default function LearnerProgressPage() {
       element: (
         <ReadinessTile readiness={readinessLevel} />
       ),
+    },
+    {
+      id: "study-behavior",
+      x: 5,
+      y: 3,
+      col: 1,
+      row: 2,
+      element: <StudyBehaviorTile behavior={behaviorQuery.data} />,
     },
     {
       id: "topic-mastery",

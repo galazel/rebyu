@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useRef } from "react"
 import { isLessonScrollGesture } from "@/lib/skim-challenge-state.js"
 
-const WINDOW_MS = 1600
+// Deliberately strict: regular wheel scrolling should never be treated as
+// skimming. A rush must cover more than two screens in under a second.
+const WINDOW_MS = 900
 
-const RUSH_SCREENS = 1.5
+const RUSH_SCREENS = 2.25
 
-const SKIM_SCREENS = 1.2
-
-const PASSIVE_WINDOW_MS = 6000
-const PASSIVE_SCREENS = 2
-
-const GESTURE_MS = 500
-
-// Opening a lesson moves the page by itself (back to the top, content and
-// images loading in); none of that is the learner skimming.
-const SETTLE_MS = 2500
+const GESTURE_MS = 350
 
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
@@ -33,22 +26,17 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     const y = window.scrollY
     const step = lastY.current == null ? 0 : y - lastY.current
     lastY.current = y
-    const counted = !draggingBar.current && Math.abs(step) > window.innerHeight ? 0 : step
     const list = samples.current
-    list.push({ t: now, d: counted })
-    while (list.length > 1 && now - list[0].t > PASSIVE_WINDOW_MS) list.shift()
+    list.push({ t: now, d: step })
+    while (list.length > 1 && now - list[0].t > WINDOW_MS) list.shift()
 
     let travelled = 0
     let since = now
-    let passiveTravelled = 0
     for (const sample of list) {
-      passiveTravelled += sample.d
-      if (now - sample.t <= WINDOW_MS) {
-        travelled += sample.d
-        since = Math.min(since, sample.t)
-      }
+      travelled += sample.d
+      since = Math.min(since, sample.t)
     }
-    return { now, travelled, since, passiveTravelled, passiveSince: list[0].t }
+    return { now, travelled, since }
   }, [])
 
   const pause = useCallback((ms = 1500) => {
@@ -61,17 +49,17 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     if (!enabled) return false
     const now = performance.now()
     if (now < pausedUntil.current || now - lastGesture.current > GESTURE_MS) return false
-    return measure().travelled > window.innerHeight * SKIM_SCREENS
+    return Math.abs(measure().travelled) > window.innerHeight * RUSH_SCREENS
   }, [enabled, measure])
 
   useEffect(() => {
-    // A new lesson (or the guard switching back on) starts clean: no gesture or
-    // scrollbar drag carried over from before, and a moment for the page to settle.
+    // A new lesson starts clean. Programmatic positioning never records a user
+    // gesture, so the first genuine rapid scroll can be evaluated immediately.
     samples.current = []
     lastY.current = null
     lastGesture.current = 0
     draggingBar.current = false
-    pausedUntil.current = performance.now() + SETTLE_MS
+    pausedUntil.current = performance.now()
   }, [enabled, resetKey])
 
   useEffect(() => {
@@ -94,8 +82,9 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     }
 
     const onMouseDown = (event) => {
-      const hasScrollbar = window.innerWidth > document.documentElement.clientWidth
-      if (hasScrollbar && event.clientX >= document.documentElement.clientWidth) {
+      const page = document.documentElement
+      const rightEdge = event.clientX >= Math.max(page.clientWidth, window.innerWidth) - 2
+      if (rightEdge) {
         draggingBar.current = true
         gesture()
       }
@@ -115,16 +104,12 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
         lastY.current = window.scrollY
         return
       }
-      const { travelled, since, passiveTravelled, passiveSince } = measure()
+      const { travelled, since } = measure()
       const screen = window.innerHeight
-      if (travelled > screen * RUSH_SCREENS) {
+      if (Math.abs(travelled) > screen * RUSH_SCREENS) {
         samples.current = []
         pausedUntil.current = now + 2000
         onRushRef.current?.(since)
-      } else if (passiveTravelled > screen * PASSIVE_SCREENS) {
-        samples.current = []
-        pausedUntil.current = now + 2000
-        onRushRef.current?.(passiveSince)
       }
     }
 

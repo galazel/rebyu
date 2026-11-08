@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 connection_string = (os.getenv("DATABASE_URL") or "").replace("postgresql+psycopg://", "postgresql://")
+connection_string = connection_string.replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/")
 
 _checkpointer = None
 _checkpointer_pool = None
@@ -56,8 +57,8 @@ async def get_checkpointer():
             pool = AsyncConnectionPool(
                 conninfo=connection_string,
                 kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
-                min_size=1,
-                max_size=5,
+                min_size=0,
+                max_size=2,
                 check=AsyncConnectionPool.check_connection,
                 open=False,
             )

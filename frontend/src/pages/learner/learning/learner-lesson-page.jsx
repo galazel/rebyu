@@ -38,9 +38,10 @@ import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonTool } from "@/components/certifications/lesson-content-renderer.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
 import { LiveTutor } from "@/components/learner/live-tutor.jsx"
-import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
+import { LessonKnowledgeCheck, SkimWarningDialog } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
+import { useStudyTelemetry } from "@/hooks/useStudyTelemetry.js"
 
 
 
@@ -619,11 +620,12 @@ export default function LearnerLessonPage() {
     lessonId,
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !liveTutorOpen,
   })
-  useReadingPaceGuard({
+  const studyTelemetry = useStudyTelemetry({ lessonId, enabled: Boolean(data?.learnerId) && sections.length > 0 })
+  const paceGuard = useReadingPaceGuard({
     lessonRootRef: liveLessonRoot,
     resetKey: lessonId,
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer && !liveTutorOpen,
-    onRush: () => knowledgeCheck.trigger(),
+    onRush: () => { studyTelemetry.recordRush(); knowledgeCheck.trigger() },
   })
 
   useEffect(() => {
@@ -894,6 +896,16 @@ export default function LearnerLessonPage() {
             attempt={knowledgeCheck.offer?.attempt ?? null}
         answerKey={knowledgeCheck.offer?.answerKey ?? []}
             onDismiss={knowledgeCheck.dismiss}
+            onComplete={studyTelemetry.recordChallengeCompleted}
+        />
+        <SkimWarningDialog
+            open={!liveTutorOpen && !knowledgeCheck.offer && knowledgeCheck.warningOpen}
+            onContinue={knowledgeCheck.dismissWarning}
+            onReadAgain={() => {
+              knowledgeCheck.dismissWarning()
+              paceGuard.pause?.(2000)
+              window.scrollTo({ top: 0, behavior: "smooth" })
+            }}
         />
 
         <Sheet

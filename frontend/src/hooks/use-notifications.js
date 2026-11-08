@@ -14,6 +14,15 @@ import {
 
 export const NOTIFICATIONS_QUERY_KEY = ["my-notifications"]
 
+// Keep challenge attempts in the learning experience rather than the global
+// inbox. The client-side guard also hides older records created before the API
+// rule was introduced.
+export function isChallengeNotification(notification) {
+  return /\bchallenge\b/i.test(
+    `${notification?.title ?? ""} ${notification?.body ?? notification?.description ?? ""}`
+  )
+}
+
 export function useNotifications() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -38,14 +47,16 @@ export function useNotifications() {
     return close
   }, [invalidate])
 
-  const items = (Array.isArray(query.data) ? query.data : []).map((notification) => ({
-    id: notification.id,
-    title: notification.title,
-    description: notification.body,
-    createdAt: notification.createdAt,
-    href: notification.href,
-    read: notification.read,
-  }))
+  const items = (Array.isArray(query.data) ? query.data : [])
+    .filter((notification) => !isChallengeNotification(notification))
+    .map((notification) => ({
+      id: notification.id,
+      title: notification.title,
+      description: notification.body,
+      createdAt: notification.createdAt,
+      href: notification.href,
+      read: notification.read,
+    }))
 
   const unreadCount = items.filter((item) => !item.read).length
 
