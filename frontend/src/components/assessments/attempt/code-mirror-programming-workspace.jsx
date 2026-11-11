@@ -75,6 +75,8 @@ export default function CodeMirrorProgrammingWorkspace({
   onChange,
   onLanguageChange,
   readOnly = false,
+  languageLocked = false,
+  placeholder = undefined,
   actions = null,
 }) {
   const [fullscreen, setFullscreen] = useState(false)
@@ -93,7 +95,7 @@ export default function CodeMirrorProgrammingWorkspace({
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex shrink-0 items-center gap-2 border-b border-rb-swan bg-rb-polar/60 px-2 py-1.5">
-          {readOnly ? (
+          {readOnly || languageLocked ? (
             <Badge variant="secondary">{language}</Badge>
           ) : (
             <Select value={language} onValueChange={onLanguageChange}>
@@ -136,6 +138,7 @@ export default function CodeMirrorProgrammingWorkspace({
             onChange={readOnly ? undefined : onChange}
             readOnly={readOnly}
             extensions={extensions}
+            placeholder={placeholder}
             height="100%"
             style={{ height: "100%", fontSize: "13.5px" }}
             basicSetup={{

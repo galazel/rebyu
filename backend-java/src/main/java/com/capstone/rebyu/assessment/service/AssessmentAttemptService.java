@@ -966,6 +966,21 @@ public class AssessmentAttemptService {
         PhaseTimer.finish(timer);
 
         Exam exam = attempt.getExam();
+        ChallengeScoreDto challengeScore = null;
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText()) && exam.getTargetScope() != null
+                && !attempt.isGradingPending()) {
+            List<ChallengeScoreBreakdown.Item> scored = reviews.stream()
+                    .map(review -> new ChallengeScoreBreakdown.Item(review, Optional
+                            .ofNullable(answersByQuestion.get(review.attemptQuestionId()))
+                            .map(AssessmentAttemptAnswer::getExecutionResult).orElse(null)))
+                    .toList();
+            challengeScore = ChallengeScoreBreakdown.build(
+                    exam.getTargetScope(), attempt.getPercentage(), scored,
+                    "codestrike".equals(exam.getTargetScope())
+                            ? ChallengeArenaService.settingsOf("codestrike", arenaConfigRepository.findById("codestrike"))
+                            : Map.of(),
+                    attempt.getStartedAt(), attempt.getSubmittedAt(), exam.getDurationMinutes(), objectMapper);
+        }
         return new AssessmentAttemptResultDto(
                 attempt.getAssessmentAttemptId(),
                 exam.getExamId(),
@@ -991,7 +1006,8 @@ public class AssessmentAttemptService {
                         .findByAttempt_AssessmentAttemptIdOrderByOccurredAtAsc(attempt.getAssessmentAttemptId())
                         .stream()
                         .collect(Collectors.groupingBy(e -> e.getEventType().name(),
-                                LinkedHashMap::new, Collectors.counting()))
+                                LinkedHashMap::new, Collectors.counting())),
+                challengeScore
         );
     }
 
@@ -1838,6 +1854,10 @@ public class AssessmentAttemptService {
                     workload.ai(key, () -> gradeWithRetry(written));
                 }
 
+                if ("PROGRAMMING".equals(criticalThinkingType)
+                        && SqlStatementGrading.isSqlStatementQuestion(source)) {
+                    continue;
+                }
                 if ("PROGRAMMING".equals(criticalThinkingType) && !hasFreshVerdict(answer)) {
                     List<TestCaseInputDto> inputs = programmingInputsFor(source);
                     String code = answer.getSubmittedCode();
@@ -1949,6 +1969,11 @@ public class AssessmentAttemptService {
             return;
         }
 
+        if (SqlStatementGrading.isSqlStatementQuestion(source)) {
+            gradeSqlStatement(attemptQuestion, source, answer, points);
+            return;
+        }
+
         List<TestCaseInputDto> inputs = programmingInputsFor(source);
         if (inputs.isEmpty()) {
             noteVerdictFromEarlierCode(answer);
@@ -1993,6 +2018,74 @@ public class AssessmentAttemptService {
             answer.setIsCorrect(false);
         }
         answer.setPendingManualEvaluation(false);
+    }
+
+    /**
+     * A SQL item is never run: the learner's statement is compared with the correct statement.
+     * Identical after normalising (see {@link SqlStatementGrading#normalize}) is full credit;
+     * otherwise AI decides whether it is the same query written differently -- it would return
+     * exactly the same result on the given tables. Full credit or zero, like every coding item.
+     * When the AI cannot be reached the answer stays without a verdict and is closed out later.
+     */
+    private void gradeSqlStatement(
+            AssessmentAttemptQuestion attemptQuestion, Question source,
+            AssessmentAttemptAnswer answer, BigDecimal points) {
+        String statement = answer.getSubmittedCode();
+        String correct = SqlStatementGrading.correctStatement(source);
+        if (correct == null || correct.isBlank()) {
+            log.warn("SQL question {} has no correct statement stored", source.getQuestionId());
+            return;
+        }
+
+        boolean matched;
+        String feedback = null;
+        if (SqlStatementGrading.sameStatement(statement, correct)) {
+            matched = true;
+        } else {
+            String reference = "This is a SQL question. The learner did NOT run their statement; "
+                    + "judge it by reading it. Award FULL points only if the learner's SQL, executed "
+                    + "on the tables below (SQLite), would return exactly the same result as the "
+                    + "correct statement -- the same columns in the same order with the same values, "
+                    + "the same rows, and the same row order wherever the question fixes an order "
+                    + "(for a data-changing statement: the same final table contents). Different "
+                    + "aliases, formatting, join style or an equivalent rewrite are fine. Award 0 for "
+                    + "anything else, including a statement that is only close, has a syntax error, "
+                    + "or returns extra or missing columns or rows. Do not give partial credit. In "
+                    + "the feedback say what the statement gets wrong; never reveal the correct "
+                    + "statement.\n\nTables and data:\n"
+                    + Objects.requireNonNullElse(SqlStatementGrading.tablesScript(source), "(none)")
+                    + "\n\nCorrect statement:\n" + correct;
+            Optional<AnswerGradingResultDto> graded = gradeWithRetry(new AnswerGradingRequestDto(
+                    Objects.requireNonNullElse(attemptQuestion.getQuestionTextSnapshot(), ""),
+                    points, reference, List.of(), statement, null));
+            if (graded.isEmpty() || graded.get().earnedPoints() == null) {
+                return;
+            }
+            matched = graded.get().earnedPoints().compareTo(
+                    points.multiply(new BigDecimal("0.99"))) >= 0;
+            feedback = graded.get().feedback();
+        }
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("codeHash", hashCode(statement));
+        payload.put("mode", "SQL_COMPARE");
+        payload.put("status", "COMPLETED");
+        payload.put("passedTests", matched ? 1 : 0);
+        payload.put("totalTests", 1);
+        try {
+            answer.setExecutionResult(objectMapper.writeValueAsString(payload));
+        } catch (Exception e) {
+            log.warn("Could not store SQL verdict for attempt question {}", attemptQuestion.getAttemptQuestionId());
+        }
+
+        answer.setIsCorrect(matched);
+        answer.setCredit(matched ? points : BigDecimal.ZERO);
+        answer.setPendingManualEvaluation(false);
+        String note = matched
+                ? "Your SQL statement matches the correct statement."
+                : "Your SQL statement does not match the correct statement.";
+        answer.setFeedback(feedback == null || feedback.isBlank() ? note : feedback);
+        applyCodeStrikeWeights(attemptQuestion, answer, points, matched ? 1 : 0, 1, null);
     }
 
     private void applyCodeStrikeWeightsFromStoredRun(
@@ -2069,7 +2162,7 @@ public class AssessmentAttemptService {
             AssessmentAttemptQuestion attemptQuestion, Question source,
             AssessmentAttemptAnswer answer, BigDecimal points) {
         String code = answer.getSubmittedCode();
-        if (code == null || code.isBlank()) {
+        if (code == null || code.isBlank() || SqlStatementGrading.isSqlStatementQuestion(source)) {
             return false;
         }
         String reference = "The learner's program could not be executed, so judge it by reading it. "
@@ -3095,6 +3188,13 @@ public class AssessmentAttemptService {
         if (!isWorkspaceType(attemptQuestion.getQuestionType())) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "This item is not a programming question.");
+        }
+
+        Question source = attemptQuestion.getSourceQuestionId() == null ? null
+                : questionRepository.findById(attemptQuestion.getSourceQuestionId()).orElse(null);
+        if (SqlStatementGrading.isSqlStatementQuestion(source)) {
+            throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                    "SQL answers are not run. Your statement is compared with the correct statement when you submit.");
         }
 
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(

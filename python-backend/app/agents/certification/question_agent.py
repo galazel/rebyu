@@ -235,6 +235,8 @@ smaller artifacts, not easier thinking.
   Every PROGRAMMING item is graded automatically: the learner's program is
   compiled and run once on a Judge0 code runner with no input, and what it
   prints is compared with expected_output (trailing whitespace ignored).
+  SQL is the exception -- see "SQL items" below: nothing is run, the learner's
+  statement is compared with the correct statement.
   Supported languages: Python, Java, JavaScript, C, C++, C#, SQL and
   Pseudocode -- the same list the learner's editor offers. SPREAD THEM: across
   a batch use several different languages, never only Python, and pick the one
@@ -249,12 +251,47 @@ smaller artifacts, not easier thinking.
 
     * programming_language -- one of: Python, Java, JavaScript, C, C++, C#,
       SQL, Pseudocode.
-    * SQL items: starter_code holds the CREATE TABLE and INSERT statements with
-      all the data (deliberately awkward rows: NULLs, duplicates, ties) and a
-      comment where the learner's query goes. reference_solution is that whole
-      script plus the correct SELECT(s). It runs on SQLite, which prints each
-      result row as columns separated by "|" -- state the column order and the
-      ORDER BY in rules so the output is deterministic.
+    * SQL items are answered by ONE SQL statement that the learner writes and
+      CANNOT run. The learner is shown the tables and asked for the statement;
+      on submit their statement is compared with the correct one (same result
+      on these tables = correct; formatting, case and aliases do not matter).
+      A SQL item tests WHICH STATEMENT a practitioner writes for a business
+      need -- the clauses, joins and conditions that answer it -- in the
+      style of the TOPCIT database tasks: a realistic system (reservations,
+      orders, payroll, inventory, enrolment of staff in training, shipments)
+      described in a short paragraph, its tables, then "Write a SQL statement
+      to ...". Good tasks: list rows meeting conditions across joined tables;
+      totals per group with HAVING; a date range ("for July 2026 based on
+      check-in date"); excluding something the data tempts you to include
+      (cancelled rows, extra charges, a NULL); rows with no match (LEFT JOIN /
+      NOT EXISTS); a subquery against an average or maximum; an UPDATE or
+      DELETE with a correlated condition; a CREATE VIEW. Put the traps in the
+      data: a cancelled booking, a row on the day before the range, a value
+      exactly at the threshold ("over" means >), a second table that would
+      double-count if joined. NEVER an algorithm written in SQL -- no graph
+      walks, critical paths, recursive puzzles, running simulations or string
+      parsing; WITH RECURSIVE is never the intended answer. Use only
+      statements SQLite can execute (no GRANT, no stored procedures).
+        - starter_code: ONLY the given tables -- one or more CREATE TABLE
+          statements (use as many tables as the task genuinely needs: one for a
+          filter or aggregate, two or three for joins) followed by INSERT
+          statements with every row. SQLite syntax. Keep tables small enough to
+          read (about 4-12 rows each) and put the awkward rows in them: NULLs,
+          duplicates, ties, a row with no match in the other table. The learner
+          sees these as tables; no comments, no query, no placeholder.
+        - question: say in words what the statement must return or do. Do NOT
+          ask the learner to "print" anything, do not mention running, output
+          lines or SQLite's "|" separator.
+        - rules: the exact result the statement must produce -- the columns in
+          order and their names or aliases, how rows are ordered (ORDER BY and
+          tie-breaks), rounding, what happens to NULLs. The learner sees this,
+          so the correct statement must be the only reasonable reading.
+        - reference_solution: ONLY the correct statement (one SELECT, or one
+          INSERT/UPDATE/DELETE when the task is to change data) -- never the
+          CREATE TABLE/INSERT setup. It is checked by executing it on the
+          tables and is stored as the answer key; it is never shown before
+          submission.
+        - expected_output: the same statement as reference_solution.
     * Pseudocode items: write the problem in the certification's pseudocode
       style (declarations, if/else/endif, while/endwhile, for/endfor, arrays
       from 1 unless stated). starter_code is a pseudocode skeleton with the
@@ -266,7 +303,7 @@ smaller artifacts, not easier thinking.
       ordering and tie-breaking, what to print for an invalid record. The
       learner is shown these rules; nothing the expected output depends on
       may be left unstated.
-    * reference_solution -- a complete, correct program IN THE CHOSEN
+    * reference_solution -- (SQL: the statement, see above) a complete, correct program IN THE CHOSEN
       LANGUAGE (with its main function / entry point) that contains the
       question's data, reads nothing from stdin, follows the rules exactly
       and prints the answer. It is never shown to learners.

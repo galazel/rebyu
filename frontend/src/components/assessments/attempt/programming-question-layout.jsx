@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Code2, FileText, HistoryIcon, Loader2Icon, PlayIcon, TerminalIcon, XIcon } from "@/components/icons"
+import { Code2, FileText, HistoryIcon, InfoIcon, Loader2Icon, PlayIcon, TerminalIcon, XIcon } from "@/components/icons"
 import { toast } from "sonner"
 
 import { getFileViewUrl } from "@/services/fileService.js"
@@ -11,6 +11,7 @@ import {
 import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace-shell.jsx"
 import CodeMirrorProgrammingWorkspace, { PROGRAMMING_LANGUAGES } from "./code-mirror-programming-workspace.jsx"
 import ExecutionHistoryPanel from "./execution-history-panel.jsx"
+import SqlTables from "./sql-tables.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 
 /** The stored language (PYTHON, SQL, PSEUDOCODE...) as the editor's dropdown label. */
@@ -36,9 +37,13 @@ export default function ProgrammingQuestionLayout({
   const [executions, setExecutions] = useState([])
   const [executionsLoading, setExecutionsLoading] = useState(false)
 
-  const language = answer?.programmingLanguage ?? editorLanguage(question.programmingLanguage)
+  // A SQL item is answered by a statement that is never run: the starter script is the
+  // tables the question gives (shown beside the problem), and what the learner types is
+  // compared with the correct statement on submit.
+  const isSql = editorLanguage(question.programmingLanguage) === "SQL"
+  const language = isSql ? "SQL" : answer?.programmingLanguage ?? editorLanguage(question.programmingLanguage)
   // Until the learner types, the editor holds the starter code -- which carries the problem's data.
-  const code = answer?.submittedCode ?? question.starterCode ?? ""
+  const code = isSql ? answer?.submittedCode ?? "" : answer?.submittedCode ?? question.starterCode ?? ""
   const subQuestions = question.subQuestions ?? []
 
   useEffect(() => {
@@ -46,6 +51,7 @@ export default function ProgrammingQuestionLayout({
   }, [question.attemptQuestionId])
 
   const refreshExecutions = useCallback(() => {
+    if (isSql) return
     setExecutionsLoading(true)
     const load = runner
       ? Promise.resolve(runner.listExecutions?.() ?? [])
@@ -55,7 +61,7 @@ export default function ProgrammingQuestionLayout({
       .then((rows) => setExecutions(Array.isArray(rows) ? rows : []))
       .catch(() => {})
       .finally(() => setExecutionsLoading(false))
-  }, [runner, attemptId, attemptQuestionId, learnerId])
+  }, [isSql, runner, attemptId, attemptQuestionId, learnerId])
 
   useEffect(() => {
     refreshExecutions()
@@ -102,9 +108,15 @@ export default function ProgrammingQuestionLayout({
     <ProblemStatement
       question={question}
       index={index}
-      typeLabel="Programming"
+      typeLabel={isSql ? "SQL" : "Programming"}
       imageSrc={questionImageSrc}
     >
+      {isSql ? (
+        <div className="space-y-2">
+          <p className="text-xs font-extrabold uppercase tracking-wide text-rb-wolf">Tables</p>
+          <SqlTables script={question.starterCode} />
+        </div>
+      ) : null}
       {subQuestions.length > 0 ? (
         <div className="rounded-xl border border-rb-swan bg-rb-polar/40 p-3">
           <SubQuestionTabs
@@ -129,15 +141,17 @@ export default function ProgrammingQuestionLayout({
         <CodeMirrorProgrammingWorkspace
           value={code}
           language={language}
-          starterCode={question.starterCode ?? ""}
+          starterCode={isSql ? "" : question.starterCode ?? ""}
           readOnly={editingLocked}
+          languageLocked={isSql}
+          placeholder={isSql ? "-- Write your SQL statement here" : undefined}
           onChange={(next) => onAnswer({ submittedCode: next, programmingLanguage: language })}
           onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
-          actions={runKey}
+          actions={isSql ? null : runKey}
         />
       </div>
 
-      {output ? (
+      {output && !isSql ? (
         <div className="shrink-0 overflow-hidden rounded-2xl bg-[#22302a] text-[#e6eee8] shadow-inner">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
             <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white/70">
@@ -173,13 +187,24 @@ export default function ProgrammingQuestionLayout({
     <>
       <SidePanel className="hidden lg:block">{navigator}</SidePanel>
 
-      <SidePanel title="Your runs" icon={HistoryIcon}>
-        <p className="mb-3 text-xs leading-5 text-rb-wolf">
-          Run shows what your program prints. When you submit, that output is
-          compared with the expected output.
-        </p>
-        <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
-      </SidePanel>
+      {isSql ? (
+        <SidePanel title="How it's marked" icon={InfoIcon}>
+          <p className="text-xs leading-5 text-rb-wolf">
+            SQL answers are not run. Write the statement the question asks for, using the
+            tables shown with the problem. When you submit, your statement is compared with
+            the correct statement — formatting, letter case and aliases do not matter, but
+            it must return exactly the same result.
+          </p>
+        </SidePanel>
+      ) : (
+        <SidePanel title="Your runs" icon={HistoryIcon}>
+          <p className="mb-3 text-xs leading-5 text-rb-wolf">
+            Run shows what your program prints. When you submit, that output is
+            compared with the expected output.
+          </p>
+          <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
+        </SidePanel>
+      )}
     </>
   )
 
@@ -188,7 +213,7 @@ export default function ProgrammingQuestionLayout({
       tabs={[
         { id: "problem", label: "Problem", icon: FileText },
         { id: "workspace", label: "Code", icon: Code2 },
-        { id: "side", label: "Runs", icon: HistoryIcon },
+        { id: "side", label: isSql ? "Marking" : "Runs", icon: isSql ? InfoIcon : HistoryIcon },
       ]}
       problem={problem}
       workspace={workspace}

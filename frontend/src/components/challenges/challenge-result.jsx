@@ -6,6 +6,7 @@ import { ArrowLeft, Check, ChevronRight, Clock, Crown, Loader2, Lock, Shield, Tr
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { PathBackdrop, Plinth } from "@/components/challenges/arena-lobby.jsx"
 import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
+import { ScoreBreakdown } from "@/components/challenges/score-breakdown.jsx"
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import { getWorldCupBracketForMatch } from "@/services/challengeService.js"
 import { cn } from "@/lib/utils"
@@ -87,6 +88,8 @@ export default function ChallengeResult({ result, state, marking }) {
             reduceMotion={reduceMotion}
           />
         )}
+
+        {!marking ? <ScoreBreakdown score={result.challengeScore} arena={arena} /> : null}
 
         <ArenaPodium arenaId={arenaId} title={`${arena.name} rankings`} />
       </div>

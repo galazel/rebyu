@@ -337,7 +337,39 @@ public final class LearnerAttemptDtos {
             boolean gradingPending,
             boolean forfeited,
             int focusViolations,
-            Map<String, Long> integrityEventCounts
+            Map<String, Long> integrityEventCounts,
+            // CHALLENGE attempts only: how the percentage was built.
+            ChallengeScoreDto challengeScore
+    ) {
+    }
+
+    public record ChallengeScoreDto(
+            String arenaId,
+            String formula,
+            BigDecimal percentage,
+            List<ScoreComponentDto> components,
+            List<ChallengeItemScoreDto> items
+    ) {
+    }
+
+    /** One part of a challenge score: its weight, what was achieved on it, and what it added. */
+    public record ScoreComponentDto(
+            String key,
+            String label,
+            Integer weightPercent,
+            Integer achievedPercent,
+            BigDecimal points,
+            String detail
+    ) {
+    }
+
+    public record ChallengeItemScoreDto(
+            Integer order,
+            String title,
+            BigDecimal earned,
+            BigDecimal max,
+            Boolean correct,
+            String feedback
     ) {
     }
 

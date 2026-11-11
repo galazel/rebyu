@@ -118,3 +118,27 @@ def test_a_programming_draft_has_no_test_cases_field():
     assert "expected_output" in QuestionDraft.model_fields
     with pytest.raises(AttributeError):
         _coding().test_cases  # noqa: B018
+
+
+# ---- SQL items: the statement is the answer, checked on the question's own tables ----
+
+from types import SimpleNamespace as _NS
+
+from app.ai.programming_verification import check_sql_question
+
+_TABLES = "CREATE TABLE t (a INTEGER);\nINSERT INTO t (a) VALUES (2), (1);"
+
+
+def _sql(statement):
+    return _NS(question="Q", rules="r", starter_code=_TABLES, reference_solution=statement, expected_output=None)
+
+
+def test_sql_key_becomes_the_bare_statement():
+    q = _sql(_TABLES + "\nSELECT a FROM t ORDER BY a;")
+    assert check_sql_question(q) is None
+    assert q.expected_output == "SELECT a FROM t ORDER BY a;"
+
+
+def test_sql_key_that_fails_or_returns_nothing_is_rejected():
+    assert "no such column" in check_sql_question(_sql("SELECT b FROM t"))
+    assert "no rows" in check_sql_question(_sql("SELECT a FROM t WHERE a > 5"))

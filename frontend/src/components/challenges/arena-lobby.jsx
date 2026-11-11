@@ -103,7 +103,10 @@ export function ArenaLobby({ arenaId, name, blurb }) {
     staleTime: 0,
     refetchOnMount: "always",
   })
-  const completed = new Set((progressQuery.data ?? []).map(Number))
+  const completed = {
+    ids: new Set((progressQuery.data?.questionIds ?? []).map(Number)),
+    indexes: new Set((progressQuery.data?.stageIndexes ?? []).map(Number)),
+  }
 
   const problems = problemsQuery.data ?? []
   const problemCount = arena?.problemCount ?? problems.length
@@ -222,7 +225,11 @@ function trailLayout(count, wide) {
 }
 
 function stageStates(stages, completed) {
-  const done = stages.map((p) => p != null && completed.has(Number(p.questionId)))
+  // Learners never get the problem list (it is admin-only: it carries answers), so their
+  // stages are placeholders and are matched by position; admins match by question id.
+  const done = stages.map((p, i) =>
+    p != null ? completed.ids.has(Number(p.questionId)) : completed.indexes.has(i)
+  )
   const unlocked = stages.map((_, i) => i === 0 || done[i - 1])
   const currentIndex = stages.findIndex((_, i) => unlocked[i] && !done[i])
   return stages.map((_, i) => (done[i] ? "done" : i === currentIndex ? "current" : unlocked[i] ? "open" : "locked"))

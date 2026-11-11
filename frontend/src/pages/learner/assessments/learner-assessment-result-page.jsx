@@ -1027,7 +1027,11 @@ export default function LearnerAssessmentResultPage() {
 
                     {answer.expectedOutput != null ? (
                       <div className="text-sm">
-                        <p className="mb-2 text-muted-foreground">Expected output:</p>
+                        <p className="mb-2 text-muted-foreground">
+                          {String(answer.programmingLanguage ?? "").toUpperCase() === "SQL"
+                            ? "Correct statement:"
+                            : "Expected output:"}
+                        </p>
                         <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-rb-tile border border-[var(--tg-line)] bg-rb-snow p-2.5 font-mono text-xs leading-5 text-foreground">
                           {answer.expectedOutput}
                         </pre>

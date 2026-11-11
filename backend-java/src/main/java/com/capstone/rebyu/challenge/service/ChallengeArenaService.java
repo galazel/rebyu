@@ -188,6 +188,28 @@ public class ChallengeArenaService {
     return attemptQuestions.findSubmittedSourceQuestionIds(learnerId, exam.getExamId());
   }
 
+  /**
+   * Which stage positions (0-based, in arena order) this learner has handed in. Learners
+   * cannot read the problem list itself (it carries answers), so the lobby matches by
+   * position.
+   */
+  @Transactional(readOnly = true)
+  public List<Integer> completedStageIndexes(String arenaId, List<Long> completedIds) {
+    Exam exam = findArenaExam(arenaId);
+    if (exam == null || completedIds.isEmpty()) {
+      return List.of();
+    }
+    java.util.Set<Long> done = new java.util.HashSet<>(completedIds);
+    List<ExamQuestion> rows = examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId());
+    List<Integer> indexes = new ArrayList<>();
+    for (int i = 0; i < rows.size(); i++) {
+      if (done.contains(rows.get(i).getQuestion().getQuestionId())) {
+        indexes.add(i);
+      }
+    }
+    return indexes;
+  }
+
   /** The weekly exam Champions Cup is played on right now, for learners. */
   public record ActiveEdition(
       Long editionId, LocalDate weekStart, Long certificationId, String certificationTitle, boolean thisWeek) {}

@@ -10,6 +10,12 @@ public final class ArenaScoring {
 
   static final long FAST_MS = 250;
 
+  /** Run time at or under which efficiency earns full credit. */
+  public static final long FAST_RUN_MS = 250;
+
+  /** Run time at which efficiency credit reaches zero. */
+  public static final long SLOWEST_RUN_MS = 5000;
+
   static final long SLOWEST_MS = 5000;
 
   private ArenaScoring() {}
@@ -55,6 +61,16 @@ public final class ArenaScoring {
     return new Breakdown(
         BigDecimal.valueOf(fraction).setScale(4, RoundingMode.HALF_UP),
         correctness, speed, efficiency, summary);
+  }
+
+  /** Speed credit, 0-1, exactly as the score uses it. */
+  public static double speedOf(LocalDateTime startedAt, LocalDateTime finishedAt, Integer durationMinutes) {
+    return speed(startedAt, finishedAt, durationMinutes);
+  }
+
+  /** Efficiency credit, 0-1, exactly as the score uses it. */
+  public static double efficiencyOf(Long maxTimeMs) {
+    return efficiency(maxTimeMs);
   }
 
   static double speed(LocalDateTime startedAt, LocalDateTime finishedAt, Integer durationMinutes) {

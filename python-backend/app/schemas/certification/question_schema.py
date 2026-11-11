@@ -35,8 +35,10 @@ MULTI_MIN_CORRECT = 2
 
 MIN_EXPLANATION_CHARS = 20
 
-# Every language the learner's editor offers. SQL runs on Judge0's SQLite; PSEUDOCODE
-# cannot run, so its reference_solution is Python and learners are marked by AI.
+# Every language the learner's editor offers. SQL is never run for the learner: the
+# question gives tables (starter_code) and the learner's statement is compared with the
+# correct statement (reference_solution, stored as expected_output). PSEUDOCODE cannot
+# run, so its reference_solution is Python and learners are marked by AI.
 PROGRAMMING_LANGUAGES = ("PYTHON", "JAVA", "JAVASCRIPT", "C", "C++", "C#", "SQL", "PSEUDOCODE")
 
 DIAGRAM_TYPES: tuple[str, ...] = (
@@ -391,6 +393,10 @@ class QuestionDraft(BaseModel):
                     "PROGRAMMING must include reference_solution: a complete program that "
                     "reads no input and prints the expected output"
                 )
+            if lang == "SQL":
+                # The answer to a SQL item is the statement itself; verification checks it
+                # against the tables and drops the item when either is unusable.
+                self.expected_output = solution
             if lang in ("PYTHON", "PSEUDOCODE"):
                 # Pseudocode is checked through its Python reference solution.
                 try:

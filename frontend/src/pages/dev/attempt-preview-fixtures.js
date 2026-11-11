@@ -87,6 +87,23 @@ const PROGRAMMING = {
   ],
 }
 
+const SQL_STATEMENT = {
+  attemptQuestionId: 1550,
+  questionType: "CRITICAL_THINKING",
+  criticalThinkingType: "PROGRAMMING",
+  title: "Unpaid invoices per customer",
+  difficultyLevel: "average",
+  programmingLanguage: "SQL",
+  question:
+    "Using the tables below, write ONE SELECT that returns every customer with at least one unpaid invoice: the customer's name and the total still owed, largest total first, ties by name.",
+  starterCode:
+    "CREATE TABLE customer (id INTEGER PRIMARY KEY, name TEXT NOT NULL, region TEXT);\n" +
+    "CREATE TABLE invoice (id INTEGER PRIMARY KEY, customer_id INTEGER NOT NULL, amount REAL NOT NULL, paid_on TEXT);\n\n" +
+    "INSERT INTO customer (id, name, region) VALUES\n  (1, 'Acme', 'EU'),\n  (2, 'Brightline', NULL),\n  (3, 'O''Hara Ltd', 'APAC');\n\n" +
+    "INSERT INTO invoice (id, customer_id, amount, paid_on) VALUES\n  (10, 1, 120.0, NULL),\n  (11, 1, 80.5, '2026-10-02'),\n  (12, 2, 300.0, NULL),\n  (13, 3, 45.0, NULL);\n",
+  subQuestions: [],
+}
+
 const DIAGRAM = {
   attemptQuestionId: 1600,
   questionType: "CRITICAL_THINKING",
@@ -114,6 +131,7 @@ export const SHOWCASE = [
   { id: "short-answer", label: "Short Answer", attemptQuestionId: 1300 },
   { id: "descriptive", label: "Descriptive", attemptQuestionId: 1400 },
   { id: "programming", label: "Programming", attemptQuestionId: 1500 },
+  { id: "sql", label: "SQL statement", attemptQuestionId: 1550 },
   { id: "diagram", label: "Diagram", attemptQuestionId: 1600 },
 ]
 
@@ -130,6 +148,7 @@ const QUESTIONS = [
   SHORT_ANSWER,
   DESCRIPTIVE,
   PROGRAMMING,
+  SQL_STATEMENT,
   DIAGRAM,
   ...Array.from({ length: 8 }, (_, i) => fillerQuestion(201 + i, i + 11)),
 ]

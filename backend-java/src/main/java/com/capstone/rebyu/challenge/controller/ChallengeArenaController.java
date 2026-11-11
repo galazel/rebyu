@@ -104,10 +104,11 @@ public class ChallengeArenaController {
       throw new IllegalArgumentException("Authentication is required");
     }
     CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
-    return new MyProgress(arenas.completedProblemIds(arenaId, user.learnerId()));
+    List<Long> ids = arenas.completedProblemIds(arenaId, user.learnerId());
+    return new MyProgress(ids, arenas.completedStageIndexes(arenaId, ids));
   }
 
-  public record MyProgress(List<Long> completedQuestionIds) {}
+  public record MyProgress(List<Long> completedQuestionIds, List<Integer> completedStageIndexes) {}
 
   /** The weekly exam learners can play now; `edition` is null when none is published. */
   @GetMapping("/worldcup/active-edition")
