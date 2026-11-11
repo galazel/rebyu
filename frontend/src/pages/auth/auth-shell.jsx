@@ -1,8 +1,32 @@
 import { Link, useNavigate } from "react-router-dom"
 
-import { ArrowLeft } from "@/components/icons"
+import { ArrowLeft, MoonIcon, SunIcon } from "@/components/icons"
 import { BrandLogo } from "@/components/brand-logo"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
+import { useTheme } from "@/hooks/use-theme"
+
+
+function AuthThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches)
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode"
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={label}
+      title={label}
+      className="rb-btn rb-btn-ghost rb-btn-sm !min-h-[38px] !h-9.5 !w-9.5 !px-0 sm:!min-h-[42px] sm:!h-10 sm:!w-10 grid place-items-center text-rb-wolf hover:text-rb-eel transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw cursor-pointer"
+    >
+      {isDark ? <SunIcon className="size-4" aria-hidden="true" /> : <MoonIcon className="size-4" aria-hidden="true" />}
+    </button>
+  )
+}
 
 
 const STORIES = {
@@ -57,7 +81,7 @@ export default function AuthShell({
 
   return (
     <main
-      className={`rebyu-ds rb-light-only public-auth-shell min-h-dvh bg-rb-polar text-rb-eel lg:grid lg:grid-cols-2 ${
+      className={`rebyu-ds public-auth-shell min-h-dvh bg-rb-polar text-rb-eel lg:grid lg:grid-cols-2 ${
         compact ? "lg:h-dvh lg:overflow-hidden" : ""
       }`}
     >
@@ -75,18 +99,21 @@ export default function AuthShell({
             <span className="font-rb-display text-2xl leading-none text-rb-eel">REBYU</span>
           </Link>
 
-          {showBackButton ? (
-            <Link
-              to={backTo}
-              onClick={handleBack}
-              id="auth-back-button"
-              className="rb-btn rb-btn-ghost rb-btn-sm !min-h-[38px] !h-9.5 px-3 sm:!min-h-[42px] sm:!h-10 sm:px-4 gap-1.5 text-xs sm:text-sm font-bold normal-case text-rb-eel hover:text-rb-eel transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
-              aria-label={backLabel}
-            >
-              <ArrowLeft className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
-              <span>{backLabel}</span>
-            </Link>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <AuthThemeToggle />
+            {showBackButton ? (
+              <Link
+                to={backTo}
+                onClick={handleBack}
+                id="auth-back-button"
+                className="rb-btn rb-btn-ghost rb-btn-sm !min-h-[38px] !h-9.5 px-3 sm:!min-h-[42px] sm:!h-10 sm:px-4 gap-1.5 text-xs sm:text-sm font-bold normal-case text-rb-eel hover:text-rb-eel transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
+                aria-label={backLabel}
+              >
+                <ArrowLeft className="size-3.5 sm:size-4 shrink-0" aria-hidden="true" />
+                <span>{backLabel}</span>
+              </Link>
+            ) : null}
+          </div>
         </div>
 
         <div

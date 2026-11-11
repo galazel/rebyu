@@ -238,7 +238,7 @@ export default function LoginPage() {
               <Alert
                   variant={error.tone === "warning" ? "default" : "destructive"}
                   role={error.tone === "warning" ? "status" : "alert"}
-                  className={error.tone === "warning" ? "border-amber-400/70 bg-amber-50 text-amber-900" : undefined}
+                  className={error.tone === "warning" ? "border-amber-400/70 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/50 dark:text-amber-200" : undefined}
               >
                 {error.tone === "warning" ? <AlertTriangle className="size-4" /> : <AlertCircle className="size-4" />}
                 <AlertTitle>{error.title}</AlertTitle>

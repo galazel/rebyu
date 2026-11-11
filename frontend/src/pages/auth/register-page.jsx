@@ -73,7 +73,7 @@ function AccountTypeStep({ onChoose }) {
           key={value}
           type="button"
           onClick={() => onChoose(value)}
-          className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="group flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition hover:border-primary hover:bg-primary/5 dark:bg-[#1a201c] dark:hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Icon className="size-5" />
