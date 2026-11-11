@@ -1026,82 +1026,12 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
 
 
-                    {answer.programmingTests?.length > 0 ? (
-                      <div className="space-y-2 text-sm">
-                        <p className="text-muted-foreground">
-                          Test cases —{" "}
-                          {answer.programmingTests.filter((test) => test.passed).length} of{" "}
-                          {answer.programmingTests.length} passed:
-                        </p>
-                        <ul className="space-y-1.5">
-                          {answer.programmingTests.map((test) => (
-                            <li
-                              key={test.index}
-                              className={cn(
-                                "flex items-start gap-2 rounded-rb-tile border-2 p-2.5",
-                                test.passed
-                                  ? ANSWER_TONES.correct.panel
-                                  : ANSWER_TONES.incorrect.panel
-                              )}
-                            >
-                              {test.passed ? (
-                                <CheckCircle2Icon
-                                  className="mt-0.5 size-4 shrink-0 text-rb-leaf"
-                                  aria-hidden="true"
-                                />
-                              ) : (
-                                <XCircleIcon
-                                  className="mt-0.5 size-4 shrink-0 text-rb-cardinal"
-                                  aria-hidden="true"
-                                />
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <p className="flex flex-wrap items-center gap-1.5 font-bold text-foreground">
-                                  <span className="rounded-rb-control border border-[var(--tg-line)] bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                    {test.sample ? "Sample" : "Hidden"}
-                                  </span>
-                                  {test.label}
-                                  {test.status && test.status !== "PASSED" && test.status !== "FAILED" ? (
-                                    <span className="text-xs font-semibold text-rb-cardinal-lip">
-                                      {test.status.replaceAll("_", " ").toLowerCase()}
-                                    </span>
-                                  ) : null}
-                                </p>
-
-                                {test.input != null ||
-                                test.expectedOutput != null ||
-                                test.actualOutput != null ? (
-                                  <dl className="mt-1.5 space-y-1 text-xs">
-                                    {test.input != null ? (
-                                      <div>
-                                        <dt className="font-bold text-muted-foreground">Input</dt>
-                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-foreground">
-                                          {test.input}
-                                        </dd>
-                                      </div>
-                                    ) : null}
-                                    {test.expectedOutput != null ? (
-                                      <div>
-                                        <dt className="font-bold text-muted-foreground">Expected output</dt>
-                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-foreground">
-                                          {test.expectedOutput}
-                                        </dd>
-                                      </div>
-                                    ) : null}
-                                    {test.actualOutput != null ? (
-                                      <div>
-                                        <dt className="font-bold text-muted-foreground">Your output</dt>
-                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-foreground">
-                                          {test.actualOutput}
-                                        </dd>
-                                      </div>
-                                    ) : null}
-                                  </dl>
-                                ) : null}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
+                    {answer.expectedOutput != null ? (
+                      <div className="text-sm">
+                        <p className="mb-2 text-muted-foreground">Expected output:</p>
+                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-rb-tile border border-[var(--tg-line)] bg-rb-snow p-2.5 font-mono text-xs leading-5 text-foreground">
+                          {answer.expectedOutput}
+                        </pre>
                       </div>
                     ) : null}
 

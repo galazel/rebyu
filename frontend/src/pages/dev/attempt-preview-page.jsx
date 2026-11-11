@@ -52,11 +52,8 @@ function installPreviewAdapter() {
             status: "COMPLETED",
             message: null,
             language: "Python",
-            passedTests: null,
-            totalTests: null,
-            stdout: "True\nFalse\nTrue\n",
+            stdout: "False\nTrue\nTrue\nTrue\n",
             stderr: null,
-            tests: [],
           })
         return config
       }
@@ -65,7 +62,6 @@ function installPreviewAdapter() {
           localResponse(request, {
             status: "NOT_RUN",
             message: "The executor is not enabled in preview.",
-            testCases: [],
             rubric: [],
           })
         return config

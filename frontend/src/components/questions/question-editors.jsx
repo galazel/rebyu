@@ -158,7 +158,7 @@ export const QUESTION_TYPES = [
       question: "",
       image: null,
       starterCode: "",
-      testCases: [{ inputData: "", expectedOutput: "" }],
+      expectedOutput: "",
       subQuestions: [],
       difficulty: "average",
     },
@@ -321,15 +321,9 @@ export function validateQuestionData(typeId, data) {
   }
 
   if (typeId === "PROGRAMMING") {
-    const testCases = data.testCases ?? []
-    if (testCases.length === 0) {
-      errors.testCases = "Add at least one programming test case."
+    if (isBlank(data.expectedOutput)) {
+      errors.expectedOutput = "Expected output is required."
     }
-    testCases.forEach((testCase, index) => {
-      if (isBlank(testCase.expectedOutput)) {
-        errors[`testCases.${index}.expectedOutput`] = `Test case ${index + 1} needs an expected output.`
-      }
-    })
     validateSubQuestions(data, errors)
   }
 
@@ -904,25 +898,8 @@ export function Descriptive({ questionKey, questionNumber, onRemove, data, onDat
 }
 
 export function Programming({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
-  const testCases = data.testCases ?? []
-
   function onFieldChange(path, value) {
     onDataChange((currentData) => updateDataAtPath(currentData, path, value))
-  }
-
-  function addTestCase() {
-    onDataChange((currentData) => ({
-      ...currentData,
-      testCases: [...(currentData.testCases ?? []), { inputData: "", expectedOutput: "" }],
-    }))
-  }
-
-  function removeTestCase(indexToRemove) {
-    if (testCases.length === 1) return
-    onDataChange((currentData) => ({
-      ...currentData,
-      testCases: currentData.testCases.filter((_, index) => index !== indexToRemove),
-    }))
   }
 
   return (
@@ -944,85 +921,24 @@ export function Programming({ questionKey, questionNumber, onRemove, data, onDat
         />
       </div>
 
-      <div className={`space-y-3 rounded-md border border-dashed p-3 ${errors.testCases ? "border-destructive/70 bg-destructive/5" : "border-border"}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              Programming Test Cases
-              <span className="ml-1 text-destructive">*</span>
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Input is optional. Every test case needs an expected output.
-            </p>
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={addTestCase}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Test Case
-          </Button>
-        </div>
-
-        <FieldError message={errors.testCases} />
-
-        <div className="space-y-3">
-          {testCases.map((testCase, index) => {
-            const expectedOutputError = errors[`testCases.${index}.expectedOutput`]
-            return (
-              <div
-                key={`${questionKey}-test-case-${index}`}
-                className={`rounded-md border p-3 ${expectedOutputError ? "border-destructive/70 bg-destructive/5" : "border-border bg-muted/20"}`}
-              >
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">Test Case {index + 1}</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={testCases.length === 1}
-                    onClick={() => removeTestCase(index)}
-                    className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                    Remove
-                  </Button>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor={`${questionKey}-test-case-${index}-input`} className="text-xs font-medium">
-                      Input Data
-                      <span className="ml-1 font-normal text-muted-foreground">(Optional)</span>
-                    </Label>
-                    <Textarea
-                      id={`${questionKey}-test-case-${index}-input`}
-                      value={testCase.inputData ?? ""}
-                      onChange={(event) => onFieldChange(`testCases.${index}.inputData`, event.target.value)}
-                      spellCheck={false}
-                      placeholder={"Example:\n5\n10 20 30 40 50"}
-                      className="min-h-20 resize-y font-mono text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor={`${questionKey}-test-case-${index}-output`} className="text-xs font-medium">
-                      Expected Output
-                      <span className="ml-1 text-destructive">*</span>
-                    </Label>
-                    <Textarea
-                      id={`${questionKey}-test-case-${index}-output`}
-                      value={testCase.expectedOutput ?? ""}
-                      aria-invalid={Boolean(expectedOutputError)}
-                      onChange={(event) => onFieldChange(`testCases.${index}.expectedOutput`, event.target.value)}
-                      spellCheck={false}
-                      placeholder="Example: 150"
-                      className={`min-h-20 resize-y font-mono text-xs ${expectedOutputError ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                    />
-                    <FieldError message={expectedOutputError} />
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+      <div className="space-y-2 border-t border-border pt-4">
+        <Label htmlFor={`${questionKey}-expected-output`} className="text-sm font-medium">
+          Expected Output
+          <span className="ml-1 text-destructive">*</span>
+        </Label>
+        <Textarea
+          id={`${questionKey}-expected-output`}
+          value={data.expectedOutput ?? ""}
+          aria-invalid={Boolean(errors.expectedOutput)}
+          onChange={(event) => onFieldChange("expectedOutput", event.target.value)}
+          spellCheck={false}
+          placeholder={"Exactly what a correct program prints, e.g.\nTotal: 150"}
+          className={`min-h-24 resize-y font-mono text-sm ${errors.expectedOutput ? "border-destructive focus-visible:ring-destructive" : ""}`}
+        />
+        <p className="text-xs text-muted-foreground">
+          The learner&apos;s program runs once with no input; its output must match this exactly (trailing spaces are ignored).
+        </p>
+        <FieldError message={errors.expectedOutput} />
       </div>
 
       <SubQuestions questionKey={questionKey} data={data} onDataChange={onDataChange} onFieldChange={onFieldChange} errors={errors} />
@@ -1295,10 +1211,7 @@ export async function saveAuthoredQuestion(
       await saveProgrammingQuestion({
         questionId: savedProgramming.questionId,
         starterCode: question.data.starterCode,
-        testCases: question.data.testCases.map((testCase) => ({
-          inputData: testCase.inputData,
-          expectedOutput: testCase.expectedOutput,
-        })),
+        expectedOutput: question.data.expectedOutput,
       })
 
       for (const subQuestion of question.data.subQuestions ?? []) {

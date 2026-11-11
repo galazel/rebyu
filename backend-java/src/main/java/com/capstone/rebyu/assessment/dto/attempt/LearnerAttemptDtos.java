@@ -53,7 +53,6 @@ public final class LearnerAttemptDtos {
             String instructions,
             List<LearnerSubQuestionDto> subQuestions,
             BigDecimal points,
-            List<ProgrammingAttemptDtos.LearnerTestCaseDto> testCases,
             List<DiagramAttemptDtos.RubricCriterionDto> rubric,
             String stage,
             AdaptiveAnswerKeyDto answerKey,
@@ -63,7 +62,7 @@ public final class LearnerAttemptDtos {
         public LearnerAttemptQuestionDto withAnswerKey(AdaptiveAnswerKeyDto key) {
             return new LearnerAttemptQuestionDto(attemptQuestionId, displayOrder, questionType, criticalThinkingType,
                     question, questionImageKey, choices, starterCode, diagramType, instructions, subQuestions, points,
-                    testCases, rubric, stage, key, selectCount);
+                    rubric, stage, key, selectCount);
         }
     }
 
@@ -253,18 +252,6 @@ public final class LearnerAttemptDtos {
     ) {
     }
 
-    public record ProgrammingTestReviewDto(
-            int index,
-            String label,
-            boolean sample,
-            boolean passed,
-            String status,
-            String input,
-            String expectedOutput,
-            String actualOutput
-    ) {
-    }
-
     public record AttemptAnswerReviewDto(
             Long attemptQuestionId,
             Integer displayOrder,
@@ -285,7 +272,8 @@ public final class LearnerAttemptDtos {
             String feedback,
             List<SubQuestionAnswerReviewDto> subQuestionAnswers,
             List<DiagramElementReviewDto> diagramElements,
-            List<ProgrammingTestReviewDto> programmingTests,
+            // PROGRAMMING only, and only once answers are released.
+            String expectedOutput,
             String programOutput,
             String programError,
             String difficultyLevel,

@@ -48,12 +48,6 @@ export const CODESTRIKE_PROBLEMS = CODESTRIKE_TITLES.map((title, index) => ({
   difficultyLevel: DIFFICULTIES[index],
   points: 10,
   starterCode: "public class Solution {\n    // your code here\n}\n",
-  testCases: [
-    { index: 0, label: "Sample case 1", sample: true, input: "[2, 7, 11, 15], target 9", status: "NOT_RUN" },
-    { index: 1, label: "Sample case 2", sample: true, input: "[3, 2, 4], target 6", status: "NOT_RUN" },
-    { index: 2, label: "Hidden case 1", sample: false, input: null, status: "NOT_RUN" },
-    { index: 3, label: "Hidden case 2 — edge", sample: false, input: null, status: "NOT_RUN" },
-  ],
   subQuestions: [],
 }))
 
@@ -93,23 +87,17 @@ export function makeProgrammingRunner(problem) {
   const replay = (mode) => async (code, language) => {
     const submitted = String(code ?? "").trim().length > 0
 
-    const tests = (problem.testCases ?? []).map((testCase, index) => ({
-      ...testCase,
-      status: !submitted ? "NOT_RUN" : index < 3 ? "PASSED" : "FAILED",
-    }))
-
     executions.unshift({
       executionId: `${problem.attemptQuestionId}-${executions.length + 1}`,
       mode: mode === "run" ? "Run" : "Check",
       language,
       status: submitted ? "COMPLETED" : "UNAVAILABLE",
-      passedTests: submitted ? 3 : 0,
-      totalTests: tests.length,
       createdAt: new Date().toISOString(),
     })
 
     return {
-      tests,
+      stdout: null,
+      stderr: null,
       message: submitted
         ? "Demo run — no judge is wired up yet, so these results are scripted."
         : "Write some code first: there is nothing to run.",

@@ -244,19 +244,30 @@ async function createQuestion(text, type, lessonId, certificationId) {
   })
 }
 
-async function createProgrammingConfig(questionId, starter, testCases, language) {
+async function createProgrammingConfig(questionId, starter, expectedOutput, language) {
   return base("programming-question-configs", {
     method: "POST",
     data: {
       questionId,
       starterCode: starter,
       language: language || "PYTHON",
-      testCases: testCases.map((tc) => ({
-        inputData: tc.i,
-        expectedOutput: tc.o,
-      })),
+      expectedOutput,
     },
   })
+}
+
+// A programming question has one expected output and the program reads no input, so the
+// template's worked example becomes part of the problem: the learner's program uses that data
+// and must print exactly the expected output.
+function withWorkedExample(template) {
+  const [example] = template.cases
+  return {
+    text: `${template.q}
+
+Your program reads no input. Use this data in your program and print the result:
+${example.i}`,
+    expectedOutput: example.o,
+  }
 }
 
 async function createDiagramConfig(questionId, template) {
@@ -321,10 +332,11 @@ export default function SeedChallengesPage() {
         for (let i = 0; i < QUESTIONS_PER_NODE; i++) {
           const qi = ((node - 1) * QUESTIONS_PER_NODE + i) % PROGRAMMING_TEMPLATES.length
           const template = PROGRAMMING_TEMPLATES[qi]
-          const text = `[CS-${batch}-N${node}-P${i + 1}] ${template.q}`
+          const example = withWorkedExample(template)
+          const text = `[CS-${batch}-N${node}-P${i + 1}] ${example.text}`
 
           const saved = await createQuestion(text, "CRITICAL_THINKING", lessonId, Number(certificationId))
-          await createProgrammingConfig(saved.questionId, template.starter, template.cases, template.lang)
+          await createProgrammingConfig(saved.questionId, template.starter, example.expectedOutput, template.lang)
 
           problems.push({
             questionId: saved.questionId,

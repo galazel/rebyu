@@ -477,21 +477,11 @@ class AssessmentAttemptServiceTest {
     }
 
     @Test
-    void runReturnsTheProgramOutputWithoutCheckingTestCases() {
+    void runReturnsTheProgramOutputWithoutRevealingTheExpectedOutput() {
         Question programmingParent = new Question();
         programmingParent.setQuestionId(300L);
         programmingParent.setQuestionType("CRITICAL_THINKING");
 
-        ProgrammingTestCase sample = ProgrammingTestCase.builder()
-                .programmingTestCaseId(1L).inputData("2 3").expectedOutput("5").isSample(true).build();
-        ProgrammingTestCase hidden = ProgrammingTestCase.builder()
-                .programmingTestCaseId(2L).inputData("10 20").expectedOutput("30").isSample(false).build();
-        ProgrammingQuestionConfig config = ProgrammingQuestionConfig.builder()
-                .programmingQuestionConfigId(5L)
-                .testCases(new ArrayList<>(List.of(sample, hidden)))
-                .build();
-        when(programmingQuestionConfigRepository.findByQuestion_QuestionId(300L))
-                .thenReturn(Optional.of(config));
         lenient().when(questionRepository.findById(300L)).thenReturn(Optional.of(programmingParent));
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(300L)))
                 .thenReturn(List.of(programmingParent));
@@ -508,15 +498,13 @@ class AssessmentAttemptServiceTest {
                 .build();
         when(attemptRepository.findById(79L)).thenReturn(Optional.of(attempt));
 
-        String snapshotJson = "{\"testCases\":["
-                + "{\"index\":1,\"label\":\"Sample 1\",\"sample\":true,\"input\":\"2 3\"},"
-                + "{\"index\":2,\"label\":\"Hidden 1\",\"sample\":false,\"input\":null}]}";
+        String snapshotJson = "{\"criticalThinkingType\":\"PROGRAMMING\"}";
         AssessmentAttemptQuestion snapshot = AssessmentAttemptQuestion.builder()
                 .attemptQuestionId(3L)
                 .attempt(attempt)
                 .sourceQuestionId(300L)
                 .questionType("CRITICAL_THINKING")
-                .questionTextSnapshot("Sum two integers read from stdin.")
+                .questionTextSnapshot("Print the sum of 2 and 3.")
                 .questionDataSnapshot(snapshotJson)
                 .displayOrder(1)
                 .points(new BigDecimal("10.00"))
@@ -541,28 +529,24 @@ class AssessmentAttemptServiceTest {
         });
 
         CodeExecutionResultDto judge0Result = new CodeExecutionResultDto(
-                "COMPLETED", "5", null, 12L, 3456L, 1, 2,
-                List.of(
-                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
-                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+                "COMPLETED", "5", null, 12L, 3456L, null, null, List.of());
         when(codeExecutionService.execute(any())).thenReturn(judge0Result);
 
         ProgrammingRunRequestDto request = new ProgrammingRunRequestDto(
-                2L, "print(sum(map(int, input().split())))", "Python");
+                2L, "print(2 + 3)", "Python");
 
         ExecutionResultDto response = service.runProgramming(79L, 3L, request);
 
         assertEquals("5", response.stdout());
-        assertNull(response.passedTests());
-        assertNull(response.totalTests());
-        assertTrue(response.tests().isEmpty());
+        assertEquals("RUN", response.mode());
 
         org.mockito.ArgumentCaptor<com.capstone.rebyu.execution.dto.CodeExecutionRequestDto> sent =
                 org.mockito.ArgumentCaptor.forClass(com.capstone.rebyu.execution.dto.CodeExecutionRequestDto.class);
         verify(codeExecutionService).execute(sent.capture());
         assertEquals(1, sent.getValue().testCases().size());
-        assertEquals("2 3", sent.getValue().testCases().get(0).inputData());
+        assertEquals("", sent.getValue().testCases().get(0).inputData());
         assertNull(sent.getValue().testCases().get(0).expectedOutput());
+        verify(programmingQuestionConfigRepository, never()).findByQuestion_QuestionId(any());
 
         AssessmentAttemptAnswer saved = answers.get(0);
         assertNull(saved.getCredit());
@@ -775,7 +759,7 @@ class AssessmentAttemptServiceTest {
                 .attempt(attempt)
                 .sourceQuestionId(300L)
                 .questionType("CRITICAL_THINKING")
-                .questionTextSnapshot("Sum two integers read from stdin.")
+                .questionTextSnapshot("Print the sum of 2 and 3.")
                 .displayOrder(1)
                 .points(new BigDecimal("10.00"))
                 .build();
@@ -843,13 +827,9 @@ class AssessmentAttemptServiceTest {
         programmingParent.setQuestionId(500L);
         programmingParent.setQuestionType("PROGRAMMING");
 
-        ProgrammingTestCase test1 = ProgrammingTestCase.builder()
-                .programmingTestCaseId(1L).inputData("2 3").expectedOutput("5").isSample(true).build();
-        ProgrammingTestCase test2 = ProgrammingTestCase.builder()
-                .programmingTestCaseId(2L).inputData("10 20").expectedOutput("30").isSample(false).build();
         ProgrammingQuestionConfig config = ProgrammingQuestionConfig.builder()
                 .programmingQuestionConfigId(9L)
-                .testCases(new ArrayList<>(List.of(test1, test2)))
+                .expectedOutput("5")
                 .build();
         programmingParent.setProgrammingQuestionConfig(config);
         lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(500L))
@@ -891,7 +871,7 @@ class AssessmentAttemptServiceTest {
                 .credit(BigDecimal.ONE)
                 .pendingManualEvaluation(false)
                 .executionResult("{\"codeHash\":\"" + gradedCodeHash + "\",\"mode\":\"CHECK\","
-                        + "\"status\":\"COMPLETED\",\"passedTests\":2,\"totalTests\":2,"
+                        + "\"status\":\"COMPLETED\",\"passedTests\":1,\"totalTests\":1,"
                         + "\"testResults\":[]}")
                 .build();
 
@@ -926,16 +906,21 @@ class AssessmentAttemptServiceTest {
         stubActiveEnrollment();
 
         CodeExecutionResultDto rerun = new CodeExecutionResultDto(
-                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
-                List.of(
-                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
-                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+                "COMPLETED", "new and broken", null, 11L, 2048L, 0, 1,
+                List.of(new CodeExecutionResultDto.TestCaseResultDto(
+                        1, false, false, "FAILED", "new and broken")));
 
         AssessmentAttemptAnswer answer = submitProgrammingWithStoredVerdict(
                 "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
 
-        verify(codeExecutionService, atLeastOnce()).execute(any());
-        assertEquals(0, new BigDecimal("0.5000").compareTo(answer.getCredit()));
+        org.mockito.ArgumentCaptor<com.capstone.rebyu.execution.dto.CodeExecutionRequestDto> sent =
+                org.mockito.ArgumentCaptor.forClass(com.capstone.rebyu.execution.dto.CodeExecutionRequestDto.class);
+        verify(codeExecutionService, atLeastOnce()).execute(sent.capture());
+        // One run, no stdin, compared with the question's single expected output.
+        assertEquals(1, sent.getValue().testCases().size());
+        assertEquals("", sent.getValue().testCases().get(0).inputData());
+        assertEquals("5", sent.getValue().testCases().get(0).expectedOutput());
+        assertEquals(0, BigDecimal.ZERO.compareTo(answer.getCredit()));
         assertFalse(answer.getIsCorrect());
         assertFalse(answer.isPendingManualEvaluation());
     }
@@ -961,11 +946,7 @@ class AssessmentAttemptServiceTest {
         q.setQuestionType("CRITICAL_THINKING");
         ProgrammingQuestionConfig config = ProgrammingQuestionConfig.builder()
                 .programmingQuestionConfigId(19L)
-                .testCases(new ArrayList<>(List.of(
-                        ProgrammingTestCase.builder().programmingTestCaseId(11L)
-                                .inputData("2 3").expectedOutput("5").isSample(true).build(),
-                        ProgrammingTestCase.builder().programmingTestCaseId(12L)
-                                .inputData("1 1").expectedOutput("2").isSample(false).build())))
+                .expectedOutput("5")
                 .build();
         q.setProgrammingQuestionConfig(config);
         lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(600L))
@@ -995,7 +976,7 @@ class AssessmentAttemptServiceTest {
                 .submittedCode("print(sum(map(int, input().split())))").programmingLanguage("Python")
                 .learnerAnswer("{\"601\":\"It is linear.\"}").build();
         CodeExecutionResultDto allPass = new CodeExecutionResultDto(
-                "COMPLETED", "5", null, 5L, 1024L, 2, 2, List.of());
+                "COMPLETED", "5", null, 5L, 1024L, 1, 1, List.of());
         // Written half is worth 0.5; the AI awards 0.25 of it.
         GradingBatch batch = new GradingBatch(
                 Map.of(70L, new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
@@ -1076,7 +1057,6 @@ class AssessmentAttemptServiceTest {
         diagramParent.setDiagramQuestionConfig(diagramConfig);
         diagramParent.setProgrammingQuestionConfig(ProgrammingQuestionConfig.builder()
                 .programmingQuestionConfigId(13L)
-                .testCases(new ArrayList<>())
                 .build());
         lenient().when(diagramQuestionConfigRepository.findByQuestion_QuestionId(600L))
                 .thenReturn(Optional.of(diagramConfig));
@@ -1133,37 +1113,24 @@ class AssessmentAttemptServiceTest {
         assertEquals(3, result.answers().get(0).diagramElements().size());
     }
 
+    private static CodeExecutionResultDto wrongOutputRun() {
+        return new CodeExecutionResultDto(
+                "COMPLETED", "31", null, 11L, 2048L, 0, 1,
+                List.of(new CodeExecutionResultDto.TestCaseResultDto(1, false, false, "FAILED", "31")));
+    }
+
     @Test
-    void programmingReviewShowsEveryTestCaseInFullAfterSubmission() {
+    void programmingReviewShowsTheExpectedOutputBesideTheLearnersOutputAfterSubmission() {
         stubActiveEnrollment();
         exam.setReleaseAnswersAfterSubmit(true);
 
-        CodeExecutionResultDto rerun = new CodeExecutionResultDto(
-                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
-                List.of(
-                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
-                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
-
         submitProgrammingWithStoredVerdict(
-                "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
+                "hash-of-code-the-learner-has-since-replaced", "print(31)", wrongOutputRun());
 
-        List<ProgrammingTestReviewDto> tests =
-                lastProgrammingResult.answers().get(0).programmingTests();
-        assertEquals(2, tests.size());
-
-        ProgrammingTestReviewDto sample = tests.get(0);
-        assertTrue(sample.sample());
-        assertTrue(sample.passed());
-        assertEquals("2 3", sample.input());
-        assertEquals("5", sample.expectedOutput());
-        assertEquals("5", sample.actualOutput());
-
-        ProgrammingTestReviewDto hidden = tests.get(1);
-        assertFalse(hidden.sample());
-        assertFalse(hidden.passed());
-        assertEquals("10 20", hidden.input());
-        assertEquals("30", hidden.expectedOutput());
-        assertEquals("31", hidden.actualOutput());
+        var review = lastProgrammingResult.answers().get(0);
+        assertEquals("5", review.expectedOutput());
+        assertEquals("31", review.programOutput());
+        assertFalse(review.isCorrect());
     }
 
     @Test
@@ -1171,18 +1138,10 @@ class AssessmentAttemptServiceTest {
         stubActiveEnrollment();
         exam.setReleaseAnswersAfterSubmit(false);
 
-        CodeExecutionResultDto rerun = new CodeExecutionResultDto(
-                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
-                List.of(
-                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
-                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+        submitProgrammingWithStoredVerdict("stale-hash", "print(31)", wrongOutputRun());
 
-        submitProgrammingWithStoredVerdict("stale-hash", "print('new and broken')", rerun);
-
-        ProgrammingTestReviewDto sample =
-                lastProgrammingResult.answers().get(0).programmingTests().get(0);
-        assertEquals("2 3", sample.input());
-        assertNull(sample.expectedOutput());
-        assertEquals("5", sample.actualOutput());
+        var review = lastProgrammingResult.answers().get(0);
+        assertNull(review.expectedOutput());
+        assertEquals("31", review.programOutput());
     }
 }

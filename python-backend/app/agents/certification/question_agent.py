@@ -207,58 +207,44 @@ smaller artifacts, not easier thinking.
   analysis, judgement. It is graded on meaning, not exact text, so this is
   where "explain", "why", "discuss", and "compare" questions belong. Set
   rubric_answer describing what a correct answer must cover.
-- PROGRAMMING is the type for a substantial coding task, not a one-liner.
-  Write a full problem: a paragraph or two of context, the exact input and
-  output format, any constraints (sizes, ranges, edge cases that must be
-  handled), and what counts as a correct solution. It should take a competent
-  learner real work -- implementing logic, handling edge cases, choosing a
-  suitable structure -- rather than filling one blank or recalling syntax.
-  Set starter_code to a meaningful skeleton: signatures, imports, and a
-  comment marking what has to be implemented. Give at least three test cases,
-  and make them cover the ordinary case AND the edges the constraints
-  describe (empty input, boundary values, duplicates, invalid input) rather
-  than three variations of the same easy case. Difficulty is normally
-  AVERAGE or HARD, and estimated_seconds should reflect the real work.
+- PROGRAMMING is the type for a substantial coding task, not a one-liner,
+  graded by ONE exact answer: the program's output. There are NO test cases.
+  Write a full problem: a paragraph or two of context, then EVERY piece of
+  data the program works on, written into the question itself (the records,
+  the log lines, the amounts, the dates) -- the program reads no input, so a
+  value the question does not state cannot be used. Say exactly what the
+  program must print. It should take a competent learner real work --
+  implementing logic, handling the awkward records the data deliberately
+  contains, choosing a suitable structure -- rather than filling one blank or
+  recalling syntax. Put the edge cases INTO the data (a malformed line, a
+  duplicate, a boundary value, an invalid record) so one run exercises them.
+  Difficulty is normally AVERAGE or HARD, and estimated_seconds should
+  reflect the real work.
 
-  Every PROGRAMMING item is graded automatically by compiling and running it on
-  a Judge0 code runner, so it must be fully specified and runnable. Supported
-  languages: C, C++, Java, JavaScript, Python, C#. Vary the language across
-  questions -- do NOT make every question Python.
+  Every PROGRAMMING item is graded automatically: the learner's program is
+  compiled and run once on a Judge0 code runner with no input, and what it
+  prints is compared with expected_output (trailing whitespace ignored).
+  Supported languages: C, C++, Java, JavaScript, Python, C#. Vary the
+  language across questions -- do NOT make every question Python.
 
     * programming_language -- one of: C, C++, Java, JavaScript, Python, C#.
       Pick whichever fits the problem best, and spread across languages.
-    * function_name -- the function (or class) the learner writes. The question
-      must name it.
-    * rules -- one paragraph stating the signature and EVERY exact thing the
-      tests check: return types and formats, exact message strings, rounding,
-      ordering and tie-breaking, what to return for empty or invalid input. If a
-      test expects "Error: Invalid amount", the rules say so word for word. The
-      learner is shown these rules; nothing a test checks may be left unstated.
-    * reference_solution -- a complete, correct solution IN THE CHOSEN LANGUAGE
-      that follows the rules exactly. It is never shown to learners.
-    * starter_code -- a meaningful skeleton in the chosen language: function
-      signatures, imports, and a comment marking what has to be implemented.
-
-    Test case format depends on the language:
-
-    FOR PYTHON:
-    * test_cases -- each input_data is Python code that calls function_name: a
-      single call such as `process_payment(-50, {'number': '4111', 'cvv': '123'})`,
-      or a few statements ending in a call or a print. Use plain dicts, lists
-      and tuples for data; never rely on a class the question does not define.
-      Put anything with a variable order behind sorted(...) in the rules.
-
-    FOR ALL OTHER LANGUAGES (C, C++, Java, JavaScript, C#):
-    * test_cases -- each input_data is PLAIN TEXT fed to stdin. The reference
-      solution reads from stdin and prints to stdout. The solution must include
-      a main function/entry point that reads the input and prints the result.
-      Example: if the function processes two numbers, input_data might be
-      "5 3" and the solution reads them with scanf/Scanner/readline etc.
-
-    * expected_output -- write your best value, but it is REPLACED: generation
-      runs reference_solution on the real grader and stores what it prints.
-      A test whose reference run fails is discarded, so make every test pass
-      on your own solution.
+    * rules -- one paragraph stating EXACTLY what the program prints: line
+      layout, labels and wording, separators, number formats and rounding,
+      ordering and tie-breaking, what to print for an invalid record. The
+      learner is shown these rules; nothing the expected output depends on
+      may be left unstated.
+    * reference_solution -- a complete, correct program IN THE CHOSEN
+      LANGUAGE (with its main function / entry point) that contains the
+      question's data, reads nothing from stdin, follows the rules exactly
+      and prints the answer. It is never shown to learners.
+    * expected_output -- exactly what reference_solution prints. Write your
+      best value, but it is REPLACED: generation runs reference_solution on
+      the real grader and stores what it actually prints. A question whose
+      reference run fails or prints nothing is discarded.
+    * starter_code -- a meaningful skeleton in the chosen language: the
+      entry point, the data already typed in, imports, and a comment marking
+      what has to be implemented.
 
   CODE AT PROFESSIONAL SCALE, for the same reason DIAGRAM items must model at
   it. FizzBuzz, reversing a string, summing an array, checking a palindrome

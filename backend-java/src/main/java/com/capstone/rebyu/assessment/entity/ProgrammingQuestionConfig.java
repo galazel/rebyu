@@ -6,9 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Entity
 @Table(name = "programming_question_configs")
 @Data
@@ -30,6 +27,10 @@ public class ProgrammingQuestionConfig {
     @Column(name = "language")
     private String language;
 
-    @OneToMany(mappedBy = "programmingQuestionConfig", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProgrammingTestCase> testCases = new ArrayList<>();
+    /**
+     * What a correct program prints. The learner's program runs once with no input and its stdout
+     * is compared with this (trailing whitespace ignored). Replaced the per-question test cases.
+     */
+    @Column(name = "expected_output", columnDefinition = "TEXT")
+    private String expectedOutput;
 }

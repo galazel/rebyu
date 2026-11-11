@@ -1,11 +1,10 @@
 package com.capstone.rebyu.assessment.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -20,5 +19,6 @@ public class ProgrammingQuestionConfigDto {
 
     private String language;
 
-    private List<ProgrammingTestCaseDto> testCases;
+    @NotBlank
+    private String expectedOutput;
 }

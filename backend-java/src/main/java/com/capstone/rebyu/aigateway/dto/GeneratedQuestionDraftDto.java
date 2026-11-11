@@ -15,7 +15,7 @@ public record GeneratedQuestionDraftDto(
         String rubricBasedAnswer,
         String starterCode,
         String programmingLanguage,
-        List<GeneratedTestCaseDto> testCases,
+        String expectedOutput,
         GeneratedDiagramType diagramType,
         String instructions,
         String authoringNotes,
@@ -43,7 +43,7 @@ public record GeneratedQuestionDraftDto(
             String rubricBasedAnswer,
             String starterCode,
             String programmingLanguage,
-            List<GeneratedTestCaseDto> testCases,
+            String expectedOutput,
             GeneratedDiagramType diagramType,
             String instructions,
             String authoringNotes,
@@ -53,7 +53,7 @@ public record GeneratedQuestionDraftDto(
         this(questionType, suggestedLessonId, suggestedLessonTitle, question,
                 difficulty, choices, correctChoiceIndex, correctAnswer,
                 checkingMethod, rubricBasedAnswer, starterCode, programmingLanguage,
-                testCases, diagramType, instructions, authoringNotes, imageKey,
+                expectedOutput, diagramType, instructions, authoringNotes, imageKey,
                 acceptedVariations, List.of());
     }
 
@@ -69,14 +69,14 @@ public record GeneratedQuestionDraftDto(
             GeneratedCheckingMethod checkingMethod,
             String rubricBasedAnswer,
             String starterCode,
-            List<GeneratedTestCaseDto> testCases,
+            String expectedOutput,
             GeneratedDiagramType diagramType,
             String instructions,
             String authoringNotes
     ) {
         this(questionType, suggestedLessonId, suggestedLessonTitle, question,
                 difficulty, choices, correctChoiceIndex, correctAnswer,
-                checkingMethod, rubricBasedAnswer, starterCode, null, testCases,
+                checkingMethod, rubricBasedAnswer, starterCode, null, expectedOutput,
                 diagramType, instructions, authoringNotes, null, null, List.of());
     }
 }

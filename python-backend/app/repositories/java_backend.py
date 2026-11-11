@@ -33,7 +33,6 @@ from app.db.java_tables import (
     middle_reflections,
     notifications,
     programming_question_configs,
-    programming_test_cases,
     questions,
     text_question_configs,
 )
@@ -397,25 +396,17 @@ def insert_text_config(
 
 
 def insert_programming_config(
-    session: Session, question_id: int, starter_code: str | None, test_cases: list[dict[str, Any]],
+    session: Session, question_id: int, starter_code: str | None, expected_output: str | None,
     language: str | None = None,
 ) -> None:
-    values: dict[str, Any] = {"question_id": question_id, "starter_code": starter_code}
+    values: dict[str, Any] = {
+        "question_id": question_id,
+        "starter_code": starter_code,
+        "expected_output": expected_output,
+    }
     if language:
         values["language"] = language
-    result = session.execute(
-        insert(programming_question_configs).values(**values)
-    )
-    config_id = result.inserted_primary_key[0]
-    for index, case in enumerate(test_cases or []):
-        session.execute(
-            insert(programming_test_cases).values(
-                programming_question_config_id=config_id,
-                input_data=case.get("input_data", ""),
-                expected_output=case.get("expected_output", ""),
-                is_sample=(index == 0),
-            )
-        )
+    session.execute(insert(programming_question_configs).values(**values))
 
 
 def insert_diagram_config(
@@ -723,14 +714,6 @@ def delete_question_if_unused(session: Session, question_id: int) -> bool:
             )
             session.execute(
                 text("DELETE FROM text_question_configs WHERE question_id = :id"),
-                {"id": question_id},
-            )
-            session.execute(
-                text(
-                    "DELETE FROM programming_test_cases WHERE programming_question_config_id IN "
-                    "(SELECT programming_question_config_id FROM programming_question_configs "
-                    "WHERE question_id = :id)"
-                ),
                 {"id": question_id},
             )
             session.execute(

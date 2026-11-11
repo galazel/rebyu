@@ -916,7 +916,8 @@ public class AssessmentAttemptService {
                     answer == null ? null : answer.getFeedback(),
                     buildSubQuestionAnswerReviews(source, answer, subQuestionsByParentId),
                     buildDiagramElementReviews(answer, releaseAnswers),
-                    buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
+                    releaseAnswers && source != null && source.getProgrammingQuestionConfig() != null
+                            ? expectedOutputOf(source) : null,
                     programOutputFor(answer),
                     programErrorFor(answer),
                     source == null ? null : source.getDifficultyLevel(),
@@ -1835,12 +1836,24 @@ public class AssessmentAttemptService {
                         .orElse(false);
     }
 
+    /**
+     * The one check a programming answer is graded by: the learner's program runs once with no
+     * input, and its stdout must equal the question's expected output (trailing whitespace on each
+     * line and at the end is ignored by the runner). Empty when the question has no expected output.
+     */
     private List<TestCaseInputDto> programmingInputsFor(Question source) {
-        return loadIndexedProgrammingTestCases(source).stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
+        String expected = expectedOutputOf(source);
+        return expected == null ? List.of() : List.of(new TestCaseInputDto(1, false, "", expected));
+    }
+
+    private String expectedOutputOf(Question source) {
+        if (source == null) {
+            return null;
+        }
+        return programmingQuestionConfigRepository.findByQuestion_QuestionId(source.getQuestionId())
+                .map(ProgrammingQuestionConfig::getExpectedOutput)
+                .filter(output -> !output.isBlank())
+                .orElse(null);
     }
 
     static boolean hasSubmittedContent(AssessmentAttemptAnswer answer) {
@@ -1891,17 +1904,11 @@ public class AssessmentAttemptService {
             return;
         }
 
-        List<IndexedTestCase> testCases = loadIndexedProgrammingTestCases(source);
-        if (testCases.isEmpty()) {
+        List<TestCaseInputDto> inputs = programmingInputsFor(source);
+        if (inputs.isEmpty()) {
             noteVerdictFromEarlierCode(answer);
             return;
         }
-
-        List<TestCaseInputDto> inputs = testCases.stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
 
         CodeExecutionResultDto result =
                 batch.codeResults().get(attemptQuestion.getAttemptQuestionId());
@@ -2020,21 +2027,16 @@ public class AssessmentAttemptService {
         if (code == null || code.isBlank()) {
             return false;
         }
-        StringBuilder reference = new StringBuilder(
-                "The learner's program could not be executed, so judge it by reading it. Award "
-                        + "credit in proportion to the test cases it would pass (same input -> exactly "
-                        + "the expected output). Code that does not attempt the task, or is not valid "
-                        + "code, earns 0. Ignore style; judge behaviour.\n");
-        for (IndexedTestCase it : loadIndexedProgrammingTestCases(source)) {
-            reference.append("\nTest ").append(it.index())
-                    .append("\n  input: ").append(Objects.requireNonNullElse(it.testCase().getInputData(), ""))
-                    .append("\n  expected output: ")
-                    .append(Objects.requireNonNullElse(it.testCase().getExpectedOutput(), ""));
-        }
+        String reference = "The learner's program could not be executed, so judge it by reading it. "
+                + "The program reads no input; award full credit only if running it would print "
+                + "exactly the expected output below (trailing whitespace aside), partial credit "
+                + "for a program that is clearly close, and 0 for code that does not attempt the "
+                + "task or is not valid code. Ignore style; judge behaviour.\n\nExpected output:\n"
+                + Objects.requireNonNullElse(expectedOutputOf(source), "(none recorded)");
         String question = Objects.requireNonNullElse(attemptQuestion.getQuestionTextSnapshot(), "")
                 + "\n\nLanguage: " + submittedLanguage(answer, source);
         Optional<AnswerGradingResultDto> graded = gradeWithRetry(new AnswerGradingRequestDto(
-                question, points, reference.toString(), List.of(), code, null));
+                question, points, reference, List.of(), code, null));
         if (graded.isEmpty()) {
             return false;
         }
@@ -2042,7 +2044,7 @@ public class AssessmentAttemptService {
         answer.setCredit(result.earnedPoints());
         answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
         answer.setPendingManualEvaluation(false);
-        String note = "Your code could not be run, so it was marked by AI against the test cases.";
+        String note = "Your code could not be run, so it was marked by AI against the expected output.";
         String feedback = result.feedback();
         answer.setFeedback(feedback == null || feedback.isBlank() ? note : feedback + "\n\n" + note);
         return true;
@@ -2617,74 +2619,19 @@ public class AssessmentAttemptService {
         }
     }
 
-    private List<ProgrammingTestReviewDto> buildProgrammingTestReviews(
-            AssessmentAttemptQuestion attemptQuestion,
-            AssessmentAttemptAnswer answer,
-            Question source,
-            boolean releaseAnswers) {
-
-        if (answer == null || answer.getExecutionResult() == null
-                || answer.getSubmittedCode() == null || answer.getSubmittedCode().isBlank()) {
-            return List.of();
-        }
-
-        Map<Integer, String> labels = new LinkedHashMap<>();
-        for (LearnerTestCaseDto snapshotCase : readSnapshotTestCases(attemptQuestion)) {
-            labels.put(snapshotCase.index(), snapshotCase.label());
-        }
-
-        Map<Integer, ProgrammingTestCase> authored = new LinkedHashMap<>();
-        if (source != null) {
-            for (IndexedTestCase indexed : loadIndexedProgrammingTestCases(source)) {
-                authored.put(indexed.index(), indexed.testCase());
-            }
-        }
-
-        try {
-            JsonNode tests = objectMapper.readTree(answer.getExecutionResult()).path("testResults");
-            if (!tests.isArray()) {
-                return List.of();
-            }
-            List<ProgrammingTestReviewDto> reviews = new ArrayList<>();
-            for (JsonNode test : tests) {
-                int index = test.path("index").asInt();
-                boolean sample = test.path("sample").asBoolean(false);
-                ProgrammingTestCase authoredCase = authored.get(index);
-                reviews.add(new ProgrammingTestReviewDto(
-                        index,
-                        labels.getOrDefault(index, (sample ? "Sample " : "Hidden ") + index),
-                        sample,
-                        test.path("passed").asBoolean(false),
-                        test.path("status").asText(null),
-                        authoredCase != null ? authoredCase.getInputData() : null,
-                        releaseAnswers && authoredCase != null
-                                ? authoredCase.getExpectedOutput() : null,
-                        test.hasNonNull("actualOutput")
-                                ? test.get("actualOutput").asText() : null));
-            }
-            return reviews;
-        } catch (Exception e) {
-            log.warn("Could not parse persisted execution result for attempt question {}",
-                    attemptQuestion.getAttemptQuestionId());
-            return List.of();
-        }
-    }
-
     private String programOutputFor(AssessmentAttemptAnswer answer) {
         JsonNode payload = gradedPayload(answer);
         if (payload == null) {
             return null;
         }
-        JsonNode tests = payload.path("testResults");
-        if (!tests.isArray() || tests.isEmpty()) {
-            return payload.hasNonNull("output") ? payload.get("output").asText() : null;
-        }
-        for (JsonNode test : tests) {
-            if (test.path("sample").asBoolean(false) && test.hasNonNull("actualOutput")) {
+        // Attempts graded before programming questions had a single expected output stored one
+        // row per test case; any row's output is the learner's own program output.
+        for (JsonNode test : payload.path("testResults")) {
+            if (test.hasNonNull("actualOutput")) {
                 return test.get("actualOutput").asText();
             }
         }
-        return null;
+        return payload.hasNonNull("output") ? payload.get("output").asText() : null;
     }
 
     private String programErrorFor(AssessmentAttemptAnswer answer) {
@@ -2692,20 +2639,7 @@ public class AssessmentAttemptService {
         if (payload == null || !payload.hasNonNull("error")) {
             return null;
         }
-        if ("COMPILE_ERROR".equals(payload.path("status").asText(null))) {
-            return payload.get("error").asText();
-        }
-        JsonNode tests = payload.path("testResults");
-        if (!tests.isArray() || tests.isEmpty()) {
-            return payload.get("error").asText();
-        }
-        for (JsonNode test : tests) {
-            String status = test.path("status").asText("");
-            if (status.equals("RUNTIME_ERROR") || status.equals("TIME_LIMIT_EXCEEDED")) {
-                return test.path("sample").asBoolean(false) ? payload.get("error").asText() : null;
-            }
-        }
-        return null;
+        return payload.get("error").asText();
     }
 
     private JsonNode gradedPayload(AssessmentAttemptAnswer answer) {
@@ -2891,20 +2825,6 @@ public class AssessmentAttemptService {
             if (programmingConfig != null) {
                 data.put("criticalThinkingType", "PROGRAMMING");
                 data.put("starterCode", programmingConfig.getStarterCode());
-                List<Map<String, Object>> tests = new ArrayList<>();
-                int index = 1;
-                int sampleNo = 1;
-                int hiddenNo = 1;
-                for (ProgrammingTestCase testCase : programmingConfig.getTestCases()) {
-                    Map<String, Object> safe = new LinkedHashMap<>();
-                    boolean sample = testCase.isSample();
-                    safe.put("index", index++);
-                    safe.put("sample", sample);
-                    safe.put("label", sample ? "Sample " + (sampleNo++) : "Hidden " + (hiddenNo++));
-                    safe.put("input", sample ? testCase.getInputData() : null);
-                    tests.add(safe);
-                }
-                data.put("testCases", tests);
             }
             DiagramQuestionConfig diagramConfig = question.getDiagramQuestionConfig();
             if (diagramConfig != null) {
@@ -3006,7 +2926,6 @@ public class AssessmentAttemptService {
                 (String) data.get("instructions"),
                 subQuestions,
                 attemptQuestion.getPoints(),
-                parseLearnerTestCases(data),
                 parseRubric(data),
                 attemptQuestion.getStage(),
                 null,
@@ -3109,21 +3028,6 @@ public class AssessmentAttemptService {
     @Transactional
     public ExecutionResultDto runProgramming(
             Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
-        return executeProgramming(
-                attemptId, attemptQuestionId, request, AssessmentAttemptExecution.Mode.RUN);
-    }
-
-    @Transactional
-    public ExecutionResultDto checkProgramming(
-            Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
-        throw new BusinessRuleException.InvalidAssessmentSubmissionException(
-                "Test cases are checked when you submit the attempt. Use Run to see your program's output.");
-    }
-
-    private ExecutionResultDto executeProgramming(
-            Long attemptId, Long attemptQuestionId,
-            ProgrammingRunRequestDto request, AssessmentAttemptExecution.Mode mode) {
-
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
         requireEditable(attempt);
         AssessmentAttemptQuestion attemptQuestion = requireAttemptQuestion(attempt, attemptQuestionId);
@@ -3135,100 +3039,22 @@ public class AssessmentAttemptService {
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
                 attemptQuestionId, null, null, request.code(), request.language(), null)));
 
-        if (mode == AssessmentAttemptExecution.Mode.RUN) {
-            return runForOutputOnly(attempt, attemptQuestion, request);
-        }
+        return runForOutputOnly(attempt, attemptQuestion, request);
+    }
 
-        List<LearnerTestCaseDto> learnerTests = readSnapshotTestCases(attemptQuestion);
-        Question source = questionRepository
-                .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
-        List<IndexedTestCase> allTestCases = source == null
-                ? List.of() : loadIndexedProgrammingTestCases(source);
-        List<IndexedTestCase> scopedTestCases = mode == AssessmentAttemptExecution.Mode.RUN
-                ? allTestCases.stream().filter(it -> it.testCase().isSample()).toList()
-                : allTestCases;
-
-        LocalDateTime now = LocalDateTime.now();
-        if (scopedTestCases.isEmpty()) {
-            String message = allTestCases.isEmpty()
-                    ? "No test cases are configured for this item yet."
-                    : "No sample test cases are available for Run — use Check to grade against all tests.";
-            AssessmentAttemptExecution execution = executionRepository.save(
-                    AssessmentAttemptExecution.builder()
-                            .attempt(attempt).attemptQuestion(attemptQuestion).mode(mode)
-                            .language(request.language()).submittedCode(request.code())
-                            .status(AssessmentAttemptExecution.Status.UNAVAILABLE)
-                            .totalTests(learnerTests.isEmpty() ? null : learnerTests.size())
-                            .output(message)
-                            .createdAt(now)
-                            .build());
-            return new ExecutionResultDto(
-                    execution.getExecutionId(), mode.name(), execution.getStatus().name(),
-                    message, request.language(), null, execution.getTotalTests(), now, learnerTests,
-                    null, null);
-        }
-
-        List<TestCaseInputDto> inputs = scopedTestCases.stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
-
-        CodeExecutionResultDto result = codeExecutionService.execute(
-                new CodeExecutionRequestDto(request.language(), request.code(), inputs));
-
-        applyExecutionResultToAnswer(attemptQuestion, mode, result, hashCode(request.code()));
-
-        AssessmentAttemptExecution execution = executionRepository.save(
-                AssessmentAttemptExecution.builder()
-                        .attempt(attempt)
-                        .attemptQuestion(attemptQuestion)
-                        .mode(mode)
-                        .language(request.language())
-                        .submittedCode(request.code())
-                        .status(toExecutionEntityStatus(result.status()))
-                        .passedTests(result.passedTests())
-                        .totalTests(result.totalTests())
-                        .output(executionOutputSummary(result))
-                        .createdAt(now)
-                        .build());
-
-        return new ExecutionResultDto(
-                execution.getExecutionId(),
-                mode.name(),
-                execution.getStatus().name(),
-                executionOutputSummary(result),
-                request.language(),
-                result.passedTests(),
-                result.totalTests(),
-                now,
-                mergeTestStatuses(learnerTests, result, scopedTestCases),
-                result.output(),
-                result.error());
+    @Transactional
+    public ExecutionResultDto checkProgramming(
+            Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
+        throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                "Your program's output is compared with the expected output when you submit. Use Run to see what it prints.");
     }
 
     private ExecutionResultDto runForOutputOnly(
             AssessmentAttempt attempt, AssessmentAttemptQuestion attemptQuestion,
             ProgrammingRunRequestDto request) {
-        Question source = questionRepository
-                .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
-        List<IndexedTestCase> allCases = source == null ? List.of() : loadIndexedProgrammingTestCases(source);
-        String stdin = allCases.stream()
-                .map(IndexedTestCase::testCase)
-                .filter(ProgrammingTestCase::isSample)
-                .map(ProgrammingTestCase::getInputData)
-                .filter(input -> input != null)
-                .findFirst()
-                .or(() -> allCases.stream()
-                        .map(IndexedTestCase::testCase)
-                        .map(ProgrammingTestCase::getInputData)
-                        .filter(input -> input != null)
-                        .findFirst())
-                .orElse("");
-
         CodeExecutionResultDto result = codeExecutionService.execute(new CodeExecutionRequestDto(
                 request.language(), request.code(),
-                List.of(new TestCaseInputDto(1, true, stdin, null))));
+                List.of(new TestCaseInputDto(1, true, "", null))));
 
         boolean ran = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
         String message = ran ? null : result.error();
@@ -3252,67 +3078,13 @@ public class AssessmentAttemptService {
                 execution.getStatus().name(),
                 message,
                 request.language(),
-                null,
-                null,
                 now,
-                List.of(),
                 result.output(),
                 ran ? result.error() : null);
     }
 
     private static String firstNonBlankText(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
-    }
-
-    private record IndexedTestCase(int index, ProgrammingTestCase testCase) {}
-
-    private List<IndexedTestCase> loadIndexedProgrammingTestCases(Question source) {
-        return programmingQuestionConfigRepository.findByQuestion_QuestionId(source.getQuestionId())
-                .map(config -> {
-                    List<IndexedTestCase> indexed = new ArrayList<>();
-                    int index = 1;
-                    for (ProgrammingTestCase testCase : config.getTestCases()) {
-                        indexed.add(new IndexedTestCase(index++, testCase));
-                    }
-                    return indexed;
-                })
-                .orElse(List.of());
-    }
-
-    private void applyExecutionResultToAnswer(
-            AssessmentAttemptQuestion attemptQuestion,
-            AssessmentAttemptExecution.Mode mode,
-            CodeExecutionResultDto result,
-            String codeHash) {
-        AssessmentAttemptAnswer answer = attemptAnswerRepository
-                .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
-                        attemptQuestion.getAttempt().getAssessmentAttemptId(),
-                        attemptQuestion.getAttemptQuestionId())
-                .orElse(null);
-        if (answer == null) {
-            return;
-        }
-
-        answer.setExecutionResult(serializeExecutionResult(
-                attemptQuestion.getAttemptQuestionId(), mode, result, codeHash));
-
-        boolean definitive = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
-        if (mode == AssessmentAttemptExecution.Mode.CHECK && definitive) {
-            BigDecimal points = UNIT;
-            int total = result.totalTests() == null ? 0 : result.totalTests();
-            int passed = result.passedTests() == null ? 0 : result.passedTests();
-            if (total > 0) {
-                BigDecimal ratio = BigDecimal.valueOf(passed)
-                        .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
-                answer.setCredit(points.multiply(ratio).setScale(4, RoundingMode.HALF_UP));
-                answer.setIsCorrect(passed == total);
-            } else {
-                answer.setCredit(BigDecimal.ZERO);
-                answer.setIsCorrect(false);
-            }
-            answer.setPendingManualEvaluation(false);
-        }
-        attemptAnswerRepository.save(answer);
     }
 
     private String serializeExecutionResult(
@@ -3355,47 +3127,6 @@ public class AssessmentAttemptService {
         };
     }
 
-    private String executionOutputSummary(CodeExecutionResultDto result) {
-        if ("COMPILE_ERROR".equals(result.status())) {
-            return "Compilation failed:\n" + (result.error() == null ? "" : result.error());
-        }
-        if ("UNAVAILABLE".equals(result.status()) || "UNSUPPORTED_LANGUAGE".equals(result.status())) {
-            return result.error();
-        }
-        if (result.error() != null && !result.error().isBlank()) {
-            return result.error();
-        }
-        if (result.totalTests() != null) {
-            return result.passedTests() + " / " + result.totalTests() + " test case(s) passed.";
-        }
-        return result.output();
-    }
-
-    private List<LearnerTestCaseDto> mergeTestStatuses(
-            List<LearnerTestCaseDto> learnerTests, CodeExecutionResultDto result,
-            List<IndexedTestCase> ranTestCases) {
-        Map<Integer, TestCaseResultDto> byIndex = new LinkedHashMap<>();
-        for (TestCaseResultDto testResult : result.testResults()) {
-            byIndex.put(testResult.index(), testResult);
-        }
-        Map<Integer, ProgrammingTestCase> ranByIndex = new LinkedHashMap<>();
-        for (IndexedTestCase indexed : ranTestCases) {
-            ranByIndex.put(indexed.index(), indexed.testCase());
-        }
-        List<LearnerTestCaseDto> merged = new ArrayList<>();
-        for (LearnerTestCaseDto test : learnerTests) {
-            TestCaseResultDto matched = byIndex.get(test.index());
-            ProgrammingTestCase source = ranByIndex.get(test.index());
-            boolean showOutputs = test.sample() && source != null && source.isSample();
-            merged.add(new LearnerTestCaseDto(
-                    test.index(), test.label(), test.sample(), test.input(),
-                    matched != null ? matched.status() : test.status(),
-                    showOutputs ? source.getExpectedOutput() : null,
-                    showOutputs && matched != null ? matched.actualOutput() : null));
-        }
-        return merged;
-    }
-
     private String hashCode(String code) {
         if (code == null) {
             return null;
@@ -3427,46 +3158,10 @@ public class AssessmentAttemptService {
                         execution.getMode().name(),
                         execution.getLanguage(),
                         execution.getStatus().name(),
-                        execution.getPassedTests(),
-                        execution.getTotalTests(),
                         execution.getCreatedAt()))
                 .toList();
     }
 
-    @SuppressWarnings("unchecked")
-    private List<LearnerTestCaseDto> readSnapshotTestCases(AssessmentAttemptQuestion attemptQuestion) {
-        try {
-            if (attemptQuestion.getQuestionDataSnapshot() == null) {
-                return List.of();
-            }
-            Map<String, Object> data = objectMapper.readValue(
-                    attemptQuestion.getQuestionDataSnapshot(),
-                    new TypeReference<Map<String, Object>>() {});
-            return parseLearnerTestCases(data);
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
 
-    private List<LearnerTestCaseDto> parseLearnerTestCases(Map<String, Object> data) {
-        List<LearnerTestCaseDto> tests = new ArrayList<>();
-        Object raw = data.get("testCases");
-        if (raw instanceof List<?> list) {
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> map) {
-                    Object indexValue = map.get("index");
-                    tests.add(new LearnerTestCaseDto(
-                            indexValue == null ? tests.size() + 1
-                                    : Integer.parseInt(indexValue.toString()),
-                            (String) map.get("label"),
-                            Boolean.TRUE.equals(map.get("sample")),
-                            (String) map.get("input"),
-                            "NOT_RUN",
-                            null,
-                            null));
-                }
-            }
-        }
-        return tests;
-    }
+
 }

@@ -35,8 +35,6 @@ MULTI_MIN_CORRECT = 2
 
 MIN_EXPLANATION_CHARS = 20
 
-MIN_PROGRAMMING_TEST_CASES = 3
-
 DIAGRAM_TYPES: tuple[str, ...] = (
     "ACTIVITY_DIAGRAM",
     "UML_CLASS",
@@ -161,27 +159,6 @@ _COUNTED_SET_PATTERN = re.compile(
 SHORT_ANSWER_MAX_WORDS = 6
 
 
-class ProgrammingTestCase(BaseModel):
-    input_data: str
-    expected_output: str = ""
-
-
-def _calls(code: str, name: str) -> bool:
-    """Whether `code` parses as Python and calls `name` somewhere."""
-    try:
-        tree = ast.parse((code or "").strip())
-    except SyntaxError:
-        return False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id == name:
-                return True
-            if isinstance(func, ast.Attribute) and func.attr == name:
-                return True
-    return False
-
-
 class SubQuestionDraft(BaseModel):
     """One part of a critical-thinking question.
 
@@ -246,9 +223,10 @@ class QuestionDraft(BaseModel):
 
     rubric_answer: Optional[str] = None
 
+    # PROGRAMMING: a problem and the one exact output a correct program prints. The
+    # program reads no input -- every value it needs is stated in the question.
     starter_code: Optional[str] = None
-    test_cases: List[ProgrammingTestCase] = Field(default_factory=list)
-    function_name: Optional[str] = None
+    expected_output: Optional[str] = None
     programming_language: Optional[str] = None
     rules: Optional[str] = None
     reference_solution: Optional[str] = None
@@ -385,11 +363,6 @@ class QuestionDraft(BaseModel):
                 raise ValueError("DESCRIPTIVE must set rubric_answer")
 
         elif self.question_type == "PROGRAMMING":
-            if len(self.test_cases) < MIN_PROGRAMMING_TEST_CASES:
-                raise ValueError(
-                    f"PROGRAMMING must include at least {MIN_PROGRAMMING_TEST_CASES} "
-                    f"test cases covering the ordinary case and its edges"
-                )
             lang = (self.programming_language or "").strip().upper()
             if not lang:
                 raise ValueError("PROGRAMMING must set programming_language")
@@ -401,38 +374,26 @@ class QuestionDraft(BaseModel):
                 )
             self.programming_language = lang
 
-            name = (self.function_name or "").strip()
-            if not name:
-                raise ValueError("PROGRAMMING must set function_name")
             if not (self.rules or "").strip():
                 raise ValueError(
-                    "PROGRAMMING must set rules: the signature and every exact return "
-                    "format, message, rounding and ordering the tests depend on"
+                    "PROGRAMMING must set rules: exactly what the program prints -- the "
+                    "format, wording, rounding and ordering the expected output depends on"
                 )
-            if name not in f"{self.question} {self.rules}":
-                raise ValueError(f"the question or its rules must name {name}")
             solution = (self.reference_solution or "").strip()
             if not solution:
                 raise ValueError(
-                    "PROGRAMMING must include reference_solution: a correct "
-                    "solution the tests are run against"
+                    "PROGRAMMING must include reference_solution: a complete program that "
+                    "reads no input and prints the expected output"
                 )
             if lang == "PYTHON":
-                if not name.isidentifier():
-                    raise ValueError(
-                        "PROGRAMMING (Python) function_name must be a valid identifier"
-                    )
                 try:
                     ast.parse(solution)
                 except SyntaxError as error:
                     raise ValueError(f"reference_solution is not valid Python: {error}") from error
-                for index, case in enumerate(self.test_cases, 1):
-                    if not _calls(case.input_data, name):
-                        raise ValueError(
-                            f"test case {index} must be Python code that calls {name}(...), "
-                            "such as a single call or a few statements ending in one; "
-                            "prose descriptions and bare data cannot be run"
-                        )
+            if not (self.expected_output or "").strip():
+                raise ValueError(
+                    "PROGRAMMING must set expected_output: exactly what a correct program prints"
+                )
 
         elif self.question_type == "DIAGRAM":
             if not (self.diagram_type or "").strip():

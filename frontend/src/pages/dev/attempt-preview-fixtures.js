@@ -77,16 +77,10 @@ const PROGRAMMING = {
   title: "Prime check under a time limit",
   difficultyLevel: "average",
   question:
-    "A number is prime when it has exactly two distinct divisors: 1 and itself.\n\nImplement is_prime(n) so it returns True only for prime numbers. Your function is called once per test case and must handle inputs up to one million within the time limit.",
+    "A number is prime when it has exactly two distinct divisors: 1 and itself.\n\nWrite a program that prints, one per line, whether each of 1, 7, 97 and 1000003 is prime (True or False).",
   instructions:
     "Constraints: 2 <= n <= 1,000,003 · time limit 1s · return a boolean. Trial division up to the square root is enough to pass.",
   starterCode: "def is_prime(n):\n    # your code here\n    pass\n",
-  testCases: [
-    { index: 0, label: "Rejects n < 2", sample: true, input: "n = 1", status: "NOT_RUN" },
-    { index: 1, label: "Detects 7, 13, 97", sample: true, input: "n = 97", status: "NOT_RUN" },
-    { index: 2, label: "Rejects even numbers", sample: false, input: null, status: "NOT_RUN" },
-    { index: 3, label: "Handles n = 1000003", sample: false, input: null, status: "NOT_RUN" },
-  ],
   subQuestions: [
     { subQuestionId: 15001, questionText: "Which inputs must be rejected before any division runs?" },
     { subQuestionId: 15002, questionText: "Why is checking divisors up to the square root sufficient?" },

@@ -226,16 +226,8 @@ programming_question_configs = Table(
     Column("question_id", BigInteger, nullable=False),
     Column("starter_code", Text),
     Column("language", Text),
-)
-
-programming_test_cases = Table(
-    "programming_test_cases",
-    java_metadata,
-    Column("programming_test_case_id", BigInteger, primary_key=True),
-    Column("programming_question_config_id", BigInteger, nullable=False),
-    Column("input_data", Text, nullable=False),
-    Column("expected_output", Text, nullable=False),
-    Column("is_sample", Boolean, nullable=False),
+    # What a correct program prints; it replaced the per-question test cases.
+    Column("expected_output", Text),
 )
 
 diagram_question_configs = Table(
