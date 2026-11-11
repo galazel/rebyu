@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import AsyncIterator
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -32,14 +33,15 @@ from app.agents.tutor.tutor_agent import STREAMING_SYSTEM_PROMPT
 from app.ai import tasks
 from app.ai.streaming import astream_with_fallback
 from app.ai.tutor_widgets import (
+    ACTIVITY_TOOLS,
     MAX_QUIZ_QUESTIONS,
-    MIN_QUIZ_QUESTIONS,
     MAX_WIDGETS,
+    MIN_QUIZ_QUESTIONS,
     TOOL_RULES,
     TOOLS,
+    activity_token_budget,
     normalize,
     requested_activity_count,
-    activity_token_budget,
     requested_tool,
 )
 from app.domain.tutor_resources import asks_for_resources, find_resources
@@ -112,10 +114,27 @@ GATE_PROMPT = (
     "studying. Reply with exactly one word: IN or OUT.\n"
     "IN: anything about this lesson's own topics, terms, examples or calculations; requests about "
     "this lesson (explain it, summarise it, quiz me, practice problems, flashcards, a mind map, a "
-    "diagram, study tips); greetings and thanks; follow-ups to the tutor's last answer.\n"
+    "diagram, study tips, or an interactive activity/game such as Hangman, a crossword, matching, "
+    "sorting, sequencing, fill-in-the-blank, a simulation, or two truths and a lie); greetings and "
+    "thanks; follow-ups to the tutor's last answer.\n"
     "OUT: a topic the lesson content does not cover -- even one from the same subject or "
     "certification -- and anything unrelated."
 )
+
+
+_LESSON_REFERENCE = re.compile(r"\b(?:this|the current)\s+(?:lesson|topic)\b", re.IGNORECASE)
+
+
+def is_lesson_activity_request(request: str) -> bool:
+    """Whether a requested activity is explicitly grounded in the current lesson.
+
+    The activity picker always asks for an activity *based on/from this lesson*.
+    That request cannot be out of scope: the tool call is still grounded in the
+    server-loaded lesson context.  Bypassing the probabilistic scope classifier
+    here avoids false refusals such as an in-lesson Hangman game, while requests
+    naming another subject still go through the normal scope gate.
+    """
+    return requested_tool(request) in ACTIVITY_TOOLS and bool(_LESSON_REFERENCE.search(request or ""))
 
 
 async def _in_lesson_scope(request: str, lesson_name: str | None, lesson_context: str, earlier: list) -> bool:
@@ -237,7 +256,14 @@ async def stream_tutor_answer(
         question,
     ]
 
-    if lesson_context and not image and not quote and not asks_for_resources(request)             and not await _in_lesson_scope(request, lesson_name, lesson_context, earlier):
+    if (
+        lesson_context
+        and not image
+        and not quote
+        and not asks_for_resources(request)
+        and not is_lesson_activity_request(request)
+        and not await _in_lesson_scope(request, lesson_name, lesson_context, earlier)
+    ):
         reply = out_of_scope_reply(lesson_name)
         yield {"type": "delta", "text": reply}
         await append_messages(session_id, [
