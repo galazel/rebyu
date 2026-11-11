@@ -214,7 +214,7 @@ export function TodaysPlanTile({ onCreatePlan }) {
                 >
                   <span
                     className={`grid size-9 shrink-0 place-items-center rounded-xl ${
-                      done ? "bg-rb-feather text-white" : meta.tone
+                      done ? "bg-rb-feather text-primary-foreground" : meta.tone
                     }`}
                   >
                     {done ? <Check className="size-4" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}

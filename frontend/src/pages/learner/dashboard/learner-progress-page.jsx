@@ -119,6 +119,11 @@ const RETAKE_COLORS = [
   "#4f8a78", "#8a5a2b", "#a8412c", "#9bb35a", "#5c3d2e",
 ]
 
+const RETAKE_COLORS_DARK = [
+  "#6fd3a2", "#f0c85a", "#f08a76", "#8cc6b3", "#efb378",
+  "#6aaeff", "#b493ff", "#ff86a6", "#a3d977", "#e0a96d",
+]
+
 const MASTERY_TIERS = {
   weak: { label: "low", bars: 1 },
   developing: { label: "medium", bars: 2 },
@@ -617,6 +622,9 @@ export default function LearnerProgressPage() {
     })
   }
 
+  const chartTheme = useChartTheme()
+  const retakeColors = chartTheme.isDark ? RETAKE_COLORS_DARK : RETAKE_COLORS
+
   const retakeTrend = useMemo(() => {
     const points = (analytics?.scoreTrend ?? []).filter(
       (point) => clampPercent(point.percentage) !== null
@@ -678,12 +686,12 @@ export default function LearnerProgressPage() {
       series: shown.map((assessment, index) => ({
         key: assessment.key,
         name: assessment.name,
-        color: RETAKE_COLORS[index],
+        color: retakeColors[index],
       })),
       summaries,
       hiddenCount: assessments.length - shown.length,
     }
-  }, [analytics])
+  }, [analytics, retakeColors])
 
   const rankedMastery = useMemo(() => {
     const rows = (analytics?.lessonPriorities ?? []).filter(
@@ -768,8 +776,6 @@ export default function LearnerProgressPage() {
   const focusTone = MASTERY_TONES[focusBand] ?? "beetle"
   const readinessLevel = clampPercent(analytics?.readinessPercentage)
   const bktUnavailable = analytics != null && analytics.bktAvailable === false
-
-  const chartTheme = useChartTheme()
 
   const dashboardTiles = [
     {
@@ -864,7 +870,7 @@ export default function LearnerProgressPage() {
             {focusTopic?.priorityTag ? (
               <PrioritySeal tag={focusTopic.priorityTag} size={36} />
             ) : (
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-eel">
                 <Brain className="size-4" aria-hidden="true" />
               </span>
             )}
@@ -987,7 +993,7 @@ export default function LearnerProgressPage() {
                   <div key={summary.key} className="flex items-center gap-2.5 text-xs">
                     <span
                       className="size-2.5 shrink-0 rounded-sm"
-                      style={{ background: RETAKE_COLORS[index] ?? seriesColor(chartTheme, index) }}
+                      style={{ background: retakeColors[index] ?? seriesColor(chartTheme, index) }}
                       aria-hidden="true"
                     />
 
@@ -1325,7 +1331,7 @@ export default function LearnerProgressPage() {
             onValueChange={setSelectedCertificationId}
             disabled={publishedCertifications.length === 0}
           >
-            <SelectTrigger className="w-auto min-w-[210px] bg-background text-sm font-medium">
+            <SelectTrigger className="w-auto min-w-[210px] bg-card text-sm font-medium">
               <SelectValue placeholder="Select certification" />
             </SelectTrigger>
 
@@ -1401,7 +1407,7 @@ export default function LearnerProgressPage() {
         ) : (
           <>
             {bktUnavailable && (
-              <div className="flex items-center gap-3 rounded-rb-tile border-2 border-rb-bee/40 bg-rb-bee-wash px-4 py-3 text-sm font-semibold text-rb-bee-lip">
+              <div className="flex items-center gap-3 rounded-rb-tile border-2 border-rb-bee/40 bg-rb-bee-wash px-4 py-3 text-sm font-semibold text-rb-bee-ink">
                 <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
                 <span>
                   Processing your mastery — this updates itself once it's ready. Your assessment

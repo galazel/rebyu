@@ -13,7 +13,7 @@ export function StreakWidget() {
       </div>
       <div>
         <p className="text-sm font-bold text-rb-fox-lip">Current Streak</p>
-        <p className="font-rb-display text-3xl font-extrabold tracking-tight text-rb-eel dark:text-rb-snow">
+        <p className="font-rb-display text-3xl font-extrabold tracking-tight text-rb-eel">
           {streak.currentStreak || 0} days
         </p>
         <p className="text-xs font-semibold text-rb-fox-lip">Best: {streak.bestStreak || 0} days</p>

@@ -23,6 +23,7 @@ import {
 
 
 const LIGHT = {
+  isDark: false,
   series: ["#2f6b4f", "#c9962b", "#c8553d", "#8b5f7d"],
   other: "#AFAFAF",
   danger: "#FF4B4B",
@@ -35,15 +36,16 @@ const LIGHT = {
 }
 
 const DARK = {
-  series: ["#3B82F6", "#00A896", "#D4761B", "#A96BE0"],
-  other: "#6B6B6B",
-  danger: "#D62C2C",
-  success: "#5CA82F",
-  statusInk: { weak: "#FF8A8A", developing: "#FFB35C", strong: "#8ED14F" },
-  ink: { primary: "#E8E8E8", secondary: "#A8A8A8", muted: "#7A7A7A" },
-  grid: "#3A3A3A",
-  surface: "#242424",
-  track: "#333333",
+  isDark: true,
+  series: ["#6fd3a2", "#e6c25a", "#f08a76", "#cfa9c3"],
+  other: "#7f877f",
+  danger: "#f08a76",
+  success: "#86d09f",
+  statusInk: { weak: "#f08a76", developing: "#efb378", strong: "#8fcca9" },
+  ink: { primary: "#ece6d8", secondary: "#b9b3a5", muted: "#7f877f" },
+  grid: "#343d38",
+  surface: "#232a26",
+  track: "#2e3631",
 }
 
 export function useChartTheme() {
