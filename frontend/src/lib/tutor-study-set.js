@@ -7,6 +7,7 @@ export function tutorStudyItems(data) {
       options: question.options ?? [],
       correctIndex: question.correctIndex,
       explanation: question.explanation || "",
+      optionExplanations: Array.isArray(question.optionExplanations) ? question.optionExplanations : [],
     }))
   }
   const cards = Array.isArray(data.cards) ? data.cards : []

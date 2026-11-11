@@ -44,7 +44,7 @@ function parallelWidth(key, count, parallel, reviewMode) {
   switch (key) {
     case "lesson": {
       const lessons = Math.max(1, parallel?.lessons ?? 1)
-      return reviewMode === "review" || lessons === 1 ? 1 : lessons / BATCH_SLOWEST_FACTOR
+      return reviewMode === "guided" || lessons === 1 ? 1 : lessons / BATCH_SLOWEST_FACTOR
     }
     case "bank_question":
     case "diagnostic_question":
@@ -193,7 +193,7 @@ export function GenerationEstimate({ lessons, bankSize, credits, creditsLoading,
         <Stat
           label="Time"
           value={`~${formatDuration(estimate.seconds)}`}
-          hint={reviewMode === "review" ? "plus your review time" : null}
+          hint={reviewMode === "guided" ? "plus your review time" : null}
         />
         <Stat label="Tokens" value={`~${formatTokens(estimate.tokens)}`} />
       </div>
@@ -238,7 +238,7 @@ export function GenerationEstimate({ lessons, bankSize, credits, creditsLoading,
             ? "If credit runs out part-way, generation stops. Finished steps are kept and you can retry. "
             : ""}
         {basisNote(estimate)} Times come from how long earlier runs took
-        {reviewMode === "review" ? "; lessons are written one at a time so you can review each." : ", with lessons written side by side."}
+        {reviewMode === "guided" ? "; lessons are written one at a time so you can review each." : ", with lessons written side by side."}
       </p>
     </div>
   )

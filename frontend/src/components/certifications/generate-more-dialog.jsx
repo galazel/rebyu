@@ -77,7 +77,7 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification, 
     // Fresh on every open (staleTime 0), retried through a brief AI-service restart, so the balance is rarely "unknown".
     retry: 2,
   })
-  const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates)
+  const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates, reviewMode)
   const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"
   const notEnoughCredit = hasEnoughCredit(credits.data, estimate.cost) === false
 

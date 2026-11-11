@@ -36,6 +36,7 @@ def _diagram(diagram_type: str) -> QuestionDraft:
         diagram_type=diagram_type,
         instructions=BRIEF,
         explanation="A sufficiently detailed explanation of the answer.",
+        common_mistake="Learners often give a related but wrong answer here.",
     )
 
 
@@ -100,6 +101,7 @@ def test_a_missing_type_is_still_rejected_as_missing():
             question=SCENARIO,
             instructions=BRIEF,
             explanation="A sufficiently detailed explanation of the answer.",
+            common_mistake="Learners often give a related but wrong answer here.",
         )
 
 

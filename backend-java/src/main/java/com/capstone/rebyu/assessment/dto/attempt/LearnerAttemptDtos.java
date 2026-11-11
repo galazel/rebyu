@@ -71,7 +71,9 @@ public final class LearnerAttemptDtos {
             String correctChoiceText,
             List<String> acceptedAnswers,
             String explanation,
-            List<Long> correctChoiceIds
+            List<Long> correctChoiceIds,
+            // Every option's own explanation, so instant marking can say why a pick is wrong.
+            Map<Long, String> choiceExplanations
     ) {
     }
 
@@ -124,7 +126,8 @@ public final class LearnerAttemptDtos {
             String explanation,
             String feedback,
             List<SubQuestionAnswerReviewDto> subQuestionAnswers,
-            List<Long> correctChoiceIds
+            List<Long> correctChoiceIds,
+            String wrongChoiceExplanation
     ) {
     }
 
@@ -278,7 +281,9 @@ public final class LearnerAttemptDtos {
             String programError,
             String difficultyLevel,
             String questionImageKey,
-            List<ReviewChoiceImageDto> choiceImages
+            List<ReviewChoiceImageDto> choiceImages,
+            // Why each option the learner picked is wrong, from that option's own explanation.
+            String wrongChoiceExplanation
     ) {
     }
 

@@ -217,6 +217,8 @@ class QuestionDraft(BaseModel):
     correct_choice_index: Optional[int] = None
     correct_choice_indices: List[int] = Field(default_factory=list)
     choice_explanations: List[str] = Field(default_factory=list)
+    # Non-choice types: the answer learners most often give instead, and why it is wrong.
+    common_mistake: str = ""
 
     correct_answer: Optional[str] = None
     accepted_variations: List[str] = Field(default_factory=list)
@@ -436,6 +438,11 @@ class QuestionDraft(BaseModel):
 
         if self.question_type in ("MCQ", "MULTIPLE_ANSWER"):
             self._require_an_explanation_per_choice()
+        elif len(self.common_mistake.strip()) < MIN_CHOICE_EXPLANATION_CHARS:
+            raise ValueError(
+                f"{self.question_type} needs common_mistake: the wrong answer learners most "
+                "often give and why it is wrong, so a learner who got it wrong is told why"
+            )
         return self
 
     def _require_an_explanation_per_choice(self) -> None:

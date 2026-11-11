@@ -27,6 +27,7 @@ def _coding(question="Double each of 1, 5 and -3 and print the results."):
         programming_language="PYTHON",
         expected_output="WRONG",
         explanation="Doubling multiplies each value by two.",
+        common_mistake="Learners often give a related but wrong answer here.",
     )
 
 

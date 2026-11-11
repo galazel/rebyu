@@ -1,0 +1,7 @@
+{"question_id": 68, "doubt": "The answer should be 'Systems Development Life Cycle' (or 'Software Development Life Cycle'), not 'System Development Lifecycle'."}
+{"question_id": 381, "doubt": "The answer key lists Human Security as correct, but the recognized pillars are Confidentiality, Integrity, and Availability."}
+{"question_id": 387, "doubt": "The policy about strong passwords is typically classified as a technical control rather than a human security measure."}
+{"question_id": 23496, "doubt": "Marked correct: It only affects IT departments. Right answer: It determines decision-making speed and accountability (choice 86446). Not explained until fixed."}
+{"question_id": 23485, "doubt": "Arithmetic right shift by 3 of 0101 1100 (92) is 0000 1011 (11); marked answer 0001 0111 (23) is a shift by 2, and no option is correct. Not explained until fixed."}
+{"question_id": [23434, 23435, 23436], "doubt": "Keyboard-mash test questions (fsda/fasd). Should be deleted, not explained."}
+{"resolved": "23496, 23485, 381, 387 keys/wording fixed; 23434-23436 replaced with real lesson-1 questions; 68 judged correct (variants already accepted)"}

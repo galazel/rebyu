@@ -21,17 +21,33 @@ import {
   MIN_TITLE_LENGTH,
 } from "@/utils/certification-edit"
 
+/**
+ * Every department a certification is filed under: the edited list when the form has
+ * one, else the Programs that list its id, else its single main department.
+ *
+ * A save must always send this whole list -- the server files the certification under
+ * exactly the departments it is given, so sending only the main one drops the rest.
+ */
+export function departmentsFor(certification, programs = []) {
+  if (Array.isArray(certification?.departments) && certification.departments.length) {
+    return certification.departments
+  }
+  const id = Number(certification?.certificationId ?? certification?.id)
+  const main = certification?.department
+  const filed = programs
+      .filter((program) => (program.certificationIds ?? []).map(Number).includes(id))
+      .map((program) => program.label)
+  if (!filed.length) return main ? [main] : []
+  // The main department stays first: the server takes the first as the main one.
+  return main && filed.includes(main) ? [main, ...filed.filter((label) => label !== main)] : filed
+}
+
 function CertificationDetails({ value, onChange, errors = {}, disabled = false }) {
   // The departments a certification sits under on the partnership request forms
   // (Reference lists > Programs). The first one chosen is its main department.
   const { options: programs } = useReferenceDetails(REFERENCE_PROGRAM)
   const departments = programs.map((program) => program.label)
-  const selected = Array.isArray(value.departments)
-      ? value.departments
-      : programs
-          .filter((program) => (program.certificationIds ?? []).map(Number).includes(Number(value.certificationId)))
-          .map((program) => program.label)
-  const chosen = selected.length > 0 ? selected : value.department ? [value.department] : []
+  const chosen = Array.isArray(value.departments) ? value.departments : departmentsFor(value, programs)
 
   function toggleDepartment(name) {
     const next = chosen.includes(name) ? chosen.filter((entry) => entry !== name) : [...chosen, name]

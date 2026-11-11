@@ -549,7 +549,18 @@ function VerdictPanel({ verdict }) {
           Expected: <span className="font-semibold text-rb-leaf-lip">{verdict.acceptedAnswer}</span>
         </p>
       ) : null}
-      {verdict.explanation ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{verdict.explanation}</p> : null}
+      {!correct && verdict.wrongChoiceExplanation ? (
+        <div className="mt-2">
+          <p className="text-xs font-bold text-rb-cardinal-lip">Why your answer is wrong</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{verdict.wrongChoiceExplanation}</p>
+        </div>
+      ) : null}
+      {verdict.explanation ? (
+        <div className="mt-2">
+          {!correct ? <p className="text-xs font-bold text-rb-leaf-lip">Why the correct answer is right</p> : null}
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{verdict.explanation}</p>
+        </div>
+      ) : null}
       {verdict.feedback ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{verdict.feedback}</p> : null}
       {(verdict.subQuestionAnswers ?? []).length > 0 ? (
         <ul className="mt-3 space-y-1 text-sm">
@@ -634,10 +645,12 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
   if (!key) return null
   if (isMultipleAnswer(question)) {
     if (!Array.isArray(key.correctChoiceIds) || key.correctChoiceIds.length === 0) return null
-    const correct = isExactSelection(parseChoiceIds(answerDraft?.learnerAnswer), key.correctChoiceIds)
+    const picked = parseChoiceIds(answerDraft?.learnerAnswer)
+    const correct = isExactSelection(picked, key.correctChoiceIds)
     return {
       isCorrect: correct,
       credit: correct ? 1 : 0,
+      wrongChoiceExplanation: wrongPickExplanation(question, key, picked),
       correctChoiceIds: key.correctChoiceIds,
       correctChoiceText: key.correctChoiceText,
       explanation: key.explanation,
@@ -649,6 +662,7 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
     return {
       isCorrect: correct,
       credit: correct ? 1 : 0,
+      wrongChoiceExplanation: correct ? null : wrongPickExplanation(question, key, [answerDraft?.selectedChoiceId]),
       correctChoiceId: key.correctChoiceId,
       correctChoiceText: key.correctChoiceText,
       explanation: key.explanation,
@@ -664,6 +678,15 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
     acceptedAnswer: key.acceptedAnswers[0],
     explanation: key.explanation,
   }
+}
+
+/** "Option: why it is wrong" for each picked option that is not right -- same text the server sends. */
+function wrongPickExplanation(question, key, pickedIds) {
+  const right = new Set([key.correctChoiceId, ...(key.correctChoiceIds ?? [])].filter((id) => id != null).map(Number))
+  const lines = (question?.choices ?? [])
+    .filter((choice) => pickedIds.map(Number).includes(Number(choice.choiceId)) && !right.has(Number(choice.choiceId)))
+    .map((choice) => `${choice.choiceText}: ${key.choiceExplanations?.[choice.choiceId] ?? "this option is not correct."}`)
+  return lines.length ? lines.join("\n") : null
 }
 
 function fromDraftDto(saved) {

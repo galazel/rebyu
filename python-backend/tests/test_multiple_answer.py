@@ -50,3 +50,18 @@ def test_shuffle_keeps_right_options_right():
         for i, text in enumerate(shuffled["choices"]):
             original = question["choices"].index(text)
             assert shuffled["choice_explanations"][i] == question["choice_explanations"][original]
+
+
+def test_non_choice_question_must_explain_the_common_mistake():
+    base = dict(question_type="SHORT_ANSWER", question="What does SQL stand for?",
+                correct_answer="Structured Query Language",
+                explanation="SQL stands for Structured Query Language, used to query databases.")
+    with pytest.raises(ValidationError, match="common_mistake"):
+        QuestionDraft(**base)
+    assert QuestionDraft(**base, common_mistake="Sequential Query Language is a frequent wrong expansion.")
+
+
+def test_persisted_explanation_carries_the_common_mistake():
+    from app.services.assessment_persistence import _full_explanation
+    text = _full_explanation({"explanation": "Right because X.", "common_mistake": "Y is wrong because Z."})
+    assert text == "Right because X.\n\nCommon mistake: Y is wrong because Z."

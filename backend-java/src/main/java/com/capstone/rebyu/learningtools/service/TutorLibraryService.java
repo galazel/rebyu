@@ -101,9 +101,11 @@ public class TutorLibraryService {
             q.path("options").forEach(o -> choices.add(o.asText()));
             int correct = q.path("correctIndex").asInt(-1);
             if (correct < 0 || correct >= choices.size()) continue;
+            List<String> whys = new ArrayList<>();
+            q.path("optionExplanations").forEach(w -> whys.add(w.asText("")));
             items.add(new GeneratedAssessmentService.GeneratedQuestionItem(
                     q.path("question").asText(), choices, choices.get(correct), null,
-                    q.path("explanation").asText(null), "AVERAGE"));
+                    q.path("explanation").asText(null), "AVERAGE", whys));
         }
         if (items.isEmpty()) return null;
         String title = title(widget.path("title").asText(""), "Practice Quiz", lesson);

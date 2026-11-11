@@ -59,6 +59,10 @@ public class Question {
     @Column(name = "image_key", length = 255)
     private String imageKey;
 
+    /** Why the right answer is right; shown to the learner after they answer. */
+    @Column(columnDefinition = "TEXT")
+    private String explanation;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = false)
     @ToString.Exclude

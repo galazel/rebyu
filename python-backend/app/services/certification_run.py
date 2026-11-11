@@ -63,6 +63,10 @@ class RunContext:
     certification_id: int | None = None
     generation_request_id: int | None = None
     triggered_by_user_id: int | None = None
+    # An automatic retry that will be tried again if it fails: the failure is
+    # recorded as usual but the admin is not notified each time (run_recovery
+    # notifies once, when it gives up).
+    quiet_failure: bool = False
 
     @property
     def persists_to_java(self) -> bool:
@@ -174,6 +178,8 @@ def fail(
                 "Could not remove certification %s after a rejected run",
                 context.certification_id,
             )
+    if context.quiet_failure:
+        return {"outcome": registry.FAILED, "error": error}
     _notify(
         context,
         f"Generation failed: {context.certification_title}",
@@ -473,10 +479,35 @@ def _kept_note(saved: dict[str, Any]) -> str:
 
 _DRIVEN_THREADS: set[str] = set()
 
+# Threads a caller has claimed but not yet started executing. A claim is taken
+# with no `await` between the check and the add, so on the one event loop two
+# drivers -- a RabbitMQ delivery and the recovery sweep -- can never both win.
+_CLAIMED_THREADS: set[str] = set()
+
 
 def is_being_driven(thread_id: str) -> bool:
-    """Whether this process is currently executing that thread."""
-    return thread_id in _DRIVEN_THREADS
+    """Whether this process is currently executing, or about to execute, that thread."""
+    return thread_id in _DRIVEN_THREADS or thread_id in _CLAIMED_THREADS
+
+
+def try_claim(thread_id: str) -> bool:
+    """Reserves a thread for one driver. False when something already holds it.
+
+    Must be released with `release_claim` once the driver is done.
+    """
+    if is_being_driven(thread_id):
+        return False
+    _CLAIMED_THREADS.add(thread_id)
+    return True
+
+
+def release_claim(thread_id: str) -> None:
+    _CLAIMED_THREADS.discard(thread_id)
+
+
+def driven_thread_count() -> int:
+    """How many runs this process is executing or about to execute."""
+    return len(_DRIVEN_THREADS | _CLAIMED_THREADS)
 
 
 class RunFailed(RuntimeError):

@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, insert, select, text, update
+from sqlalchemy import func, insert, inspect, select, text, update
 from sqlalchemy.orm import Session
 
 from app.db.java_tables import (
@@ -336,6 +336,27 @@ def get_exam_type_id(session: Session, exam_type_text: str) -> int | None:
     ).scalar_one_or_none()
 
 
+_HAS_EXPLANATION_COLUMN: bool | None = None
+
+
+def _questions_have_explanation(session: Session) -> bool:
+    """Whether `questions.explanation` exists yet.
+
+    The Java backend owns the schema and adds the column when it boots with the
+    `Question.explanation` field. Until it has, writing the column would fail
+    every insert -- so a run on an older database keeps working and simply
+    stores no question-level explanation. Checked once per process.
+    """
+    global _HAS_EXPLANATION_COLUMN
+    if _HAS_EXPLANATION_COLUMN is None:
+        columns = {column["name"] for column in inspect(session.connection()).get_columns("questions")}
+        _HAS_EXPLANATION_COLUMN = "explanation" in columns
+        if not _HAS_EXPLANATION_COLUMN:
+            logger.warning("questions.explanation is missing; question explanations are not stored "
+                           "until the Java backend has been redeployed")
+    return _HAS_EXPLANATION_COLUMN
+
+
 def insert_question(
     session: Session,
     *,
@@ -344,6 +365,7 @@ def insert_question(
     difficulty: str,
     question_text: str,
     parent_question_id: int | None = None,
+    explanation: str | None = None,
 ) -> int:
     """Writes one question row.
 
@@ -352,16 +374,17 @@ def insert_question(
     `findByParentQuestion_QuestionIdOrderByQuestionIdAsc` and marks the set in
     one holistic call, so insertion order is the order the learner sees.
     """
-    result = session.execute(
-        insert(questions).values(
-            lesson_id=lesson_id,
-            question_type=question_type,
-            difficulty_level=difficulty,
-            question_text=question_text,
-            parent_question_id=parent_question_id,
-            created_at=datetime.now(timezone.utc),
-        )
+    values = dict(
+        lesson_id=lesson_id,
+        question_type=question_type,
+        difficulty_level=difficulty,
+        question_text=question_text,
+        parent_question_id=parent_question_id,
+        created_at=datetime.now(timezone.utc),
     )
+    if (explanation or "").strip() and _questions_have_explanation(session):
+        values["explanation"] = explanation.strip()
+    result = session.execute(insert(questions).values(**values))
     return result.inserted_primary_key[0]
 
 

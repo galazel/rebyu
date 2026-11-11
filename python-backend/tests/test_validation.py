@@ -115,6 +115,7 @@ def _coding(**overrides):
         programming_language="PYTHON",
         expected_output="desserts",
         explanation="Reversing walks the string from the end to the start.",
+        common_mistake="Learners often name a related term, which is wrong here.",
     )
     fields.update(overrides)
     return QuestionDraft(**fields)
@@ -161,6 +162,7 @@ def test_short_answer_alternatives_are_normalised_like_the_grader_compares():
         correct_answer="Role-Based Access Control",
         accepted_variations=["RBAC", "rbac", "  role-based   access control ", "Role based access control"],
         explanation="Role-based access control attaches permissions to roles, not to people.",
+        common_mistake="Learners often name a related term, which is wrong here.",
     )
     assert q.accepted_variations == ["rbac", "role based access control"]
 
@@ -188,6 +190,7 @@ def test_defaults_keep_generation_working_without_new_metadata():
         question="Define SQL.",
         correct_answer="lang",
         explanation="SQL is the query language for relational databases.",
+        common_mistake="Learners often name a related term, which is wrong here.",
     )
     assert q.bloom_level == "UNDERSTAND"
     assert q.estimated_seconds > 0

@@ -358,18 +358,46 @@ def mark_failed(session: Session, thread_id: str, *, error: str) -> WorkflowRun 
 
 
 def mark_retrying(
-    session: Session, thread_id: str, *, stage: str | None, attempt: int
+    session: Session, thread_id: str, *, stage: str | None, attempt: int, auto: bool = False
 ) -> WorkflowRun | None:
     """Re-running the failed step from the checkpoint taken before it.
 
     Clears `error_message`: leaving the previous failure on the row would
-    make a run that is actively executing still read as broken.
+    make a run that is actively executing still read as broken. `auto` marks a
+    retry the recovery sweep started on its own, which is what it counts to
+    know when to give up (see `auto_retries_since_last_manual_action`).
     """
+    payload = {"stage": stage, "attempt": attempt}
+    if auto:
+        payload["auto"] = True
     return _transition(
         session, thread_id, status=RUNNING, event_type=EVT_WORKFLOW_RETRIED,
         stage=stage, task_status=TASK_RETRYING, clear_error=True,
-        retry_count=attempt, payload={"stage": stage, "attempt": attempt},
+        retry_count=attempt, payload=payload,
     )
+
+
+def auto_retries_since_last_manual_action(session: Session, run_id: str) -> int:
+    """Automatic retries in a row since the run last started, restarted, or was
+    retried by an admin. An admin's own retry or restart gives the run a fresh
+    allowance of automatic ones."""
+    events = session.execute(
+        select(WorkflowEvent.event_type, WorkflowEvent.payload)
+        .where(
+            WorkflowEvent.run_id == run_id,
+            WorkflowEvent.event_type.in_(
+                (EVT_WORKFLOW_STARTED, EVT_WORKFLOW_RESTARTED, EVT_WORKFLOW_RETRIED)
+            ),
+        )
+        .order_by(WorkflowEvent.seq)
+    ).all()
+    count = 0
+    for event_type, payload in events:
+        if event_type == EVT_WORKFLOW_RETRIED and (payload or {}).get("auto"):
+            count += 1
+        else:
+            count = 0
+    return count
 
 
 def mark_restarted(session: Session, thread_id: str, *, attempt: int) -> WorkflowRun | None:

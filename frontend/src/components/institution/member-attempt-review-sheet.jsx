@@ -94,6 +94,12 @@ function AnswerCard({ answer, index }) {
             <dd className="mt-0.5 whitespace-pre-wrap text-emerald-800">{answer.correctChoiceText}</dd>
           </div>
         ) : null}
+        {answer.wrongChoiceExplanation ? (
+          <div>
+            <dt className="text-xs font-medium text-muted-foreground">Why the pick is wrong</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-rose-800">{answer.wrongChoiceExplanation}</dd>
+          </div>
+        ) : null}
         {answer.explanation ? (
           <div>
             <dt className="text-xs font-medium text-muted-foreground">Explanation</dt>

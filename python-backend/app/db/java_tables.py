@@ -197,6 +197,7 @@ questions = Table(
     Column("lesson_id", BigInteger, nullable=False),
     Column("parent_question_id", BigInteger),
     Column("created_at", DateTime),
+    Column("explanation", Text),
 )
 
 choices = Table(

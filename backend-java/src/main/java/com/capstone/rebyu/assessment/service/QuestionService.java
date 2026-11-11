@@ -85,6 +85,18 @@ public class QuestionService {
                 || question.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId);
     }
 
+    /**
+     * Programming and diagram tasks are stored as CRITICAL_THINKING, whose config row
+     * (programming or diagram) says which workspace it opens. Saving one under its own
+     * name would hide it from every CRITICAL_THINKING filter, quota and paper.
+     */
+    static String storedQuestionType(String questionType) {
+        if ("PROGRAMMING".equalsIgnoreCase(questionType) || "DIAGRAM".equalsIgnoreCase(questionType)) {
+            return "CRITICAL_THINKING";
+        }
+        return questionType;
+    }
+
     public QuestionDto create(
             QuestionDto dto, Long creatorUserId, Long restrictToInstitutionId, Department ownerDepartment) {
         log.info("Creating new question (ownerDepartment={})",
@@ -101,6 +113,7 @@ public class QuestionService {
                     });
         }
         Question entity = questionMapper.toEntity(dto);
+        entity.setQuestionType(storedQuestionType(dto.getQuestionType()));
         entity.setQuestionId(null);
         entity.setCreatedBy(User.builder().userId(creatorUserId).build());
         entity.setCreatedAt(LocalDateTime.now());
@@ -123,10 +136,14 @@ public class QuestionService {
         validateLesson(dto, restrictToInstitutionId);
         Question entity = findEntity(id);
         requireMayChange(entity, callerUserId, isAdmin, headsOwningDepartment);
-        entity.setQuestionType(dto.getQuestionType());
+        entity.setQuestionType(storedQuestionType(dto.getQuestionType()));
         entity.setDifficultyLevel(dto.getDifficultyLevel());
         entity.setQuestionText(dto.getQuestionText());
         entity.setImageKey(dto.getImageKey());
+        if (dto.getExplanation() != null) {
+            // Only when sent: an edit form without the field must not wipe it.
+            entity.setExplanation(dto.getExplanation().isBlank() ? null : dto.getExplanation().trim());
+        }
         entity.setLesson(lessonRepository.getReferenceById(dto.getLessonId()));
         resolveParent(entity, dto.getParentQuestionId());
         if (dto.getChoices() != null) {

@@ -32,6 +32,10 @@ class QuizQuestion(BaseModel):
     options: list[str] = Field(description="2-6 answer choices.")
     correct_index: int = Field(description="0-based index of the correct option.")
     explanation: str = Field(default="", description="One sentence on why the answer is right.")
+    option_explanations: list[str] = Field(
+        default_factory=list,
+        description="One short line per option, same order: why it is right, or the misconception that makes it wrong.",
+    )
 
 
 class show_quiz(BaseModel):
@@ -541,8 +545,10 @@ def _quiz(args: dict) -> dict | None:
         if (not stem or len(options) < 2 or len(set(option_keys)) != len(options)
                 or not 0 <= correct < len(options)):
             continue
+        whys = [_text(w, 300) for w in (raw.get("option_explanations") or raw.get("optionExplanations") or [])]
         questions.append({"question": stem, "options": options, "correctIndex": correct,
-                          "explanation": _text(raw.get("explanation"), 500)})
+                          "explanation": _text(raw.get("explanation"), 500),
+                          "optionExplanations": whys if len(whys) == len(options) else []})
     questions = _unique(questions, "question")
     if len(questions) < MIN_QUIZ_QUESTIONS:
         return None

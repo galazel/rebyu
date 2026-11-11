@@ -172,12 +172,17 @@ const GENERATION_ERROR_RULES = [
   },
 ]
 
+// The AI service retries a failed run by itself (python run_recovery: after 1, 5,
+// 15, 30 minutes, then hourly, 12 times), so the admin does not have to be there.
+const AUTO_RETRY_NOTE =
+  "It also retries by itself from the failed step: soon, then hourly, for about 9 hours."
+
 export function describeGenerationError(message) {
   if (!message) return null
   const rule = GENERATION_ERROR_RULES.find(({ test }) => test.test(message))
   return {
     title: rule?.title ?? "Generation failed",
-    hint: rule?.hint ?? "Retry it from the step that failed. Finished steps are kept.",
+    hint: `${rule?.hint ?? "Retry it from the step that failed. Finished steps are kept."} ${AUTO_RETRY_NOTE}`,
     detail: message,
   }
 }

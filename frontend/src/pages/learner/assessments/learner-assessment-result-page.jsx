@@ -919,14 +919,6 @@ export default function LearnerAssessmentResultPage() {
                             {answer.correctChoiceText}
                           </p>
                         ) : null}
-                        {answer.explanation ? (
-                          <div className="rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] px-3 py-2.5">
-                            <p className={cn("text-xs font-bold", tone.text)}>
-                              Explanation
-                            </p>
-                            <p className="mt-1 text-muted-foreground">{answer.explanation}</p>
-                          </div>
-                        ) : null}
                       </div>
                     ) : null}
 
@@ -972,15 +964,22 @@ export default function LearnerAssessmentResultPage() {
                             {answer.correctChoiceText}
                           </p>
                         ) : null}
+                      </div>
+                    ) : null}
 
-                        {answer.explanation ? (
-                          <div className="rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] px-3 py-2.5">
-                            <p className={cn("text-xs font-bold", tone.text)}>
-                              Explanation
-                            </p>
-                            <p className="mt-1 text-muted-foreground">{answer.explanation}</p>
-                          </div>
-                        ) : null}
+                    {answer.wrongChoiceExplanation ? (
+                      <div className="rounded-xl border border-rb-cardinal/40 bg-rb-cardinal-wash px-3 py-2.5 text-sm">
+                        <p className="text-xs font-bold text-rb-cardinal-lip">Why your answer is wrong</p>
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{answer.wrongChoiceExplanation}</p>
+                      </div>
+                    ) : null}
+
+                    {answer.explanation ? (
+                      <div className="rounded-xl border border-[var(--tg-line)] bg-[var(--tg-softer)] px-3 py-2.5 text-sm">
+                        <p className={cn("text-xs font-bold", tone.text)}>
+                          {answer.isCorrect === true ? "Explanation" : "Why the correct answer is right"}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{answer.explanation}</p>
                       </div>
                     ) : null}
 

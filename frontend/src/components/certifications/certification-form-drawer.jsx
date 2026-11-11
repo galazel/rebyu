@@ -14,7 +14,8 @@ import {
 } from "@/services/certificationService"
 import { formatLocalDateTime, validateCertificationDetails } from "@/utils/certification-edit"
 
-import CertificationDetails from "@/components/certifications/certification-details"
+import CertificationDetails, { departmentsFor } from "@/components/certifications/certification-details"
+import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 import { DocumentUploadStep } from "@/components/certifications/document-upload-step.jsx"
 import { BadgeUploadStep } from "@/components/certifications/badge-upload-step.jsx"
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
@@ -203,7 +204,8 @@ export default function CertificationFormDrawer({
         // Fresh on every open (staleTime 0), retried through a brief AI-service restart, so the balance is rarely "unknown".
         retry: 2,
     })
-    const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates)
+    const { options: programs } = useReferenceDetails(REFERENCE_PROGRAM)
+    const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates, reviewMode)
     const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"
     const notEnoughCredit = hasEnoughCredit(credits.data, estimate.cost) === false
 
@@ -229,7 +231,10 @@ export default function CertificationFormDrawer({
             // generate into it. Generation on a certification with no curriculum
             // builds the whole thing, exactly as a new one would.
             const { dateCreated: _created, ...edits } = payload
-            await updateCertification(existingId, { ...certification, ...edits })
+            const merged = { ...certification, ...edits }
+            // The full department list, or the server keeps only the main one.
+            const departments = departmentsFor(merged, programs)
+            await updateCertification(existingId, departments.length ? { ...merged, departments } : merged)
             if (badge) await setCertificationBadge(existingId, badge)
             await appendToCertificationWithAi(existingId, documents, {
                 reviewMode: mode,
@@ -262,6 +267,10 @@ export default function CertificationFormDrawer({
         setBadgeImage(null)
         setUploadPercent(0)
         setReviewMode("auto")
+        setQuestionTypes([])
+        setQuestionBankSize("300")
+        setLessonCount("40")
+        setConfirmedLarge(false)
         setDetailsErrors({})
         setSubmissionError("")
     }

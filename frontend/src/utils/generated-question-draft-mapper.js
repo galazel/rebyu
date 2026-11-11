@@ -23,6 +23,7 @@ function createMcqData(draft) {
         lessonId: String(draft.suggestedLessonId ?? ""),
         suggestedLessonTitle: draft.suggestedLessonTitle ?? "",
         authoringNotes: draft.authoringNotes ?? "",
+        explanation: draft.explanation ?? "",
     };
 }
 
@@ -46,6 +47,7 @@ function createShortAnswerData(draft) {
         lessonId: String(draft.suggestedLessonId ?? ""),
         suggestedLessonTitle: draft.suggestedLessonTitle ?? "",
         authoringNotes: draft.authoringNotes ?? "",
+        explanation: draft.explanation ?? "",
     };
 }
 
@@ -61,6 +63,7 @@ function createDescriptiveData(draft) {
         lessonId: String(draft.suggestedLessonId ?? ""),
         suggestedLessonTitle: draft.suggestedLessonTitle ?? "",
         authoringNotes: draft.authoringNotes ?? "",
+        explanation: draft.explanation ?? "",
     };
 }
 
@@ -78,6 +81,7 @@ function createProgrammingData(draft) {
         lessonId: String(draft.suggestedLessonId ?? ""),
         suggestedLessonTitle: draft.suggestedLessonTitle ?? "",
         authoringNotes: draft.authoringNotes ?? "",
+        explanation: draft.explanation ?? "",
     };
 }
 
@@ -98,6 +102,7 @@ function createDiagramData(draft) {
         lessonId: String(draft.suggestedLessonId ?? ""),
         suggestedLessonTitle: draft.suggestedLessonTitle ?? "",
         authoringNotes: draft.authoringNotes ?? "",
+        explanation: draft.explanation ?? "",
     };
 }
 

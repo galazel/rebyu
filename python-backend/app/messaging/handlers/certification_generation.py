@@ -193,10 +193,43 @@ def _existing_curriculum(certification_id: int, params: dict) -> str:
     return "\n".join(lines)
 
 
+def _already_finished(generation_request_id: int, thread_id: str) -> bool:
+    """Whether this request's run has already been carried to completion.
+
+    A delivery for a finished request is a duplicate -- RabbitMQ redelivering a
+    message whose ack was lost, or the recovery sweep having started a request
+    whose message turned up afterwards. Resuming the finished thread would
+    apply its output a second time, so it is dropped instead.
+    """
+    with SessionLocal() as session:
+        request = repo.get_generation_request(session, generation_request_id)
+        if request is not None and request.get("status") == "DONE":
+            return True
+        run = registry.get_run_by_thread(session, thread_id)
+        return run is not None and run.status == registry.COMPLETED
+
+
 async def handle_certification_generation_requested(payload: dict) -> None:
+    """Runs one generation request. Safe to call twice for the same request: the
+    queue consumer and the recovery sweep (`run_recovery`) both come through here,
+    and the claim below makes sure only one of them drives the thread."""
     generation_request_id = payload["generationRequestId"]
     certification_id = payload["certificationId"]
+    thread_id = str(generation_request_id)
 
+    if not certification_run.try_claim(thread_id):
+        logger.info("Run %s is already executing here; dropping the duplicate delivery", thread_id)
+        return
+    try:
+        if _already_finished(generation_request_id, thread_id):
+            logger.info("Run %s already finished; dropping the duplicate delivery", thread_id)
+            return
+        await _run_generation_request(generation_request_id, certification_id, thread_id)
+    finally:
+        certification_run.release_claim(thread_id)
+
+
+async def _run_generation_request(generation_request_id: int, certification_id: int, thread_id: str) -> None:
     loaded = _load_context(generation_request_id, certification_id)
     if loaded is None:
         logger.warning(
@@ -209,12 +242,6 @@ async def handle_certification_generation_requested(payload: dict) -> None:
     params = json.loads(generation_request["params_json"] or "{}")
 
     document_refs = certification_run.document_refs_from(documents)
-
-    thread_id = str(generation_request_id)
-
-    if certification_run.is_being_driven(thread_id):
-        logger.info("Run %s is already executing here; dropping the redelivered message", thread_id)
-        return
 
     with SessionLocal() as session:
         try:

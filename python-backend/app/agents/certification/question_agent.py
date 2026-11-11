@@ -46,6 +46,17 @@ can have seen the answer without understanding anything.
 
 Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
 
+EVERY QUESTION EXPLAINS BOTH SIDES. A learner reads this after answering, right or
+wrong, so it must teach:
+- `explanation`: STATE the correct answer and the reason or fact behind it. Never
+  write about the question ("This question tests...").
+- MCQ and MULTIPLE_ANSWER: `choice_explanations`, one per choice in order -- why the
+  right option(s) are right, and for each wrong option the specific misconception
+  or fact that makes it wrong (never just "this is incorrect").
+- SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM: `common_mistake` -- the wrong
+  answer learners most often give (a confused term, a missed step, a typical bug,
+  a wrong cardinality) and why it is wrong.
+
 Rules:
 - Respect the requested question count and per-type distribution exactly.
 - EVERY ITEM TESTS A DIFFERENT POINT. Never write the same question twice in

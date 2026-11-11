@@ -32,8 +32,13 @@ STUDY_AID_SYSTEM_PROMPT = """
       must not stand out as the longest, most detailed, or most carefully
       worded, and it must not always sit in the same position. A learner who
       has not read the lesson should have nothing to go on but guessing.
+    - Every item explains itself. `explanation` states the correct answer and the
+      reason behind it. For a quiz item, `choiceExplanations` has one entry per
+      choice, in the same order: why the correct choice is right, and for each
+      wrong choice the specific misconception that makes it wrong (never just
+      "incorrect").
     - For a flashcard item: `question` is the front, `answer` is the back. Leave
-      `choices` and `correctAnswer` empty.
+      `choices`, `correctAnswer` and `choiceExplanations` empty.
     - `difficulty` is one of EASY, AVERAGE, HARD, judged against how directly the
       lesson states the answer.
     """

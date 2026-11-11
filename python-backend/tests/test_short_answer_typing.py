@@ -30,6 +30,7 @@ def _short(question: str, answer: str = "Normalization") -> QuestionDraft:
         question=question,
         correct_answer=answer,
         explanation="A sufficiently detailed explanation of the answer.",
+        common_mistake="Learners often name a related term, which is wrong here.",
     )
 
 

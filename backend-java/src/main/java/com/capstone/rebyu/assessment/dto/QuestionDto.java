@@ -43,6 +43,8 @@ public class QuestionDto {
     @Size(max = 255)
     private String imageKey;
 
+    private String explanation;
+
     @NotNull
     private Long lessonId;
 

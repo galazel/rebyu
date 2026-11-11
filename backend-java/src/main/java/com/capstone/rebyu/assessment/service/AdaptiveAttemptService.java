@@ -529,7 +529,7 @@ public class AdaptiveAttemptService {
             answer.setPendingManualEvaluation(false);
             attemptAnswerRepository.save(answer);
             return new AdaptiveVerdictDto(false, BigDecimal.ZERO, null, null, null, null,
-                    "This question is no longer available and was not counted against you.", List.of(), null);
+                    "This question is no longer available and was not counted against you.", List.of(), null, null);
         }
         Map<Long, Question> sources = Map.of(source.getQuestionId(), source);
         Map<Long, List<Question>> subs = contextOf(List.of(source)).subQuestionsByParentId();
@@ -620,16 +620,16 @@ public class AdaptiveAttemptService {
         String explanation = null;
         String acceptedAnswer = null;
         List<Long> correctChoiceIds = null;
+        String wrongWhy = null;
         if (source != null && release) {
             if (AssessmentAttemptService.isMultipleAnswer(item.getQuestionType())) {
                 List<Choice> right = source.getChoices().stream().filter(Choice::isCorrect).toList();
                 correctChoiceIds = right.stream().map(Choice::getChoiceId).toList();
                 correctChoiceText = right.stream().map(Choice::getChoiceText)
                         .collect(java.util.stream.Collectors.joining("; "));
-                String why = right.stream().map(Choice::getExplanation)
-                        .filter(text -> text != null && !text.isBlank())
-                        .collect(java.util.stream.Collectors.joining(" "));
-                explanation = why.isBlank() ? null : why;
+                explanation = AssessmentAttemptService.explanationOf(source);
+                wrongWhy = AssessmentAttemptService.wrongChoiceExplanation(
+                        source, AssessmentAttemptService.parseSelectedChoiceIds(answer.getLearnerAnswer()));
             } else if (AssessmentAttemptService.isMultipleChoice(item.getQuestionType())) {
                 Choice correct = source.getChoices().stream().filter(Choice::isCorrect).findFirst().orElse(null);
                 if (correct != null) {
@@ -637,8 +637,15 @@ public class AdaptiveAttemptService {
                     correctChoiceText = correct.getChoiceText();
                     explanation = correct.getExplanation();
                 }
+                if (answer.getSelectedChoiceId() != null) {
+                    wrongWhy = AssessmentAttemptService.wrongChoiceExplanation(
+                            source, java.util.Set.of(answer.getSelectedChoiceId()));
+                }
             } else if (source.getTextQuestionConfig() != null) {
                 acceptedAnswer = source.getTextQuestionConfig().getCorrectAnswer();
+            }
+            if (explanation == null || explanation.isBlank()) {
+                explanation = AssessmentAttemptService.explanationOf(source);
             }
         }
         List<com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.SubQuestionAnswerReviewDto> subReviews =
@@ -646,7 +653,7 @@ public class AdaptiveAttemptService {
         return new AdaptiveVerdictDto(
                 answer.getIsCorrect(), answer.getCredit(),
                 correctChoiceId, correctChoiceText, acceptedAnswer, explanation, answer.getFeedback(), subReviews,
-                correctChoiceIds);
+                correctChoiceIds, wrongWhy);
     }
 
 
@@ -763,13 +770,17 @@ public class AdaptiveAttemptService {
                     .collect(java.util.stream.Collectors.joining(" "));
             return dto.withAnswerKey(new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerKeyDto(
                     null, right.stream().map(Choice::getChoiceText).collect(java.util.stream.Collectors.joining("; ")),
-                    List.of(), why.isBlank() ? null : why, right.stream().map(Choice::getChoiceId).toList()));
+                    List.of(), AssessmentAttemptService.explanationOf(source), right.stream().map(Choice::getChoiceId).toList(),
+                    AssessmentAttemptService.choiceExplanations(source)));
         }
         if (AssessmentAttemptService.isMultipleChoice(item.getQuestionType())) {
             Choice correct = source.getChoices().stream().filter(Choice::isCorrect).findFirst().orElse(null);
             if (correct == null) return dto;
             return dto.withAnswerKey(new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerKeyDto(
-                    correct.getChoiceId(), correct.getChoiceText(), List.of(), correct.getExplanation(), null));
+                    correct.getChoiceId(), correct.getChoiceText(), List.of(),
+                    correct.getExplanation() == null || correct.getExplanation().isBlank()
+                            ? AssessmentAttemptService.explanationOf(source) : correct.getExplanation(),
+                    null, AssessmentAttemptService.choiceExplanations(source)));
         }
         if ("SHORT_ANSWER".equals(item.getQuestionType()) && source.getTextQuestionConfig() != null
                 && "EXACT_MATCH".equalsIgnoreCase(source.getTextQuestionConfig().getCheckingMethod())
@@ -781,7 +792,7 @@ public class AdaptiveAttemptService {
                 for (String v : variations.split("\\r?\\n")) if (!v.isBlank()) accepted.add(v.trim());
             }
             return dto.withAnswerKey(new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerKeyDto(
-                    null, null, accepted, null, null));
+                    null, null, accepted, AssessmentAttemptService.explanationOf(source), null, null));
         }
         return dto;
     }

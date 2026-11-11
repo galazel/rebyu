@@ -47,7 +47,8 @@ public class GeneratedAssessmentService {
             String correctAnswer,
             String answer,
             String explanation,
-            String difficulty) {}
+            String difficulty,
+            List<String> choiceExplanations) {}
 
     public record GeneratedExam(Long examId, String title, Long certificationId, int itemCount) {}
 
@@ -132,11 +133,20 @@ public class GeneratedAssessmentService {
         Question question = newQuestion(lesson, "MCQ", item);
         List<Choice> choices = new ArrayList<>();
         question.setChoices(choices);
-        for (String choiceText : item.choices()) {
+        List<String> whys = item.choiceExplanations() != null
+                && item.choiceExplanations().size() == item.choices().size()
+                ? item.choiceExplanations() : null;
+        for (int i = 0; i < item.choices().size(); i++) {
+            String choiceText = item.choices().get(i);
+            boolean correct = choiceText.equals(item.correctAnswer());
+            String why = whys != null && whys.get(i) != null && !whys.get(i).isBlank()
+                    ? whys.get(i).trim()
+                    : correct ? blankToNull(item.explanation()) : null;
             choices.add(Choice.builder()
                     .question(question)
                     .choiceText(choiceText)
-                    .correct(choiceText.equals(item.correctAnswer()))
+                    .correct(correct)
+                    .explanation(why)
                     .build());
         }
         return question;
@@ -170,6 +180,7 @@ public class GeneratedAssessmentService {
                 .questionType(questionType)
                 .difficultyLevel(difficulty)
                 .questionText(item.questionText().trim())
+                .explanation(blankToNull(item.explanation()))
                 .createdAt(LocalDateTime.now())
                 .build();
     }
@@ -182,6 +193,10 @@ public class GeneratedAssessmentService {
                 || !item.choices().contains(item.correctAnswer())) {
             throw new IllegalArgumentException("Each quiz item needs a correct answer matching one of its choices");
         }
+    }
+
+    private static String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text.trim();
     }
 
     private static String normalizeDifficulty(String difficulty) {

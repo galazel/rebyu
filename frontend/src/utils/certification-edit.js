@@ -141,6 +141,11 @@ export function toCertificationUpdatePayload(certification) {
     title: normalizeText(certification.title),
     description: String(certification.description ?? "").trim(),
     department: normalizeText(certification.department),
+    // The server files the certification under exactly these; left out, it keeps
+    // only the main department and drops the others.
+    ...(Array.isArray(certification.departments) && certification.departments.length
+      ? { departments: certification.departments }
+      : {}),
     dateCreated: certification.dateCreated ?? formatLocalDateTime(),
     dateUpdated: formatLocalDateTime(),
     majorCategory: toCategoryPayload(certification),

@@ -848,12 +848,17 @@ public class AssessmentAttemptService {
             String selectedChoiceText = null;
             String correctChoiceText = null;
             String explanation = null;
+            String wrongWhy = null;
             if (source != null && isMultipleChoice(source.getQuestionType())) {
                 Choice correctChoice = source.getChoices().stream()
                         .filter(Choice::isCorrect).findFirst().orElse(null);
                 if (releaseAnswers && correctChoice != null) {
                     correctChoiceText = correctChoice.getChoiceText();
-                    explanation = correctChoice.getExplanation();
+                    explanation = correctChoice.getExplanation() == null || correctChoice.getExplanation().isBlank()
+                            ? explanationOf(source) : correctChoice.getExplanation();
+                }
+                if (releaseAnswers && answer != null && answer.getSelectedChoiceId() != null) {
+                    wrongWhy = wrongChoiceExplanation(source, Set.of(answer.getSelectedChoiceId()));
                 }
                 if (answer != null && answer.getSelectedChoiceId() != null) {
                     selectedChoiceText = source.getChoices().stream()
@@ -865,13 +870,13 @@ public class AssessmentAttemptService {
                     List<Choice> right = source.getChoices().stream().filter(Choice::isCorrect).toList();
                     correctChoiceText = right.isEmpty() ? null
                             : right.stream().map(Choice::getChoiceText).collect(Collectors.joining("; "));
-                    String why = right.stream().map(Choice::getExplanation)
-                            .filter(text -> text != null && !text.isBlank())
-                            .collect(Collectors.joining(" "));
-                    explanation = why.isBlank() ? null : why;
+                    explanation = explanationOf(source);
                 }
                 if (answer != null) {
                     Set<Long> picked = parseSelectedChoiceIds(answer.getLearnerAnswer());
+                    if (releaseAnswers) {
+                        wrongWhy = wrongChoiceExplanation(source, picked);
+                    }
                     String texts = source.getChoices().stream()
                             .filter(c -> picked.contains(c.getChoiceId()))
                             .map(Choice::getChoiceText).collect(Collectors.joining("; "));
@@ -882,6 +887,9 @@ public class AssessmentAttemptService {
                         .map(TextQuestionConfig::getCorrectAnswer)
                         .filter(text -> text != null && !text.isBlank())
                         .orElse(null);
+            }
+            if (explanation == null && releaseAnswers) {
+                explanation = explanationOf(source);
             }
 
             if (answer == null || !hasSubmittedContent(answer)) {
@@ -927,7 +935,8 @@ public class AssessmentAttemptService {
                             : source.getChoices().stream()
                                     .filter(c -> c.getImageKey() != null && !c.getImageKey().isBlank())
                                     .map(c -> new ReviewChoiceImageDto(c.getChoiceId(), c.getImageKey()))
-                                    .toList()
+                                    .toList(),
+                    wrongWhy
             ));
         }
 
@@ -1607,6 +1616,42 @@ public class AssessmentAttemptService {
             }
         }
         return ids;
+    }
+
+    /** The question's own explanation, else the right options' explanations joined. */
+    static String explanationOf(Question source) {
+        if (source == null) return null;
+        if (source.getExplanation() != null && !source.getExplanation().isBlank()) {
+            return source.getExplanation();
+        }
+        String why = source.getChoices().stream().filter(Choice::isCorrect)
+                .map(Choice::getExplanation)
+                .filter(text -> text != null && !text.isBlank())
+                .collect(Collectors.joining(" "));
+        return why.isBlank() ? null : why;
+    }
+
+    /** "Option: why it is wrong" for every option the learner picked that is not right. */
+    static String wrongChoiceExplanation(Question source, Set<Long> picked) {
+        if (source == null || picked == null || picked.isEmpty()) return null;
+        String text = source.getChoices().stream()
+                .filter(c -> picked.contains(c.getChoiceId()) && !c.isCorrect())
+                .map(c -> c.getChoiceText() + ": "
+                        + (c.getExplanation() == null || c.getExplanation().isBlank()
+                                ? "this option is not correct." : c.getExplanation()))
+                .collect(Collectors.joining("\n"));
+        return text.isBlank() ? null : text;
+    }
+
+    static Map<Long, String> choiceExplanations(Question source) {
+        Map<Long, String> out = new LinkedHashMap<>();
+        if (source == null) return out;
+        for (Choice choice : source.getChoices()) {
+            if (choice.getExplanation() != null && !choice.getExplanation().isBlank()) {
+                out.put(choice.getChoiceId(), choice.getExplanation());
+            }
+        }
+        return out;
     }
 
     static Set<Long> correctChoiceIds(Question source) {

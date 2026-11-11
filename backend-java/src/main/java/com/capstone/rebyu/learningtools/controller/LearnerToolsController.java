@@ -201,7 +201,8 @@ public class LearnerToolsController {
                         node.path("correctAnswer").asText(null),
                         node.path("answer").asText(null),
                         node.path("explanation").asText(null),
-                        node.path("difficulty").asText("AVERAGE")));
+                        node.path("difficulty").asText("AVERAGE"),
+                        textList(node.path("choiceExplanations"))));
             }
             return generatedAssessmentService.createGeneratedExam(learnerId, type, title, lessonId, items);
         } catch (Exception ex) {
@@ -209,6 +210,12 @@ public class LearnerToolsController {
             log.error("Study aid generation failed for lesson {} (type={})", lessonId, type, ex);
             throw new IllegalStateException("The AI returned an invalid study set. Please generate it again.", ex);
         }
+    }
+
+    private static List<String> textList(JsonNode array) {
+        List<String> out = new java.util.ArrayList<>();
+        if (array != null && array.isArray()) array.forEach(node -> out.add(node.asText("")));
+        return out;
     }
 
     private Long me(Jwt jwt) {

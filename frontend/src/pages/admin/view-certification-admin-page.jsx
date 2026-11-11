@@ -49,6 +49,8 @@ import CertificationPublishingChecklist from "@/components/assessments/admin/cer
 import CertificationExamsSection from "@/components/assessments/admin/certification-exams-section.jsx"
 import GenerateMoreDialog from "@/components/certifications/generate-more-dialog.jsx"
 import CertificationEditDialog from "@/components/certifications/certification-edit-dialog.jsx"
+import { departmentsFor } from "@/components/certifications/certification-details.jsx"
+import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 import { InlineGenerationMonitor } from "@/components/certifications/inline-generation-monitor.jsx"
 import {
   Dialog,
@@ -101,6 +103,7 @@ export default function ViewCertificationAdmin() {
   })
 
   const { byCertificationId: generationRuns } = useActiveGenerations()
+  const { options: programs } = useReferenceDetails(REFERENCE_PROGRAM)
 
 
 
@@ -164,7 +167,10 @@ export default function ViewCertificationAdmin() {
   }, [location.key, routeCertificationId])
 
   async function saveCertificationEdit(produce, successMessage) {
-    const next = produce(certification)
+    const produced = produce(certification)
+    // Every save carries the full department list; the server drops any it is not sent.
+    const departments = departmentsFor(produced, programs)
+    const next = departments.length ? { ...produced, departments } : produced
     const payload = toCertificationUpdatePayload(next)
 
     const saved = await updateCertification(payload.certificationId, payload)
@@ -188,6 +194,7 @@ export default function ViewCertificationAdmin() {
       queryKey: ["admin-certifications"],
       refetchType: "none",
     })
+    void queryClient.invalidateQueries({ queryKey: ["reference-details", REFERENCE_PROGRAM] })
 
     toast.success(successMessage)
   }

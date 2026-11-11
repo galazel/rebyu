@@ -40,6 +40,18 @@ def _title_key(value: Any) -> str:
 _WORKSPACE_TYPES = {"PROGRAMMING", "DIAGRAM"}
 
 
+def _full_explanation(question: dict[str, Any]) -> str | None:
+    """Why the answer is right, plus -- for types without choices -- the usual wrong
+    answer and why it is wrong. Choice types keep their per-choice explanations on
+    the choices themselves."""
+    parts = [(question.get("explanation") or "").strip()]
+    mistake = (question.get("common_mistake") or "").strip()
+    if mistake:
+        parts.append(f"Common mistake: {mistake}")
+    text = "\n\n".join(part for part in parts if part)
+    return text or None
+
+
 def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
     """Writes a question plus whatever type-specific config it needs."""
     question_type = question.get("question_type", "MCQ")
@@ -54,6 +66,7 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
         question_type=stored_type,
         difficulty=question.get("difficulty", "AVERAGE"),
         question_text=question.get("question", ""),
+        explanation=_full_explanation(question),
     )
 
     if question_type == "MCQ":

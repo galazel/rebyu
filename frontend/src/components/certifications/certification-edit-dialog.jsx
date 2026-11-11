@@ -165,7 +165,13 @@ export default function CertificationEditDialog({
 
     setIsSaving(true)
     try {
+      // onSave reports its own failure; only a badge failure is reported here.
       await onSave(applyDraft(certification, details, majors))
+    } catch {
+      setIsSaving(false)
+      return
+    }
+    try {
       if (badge) {
         const saved = await setCertificationBadge(certificationId, badge)
         onBadgeChange?.(saved?.badgeImageKey ?? null)
@@ -175,11 +181,9 @@ export default function CertificationEditDialog({
       }
       onOpenChange(false)
     } catch (error) {
-      if (badge || removeBadge) {
-        toast.error("The badge could not be saved", {
-          description: error?.response?.data?.message ?? error?.message ?? "Please try again.",
-        })
-      }
+      toast.error("The details were saved, but the badge could not be", {
+        description: error?.response?.data?.message ?? error?.message ?? "Please try again.",
+      })
     } finally {
       setIsSaving(false)
     }
