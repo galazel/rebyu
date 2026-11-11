@@ -95,6 +95,9 @@ const SeedChallenges = lazyRoute(() => import("./pages/admin/seed-challenges-pag
 const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx"))
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
 const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
+const TermsPage = lazyRoute(() => import("./pages/public/legal/terms-page.jsx"))
+const PrivacyPage = lazyRoute(() => import("./pages/public/legal/privacy-page.jsx"))
+const GuidelinesPage = lazyRoute(() => import("./pages/public/legal/guidelines-page.jsx"))
 
 function InstitutionHome() {
     const { user } = useAuth()
@@ -193,6 +196,9 @@ export function App() {
             <Route path="/forgot-password" element={<GuestOnlyRoute><ForgotPasswordPage /></GuestOnlyRoute>} />
             <Route path="/set-new-password" element={<SetNewPasswordPage />} />
             <Route element={<ProtectedRoute allowedRoles={["LEARNER", "INSTITUTION", "DEPARTMENT_HEAD"]} />}>
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/guidelines" element={<GuidelinesPage />} />
                 <Route path="/account-setup" element={<AccountSetupPage />} />
             </Route>
 
