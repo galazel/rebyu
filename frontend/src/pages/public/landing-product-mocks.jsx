@@ -61,7 +61,7 @@ function TierScale({ rating }) {
         <li
           key={tier.label}
           className={`rounded-lg border px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide ${
-            tier.label === active ? "border-[var(--tg)] bg-[var(--tg)] text-white" : "border-[var(--tg-line)] bg-card text-muted-foreground"
+            tier.label === active ? "border-[var(--tg)] bg-[var(--tg)] text-primary-foreground" : "border-[var(--tg-line)] bg-card text-muted-foreground"
           }`}
         >
           {tier.label}
@@ -140,7 +140,7 @@ export function StudyLoopMock() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="tg-chip">Multiple choice</span>
           <span className="tg-chip">Question 4 of 10</span>
-          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[var(--tg)] px-2.5 py-1 text-[10px] font-bold text-white">
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[var(--tg)] px-2.5 py-1 text-[10px] font-bold text-primary-foreground">
             <TrendingUp className="size-3" aria-hidden="true" />Harder one next
           </span>
         </div>
