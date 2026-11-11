@@ -56,7 +56,7 @@ async def get_checkpointer():
         if _checkpointer is None:
             pool = AsyncConnectionPool(
                 conninfo=connection_string,
-                kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+                kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
                 min_size=0,
                 max_size=2,
                 check=AsyncConnectionPool.check_connection,
