@@ -16,11 +16,11 @@ import { cn } from "@/lib/utils"
 const TEST_STATUS = {
   NOT_RUN: { label: "Not run", icon: CircleDashedIcon, tone: "text-muted-foreground" },
   PENDING: { label: "Pending", icon: CircleDashedIcon, tone: "text-muted-foreground" },
-  PASSED: { label: "Passed", icon: CheckCircle2Icon, tone: "text-[#2f7d55]" },
-  FAILED: { label: "Failed", icon: XCircleIcon, tone: "text-[#c8342b]" },
-  COMPILE_ERROR: { label: "Compile error", icon: AlertTriangleIcon, tone: "text-[#c8342b]" },
-  RUNTIME_ERROR: { label: "Runtime error", icon: AlertTriangleIcon, tone: "text-[#c8342b]" },
-  TIME_LIMIT_EXCEEDED: { label: "Too slow", icon: AlertTriangleIcon, tone: "text-[#c97a1e]" },
+  PASSED: { label: "Passed", icon: CheckCircle2Icon, tone: "text-rb-leaf-lip" },
+  FAILED: { label: "Failed", icon: XCircleIcon, tone: "text-rb-cardinal-lip" },
+  COMPILE_ERROR: { label: "Compile error", icon: AlertTriangleIcon, tone: "text-rb-cardinal-lip" },
+  RUNTIME_ERROR: { label: "Runtime error", icon: AlertTriangleIcon, tone: "text-rb-cardinal-lip" },
+  TIME_LIMIT_EXCEEDED: { label: "Too slow", icon: AlertTriangleIcon, tone: "text-rb-fox-lip" },
 }
 
 function Block({ label, value, tone }) {
@@ -87,7 +87,7 @@ function TestRow({ test }) {
               <Block
                 label="Your output"
                 value={test.actualOutput}
-                tone={test.status === "FAILED" ? "text-[#c8342b]" : undefined}
+                tone={test.status === "FAILED" ? "text-rb-cardinal-lip" : undefined}
               />
             </>
           ) : null}
