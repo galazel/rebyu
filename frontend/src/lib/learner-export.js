@@ -117,7 +117,16 @@ export const CATEGORY_COLUMNS = [
 ]
 
 /** Every block a learner report needs, from the analytics response. */
-export function learnerReportBlocks(analytics, extraSummary = []) {
+export function learnerReportBlocks(analytics, optionsOrExtra = {}) {
+  const options = Array.isArray(optionsOrExtra) ? { extraSummary: optionsOrExtra } : (optionsOrExtra ?? {})
+  const {
+    extraSummary = [],
+    behavior = null,
+    plan = null,
+    student = null,
+    certification = null,
+  } = options
+
   const a = analytics ?? {}
   const summary = assessmentSummary(a.scoreTrend)
   const bucket = (title, list) => ({
@@ -125,32 +134,101 @@ export function learnerReportBlocks(analytics, extraSummary = []) {
     columns: ["Group", "Answered", "Correct", "Incorrect", "Accuracy (%)"],
     rows: (list ?? []).map((b) => [assessmentTypeLabel(b.bucketKey), b.totalAnswered, b.correctAnswers, b.incorrectAnswers, round(b.accuracyPercentage)]),
   })
-  return [
+
+  const studentProfileRows = [
+    student?.name ? ["Learner", student.name] : null,
+    student?.email ? ["Learner email", student.email] : null,
+    student?.learnerId ? ["Learner ID", student.learnerId] : null,
+    student?.userId ? ["User ID", student.userId] : null,
+    student?.institution ? ["Institution", student.institution] : null,
+    student?.department ? ["Department", student.department] : null,
+    student?.section ? ["Section", student.section] : null,
+  ].filter(Boolean)
+
+  const summaryRows = [
+    ...extraSummary,
+    ...studentProfileRows,
+    ["Certification", certification?.title ?? a.certificationTitle],
+    certification?.code ? ["Certification code", certification.code] : null,
+    certification?.certificationId ?? a.certificationId ? ["Certification ID", certification?.certificationId ?? a.certificationId] : null,
+    ["Figures as of", a.generatedAt],
+    ["Lessons finished", `${a.completedLessonCount ?? 0}/${a.totalLessonCount ?? 0}`],
+    ["Curriculum completion (%)", round(a.completionPercentage)],
+    ["Assessments passed", `${a.passedAssessmentCount ?? 0}/${a.totalAssessmentCount ?? 0}`],
+    ["Graded attempts", a.totalAssessmentAttempts],
+    ["Average assessment score (%)", round(a.averageAssessmentScore)],
+    ["Correct answers", a.totalCorrectAnswers],
+    ["Incorrect answers", a.totalIncorrectAnswers],
+    ["Overall mastery (%)", round(a.overallMasteryPercentage)],
+    ["Confidence (%)", round(a.confidencePercentage)],
+    ["Readiness — chance of passing (%)", round(a.readinessPercentage)],
+    ["Topics mastered", a.masteredTopicCount],
+    ["Weak topics", a.weakTopicCount],
+    ["Topics not yet assessed", a.unassessedTopicCount],
+    a.highestPriorityTopicCount != null ? ["Highest priority topics", a.highestPriorityTopicCount] : null,
+    ["Challenge attempts", a.totalChallengeAttempts],
+    ["Average challenge score (%)", round(a.averageChallengeScore)],
+    a.bktAvailable != null ? ["Mastery tracking active", a.bktAvailable ? "Yes" : "No"] : null,
+  ].filter(Boolean)
+
+  const blocks = [
     {
       title: "Summary",
       columns: ["Metric", "Value"],
-      rows: [
-        ...extraSummary,
-        ["Certification", a.certificationTitle],
-        ["Figures as of", a.generatedAt],
-        ["Lessons finished", `${a.completedLessonCount ?? 0}/${a.totalLessonCount ?? 0}`],
-        ["Curriculum completion (%)", round(a.completionPercentage)],
-        ["Assessments passed", `${a.passedAssessmentCount ?? 0}/${a.totalAssessmentCount ?? 0}`],
-        ["Graded attempts", a.totalAssessmentAttempts],
-        ["Average assessment score (%)", round(a.averageAssessmentScore)],
-        ["Correct answers", a.totalCorrectAnswers],
-        ["Incorrect answers", a.totalIncorrectAnswers],
-        ["Overall mastery (%)", round(a.overallMasteryPercentage)],
-        ["Confidence (%)", round(a.confidencePercentage)],
-        ["Readiness — chance of passing (%)", round(a.readinessPercentage)],
-        ["Topics mastered", a.masteredTopicCount],
-        ["Weak topics", a.weakTopicCount],
-        ["Topics not yet assessed", a.unassessedTopicCount],
-        ["Challenge attempts", a.totalChallengeAttempts],
-        ["Average challenge score (%)", round(a.averageChallengeScore)],
-      ],
+      rows: summaryRows,
     },
-    { title: "Assessments (one row each)", columns: summary.columns, rows: summary.rows },
+  ]
+
+  if (plan) {
+    blocks.push({
+      title: "Study plan & goals",
+      columns: ["Metric", "Value"],
+      rows: [
+        ["Plan title", plan.planTitle || plan.title || "Certification Study Plan"],
+        ["Target exam date", plan.targetExamDate ?? "Not set"],
+        ["Daily study goal", plan.dailyGoalMinutes ? `${plan.dailyGoalMinutes} minutes/day` : "Not set"],
+        ["Plan status", plan.status ?? "Active"],
+      ],
+    })
+  }
+
+  if (behavior) {
+    blocks.push({
+      title: "Study behavior & telemetry",
+      columns: ["Metric", "Value"],
+      rows: [
+        ["Weekly study time (minutes)", behavior.weekStudyMinutes ?? 0],
+        ["Focus consistency (%)", behavior.focusConsistency != null ? round(behavior.focusConsistency) : null],
+        ["Reading pace", behavior.readingPace ?? "Building"],
+        ["Focus checks completed", behavior.challengeCompletions ?? 0],
+        ["Fast-scroll / rush events", behavior.rushEvents ?? 0],
+      ],
+    })
+  }
+
+  blocks.push({ title: "Assessments (one row each)", columns: summary.columns, rows: summary.rows })
+
+  if (Array.isArray(a.scoreTrend) && a.scoreTrend.length > 0) {
+    blocks.push({
+      title: "Assessment attempt history (all attempts)",
+      columns: ["Date & time", "Assessment", "Type", "Attempt #", "Score (%)", "Passed", "Correct", "Total items"],
+      rows: a.scoreTrend
+        .filter((s) => s != null)
+        .sort((x, y) => String(y.submittedAt ?? "").localeCompare(String(x.submittedAt ?? "")))
+        .map((s) => [
+          s.submittedAt ?? "",
+          s.assessmentTitle ?? "Assessment",
+          assessmentTypeLabel(s.assessmentType),
+          s.attemptNumber ?? 1,
+          round(s.percentage),
+          s.passed,
+          s.correctCount != null ? s.correctCount : "",
+          s.itemCount != null ? s.itemCount : "",
+        ]),
+    })
+  }
+
+  blocks.push(
     { title: "Topic mastery (weakest first)", columns: TOPIC_COLUMNS, rows: topicRows(a) },
     { title: "Category mastery", columns: CATEGORY_COLUMNS, rows: categoryRows(a.categoryMastery) },
     {
@@ -161,10 +239,30 @@ export function learnerReportBlocks(analytics, extraSummary = []) {
     bucket("Accuracy by assessment type", a.performanceByAssessmentType),
     bucket("Accuracy by difficulty", a.performanceByDifficulty),
     bucket("Accuracy by question type", a.performanceByQuestionType),
-    {
-      title: "Recent activity",
-      columns: ["When", "Activity", "Title", "Score (%)", "Passed"],
-      rows: (a.recentActivity ?? []).map((r) => [r.occurredAt, assessmentTypeLabel(r.activityType), r.title, round(r.scorePercentage), r.passed]),
-    },
-  ]
+  )
+
+  if (Array.isArray(a.masteryTrend) && a.masteryTrend.length > 0) {
+    blocks.push({
+      title: "Mastery history trend",
+      columns: ["Date & time", "Topic", "Previous mastery (%)", "New mastery (%)", "Mastery level", "Trigger"],
+      rows: a.masteryTrend
+        .filter((m) => m != null)
+        .map((m) => [
+          m.occurredAt ?? "",
+          m.lessonTitle ?? `Lesson #${m.lessonId}`,
+          round(m.previousMastery),
+          round(m.newMastery),
+          m.newMasteryLevel ?? "",
+          assessmentTypeLabel(m.assessmentType),
+        ]),
+    })
+  }
+
+  blocks.push({
+    title: "Recent activity",
+    columns: ["When", "Activity", "Title", "Score (%)", "Passed"],
+    rows: (a.recentActivity ?? []).map((r) => [r.occurredAt, assessmentTypeLabel(r.activityType), r.title, round(r.scorePercentage), r.passed]),
+  })
+
+  return blocks
 }

@@ -48,7 +48,7 @@ export function ExamCountdownTile({ certificationId }) {
   const today = days === 0
 
   return (
-    <BentoTile col={3} row={2}>
+    <BentoTile col={2} row={3}>
       <BentoHeading icon={CalendarDays} kicker="Exam Day" title="Exam countdown" />
 
       {isLoading ? (
@@ -61,20 +61,20 @@ export function ExamCountdownTile({ certificationId }) {
           </p>
         </div>
       ) : past ? (
-        <div className="flex flex-1 flex-col justify-center">
-          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+        <div className="flex flex-1 flex-col justify-center space-y-1">
+          <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
             Your exam date has passed
           </p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
             {formatExamDate(examDate)} · {Math.abs(days)} day{Math.abs(days) === 1 ? "" : "s"} ago
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Set a new date in your study plan.</p>
+          <p className="text-xs text-muted-foreground">Set a new date in your study plan.</p>
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-between gap-3">
           <p className="leading-none">
-            <span className="font-rb-display text-4xl font-black tabular-nums text-foreground">
+            <span className="font-rb-display text-3xl sm:text-4xl font-black tabular-nums text-foreground">
               {today ? "Today" : days}
             </span>
             {today ? null : (

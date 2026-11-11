@@ -50,7 +50,7 @@ function defaultLayout(tiles) {
   let rowHeight = 0
 
   return tiles.map((tile) => {
-    const w = Math.min(tile.col ?? 2, COLS.lg)
+    const w = Math.min(Math.max(2, tile.col ?? 2), COLS.lg)
     const h = tile.row ?? 1
 
     if (x + w > COLS.lg) {
@@ -329,14 +329,14 @@ export function DashboardBoard({
         >
           {orderedTiles.map((tile) => {
             const saved = savedById.get(tile.id)
-            const span = Math.min(6, Math.max(1, Number(saved?.w ?? tile.col ?? 3)))
+            const span = Math.min(6, Math.max(2, Number(saved?.w ?? tile.col ?? 3)))
             const isCollapsed = Boolean(collapsedTiles[tile.id])
             const alignClass = isCollapsed ? "self-start" : "h-full flex flex-col"
             const savedRows = Number.isInteger(saved?.h) && saved.h > 0 ? saved.h : Math.max(1, tile.row ?? 3)
             const style = placed
               ? {
                   gridColumn: Number.isInteger(saved?.x)
-                    ? `${Math.min(saved.x, 5) + 1} / span ${Math.min(span, 6 - Math.min(saved.x, 5))}`
+                    ? `${Math.min(saved.x, 6 - span) + 1} / span ${span}`
                     : `span ${span}`,
                   gridRow: Number.isInteger(saved?.y) ? `${saved.y + 1} / span ${savedRows}` : `span ${savedRows}`,
                 }

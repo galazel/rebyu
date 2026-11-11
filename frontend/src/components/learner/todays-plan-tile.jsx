@@ -151,32 +151,31 @@ export function TodaysPlanTile({ onCreatePlan }) {
   const doneCount = todaysEvents.filter(isDone).length
 
   return (
-    <BentoTile col={3} row={2} className="!p-0">
+    <BentoTile col={3} row={3} className="!p-0">
       <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <BentoHeading
-            icon={CalendarDays}
-            kicker="Scheduled"
-            title="today's plan"
-            hint={
-              todaysEvents.length > 0
-                ? `${doneCount} of ${todaysEvents.length} ${todaysEvents.length === 1 ? "task" : "tasks"} done today${
-                    certificationCount > 1 ? ` across ${certificationCount} certifications` : ""
-                  }.`
-                : "Everything your study plans schedule for today, across all certifications."
-            }
-          />
-
-          {planCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => navigate("/learner/plan")}
-              className="mt-0.5 shrink-0 text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80"
-            >
-              view calendar
-            </button>
-          ) : null}
-        </div>
+        <BentoHeading
+          icon={CalendarDays}
+          kicker="Scheduled"
+          title="today's plan"
+          hint={
+            todaysEvents.length > 0
+              ? `${doneCount} of ${todaysEvents.length} ${todaysEvents.length === 1 ? "task" : "tasks"} done today${
+                  certificationCount > 1 ? ` across ${certificationCount} certifications` : ""
+                }.`
+              : "Everything your study plans schedule for today, across all certifications."
+          }
+          action={
+            planCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => navigate("/learner/plan")}
+                className="shrink-0 text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80 whitespace-nowrap"
+              >
+                view calendar
+              </button>
+            ) : null
+          }
+        />
 
         {plansQuery.isLoading ? (
           <BentoSkeleton rows={2} />

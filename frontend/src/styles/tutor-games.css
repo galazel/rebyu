@@ -417,8 +417,8 @@
   transform: rotate(-4deg);
 }
 .dark .rb-progress-board .rb-bento-icon { color: #10151a; }
-.rb-progress-board .rb-bento-title { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
-.rb-progress-board .rb-bento-heading p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rb-progress-board .rb-bento-title { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; word-break: normal; overflow-wrap: break-word; }
+.rb-progress-board .rb-bento-heading p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: normal; overflow-wrap: break-word; }
 
 /* ---- learner hub pages (every page in the learner sidebar) ----
    One type and card style: section headings in the body face (the global

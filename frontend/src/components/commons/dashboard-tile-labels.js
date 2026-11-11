@@ -5,16 +5,17 @@
 /* The learner board's default, exactly as arranged and approved on 2026-11-06
    (x, y, w, h on the 6-column grid; h in 88px rows). Reset returns to this. */
 export const LEARNER_PRESET = [
-  { id: "todays-plan", x: 0, y: 0, w: 2, h: 4 },
-  { id: "exam-readiness", x: 2, y: 0, w: 1, h: 4 },
-  { id: "exam-countdown", x: 3, y: 0, w: 1, h: 4 },
-  { id: "player-card", x: 4, y: 0, w: 2, h: 4 },
-  { id: "next-up", x: 0, y: 4, w: 3, h: 4 },
-  { id: "topic-mastery", x: 3, y: 4, w: 3, h: 4 },
-  { id: "study-notes", x: 0, y: 8, w: 2, h: 5 },
-  { id: "mastery-by-topic", x: 2, y: 8, w: 4, h: 5 },
-  { id: "score-over-time", x: 0, y: 13, w: 3, h: 5 },
-  { id: "assessment-history", x: 3, y: 13, w: 3, h: 5 },
+  { id: "todays-plan", x: 0, y: 0, w: 3, h: 3 },
+  { id: "player-card", x: 3, y: 0, w: 3, h: 3 },
+  { id: "exam-readiness", x: 0, y: 3, w: 2, h: 3 },
+  { id: "exam-countdown", x: 2, y: 3, w: 2, h: 3 },
+  { id: "study-behavior", x: 4, y: 3, w: 2, h: 3 },
+  { id: "next-up", x: 0, y: 6, w: 3, h: 4 },
+  { id: "topic-mastery", x: 3, y: 6, w: 3, h: 4 },
+  { id: "study-notes", x: 0, y: 10, w: 2, h: 4 },
+  { id: "mastery-by-topic", x: 2, y: 10, w: 4, h: 4 },
+  { id: "score-over-time", x: 0, y: 14, w: 3, h: 4 },
+  { id: "assessment-history", x: 3, y: 14, w: 3, h: 4 },
 ]
 
 export const ADMIN_DEFAULT = {
@@ -77,6 +78,7 @@ export const LEARNER_TILE_LABELS = {
   "topic-mastery": "Study this first",
   "todays-plan": "Today's plan",
   "exam-countdown": "Exam countdown",
+  "study-behavior": "Study behavior",
   "study-notes": "Study notes",
   "score-over-time": "Score over time",
   "mastery-by-topic": "Mastery by topic",

@@ -2,6 +2,8 @@ import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 import { LEARNER_PRESET } from "@/components/commons/dashboard-tile-labels.js"
 import { learnerReportBlocks } from "@/lib/learner-export.js"
 import { ExportButton } from "@/components/commons/export-button.jsx"
+import { useAuth } from "@/context/auth-context.jsx"
+import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -148,23 +150,23 @@ function MasteryRow({ title, caption, value, color = SERIES_INK[0], leading, evi
   const confidence = masteryConfidence(value, evidenceCount)
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-2.5 sm:gap-3">
       {leading ?? null}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 text-sm font-semibold leading-5 text-foreground">{title}</p>
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
+          <p className="min-w-0 text-xs sm:text-sm font-semibold leading-snug sm:leading-5 text-foreground">{title}</p>
 
-          <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+          <span className="shrink-0 text-xs sm:text-sm font-bold tabular-nums text-foreground">
             {value}%
           </span>
         </div>
 
         {caption ? (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{caption}</p>
+          <p className="mt-0.5 truncate text-[11px] sm:text-xs text-muted-foreground">{caption}</p>
         ) : null}
 
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="mt-1.5 sm:mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full transition-[width] duration-500"
             style={{ width: `${value}%`, background: color }}
@@ -172,7 +174,7 @@ function MasteryRow({ title, caption, value, color = SERIES_INK[0], leading, evi
         </div>
 
         {confidence ? (
-          <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <p className="mt-1 sm:mt-1.5 flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-muted-foreground">
             <ConfidenceMeter bars={confidence.bars} />
             {confidence.label} confidence
             <span aria-hidden="true">·</span>
@@ -187,18 +189,40 @@ function MasteryRow({ title, caption, value, color = SERIES_INK[0], leading, evi
 function StudyBehaviorTile({ behavior }) {
   const minutes = Number(behavior?.weekStudyMinutes ?? 0)
   const pace = behavior?.readingPace ?? "Building"
-  return <BentoTile tone="leaf" col={2} row={2}>
-    <BentoHeading icon={TrendingUp} kicker="Study behavior" title="Focus & reading pace" hint="Saved from your lesson study sessions." />
-    <div className="grid grid-cols-2 gap-3">
-      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{minutes}</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">minutes this week</p></div>
-      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{behavior?.focusConsistency ?? 100}%</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">focus consistency</p></div>
-    </div>
-    <div className="mt-auto space-y-2 border-t border-rb-leaf/20 pt-3 text-xs font-semibold text-rb-eel">
-      <div className="flex justify-between"><span>Reading pace</span><span>{pace}</span></div>
-      <div className="flex justify-between"><span>Focus checks completed</span><span>{behavior?.challengeCompletions ?? 0}</span></div>
-      <div className="flex justify-between"><span>Fast-scroll events</span><span>{behavior?.rushEvents ?? 0}</span></div>
-    </div>
-  </BentoTile>
+  return (
+    <BentoTile tone="leaf" col={2} row={3}>
+      <BentoHeading
+        icon={TrendingUp}
+        kicker="Study behavior"
+        title="Focus & reading pace"
+        hint="Saved from your lesson study sessions."
+      />
+      <div className="grid grid-cols-2 gap-3 py-1">
+        <div>
+          <p className="font-rb-display text-3xl font-extrabold leading-none">{minutes}</p>
+          <p className="mt-1 text-xs font-bold text-rb-leaf-lip leading-tight">minutes this week</p>
+        </div>
+        <div>
+          <p className="font-rb-display text-3xl font-extrabold leading-none">{behavior?.focusConsistency ?? 100}%</p>
+          <p className="mt-1 text-xs font-bold text-rb-leaf-lip leading-tight">focus consistency</p>
+        </div>
+      </div>
+      <div className="mt-auto space-y-1.5 border-t border-rb-leaf/20 pt-2.5 text-xs font-semibold text-rb-eel">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Reading pace</span>
+          <span className="font-bold">{pace}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Focus checks completed</span>
+          <span className="font-bold tabular-nums">{behavior?.challengeCompletions ?? 0}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Fast-scroll events</span>
+          <span className="font-bold tabular-nums">{behavior?.rushEvents ?? 0}</span>
+        </div>
+      </div>
+    </BentoTile>
+  )
 }
 
 function NextUpTile({
@@ -301,7 +325,7 @@ function ReadinessTile({ readiness }) {
   const meta = readinessMeta(readiness)
 
   return (
-    <BentoTile col={2} row={2}>
+    <BentoTile col={2} row={3}>
       <BentoHeading
         icon={Target}
         kicker="Exam Outlook"
@@ -323,18 +347,18 @@ function ReadinessTile({ readiness }) {
         <div className="flex flex-1 flex-col items-center justify-center">
           <RadialGauge
             value={readiness}
-            height={150}
+            height={110}
             color={readinessColor(theme, readiness)}
           />
 
           <p
-            className="mt-2 font-rb-display text-base font-extrabold lowercase leading-none"
+            className="mt-1 font-rb-display text-sm sm:text-base font-extrabold lowercase leading-none"
             style={{ color: readinessInk(theme, readiness) }}
           >
             {meta?.label}
           </p>
 
-          <p className="mt-2 text-center text-xs font-semibold leading-5 text-muted-foreground">
+          <p className="mt-1 text-center text-xs font-semibold leading-tight text-muted-foreground">
             {meta?.hint}
           </p>
         </div>
@@ -397,6 +421,7 @@ function AnalyticsLoadingSkeleton() {
 
 export default function LearnerProgressPage() {
   const navigate = useNavigate()
+  const { user: authUser } = useAuth()
   const outletContext = useOutletContext()
   const data = outletContext?.data ?? {}
 
@@ -511,6 +536,32 @@ export default function LearnerProgressPage() {
   })
   const analytics = analyticsQuery.data
   const behaviorQuery = useQuery({ queryKey: ["learner-study-behavior", selectedCertificationId], queryFn: () => getStudyBehavior(selectedCertificationId), enabled: Boolean(selectedCertificationId), staleTime: 30_000 })
+
+  const student = useMemo(() => {
+    const learner = data?.learner ?? authUser ?? {}
+    const user = data?.user ?? authUser ?? {}
+    const name = getLearnerDisplayName(learner)
+    const email = user?.email ?? data?.identity?.email ?? authUser?.email ?? ""
+    const learnerId = analytics?.learnerId ?? data?.learnerId ?? learner?.learnerId ?? authUser?.learnerId ?? ""
+    const userId = data?.userId ?? learner?.userId ?? user?.userId ?? authUser?.userId ?? ""
+    const institution = learner?.institutionName ?? user?.institutionName ?? ""
+    const department = learner?.departmentName ?? ""
+    const section = learner?.sectionName ?? ""
+    return { name, email, learnerId, userId, institution, department, section }
+  }, [data, authUser, analytics])
+
+  const exportDetails = useMemo(() => {
+    return [
+      student.name ? ["Learner", student.name] : null,
+      student.email ? ["Email", student.email] : null,
+      student.learnerId ? ["Learner ID", student.learnerId] : null,
+      student.institution ? ["Institution", student.institution] : null,
+      student.department ? ["Department", student.department] : null,
+      student.section ? ["Section", student.section] : null,
+      ["Certification", selectedCertification?.title ?? analytics?.certificationTitle],
+      selectedCertificationId ? ["Certification ID", selectedCertificationId] : null,
+    ].filter(Boolean)
+  }, [student, selectedCertification, analytics, selectedCertificationId])
 
 
   const lessons = useMemo(() => {
@@ -722,62 +773,85 @@ export default function LearnerProgressPage() {
 
   const dashboardTiles = [
     {
-      id: "player-card",
+      id: "todays-plan",
       x: 0,
       y: 0,
-      col: 2,
-      row: 1,
-      element: <PlayerCardTile portalData={data} />,
-    },
-    {
-      id: "next-up",
-      x: 0,
-      y: 1,
       col: 3,
-      row: 2,
+      row: 3,
       element: (
-        <NextUpTile
-        nextLesson={nextLesson}
-        certification={selectedCertification}
-        completedLessons={completedLessons}
-        totalLessons={totalLessons}
-        passedAssessments={analytics?.passedAssessmentCount ?? 0}
-        totalAssessments={analytics?.totalAssessmentCount ?? 0}
-        onResume={resumeNextLesson}
-        onOpenAssessments={() =>
-        selectedCertificationId
-        ? navigate(`/learner/learning/${selectedCertificationId}`)
-        : undefined
-        }
+        <TodaysPlanTile
+          certificationId={selectedCertificationId}
+          onCreatePlan={openOverallStudyPlan}
         />
       ),
     },
     {
-      id: "exam-readiness",
+      id: "player-card",
       x: 3,
-      y: 1,
+      y: 0,
+      col: 3,
+      row: 3,
+      element: <PlayerCardTile portalData={data} />,
+    },
+    {
+      id: "exam-readiness",
+      x: 0,
+      y: 3,
       col: 2,
-      row: 2,
+      row: 3,
       element: (
         <ReadinessTile readiness={readinessLevel} />
       ),
     },
     {
-      id: "study-behavior",
-      x: 5,
+      id: "exam-countdown",
+      x: 2,
       y: 3,
-      col: 1,
-      row: 2,
+      col: 2,
+      row: 3,
+      element: (
+        <ExamCountdownTile certificationId={selectedCertificationId} />
+      ),
+    },
+    {
+      id: "study-behavior",
+      x: 4,
+      y: 3,
+      col: 2,
+      row: 3,
       element: <StudyBehaviorTile behavior={behaviorQuery.data} />,
+    },
+    {
+      id: "next-up",
+      x: 0,
+      y: 6,
+      col: 3,
+      row: 4,
+      element: (
+        <NextUpTile
+          nextLesson={nextLesson}
+          certification={selectedCertification}
+          completedLessons={completedLessons}
+          totalLessons={totalLessons}
+          passedAssessments={analytics?.passedAssessmentCount ?? 0}
+          totalAssessments={analytics?.totalAssessmentCount ?? 0}
+          onResume={resumeNextLesson}
+          onOpenAssessments={() =>
+            selectedCertificationId
+              ? navigate(`/learner/learning/${selectedCertificationId}`)
+              : undefined
+          }
+        />
+      ),
     },
     {
       id: "topic-mastery",
       x: 3,
-      y: 3,
+      y: 6,
       col: 3,
-      row: 1,
+      row: 4,
       element: (
-        <BentoTile tone={focusTone} col={2} row={1} className="relative">
+        <BentoTile tone={focusTone} col={3} row={4} className="relative">
           <div className="flex items-start justify-between gap-3">
             <p
               className={`text-sm font-bold ${focusBand ? "" : "text-rb-beetle-lip"}`}
@@ -851,34 +925,11 @@ export default function LearnerProgressPage() {
       ),
     },
     {
-      id: "todays-plan",
-      x: 5,
-      y: 1,
-      col: 1,
-      row: 2,
-      element: (
-        <TodaysPlanTile
-          certificationId={selectedCertificationId}
-          onCreatePlan={openOverallStudyPlan}
-        />
-      ),
-    },
-    {
-      id: "exam-countdown",
-      x: 2,
-      y: 0,
-      col: 2,
-      row: 1,
-      element: (
-        <ExamCountdownTile certificationId={selectedCertificationId} />
-      ),
-    },
-    {
       id: "study-notes",
       x: 0,
-      y: 3,
+      y: 10,
       col: 2,
-      row: 3,
+      row: 4,
       element: (
         <StudyNotesTile certificationId={selectedCertificationId} />
       ),
@@ -886,11 +937,11 @@ export default function LearnerProgressPage() {
     {
       id: "score-over-time",
       x: 0,
-      y: 6,
+      y: 14,
       col: 3,
-      row: 3,
+      row: 4,
       element: (
-        <BentoTile col={4} row={3}>
+        <BentoTile col={3} row={4}>
           <BentoHeading
             icon={TrendingUp}
             kicker="Progress Over Time"
@@ -980,18 +1031,25 @@ export default function LearnerProgressPage() {
     {
       id: "mastery-by-topic",
       x: 2,
-      y: 4,
+      y: 10,
       col: 4,
-      row: 2,
+      row: 4,
       element: (
         <BentoTile col={4} row={4} className="!p-0">
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="p-5 pb-0 sm:p-6 sm:pb-0">
+            <div className="p-4 pb-2.5 sm:p-6 sm:pb-0">
               <BentoHeading
                 icon={Brain}
                 kicker="Topic Breakdown"
                 title="mastery by topic"
                 hint="Weakest first — every topic with enough answers behind it to score."
+                chip={
+                  rankedMastery.length > 5 ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                      {rankedMastery.length} topics · scroll for more
+                    </span>
+                  ) : null
+                }
                 action={
                   analytics?.unassessedTopicCount ? (
                     <Tooltip>
@@ -1022,11 +1080,11 @@ export default function LearnerProgressPage() {
                 </p>
               </div>
             ) : (
-              <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+              <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain max-h-[365px] lg:max-h-[390px] touch-pan-y">
                 {rankedMastery.map((topic, index) => (
                   <li
                     key={topic.lessonId ?? `${getTopicTitle(topic)}-${index}`}
-                    className="px-5 py-3.5 sm:px-6"
+                    className="px-4 py-3 sm:px-6 sm:py-3.5"
                   >
                     <MasteryRow
                       title={topic.lessonTitle ?? getTopicTitle(topic)}
@@ -1051,18 +1109,25 @@ export default function LearnerProgressPage() {
     {
       id: "assessment-history",
       x: 3,
-      y: 6,
+      y: 14,
       col: 3,
-      row: 3,
+      row: 4,
       element: (
-        <BentoTile col={4} row={3} className="!p-0">
+        <BentoTile col={3} row={4} className="!p-0">
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="border-b border-border p-5 sm:p-6">
+            <div className="border-b border-border p-4 sm:p-6">
               <BentoHeading
                 icon={ClipboardListIcon}
                 kicker="Your Record"
                 title="assessment history"
                 hint="Your latest attempt on each assessment — open the full run from here."
+                chip={
+                  assessmentHistory.length > 5 ? (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                      {assessmentHistory.length} total · scroll for more
+                    </span>
+                  ) : null
+                }
               />
             </div>
 
@@ -1077,25 +1142,25 @@ export default function LearnerProgressPage() {
                 </p>
               </div>
             ) : (
-              <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+              <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain max-h-[365px] lg:max-h-[390px] touch-pan-y">
                 {assessmentHistory.map((row) => (
                   <li
                     key={row.examId}
-                    className="flex items-center gap-3 px-5 py-3.5 sm:px-6"
+                    className="flex items-center gap-2.5 sm:gap-3 px-4 py-3 sm:px-6 sm:py-3.5"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
+                      <p className="truncate text-xs sm:text-sm font-semibold text-foreground">
                         {row.title}
                       </p>
 
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 gap-y-0.5 text-[11px] sm:text-xs text-muted-foreground">
                         <span className="font-bold tabular-nums text-foreground">
                           {row.score === null ? "—" : `${row.score}%`}
                         </span>
 
                         {row.passed == null ? null : (
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                            className={`rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold ${
                               row.passed
                                 ? "bg-rb-feather-wash text-rb-feather-ink"
                                 : "bg-rb-cardinal-wash text-rb-cardinal-lip"
@@ -1128,11 +1193,12 @@ export default function LearnerProgressPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="shrink-0"
+                      className="shrink-0 h-8 px-2 sm:px-3 text-xs gap-1"
                       onClick={() => navigate(`/learner/assessments/${row.examId}/history`)}
                     >
-                      view attempts
-                      <ArrowRight className="size-4" aria-hidden="true" />
+                      <span className="hidden min-[400px]:inline">view attempts</span>
+                      <span className="inline min-[400px]:hidden">view</span>
+                      <ArrowRight className="size-3.5" aria-hidden="true" />
                     </Button>
                   </li>
                 ))}
@@ -1154,7 +1220,14 @@ export default function LearnerProgressPage() {
   const queryClient = useQueryClient()
   const [rearranging, setRearranging] = useState(false)
   const [localLayout, setLocalLayout] = useState(null)
-  const savedLayout = localLayout ?? layoutQuery.data?.tiles ?? null
+  const savedLayout = useMemo(() => {
+    const raw = localLayout ?? layoutQuery.data?.tiles ?? null
+    if (!raw || !raw.length) return null
+    // If the saved layout contains narrow 1-column tiles (which causes cramped, broken cards), fall back to preset
+    const hasUnusableWidth = raw.some((tile) => Number(tile.w) < 2)
+    if (hasUnusableWidth) return null
+    return raw
+  }, [localLayout, layoutQuery.data?.tiles])
   const tileLayout = savedLayout ?? []
 
   const saveLayoutMutation = useMutation({
@@ -1179,8 +1252,13 @@ export default function LearnerProgressPage() {
   })
 
   const handleLayoutChange = (nextLayout) => {
-    setLocalLayout(nextLayout)
-    saveLayoutMutation.mutate(nextLayout)
+    // Ensure every tile is at least 2 columns wide
+    const sanitized = nextLayout.map((tile) => ({
+      ...tile,
+      w: Math.max(2, tile.w ?? 2),
+    }))
+    setLocalLayout(sanitized)
+    saveLayoutMutation.mutate(sanitized)
   }
 
   const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
@@ -1189,9 +1267,9 @@ export default function LearnerProgressPage() {
   const resetLayout = () => {
     setRearranging(false)
     setLayoutBeforeEdit(null)
-    setLocalLayout([])
-    queryClient.setQueryData([DASHBOARD_LAYOUT_KEY], { tiles: [] })
-    saveLayoutMutation.mutate([])
+    setLocalLayout(LEARNER_PRESET)
+    queryClient.setQueryData([DASHBOARD_LAYOUT_KEY], { tiles: LEARNER_PRESET })
+    saveLayoutMutation.mutate(LEARNER_PRESET)
     toast.success("Layout reset to default")
   }
 
@@ -1221,11 +1299,18 @@ export default function LearnerProgressPage() {
           <h1 className="sr-only">My progress</h1>
 
           <ExportButton
-            filename="rebyu-my-progress"
-            report="My progress"
-            details={[["Certification", selectedCertification?.title]]}
+            filename={`rebyu-learner-progress-${selectedCertificationId || "all"}`}
+            report="Learner progress analytics"
+            details={exportDetails}
             disabled={!analytics}
-            sections={() => learnerReportBlocks(analytics)}
+            sections={() =>
+              learnerReportBlocks(analytics, {
+                student,
+                certification: selectedCertification,
+                behavior: behaviorQuery.data,
+                plan: existingPlan,
+              })
+            }
           />
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (
