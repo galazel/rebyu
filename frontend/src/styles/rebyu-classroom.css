@@ -2915,6 +2915,13 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     border-color: var(--rb-line);
     color: var(--foreground);
 }
+.dark body.learner-portal :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:not(.rb-btn-ghost, .rb-btn-snow) {
+    background: var(--rb-btn-face);
+    color: #10151a;
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-btn:not(.rb-btn-ghost, .rb-btn-snow) {
+    --rb-btn-ink: #10151a;
+}
 
 .rb-index-card {
     border-radius: 4px;

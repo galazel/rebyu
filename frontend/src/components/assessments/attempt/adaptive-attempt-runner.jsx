@@ -18,6 +18,7 @@ import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 import { getFileViewUrl } from "@/services/fileService.js"
 import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
+import { PortalThemeToggle } from "@/components/portal-theme-toggle"
 import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
 
 import ProgrammingQuestionLayout from "./programming-question-layout.jsx"
@@ -246,21 +247,29 @@ export function AdaptiveAttemptRunner({
       />
 
       <header className="shrink-0 border-b border-[var(--tg-line)] bg-card">
-        <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-h-16 items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="tg-badge-icon max-sm:!hidden"><Sparkles className="size-4" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="tg-kicker">
-                {finalItem ? "Final round" : "Adaptive"} · Question {Math.min(answeredCount + 1, Math.max(total, 1))} of {total}
+            <div className="min-w-0 flex-1">
+              <p className="tg-kicker truncate whitespace-nowrap !text-[10px] leading-tight sm:!text-[11px]">
+                {finalItem ? "Final round" : "Adaptive"} ·{" "}
+                <span className="sm:hidden">
+                  Q{Math.min(answeredCount + 1, Math.max(total, 1))}/{total}
+                </span>
+                <span className="hidden sm:inline">
+                  Question {Math.min(answeredCount + 1, Math.max(total, 1))} of {total}
+                </span>
               </p>
-              <p className="truncate font-rb-display text-lg font-extrabold text-foreground">{attempt.assessmentTitle}</p>
+              <p className="mt-0.5 truncate font-rb-display text-base font-extrabold leading-tight text-foreground sm:text-lg">
+                {attempt.assessmentTitle}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {remainingSeconds != null ? (
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold tabular-nums",
+                  "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold tabular-nums sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm",
                   remainingSeconds <= 60
                     ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                     : "border-[var(--tg-line)] bg-[var(--tg-softer)] text-[var(--tg-ink)]",
@@ -268,13 +277,19 @@ export function AdaptiveAttemptRunner({
                 role="timer"
                 aria-label={describeCountdown(remainingSeconds)}
               >
-                <Clock3 className="size-4" aria-hidden="true" />
+                <Clock3 className="size-3.5 sm:size-4" aria-hidden="true" />
                 {formatCountdown(remainingSeconds)}
               </span>
             ) : null}
-            <button type="button" onClick={onLeave} className="tg-btn">
+            <PortalThemeToggle className="tg-btn tg-icon-btn !size-9 shrink-0" />
+            <button
+              type="button"
+              onClick={onLeave}
+              aria-label="Exit"
+              className="tg-btn !h-9 shrink-0 !px-2.5 sm:!px-3.5"
+            >
               <LogOut className="size-4" aria-hidden="true" />
-              Exit
+              <span className="hidden sm:inline">Exit</span>
             </button>
           </div>
         </div>
@@ -340,7 +355,7 @@ export function AdaptiveAttemptRunner({
                 imageKey={current.questionImageKey}
                 alt="Question reference"
                 zoomable
-                className="mx-auto mt-4 max-h-[34vh] w-auto max-w-full rounded-xl border border-[var(--tg-line)] object-contain"
+                className="tg-media-img-paper mx-auto mt-4 max-h-[34vh] w-auto max-w-full rounded-xl border border-[var(--tg-line)] object-contain dark:p-1.5"
               />
 
               <div className="mt-6">
@@ -380,14 +395,14 @@ export function AdaptiveAttemptRunner({
                           <span
                             className={cn(
                               "grid size-8 shrink-0 place-items-center rounded-xl text-sm font-extrabold",
-                              isRight ? "bg-rb-leaf text-white" : isWrong || wrongNoKey ? "bg-rb-cardinal text-white" : selected ? "tg-solid-soft" : "bg-[var(--tg-soft)] text-[var(--tg-ink)]",
+                              isRight ? "bg-rb-leaf text-white dark:text-[#10151a]" : isWrong || wrongNoKey ? "bg-rb-cardinal text-white dark:text-[#10151a]" : selected ? "tg-solid-soft" : "bg-[var(--tg-soft)] text-[var(--tg-ink)]",
                             )}
                           >
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong || wrongNoKey ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
                           </span>
                           <span className="flex-1">
                             {choice.choiceText}
-                            <AuthedImage imageKey={choice.imageKey} className="mt-2 max-h-32 w-auto rounded-lg object-contain mix-blend-multiply" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
+                            <AuthedImage imageKey={choice.imageKey} className="tg-media-img-paper mt-2 max-h-32 w-auto rounded-lg object-contain mix-blend-multiply dark:mix-blend-normal dark:p-1" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
                           </span>
                         </button>
                       )
@@ -440,12 +455,12 @@ export function AdaptiveAttemptRunner({
             </div>
           </div>
         </main>
-              <footer className="shrink-0 border-t border-[var(--tg-line)] bg-card">
-          <div className="flex w-full items-center justify-between gap-3 px-4 py-4 sm:px-6">
-                <span className="text-xs font-medium text-muted-foreground">
+        <footer className="shrink-0 border-t border-[var(--tg-line)] bg-card">
+          <div className="flex w-full items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-4">
+                <span className="min-w-0 flex-1 text-xs leading-4 font-medium text-muted-foreground">
                   {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Marking your work — this can take a moment…" : "Marking…") : finalItem ? "Final round: submit your work and it is marked right away." : "Pick or type an answer, then check."}
                 </span>
-                <button type="button" onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="tg-btn tg-btn-primary !px-6 !py-2.5 !text-base">
+                <button type="button" onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="tg-btn tg-btn-primary !shrink-0 !whitespace-nowrap !px-4 !py-2 !text-sm sm:!px-6 sm:!py-2.5 sm:!text-base">
                   {awaitingServer ? (
                     <>
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -513,10 +528,10 @@ function VerdictPanel({ verdict }) {
       role="status"
       className={cn(
         "mt-6 rounded-[1rem] border-2 p-4 text-sm",
-        correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : partial ? "border-amber-400/60 bg-amber-50" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
+        correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : partial ? "border-rb-bee/60 bg-rb-bee-wash" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
       )}
     >
-      <p className={cn("flex items-center gap-2 text-base font-bold", correct ? "text-rb-leaf-lip" : partial ? "text-amber-800" : "text-rb-cardinal-lip")}>
+      <p className={cn("flex items-center gap-2 text-base font-bold", correct ? "text-rb-leaf-lip" : partial ? "text-rb-bee-ink" : "text-rb-cardinal-lip")}>
         {correct ? <CheckCircle2 className="size-5" aria-hidden="true" /> : <XCircle className="size-5" aria-hidden="true" />}
         {correct ? "Correct!" : partial ? "Partly right" : "Not quite"}
         {partial ? (

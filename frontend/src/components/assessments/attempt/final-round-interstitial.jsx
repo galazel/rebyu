@@ -29,7 +29,7 @@ export function FinalRoundInterstitial({ open, onContinue, count }) {
         {open ? (
           <motion.div
             key="final-round"
-            className="rebyu-ds fixed inset-0 z-[60] flex overflow-y-auto bg-rb-feather-ink px-6 py-10 text-center text-white"
+            className="rebyu-ds tg-cat-explain tg-solid fixed inset-0 z-[60] flex overflow-y-auto px-6 py-10 text-center text-white"
             role="status"
             aria-live="assertive"
             initial={{ opacity: 0 }}
