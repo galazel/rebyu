@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion"
 
 import { ArrowLeft, Check, ChevronRight, Clock, Code2, Loader2, Lock, Network, Trophy, Zap } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { useAuth } from "@/context/auth-context.jsx"
 import { CHALLENGE_ARENAS_KEY, getChallengeArenas, getArenaProblems, getArenaProgress } from "@/services/challengeService.js"
 import { cn } from "@/lib/utils"
 import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
@@ -87,11 +88,16 @@ export function ArenaLobby({ arenaId, name, blurb }) {
     settings.timePerProblem ??
     (settings.timeLimit > 0 && arena?.problemCount > 0 ? Math.round(settings.timeLimit / arena.problemCount) : 10)
 
+  // The problem list carries answers, so only admins may read it; learners see
+  // placeholder stages and their progress is matched by position.
+  const { user } = useAuth()
+  const isAdmin = String(user?.role ?? "").toUpperCase() === "ADMIN"
   const problemsQuery = useQuery({
     queryKey: ["arena-problems", arenaId],
     queryFn: () => getArenaProblems(arenaId),
-    enabled: configured,
+    enabled: configured && isAdmin,
     staleTime: 60_000,
+    retry: false,
   })
 
   // Stages unlock in order: each opens once the one before it has been handed in.
