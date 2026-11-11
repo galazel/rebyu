@@ -21,7 +21,7 @@ const ACCEPTED = [
   ".csv",
 ].join(",")
 
-export function DocumentUploadStep({ onFilesChange, error, disabled }) {
+export function DocumentUploadStep({ onFilesChange, error, disabled, optional = false, description = null }) {
   const [
     { files, isDragging, errors },
     {
@@ -55,12 +55,14 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
     <section className="space-y-4">
       <div>
         <h3 className="rb-form-heading text-base font-semibold text-foreground">
-          Reference documents <span className="font-normal text-muted-foreground">(required)</span>
+          Reference documents{" "}
+          <span className="font-normal text-muted-foreground">{optional ? "(optional)" : "(required)"}</span>
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          The syllabus, exam guide, past papers or notes this certification should be built from.
-          Everything generated — the curriculum, lessons, questions and exams — is drawn from what
-          you upload here, so add at least one document.
+          {description ??
+            "The syllabus, exam guide, past papers or notes this certification should be built from. " +
+              "Everything generated — the curriculum, lessons, questions and exams — is drawn from what " +
+              "you upload here, so add at least one document."}
         </p>
       </div>
 

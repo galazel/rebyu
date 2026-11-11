@@ -1,11 +1,26 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useSearchParams } from "react-router-dom"
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { useOutletContext, useSearchParams } from "react-router-dom"
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles, Trash2 } from "@/components/icons"
 import { LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
 
 import { Button } from "@/components/ui/button"
-import { STUDY_PLAN_QUERY_KEY, getMyStudyPlans } from "@/services/studyPlanService.js"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  STUDY_PLAN_QUERY_KEY,
+  STUDY_PLAN_TASKS_QUERY_KEY,
+  clearStudyPlans,
+  getMyStudyPlans,
+} from "@/services/studyPlanService.js"
 import { describeEvent } from "@/lib/study-plan-events.js"
 import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
@@ -60,6 +75,30 @@ export default function LearnerStudyPlanCalendarPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const certFilter = searchParams.get("certification")
   const isDone = useStudyPlanDone()
+  const outlet = useOutletContext()
+  const enrolledRows = outlet?.data?.enrolledCertifications ?? outlet?.data?.certifications
+  const queryClient = useQueryClient()
+  const [confirmClear, setConfirmClear] = useState(false)
+
+  // Clearing drops the plan everywhere it shows: this calendar, Today's plan and the exam
+  // countdown on the dashboard, the certification pages and the study reminders.
+  const clearPlanMutation = useMutation({
+    mutationFn: clearStudyPlans,
+    onSuccess: async () => {
+      setConfirmClear(false)
+      setSearchParams({}, { replace: true })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_QUERY_KEY] }),
+        queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }),
+      ])
+      toast.success("Study plan cleared", { description: "Your calendar is empty. Create a new plan any time." })
+    },
+    onError: (error) => {
+      toast.error("Could not clear your study plan", {
+        description: error?.response?.data?.message ?? error?.message ?? "Please try again.",
+      })
+    },
+  })
 
   const planQuery = useQuery({
     queryKey: [STUDY_PLAN_QUERY_KEY, "mine"],
@@ -94,11 +133,18 @@ export default function LearnerStudyPlanCalendarPage() {
     [activePlans]
   )
 
+  // One chip per enrolled certification, planned or not, so the filter always has something to choose.
   const certifications = useMemo(() => {
     const map = new Map()
+    for (const row of Array.isArray(enrolledRows) ? enrolledRows : []) {
+      if (row?.certificationId == null) continue
+      const key = String(row.certificationId)
+      map.set(key, { key, label: row?.title ?? "Certification", total: 0, done: 0 })
+    }
     for (const event of events) {
       const key = certKey(event)
       const entry = map.get(key) ?? { key, label: labelFor(event), total: 0, done: 0 }
+      if (entry.label === "Study plan" || entry.label === "Certification") entry.label = labelFor(event)
       entry.total += 1
       if (isDone(event)) entry.done += 1
       map.set(key, entry)
@@ -106,7 +152,7 @@ export default function LearnerStudyPlanCalendarPage() {
     return [...map.values()]
       .sort((a, b) => a.label.localeCompare(b.label))
       .map((entry, index) => ({ ...entry, hue: CERT_HUES[index % CERT_HUES.length] }))
-  }, [events, isDone])
+  }, [events, isDone, enrolledRows])
 
   const hueByCert = useMemo(() => new Map(certifications.map((cert) => [cert.key, cert.hue])), [certifications])
   const activeCert = certifications.find((cert) => cert.key === certFilter) ?? null
@@ -116,6 +162,16 @@ export default function LearnerStudyPlanCalendarPage() {
   )
 
   function selectCert(key) {
+    // Jump to the month of the certification's next task when the current month has none of them.
+    if (key) {
+      const own = events.filter((event) => certKey(event) === key).map((event) => event.dateKey).filter(Boolean).sort()
+      const month = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, "0")}`
+      if (own.length && !own.some((value) => value.startsWith(month))) {
+        const target = own.find((value) => value >= dateKey(new Date())) ?? own[own.length - 1]
+        setViewDate(new Date(`${target}T00:00:00`))
+        setMovedToPlan(true)
+      }
+    }
     setSearchParams((params) => {
       const next = new URLSearchParams(params)
       if (key) next.set("certification", key)
@@ -225,10 +281,22 @@ export default function LearnerStudyPlanCalendarPage() {
               <Sparkles className="size-4" />
               {activePlans.length ? "Update plan" : "Create a plan"}
             </Button>
+            {activePlans.length ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 text-destructive hover:text-destructive"
+                onClick={() => setConfirmClear(true)}
+              >
+                <Trash2 className="size-4" />
+                Clear plan
+              </Button>
+            ) : null}
           </div>
         </div>
 
-        {certifications.length > 0 ? (
+        {certifications.length > 1 ? (
           <div role="group" aria-label="Filter by certification" className="mb-3 flex shrink-0 gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
             <button
               type="button"
@@ -311,6 +379,17 @@ export default function LearnerStudyPlanCalendarPage() {
           </div>
         </div>
 
+        {activeCert && activeCert.total === 0 && activePlans.length > 0 ? (
+          <div className="flex shrink-0 items-center gap-3 px-1 py-3">
+            <span className="flex size-9 items-center justify-center bg-accent text-primary"><CalendarDays className="size-4" /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{activeCert.label} is not in your study plan yet</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Update your plan and tick it to schedule its lessons here.</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => openOverallStudyPlan()}>Update plan</Button>
+          </div>
+        ) : null}
+
         {activePlans.length === 0 && !planQuery.isLoading ? (
           <div className="flex shrink-0 items-center gap-3 px-1 py-3">
             <span className="flex size-9 items-center justify-center bg-accent text-primary"><CalendarDays className="size-4" /></span>
@@ -324,6 +403,29 @@ export default function LearnerStudyPlanCalendarPage() {
         ) : null}
       </section>
       {studyPlanDialog}
+
+      <AlertDialog open={confirmClear} onOpenChange={(open) => (clearPlanMutation.isPending ? null : setConfirmClear(open))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear your study plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes every scheduled lesson, review and mock exam from your calendar, along with the
+              progress you marked on them. Today&apos;s plan and the exam countdown on your dashboard go empty too.
+              Your lessons, mastery and results are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearPlanMutation.isPending}>Keep plan</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={clearPlanMutation.isPending}
+              onClick={() => clearPlanMutation.mutate()}
+            >
+              {clearPlanMutation.isPending ? "Clearing…" : "Clear plan"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

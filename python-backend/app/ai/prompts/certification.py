@@ -18,6 +18,7 @@ def build_document_audit_prompt(
 def build_curriculum_prompt(
     certification_name: str, certification_description: str, context: str,
     total_lessons: int | None = None,
+    appending: bool = False,
 ) -> str:
     prompt = f"""
 Create a complete certification curriculum.
@@ -32,7 +33,20 @@ Reference Materials:
 {context}
 """.rstrip()
 
-    if total_lessons:
+    if total_lessons and appending:
+        prompt += f"""
+
+HOW MANY LESSONS
+You are ADDING to an existing certification. Return EXACTLY {total_lessons} NEW
+lessons -- on top of the lessons already listed as covered, which do not count
+toward this number and must not be repeated. Distribute the new lessons across
+the major and middle categories you return by how much new material each area
+holds, rather than dividing them evenly.
+
+This number governs: where it conflicts with any per-category count in your
+instructions, this total wins. It is a target, not a ceiling: {total_lessons}
+new lessons is what the admin asked for, and no later stage adds lessons."""
+    elif total_lessons:
         prompt += f"""
 
 HOW MANY LESSONS

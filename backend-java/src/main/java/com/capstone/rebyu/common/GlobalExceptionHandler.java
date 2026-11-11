@@ -240,6 +240,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    /**
+     * The AI service could not be reached at all -- typically while its container restarts.
+     * A short, expected outage: one warning line and a 503, not a stack trace per poll.
+     */
+    @ExceptionHandler(com.capstone.rebyu.aigateway.client.AiServiceException.class)
+    public ResponseEntity<ErrorResponse> handleAiService(com.capstone.rebyu.aigateway.client.AiServiceException ex) {
+        if (!isUnreachable(ex)) {
+            return handleGeneric(ex);
+        }
+        log.warn("AI service unreachable: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(),
+                        "The AI service is starting up or unreachable. Please try again in a minute.", null));
+    }
+
+    private static boolean isUnreachable(Throwable error) {
+        for (Throwable cause = error; cause != null && cause.getCause() != cause; cause = cause.getCause()) {
+            if (cause instanceof java.net.ConnectException
+                    || cause instanceof java.net.UnknownHostException
+                    || cause instanceof java.nio.channels.UnresolvedAddressException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);

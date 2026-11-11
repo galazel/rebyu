@@ -44,7 +44,8 @@ public class TransientDatabaseRetryConfig {
                 return invocation.proceed();
             } catch (Exception first) {
                 if (!isDroppedConnection(first)) throw first;
-                log.warn("Database connection dropped during {}.{}; retrying once: {}",
+                // SocketException also covers an HTTP call to the AI service, so this does not say "database".
+                log.warn("Connection dropped during {}.{}; retrying once: {}",
                         invocation.getMethod().getDeclaringClass().getSimpleName(),
                         invocation.getMethod().getName(), rootMessage(first));
                 Thread.sleep(RETRY_DELAY_MS);

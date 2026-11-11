@@ -39,6 +39,11 @@ public class StudyPlanController {
         : studyPlanService.activePlan(learnerId, certificationId);
   }
 
+  @DeleteMapping("/me/active")
+  public java.util.Map<String, Integer> clearActive(@AuthenticationPrincipal Jwt jwt) {
+    return java.util.Map.of("cleared", studyPlanService.clearActivePlans(me(jwt)));
+  }
+
   @GetMapping("/my-plans")
   public List<StudyPlanService.StudyPlanDto> myPlans(@AuthenticationPrincipal Jwt jwt) {
     return studyPlanService.getUserPlans(me(jwt));

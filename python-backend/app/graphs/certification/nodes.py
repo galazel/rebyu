@@ -262,6 +262,7 @@ async def _invoke_curriculum_agent(state: CertificationState, context: str) -> C
         build_curriculum_prompt(
             state["certification_name"], state["certification_description"], context,
             total_lessons=state.get("requested_lesson_count"),
+            appending=bool((state.get("existing_curriculum") or "").strip()),
         ),
         Curriculum,
         task=tasks.CURRICULUM,
@@ -729,6 +730,7 @@ def _with_exam_structure(context: str, state: CertificationState) -> str:
 
 QUESTION_TYPE_CHOICES = {
     "MCQ": ["MCQ"],
+    "MULTIPLE_ANSWER": ["MULTIPLE_ANSWER"],
     "SHORT_ANSWER": ["SHORT_ANSWER"],
     "FILL_IN_BLANK": ["SHORT_ANSWER"],
     "DESCRIPTIVE": ["DESCRIPTIVE"],

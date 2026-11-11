@@ -17,6 +17,10 @@ public interface StudyPlanTaskStatusRepository extends JpaRepository<StudyPlanTa
 
   List<StudyPlanTaskStatus> findByPlan_PlanId(Long planId);
 
+  @Modifying(flushAutomatically = true, clearAutomatically = true)
+  @Query("delete from StudyPlanTaskStatus t where t.plan.planId in :planIds")
+  int deleteByPlanIds(@Param("planIds") java.util.Collection<Long> planIds);
+
   List<StudyPlanTaskStatus> findByLearner_LearnerId(Long learnerId);
 
   Optional<StudyPlanTaskStatus> findByPlan_PlanIdAndEventId(Long planId, String eventId);

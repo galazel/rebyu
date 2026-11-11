@@ -196,6 +196,14 @@ function masteryMap(rows) {
     return map
 }
 
+function priorityMap(rows) {
+    const map = {}
+    for (const row of Array.isArray(rows) ? rows : []) {
+        if (row?.lessonId != null && row?.priorityTag) map[String(row.lessonId)] = row.priorityTag
+    }
+    return map
+}
+
 function shortDate(dateKey) {
     if (!dateKey) return null
     const date = new Date(`${dateKey}T00:00:00`)
@@ -653,17 +661,20 @@ export function StudyPlanContent({
 
             const byCertification = {}
             const masteryByCertification = {}
+            const priorityByCertification = {}
             results.forEach((result, index) => {
                 const id = selectedCertificationIds[index]
                 if (id != null) {
                     byCertification[id] = topicRefs(result.data?.weakestTopics)
                     masteryByCertification[id] = masteryMap(result.data?.lessonPriorities)
+                    priorityByCertification[id] = priorityMap(result.data?.lessonPriorities)
                 }
             })
 
             return {
                 byCertification,
                 masteryByCertification,
+                priorityByCertification,
 
                 topics: topicRefs(
                     results
@@ -695,6 +706,11 @@ export function StudyPlanContent({
 
     const singleMastery = useMemo(
         () => masteryMap(analyticsQuery.data?.lessonPriorities),
+        [analyticsQuery.data]
+    )
+
+    const singlePriority = useMemo(
+        () => priorityMap(analyticsQuery.data?.lessonPriorities),
         [analyticsQuery.data]
     )
 
@@ -732,8 +748,13 @@ export function StudyPlanContent({
                   title: enrolledCertifications.find((row) => row.id === id)?.title ?? "Certification",
                   ...datesFor(id),
                   mastery: overallPriorities.masteryByCertification?.[String(id)] ?? {},
+                  priority: overallPriorities.priorityByCertification?.[String(id)] ?? {},
+                  topics: overallPriorities.byCertification?.[String(id)] ?? [],
               }))
-            : [{ certificationId, title: certification, calendarStart, targetExamDate, mastery: singleMastery }]
+            : [{
+                  certificationId, title: certification, calendarStart, targetExamDate,
+                  mastery: singleMastery, priority: singlePriority, topics: priorityTopics,
+              }]
 
         return entries
             .filter((entry) => entry.calendarStart && entry.targetExamDate)
@@ -751,12 +772,14 @@ export function StudyPlanContent({
                     preferences: parsedPreferences,
                     curriculum: curriculumFor(data?.lessons, entry.certificationId, overall ? null : certification),
                     masteryByLesson: entry.mastery,
-                    priorityTopics: overall ? [] : priorityTopics,
+                    priorityByLesson: entry.priority,
+                    priorityTopics: entry.topics,
                 }).summary,
             }))
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [overall, selectedCertificationIds, certificationDates, calendarStart, targetExamDate, studyDays, studyWindow,
         selectedTechniqueInfo, targetReadiness, data?.lessons, overallPriorities.masteryByCertification, singleMastery,
+        overallPriorities.priorityByCertification, overallPriorities.byCertification, singlePriority,
         priorityTopics, certification, certificationId, enrolledCertifications, parsedPreferences])
 
     function handleGeneratePlan() {
@@ -794,6 +817,8 @@ export function StudyPlanContent({
                       curriculum: curriculumFor(data?.lessons, entry.certificationId),
                       masteryByLesson:
                           overallPriorities.masteryByCertification[String(entry.certificationId)] ?? {},
+                      priorityByLesson:
+                          overallPriorities.priorityByCertification[String(entry.certificationId)] ?? {},
                       priorityTopics:
                           overallPriorities.byCertification[String(entry.certificationId)] ?? [],
                   }),
@@ -813,6 +838,7 @@ export function StudyPlanContent({
                   preferences: parsedPreferences,
                   curriculum: curriculumFor(data?.lessons, certificationId, certification),
                   masteryByLesson: singleMastery,
+                  priorityByLesson: singlePriority,
                   priorityTopics,
               })
 
@@ -1240,6 +1266,27 @@ export function StudyPlanContent({
                                             New lessons done by {shortDate(summary.lessonsEndOn)}, then review and{" "}
                                             {summary.mockCount} mock {summary.mockCount === 1 ? "exam" : "exams"}.
                                         </p>
+                                    ) : null}
+                                    {summary.focusNotice ? (
+                                        <p className="mt-1 text-xs font-semibold text-[var(--tg-ink)]">{summary.focusNotice}</p>
+                                    ) : null}
+                                    {summary.skippedLessons?.length > 0 ? (
+                                        <details className="mt-1 text-xs text-muted-foreground">
+                                            <summary className="cursor-pointer font-semibold text-foreground">
+                                                {summary.skippedLessons.length} skipped{" "}
+                                                {summary.skippedLessons.length === 1 ? "lesson" : "lessons"}
+                                            </summary>
+                                            <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto pr-1">
+                                                {summary.skippedLessons.map((lesson) => (
+                                                    <li key={`${lesson.lessonId ?? ""}-${lesson.title}`} className="flex justify-between gap-2">
+                                                        <span className="min-w-0 truncate">{lesson.title}</span>
+                                                        <span className="shrink-0 tabular-nums">
+                                                            {lesson.mastery == null ? "not assessed" : `${Math.round(lesson.mastery)}%`}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </details>
                                     ) : null}
                                     {summary.warning ? (
                                         <p className="mt-1 text-xs font-semibold text-destructive">{summary.warning}</p>

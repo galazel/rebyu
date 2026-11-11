@@ -128,6 +128,34 @@ function studyRank(lesson) {
   return lesson.mastery < PARTLY_KNOWN_MASTERY ? 2 : 3
 }
 
+// BKT priority tags (they already fold in exam weighting), most urgent first.
+const PRIORITY_TAG_RANK = { CRITICAL_PRIORITY: 0, HIGH_PRIORITY: 1, MEDIUM_PRIORITY: 2, LOW_PRIORITY: 3 }
+
+function tagRank(tag) {
+  return PRIORITY_TAG_RANK[String(tag ?? "").toUpperCase()] ?? 2
+}
+
+function topicTitle(topic) {
+  return String(typeof topic === "string" ? topic : topic?.title ?? topic?.lessonTitle ?? "").trim()
+}
+
+/**
+ * Order used when the exam is too close for every lesson: weakest mastery first.
+ * An unassessed lesson ranks just after the clearly weak ones (it may well be unknown).
+ * Ties go to the BKT priority tag, then the learner's priority topics, then curriculum order.
+ */
+function focusCompare(priorityTitles, priorityByLesson) {
+  const masteryKey = (lesson) => (lesson.mastery == null ? WEAK_MASTERY : Math.round(lesson.mastery))
+  const tagOf = (lesson) => tagRank(lesson.lessonId == null ? null : priorityByLesson?.[String(lesson.lessonId)])
+  const topicOf = (lesson) => (priorityTitles.has(lesson.title) ? 0 : 1)
+  return (a, b) =>
+    masteryKey(a) - masteryKey(b) ||
+    (a.mastery == null) - (b.mastery == null) ||
+    tagOf(a) - tagOf(b) ||
+    topicOf(a) - topicOf(b) ||
+    a.order - b.order
+}
+
 export function planStudy({
   calendarStart,
   targetExamDate,
@@ -139,6 +167,7 @@ export function planStudy({
   priorityTopics = [],
   curriculum = null,
   masteryByLesson = {},
+  priorityByLesson = {},
   readiness = null,
   preferences = null,
 }) {
@@ -176,7 +205,7 @@ export function planStudy({
     lessons.push({ ...lesson, order: lessons.length })
   }
 
-  const toStudy = lessons
+  let toStudy = lessons
     .filter((lesson) => !lesson.completed)
     .sort(
       (a, b) =>
@@ -186,10 +215,6 @@ export function planStudy({
   if (toStudy.length === 0 && lessons.length === 0) {
     toStudy.push({ lessonId: null, middleCategoryId: null, title: "Core certification lesson", mastery: null, order: 0 })
   }
-
-  const weakPool = lessons
-    .filter((lesson) => lesson.mastery != null && lesson.mastery < REVIEW_MASTERY)
-    .sort((a, b) => a.mastery - b.mastery)
 
   const summaryBase = {
     lessonsTotal: lessons.length,
@@ -225,13 +250,47 @@ export function planStudy({
   const consolidationDays = Math.min(READINESS_DAYS[readiness] ?? 7, Math.floor(totalDays * 0.4))
   const learningEndIndex = Math.max(1, totalDays - consolidationDays)
   const learningStudyDays = Math.max(1, studyFlags.slice(0, learningEndIndex).filter(Boolean).length)
-  const lessonsPerDay = Math.min(maxLessonsPerDay, Math.max(1, Math.ceil(toStudy.length / learningStudyDays)))
+
+  // How many new lessons fit before the readiness date without eating into review time:
+  // study days in the learning window, minus the day before the exam, the final mock and the halfway mock.
+  let lessonDays = 0
+  {
+    let finalMockTaken = totalDays < 10
+    for (let dayIndex = 0; dayIndex < learningEndIndex; dayIndex += 1) {
+      if (!studyFlags[dayIndex]) continue
+      const daysLeft = totalDays - dayIndex
+      if (daysLeft === 1) continue
+      if (!finalMockTaken && daysLeft <= FINAL_MOCK_DAYS_OUT && daysLeft >= 2) {
+        finalMockTaken = true
+        continue
+      }
+      lessonDays += 1
+    }
+    if (Math.min(toStudy.length, lessonDays * maxLessonsPerDay) >= 6) lessonDays -= 1
+  }
+  const lessonCapacity = Math.max(0, lessonDays) * maxLessonsPerDay
+
+  // Not enough time for every lesson: teach the weakest ones and skip the rest, instead of
+  // letting new lessons spill into the review and mock-exam days before the exam.
+  const focusMode = toStudy.length > lessonCapacity
+  let skipped = []
+  if (focusMode) {
+    const priorityTitles = new Set((priorityTopics ?? []).map(topicTitle).filter(Boolean))
+    const ranked = [...toStudy].sort(focusCompare(priorityTitles, priorityByLesson))
+    toStudy = ranked.slice(0, lessonCapacity)
+    skipped = ranked.slice(lessonCapacity)
+  }
+  const skippedKeys = new Set(skipped.map((lesson) => lesson.order))
+
+  const weakPool = lessons
+    .filter((lesson) => lesson.mastery != null && lesson.mastery < REVIEW_MASTERY && !skippedKeys.has(lesson.order))
+    .sort((a, b) => a.mastery - b.mastery)
+  const paceDays = Math.max(1, Math.min(learningStudyDays, lessonDays))
+  const lessonsPerDay = focusMode
+    ? maxLessonsPerDay
+    : Math.min(maxLessonsPerDay, Math.max(1, Math.ceil(toStudy.length / paceDays)))
   const studyGap =
-    lessonsPerDay > 1 ? 1 : Math.min(3, Math.max(1, Math.floor(learningStudyDays / Math.max(1, toStudy.length))))
-  const warning =
-    toStudy.length > learningStudyDays * maxLessonsPerDay
-      ? `${toStudy.length} lessons do not fit before your readiness date even at ${maxLessonsPerDay} a day, so some run into review time. Add study days or choose a later exam date.`
-      : null
+    lessonsPerDay > 1 ? 1 : Math.min(3, Math.max(1, Math.floor(paceDays / Math.max(1, toStudy.length))))
 
   const events = []
   const base = (date) => ({ dateKey: dayKey(date), time: timeLabel, at, technique })
@@ -264,7 +323,7 @@ export function planStudy({
       sessionNumber += 1
       const id = `event-${sessionNumber}`
       const inConsolidation = dayIndex >= learningEndIndex
-      const lessonsLeft = queueIndex < toStudy.length
+      const lessonsLeft = queueIndex < toStudy.length && !(focusMode && inConsolidation)
 
       const mockReason =
         daysLeft <= FINAL_MOCK_DAYS_OUT && daysLeft >= 2 && !finalMockPlaced
@@ -434,6 +493,14 @@ export function planStudy({
 
   events.push(examEvent)
 
+  const skippedLessons = focusMode
+    ? [...toStudy.slice(queueIndex), ...skipped].map((lesson) => ({
+        lessonId: lesson.lessonId ?? null,
+        title: lesson.title,
+        mastery: lesson.mastery,
+      }))
+    : []
+
   const lessonsEndOn =
     lessonsEndIndex == null ? null : dayKey(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + lessonsEndIndex))
 
@@ -445,14 +512,30 @@ export function planStudy({
       lessonsEndOn,
       readinessOn: dayKey(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + learningEndIndex)),
       mockCount: events.filter((event) => event.type === "mock").length,
-      unscheduledLessons: Math.max(0, toStudy.length - queueIndex),
+      unscheduledLessons: focusMode ? skippedLessons.length : Math.max(0, toStudy.length - queueIndex),
+      focusMode,
+      lessonsScheduled: queueIndex,
+      skippedLessons,
+      focusNotice: focusMode ? focusNotice(queueIndex, skippedLessons, lessons) : null,
       warning:
-        warning ??
-        (queueIndex < toStudy.length
+        !focusMode && queueIndex < toStudy.length
           ? `${toStudy.length - queueIndex} lessons did not fit before the exam. Add study days or choose a later exam date.`
-          : null),
+          : null,
     },
   }
+}
+
+function focusNotice(scheduled, skippedLessons, lessons) {
+  const skippedCount = skippedLessons.length
+  const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`
+  const keepTime = "so review and mock-exam time stays before the exam. Add study days or choose a later exam date to fit them in."
+  if (scheduled === 0) {
+    return `Exam is near: there is no time left for new lessons, so the plan is review and mock exams only. ${plural(skippedCount, "unstudied lesson")} are skipped.`
+  }
+  const hasMastery = lessons.some((lesson) => lesson.mastery != null)
+  return hasMastery
+    ? `Exam is near: focusing on your ${plural(scheduled, "weakest lesson")}; ${skippedCount} stronger ${skippedCount === 1 ? "one is" : "ones are"} skipped ${keepTime}`
+    : `Exam is near: focusing on ${plural(scheduled, "priority lesson")}; ${skippedCount} ${skippedCount === 1 ? "other is" : "others are"} skipped ${keepTime} Take a diagnostic so the plan can pick your weakest lessons.`
 }
 
 export function generateStudyEvents(options) {
