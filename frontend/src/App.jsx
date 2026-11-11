@@ -195,10 +195,10 @@ export function App() {
             <Route path="/verify-email" element={<GuestOnlyRoute><VerifyEmailPage /></GuestOnlyRoute>} />
             <Route path="/forgot-password" element={<GuestOnlyRoute><ForgotPasswordPage /></GuestOnlyRoute>} />
             <Route path="/set-new-password" element={<SetNewPasswordPage />} />
-            <Route element={<ProtectedRoute allowedRoles={["LEARNER", "INSTITUTION", "DEPARTMENT_HEAD"]} />}>
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/guidelines" element={<GuidelinesPage />} />
+            <Route element={<ProtectedRoute allowedRoles={["LEARNER", "INSTITUTION", "DEPARTMENT_HEAD"]} />}>
                 <Route path="/account-setup" element={<AccountSetupPage />} />
             </Route>
 
