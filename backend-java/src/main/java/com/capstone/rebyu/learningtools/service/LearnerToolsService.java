@@ -22,6 +22,7 @@ public class LearnerToolsService {
             List.of("quiz", "flashcard", "mindmap", "activity", "file", "link", "note");
 
     private final JdbcTemplate jdbc;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final S3StorageService s3StorageService;
     private final LearnerMistakeReviewRepository mistakeReviewRepository;
 
@@ -121,11 +122,26 @@ public class LearnerToolsService {
                 """, this::mapLibraryItem, id);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void deleteLibraryItem(Long learnerId, Long id) {
-        int deleted = jdbc.update(
-                "DELETE FROM learner_library_items WHERE library_item_id = ? AND learner_id = ?", id, learnerId);
-        if (deleted == 0) {
+        java.util.List<java.util.Map<String, Object>> item = jdbc.queryForList(
+                "SELECT item_type, resource_url FROM learner_library_items WHERE library_item_id = ? AND learner_id = ?",
+                id, learnerId);
+        if (item.isEmpty()) {
             throw new IllegalArgumentException("Library item not found or does not belong to you");
+        }
+        // Was a plain DELETE: it failed for any item shared to the community. Shared posts now
+        // stay with the link cleared; activity progress on the item goes with it.
+        cascade.delete("learner_library_items", "library_item_id", id);
+        Object type = item.get(0).get("item_type");
+        Object url = item.get(0).get("resource_url");
+        if ("file".equals(type) && url instanceof String key && !key.isBlank() && !key.startsWith("/")) {
+            try {
+                s3StorageService.deleteFile(key);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(LearnerToolsService.class)
+                        .warn("Library item {} deleted, but its file {} could not be removed: {}", id, key, e.getMessage());
+            }
         }
     }
 

@@ -41,22 +41,23 @@ def serper_image_search(query: str, num: int = 1) -> list[dict]:
     return response.json().get("images", [])
 
 
-def youtube_search(query: str, max_results: int = 1) -> list[dict]:
-    """Runs a YouTube Data API v3 search and returns the raw `items` results."""
+def youtube_search(query: str, max_results: int = 1, *, safe: bool = False) -> list[dict]:
+    """Runs a YouTube Data API v3 search and returns the raw `items` results.
+    ``safe`` adds strict SafeSearch and English relevance, for results shown to learners."""
     if not get_youtube_key():
         raise RuntimeError("YOUTUBE_API_KEY not configured.")
 
+    params = {
+        "part": "snippet",
+        "q": query,
+        "type": "video",
+        "maxResults": max_results,
+        "key": get_youtube_key(),
+    }
+    if safe:
+        params.update(safeSearch="strict", relevanceLanguage="en")
     with httpx.Client(timeout=_TIMEOUT) as client:
-        response = client.get(
-            "https://www.googleapis.com/youtube/v3/search",
-            params={
-                "part": "snippet",
-                "q": query,
-                "type": "video",
-                "maxResults": max_results,
-                "key": get_youtube_key(),
-            },
-        )
+        response = client.get("https://www.googleapis.com/youtube/v3/search", params=params)
     response.raise_for_status()
     return response.json().get("items", [])
 

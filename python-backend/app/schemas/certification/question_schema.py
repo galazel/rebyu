@@ -9,7 +9,9 @@ from app.domain.diagrams.validation import check_reference
 
 logger = logging.getLogger(__name__)
 
-QuestionType = Literal["MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"]
+QuestionType = Literal[
+    "MCQ", "MULTIPLE_ANSWER", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"
+]
 Difficulty = Literal["EASY", "AVERAGE", "HARD"]
 
 DIFFICULTY_ALIASES = {"DIFFICULT": "HARD"}
@@ -24,6 +26,12 @@ MCQ_CHOICE_COUNT = 4
 
 MCQ_MIN_CHOICES = 3
 MCQ_MAX_CHOICES = 9
+
+# MULTIPLE_ANSWER ("Select 2 choices"): enough options that ticking every one
+# is never the answer, and at least two right so it is not an MCQ in disguise.
+MULTI_MIN_CHOICES = 4
+MULTI_MAX_CHOICES = 7
+MULTI_MIN_CORRECT = 2
 
 MIN_EXPLANATION_CHARS = 20
 
@@ -230,6 +238,7 @@ class QuestionDraft(BaseModel):
 
     choices: List[str] = Field(default_factory=list)
     correct_choice_index: Optional[int] = None
+    correct_choice_indices: List[int] = Field(default_factory=list)
     choice_explanations: List[str] = Field(default_factory=list)
 
     correct_answer: Optional[str] = None
@@ -336,6 +345,30 @@ class QuestionDraft(BaseModel):
             if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
                 raise ValueError("MCQ choices must be distinct")
 
+        elif self.question_type == "MULTIPLE_ANSWER":
+            if not MULTI_MIN_CHOICES <= len(self.choices) <= MULTI_MAX_CHOICES:
+                raise ValueError(
+                    f"MULTIPLE_ANSWER must have between {MULTI_MIN_CHOICES} and "
+                    f"{MULTI_MAX_CHOICES} choices, got {len(self.choices)}"
+                )
+            indices = sorted(set(self.correct_choice_indices))
+            if len(indices) < MULTI_MIN_CORRECT:
+                raise ValueError(
+                    "MULTIPLE_ANSWER must list at least two right options in "
+                    "correct_choice_indices; with one, write an MCQ instead"
+                )
+            if any(not 0 <= index < len(self.choices) for index in indices):
+                raise ValueError(f"correct_choice_indices {indices} has an index out of range")
+            if len(indices) >= len(self.choices) - 1:
+                raise ValueError(
+                    "MULTIPLE_ANSWER needs at least two wrong options, so ticking "
+                    "everything is never the answer"
+                )
+            if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
+                raise ValueError("MULTIPLE_ANSWER choices must be distinct")
+            self.correct_choice_indices = indices
+            self.correct_choice_index = None
+
         elif self.question_type == "SHORT_ANSWER":
             if not (self.correct_answer or "").strip():
                 raise ValueError("SHORT_ANSWER must set correct_answer")
@@ -440,7 +473,7 @@ class QuestionDraft(BaseModel):
                 "and why the correct answer is correct"
             )
 
-        if self.question_type == "MCQ":
+        if self.question_type in ("MCQ", "MULTIPLE_ANSWER"):
             self._require_an_explanation_per_choice()
         return self
 

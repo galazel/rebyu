@@ -26,6 +26,7 @@ import { getExamQuestions } from "@/services/assessmentService.js"
 const QUESTION_TYPE_LABELS = {
   MCQ: "Multiple Choice",
   MULTIPLE_CHOICE: "Multiple Choice",
+  MULTIPLE_ANSWER: "Multiple Answer",
   DESCRIPTIVE: "Descriptive",
   SHORT_ANSWER: "Short Answer",
   CRITICAL_THINKING: "Critical Thinking",

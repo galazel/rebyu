@@ -1,5 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { base } from "@/services/base"
+import { LockIcon } from "@/components/icons"
+import { useTutorConduct } from "@/lib/tutor-conduct.js"
 
 import {
   DropdownMenu,
@@ -99,6 +102,85 @@ export function AiUsageBars({ bucketKey, showLabel = true, compact = false, clas
   )
 }
 
+function timeLeft(lockedUntil, now, short = false) {
+  const left = Math.max(0, Date.parse(lockedUntil) - now)
+  const hours = Math.floor(left / 3_600_000)
+  const minutes = Math.ceil((left % 3_600_000) / 60_000)
+  if (short) return hours > 0 ? `${hours}h ${minutes}m` : `${Math.max(1, minutes)}m`
+  return hours > 0 ? `${hours} hr ${minutes} min` : `${Math.max(1, minutes)} min`
+}
+
+function unlockAt(lockedUntil) {
+  return new Date(lockedUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
+/**
+ * The learner's AI tutor conduct standing next to their usage: a lock (3 conduct warnings
+ * pause chat, Guided Dialogue and Live Tutor for 7 hours) or the warnings so far. The server
+ * enforces the lock; this only shows it, and follows live lock events from the tutor.
+ */
+function TutorStanding({ compact = false }) {
+  const live = useTutorConduct(base)
+  const status = useQuery({
+    queryKey: ["tutor-conduct-status"],
+    queryFn: () => base("ai/tutor/conduct"),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: false,
+  })
+  const [now, setNow] = useState(() => Date.now())
+  const lockedUntil = live.lockedUntil
+    ?? (status.data?.locked && status.data?.lockedUntil ? status.data.lockedUntil : null)
+  const locked = Boolean(lockedUntil && Date.parse(lockedUntil) > now)
+  useEffect(() => {
+    if (!locked) return undefined
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [locked])
+
+  const strikes = Number(status.data?.strikes ?? 0)
+  const lockAt = Number(status.data?.lockAt ?? 3)
+  const hours = status.data?.lockoutHours ?? 7
+
+  if (locked) {
+    const detail = `Chat, Guided Dialogue and Live Tutor are paused after ${lockAt} conduct warnings. Unlocks at ${unlockAt(lockedUntil)}.`
+    // Sidebar: one quiet line, details on hover -- it must not push the navigation away.
+    if (compact) {
+      return (
+        <p role="status" title={detail}
+          className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
+          <LockIcon className="size-3 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 truncate">Tutor locked · {timeLeft(lockedUntil, now, true)} left</span>
+        </p>
+      )
+    }
+    return (
+      <div role="status" className="mb-3 flex items-start gap-2 text-sm">
+        <LockIcon className="mt-0.5 size-3.5 shrink-0 text-red-600" aria-hidden="true" />
+        <div>
+          <p className="font-semibold text-foreground">
+            AI tutor locked <span className="font-normal text-muted-foreground">· {timeLeft(lockedUntil, now)} left</span>
+          </p>
+          <p className="text-xs text-muted-foreground">{detail}</p>
+        </div>
+      </div>
+    )
+  }
+  if (strikes > 0) {
+    const detail = `Reaching ${lockAt} warnings locks the AI tutor for ${hours} hours.`
+    return compact ? (
+      <p title={detail} className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+        Conduct warnings {strikes}/{lockAt}
+      </p>
+    ) : (
+      <p className="mb-3 text-xs text-muted-foreground">
+        <span className="font-semibold text-amber-700 dark:text-amber-300">Conduct warnings {strikes} of {lockAt}.</span> {detail}
+      </p>
+    )
+  }
+  return null
+}
+
 /** The learner's AI usage, everywhere it is shown (account, subscription,
  *  tutor menu): one meter, because every AI task -- tutor chat, guided
  *  dialogue, and the quizzes, flashcards and mind maps the tutor makes -- is a
@@ -129,6 +211,7 @@ export function AiUsageSummary({ className = "", showHeading = true, compact = f
       <p className="mb-3 text-xs text-muted-foreground">
         Tutor chat, guided dialogue and Live Tutor share one allowance. Successful responses and Live Tutor sessions count once; failed attempts do not count.
       </p></> : null}
+      <TutorStanding compact={compact} />
       <AiUsageBars bucketKey="tutor" showLabel={false} compact={compact} />
     </div>
   )

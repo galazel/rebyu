@@ -56,12 +56,14 @@ public final class LearnerAttemptDtos {
             List<ProgrammingAttemptDtos.LearnerTestCaseDto> testCases,
             List<DiagramAttemptDtos.RubricCriterionDto> rubric,
             String stage,
-            AdaptiveAnswerKeyDto answerKey
+            AdaptiveAnswerKeyDto answerKey,
+            // MULTIPLE_ANSWER only: how many choices the learner must tick ("Select 2 choices").
+            Integer selectCount
     ) {
         public LearnerAttemptQuestionDto withAnswerKey(AdaptiveAnswerKeyDto key) {
             return new LearnerAttemptQuestionDto(attemptQuestionId, displayOrder, questionType, criticalThinkingType,
                     question, questionImageKey, choices, starterCode, diagramType, instructions, subQuestions, points,
-                    testCases, rubric, stage, key);
+                    testCases, rubric, stage, key, selectCount);
         }
     }
 
@@ -69,7 +71,8 @@ public final class LearnerAttemptDtos {
             Long correctChoiceId,
             String correctChoiceText,
             List<String> acceptedAnswers,
-            String explanation
+            String explanation,
+            List<Long> correctChoiceIds
     ) {
     }
 
@@ -95,7 +98,9 @@ public final class LearnerAttemptDtos {
             Long currentAttemptQuestionId,
             List<Long> flaggedAttemptQuestionIds,
             List<Long> skippedAttemptQuestionIds,
-            AdaptiveProgressDto adaptive
+            AdaptiveProgressDto adaptive,
+            int focusViolations,
+            int maxFocusViolations
     ) {
     }
 
@@ -119,7 +124,8 @@ public final class LearnerAttemptDtos {
             String acceptedAnswer,
             String explanation,
             String feedback,
-            List<SubQuestionAnswerReviewDto> subQuestionAnswers
+            List<SubQuestionAnswerReviewDto> subQuestionAnswers,
+            List<Long> correctChoiceIds
     ) {
     }
 
@@ -164,6 +170,36 @@ public final class LearnerAttemptDtos {
     public record SkipRequestDto(
             @NotNull Long learnerId,
             boolean skipped
+    ) {
+    }
+
+    /** Why the attempt paused: TAB_HIDDEN or WINDOW_BLUR. Optional. */
+    public record PauseAttemptRequestDto(
+            String reason,
+            Long attemptQuestionId
+    ) {
+    }
+
+    /** One suspicious action the browser blocked (copy, paste, shortcut, ...). */
+    public record IntegrityEventDto(
+            String type,
+            String detail,
+            Long attemptQuestionId
+    ) {
+    }
+
+    public record ReportIntegrityEventsRequestDto(
+            List<IntegrityEventDto> events
+    ) {
+    }
+
+    /** The attempt clock after a pause or resume: the client re-anchors its countdown on expiresAt. */
+    public record AttemptClockDto(
+            OffsetDateTime expiresAt,
+            boolean paused,
+            int focusViolations,
+            int maxFocusViolations,
+            boolean forfeited
     ) {
     }
 
@@ -303,7 +339,10 @@ public final class LearnerAttemptDtos {
             List<AttemptAnswerReviewDto> answers,
             List<LessonPerformanceDto> lessonBreakdown,
             Long certificationId,
-            boolean gradingPending
+            boolean gradingPending,
+            boolean forfeited,
+            int focusViolations,
+            Map<String, Long> integrityEventCounts
     ) {
     }
 

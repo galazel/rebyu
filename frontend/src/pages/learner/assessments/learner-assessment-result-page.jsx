@@ -60,6 +60,12 @@ const ANSWER_TONES = {
     text: "text-rb-fox-lip",
     badge: "bg-rb-fox text-white",
   },
+  invalid: {
+    card: "border-rb-cardinal/30 bg-rb-snow",
+    panel: "border-rb-cardinal/30 bg-rb-polar",
+    text: "text-rb-cardinal-lip",
+    badge: "bg-rb-cardinal-lip text-white",
+  },
   neutral: {
     card: "border-rb-swan bg-rb-snow",
     panel: "border-rb-swan bg-rb-polar",
@@ -69,6 +75,8 @@ const ANSWER_TONES = {
 }
 
 function answerState(answer) {
+  // Every answer of a forfeited attempt is void.
+  if (answer.invalid) return "invalid"
   if (answer.pendingManualEvaluation) return "pending"
   if (answer.isCorrect == null) return "neutral"
   return answer.isCorrect ? "correct" : "incorrect"
@@ -79,6 +87,7 @@ const STATE_LABEL = {
   incorrect: "Incorrect",
   pending: "Pending review",
   neutral: "Unanswered",
+  invalid: "Invalid",
 }
 
 function formatDuration(totalSeconds) {
@@ -345,10 +354,13 @@ export default function LearnerAssessmentResultPage() {
       )
     }
   }, [marking, result])
-  const answers = useMemo(() => result?.answers ?? [], [result])
+  const answers = useMemo(
+    () => (result?.answers ?? []).map((answer) => (result?.forfeited ? { ...answer, invalid: true } : answer)),
+    [result]
+  )
 
   const counts = useMemo(() => {
-    const tally = { all: answers.length, correct: 0, incorrect: 0, pending: 0, neutral: 0 }
+    const tally = { all: answers.length, correct: 0, incorrect: 0, pending: 0, neutral: 0, invalid: 0 }
     answers.forEach((answer) => {
       tally[answerState(answer)] += 1
     })
@@ -405,12 +417,14 @@ export default function LearnerAssessmentResultPage() {
     Number(result.correctCount ?? 0) + Number(result.incorrectCount ?? 0) + Number(result.pendingCount ?? 0)
   const itemCount = answeredCount + Number(result.unansweredCount ?? 0)
 
-  const statTiles = [
-    { label: "Correct", value: result.correctCount, tone: "leaf" },
-    { label: "Incorrect", value: result.incorrectCount, tone: "cardinal" },
-    { label: marking ? "Marking" : "Pending", value: result.pendingCount, tone: "fox" },
-    { label: "Unanswered", value: result.unansweredCount, tone: "neutral" },
-  ].filter((tile) => tile.tone === "leaf" || tile.tone === "cardinal" || tile.value > 0)
+  const statTiles = result.forfeited
+    ? [{ label: "Invalid", value: answers.length, tone: "cardinal" }]
+    : [
+        { label: "Correct", value: result.correctCount, tone: "leaf" },
+        { label: "Incorrect", value: result.incorrectCount, tone: "cardinal" },
+        { label: marking ? "Marking" : "Pending", value: result.pendingCount, tone: "fox" },
+        { label: "Unanswered", value: result.unansweredCount, tone: "neutral" },
+      ].filter((tile) => tile.tone === "leaf" || tile.tone === "cardinal" || tile.value > 0)
 
   const REVIEW_FILTERS = [
     { key: "all", label: "All", count: counts.all, tone: "neutral" },
@@ -419,6 +433,8 @@ export default function LearnerAssessmentResultPage() {
     { key: "neutral", label: "Unanswered", count: counts.neutral, tone: "neutral" },
     { key: "correct", label: "Correct", count: counts.correct, tone: "leaf" },
   ].filter((option) => option.key === "all" || option.count > 0)
+    // A forfeited attempt has one kind of answer: invalid.
+    .filter((option) => !result.forfeited || option.key === "all")
 
   return (
     <div className="rebyu-ds tg-cat-explain min-h-dvh bg-[var(--tg-softer)] text-foreground">
@@ -435,6 +451,23 @@ export default function LearnerAssessmentResultPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+        {result.forfeited ? (
+          <div
+              role="alert"
+              className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+          >
+            <p className="font-bold">This assessment ended with a score of 0.</p>
+            <p className="mt-1">
+              You left the assessment {result.focusViolations} times. Your answers were not graded,
+              and every exit has been recorded on this attempt.
+            </p>
+          </div>
+        ) : result.focusViolations > 0 ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+            You left this assessment {result.focusViolations}{" "}
+            {result.focusViolations === 1 ? "time" : "times"} while taking it. Exits are recorded on the attempt.
+          </p>
+        ) : null}
         {fromChallenge ? (
           <>
             <RebyuCard className="p-6">
@@ -810,6 +843,8 @@ export default function LearnerAssessmentResultPage() {
                         ? "border-[var(--tg-line)] border-l-rb-cardinal"
                         : state === "pending"
                           ? "border-[var(--tg-line)] border-l-amber-400"
+                          : state === "invalid"
+                            ? "border-[var(--tg-line)] border-l-rb-cardinal-lip"
                           : "border-[var(--tg-line)] border-l-muted-foreground/40",
                   )}
                 >

@@ -124,7 +124,7 @@ export default function ProgrammingQuestionLayout({
           language={language}
           starterCode={question.starterCode ?? ""}
           readOnly={editingLocked}
-          onChange={(next) => onAnswer({ submittedCode: next })}
+          onChange={(next) => onAnswer({ submittedCode: next, programmingLanguage: language })}
           onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
           actions={runKey}
         />

@@ -216,7 +216,9 @@ class CognitoAuthServiceTest {
     }
 
     @Test
-    void identityIsNotSharedBetweenRequests() {
+    void aRecentIdentityIsReusedByTheNextRequest() {
+        // CognitoAuthService keeps identities resolved in the last IDENTITY_TTL_MS (30 s) across
+        // requests, keyed by the verified Cognito sub, so a page's burst of API calls resolves once.
         User linked = existingUser(7L, "juan@rebyu.test", SUB);
         when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.of(linked));
         when(learnerRepository.findByUser_UserId(7L)).thenReturn(Optional.empty());
@@ -224,7 +226,7 @@ class CognitoAuthServiceTest {
         inOneRequest(() -> service.syncCurrentUser(jwt(), "access-token"));
         inOneRequest(() -> service.syncCurrentUser(jwt(), "access-token"));
 
-        verify(userRepository, org.mockito.Mockito.times(2)).findByCognitoSub(SUB);
+        verify(userRepository, org.mockito.Mockito.times(1)).findByCognitoSub(SUB);
     }
 
     @Test

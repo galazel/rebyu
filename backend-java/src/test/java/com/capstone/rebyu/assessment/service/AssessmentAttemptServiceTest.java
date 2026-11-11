@@ -82,6 +82,7 @@ class AssessmentAttemptServiceTest {
                 bktProperties, examQuestionRepository, questionRepository,
                 textQuestionConfigRepository, programmingQuestionConfigRepository,
                 diagramQuestionConfigRepository, attemptRepository,
+                mock(com.capstone.rebyu.assessment.repository.AssessmentIntegrityEventRepository.class),
                 attemptQuestionRepository, attemptAnswerRepository,
                 learnerCertificationRepository, institutionCertificationLearnerRepository,
                 examResultRepository,
@@ -950,6 +951,112 @@ class AssessmentAttemptServiceTest {
         verify(codeExecutionService, never()).execute(any());
         assertEquals(0, BigDecimal.ONE.compareTo(answer.getCredit()));
         assertTrue(answer.getIsCorrect());
+    }
+
+    // --- code items with written sub-questions, and code the runner cannot execute -------------
+
+    private Question codeQuestionWithTests() {
+        Question q = new Question();
+        q.setQuestionId(600L);
+        q.setQuestionType("CRITICAL_THINKING");
+        ProgrammingQuestionConfig config = ProgrammingQuestionConfig.builder()
+                .programmingQuestionConfigId(19L)
+                .testCases(new ArrayList<>(List.of(
+                        ProgrammingTestCase.builder().programmingTestCaseId(11L)
+                                .inputData("2 3").expectedOutput("5").isSample(true).build(),
+                        ProgrammingTestCase.builder().programmingTestCaseId(12L)
+                                .inputData("1 1").expectedOutput("2").isSample(false).build())))
+                .build();
+        q.setProgrammingQuestionConfig(config);
+        lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(600L))
+                .thenReturn(Optional.of(config));
+        return q;
+    }
+
+    private static Question writtenSub(long id) {
+        Question sub = new Question();
+        sub.setQuestionId(id);
+        sub.setQuestionType("DESCRIPTIVE");
+        sub.setQuestionText("Explain the time complexity.");
+        return sub;
+    }
+
+    private static AssessmentAttemptQuestion codeSnapshot() {
+        return AssessmentAttemptQuestion.builder()
+                .attemptQuestionId(70L).sourceQuestionId(600L)
+                .questionType("CRITICAL_THINKING")
+                .questionTextSnapshot("Sum two integers.").displayOrder(1).build();
+    }
+
+    @Test
+    void writtenPartOfACodeItemIsGradedAndBlendedWithTheCode() {
+        Question source = codeQuestionWithTests();
+        AssessmentAttemptAnswer answer = AssessmentAttemptAnswer.builder()
+                .submittedCode("print(sum(map(int, input().split())))").programmingLanguage("Python")
+                .learnerAnswer("{\"601\":\"It is linear.\"}").build();
+        CodeExecutionResultDto allPass = new CodeExecutionResultDto(
+                "COMPLETED", "5", null, 5L, 1024L, 2, 2, List.of());
+        // Written half is worth 0.5; the AI awards 0.25 of it.
+        GradingBatch batch = new GradingBatch(
+                Map.of(70L, new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
+                        new BigDecimal("0.25"), "Partly right.",
+                        List.of(new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto.SubAnswerGradeDto(
+                                601L, new BigDecimal("0.25"), "Partly right.")))),
+                Map.of(70L, allPass), Map.of());
+
+        service.scoreAnswer(codeSnapshot(), answer, batch, Map.of(600L, source),
+                Map.of(600L, List.of(writtenSub(601L))));
+
+        // code 1.0 scaled to its 0.5 share + 0.25 written
+        assertEquals(0, new BigDecimal("0.75").compareTo(answer.getCredit()), answer.getCredit().toString());
+        assertFalse(answer.isPendingManualEvaluation());
+        assertTrue(answer.getSubAnswerScores().contains("Partly right."));
+    }
+
+    @Test
+    void rescoringACodeItemWithWrittenPartsDoesNotCompound() throws Exception {
+        Question source = codeQuestionWithTests();
+        String code = "print(sum(map(int, input().split())))";
+        AssessmentAttemptAnswer answer = AssessmentAttemptAnswer.builder()
+                .submittedCode(code).programmingLanguage("Python")
+                .learnerAnswer("{\"601\":\"It is linear.\"}")
+                .isCorrect(true).credit(BigDecimal.ONE).pendingManualEvaluation(false)
+                .executionResult("{\"codeHash\":\"" + codeHash(code) + "\",\"status\":\"COMPLETED\","
+                        + "\"passedTests\":2,\"totalTests\":2,\"testResults\":[]}")
+                .build();
+        GradingBatch batch = new GradingBatch(
+                Map.of(70L, new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
+                        new BigDecimal("0.5"), "Right.", List.of())),
+                Map.of(), Map.of());
+        Map<Long, List<Question>> subs = Map.of(600L, List.of(writtenSub(601L)));
+
+        service.scoreAnswer(codeSnapshot(), answer, batch, Map.of(600L, source), subs);
+        BigDecimal first = answer.getCredit();
+        service.scoreAnswer(codeSnapshot(), answer, batch, Map.of(600L, source), subs);
+
+        assertEquals(0, BigDecimal.ONE.compareTo(first), first.toString());
+        assertEquals(0, first.compareTo(answer.getCredit()), answer.getCredit().toString());
+        verify(codeExecutionService, never()).execute(any());
+    }
+
+    @Test
+    void codeTheRunnerCannotExecuteIsMarkedByAiWithTheDefaultLanguage() {
+        Question source = codeQuestionWithTests();
+        // No language saved: typed straight into the default (Java) editor.
+        AssessmentAttemptAnswer answer = AssessmentAttemptAnswer.builder()
+                .submittedCode("class Main { }").build();
+        when(codeExecutionService.execute(any())).thenReturn(new CodeExecutionResultDto(
+                "UNAVAILABLE", null, "down", null, null, null, null, List.of()));
+        when(aiAnswerGradingService.grade(any())).thenReturn(Optional.of(
+                new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
+                        new BigDecimal("0.2"), "Does not read the input.", List.of())));
+
+        service.scoreAnswer(codeSnapshot(), answer, GradingBatch.empty(), Map.of(600L, source), Map.of());
+
+        assertEquals("Java", answer.getProgrammingLanguage());
+        assertEquals(0, new BigDecimal("0.2").compareTo(answer.getCredit()));
+        assertFalse(answer.isPendingManualEvaluation());
+        assertTrue(answer.getFeedback().contains("marked by AI"));
     }
 
     @Test

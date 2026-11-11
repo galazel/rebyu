@@ -24,7 +24,6 @@ import {
   faArrowUp,
   faArrowsRotate,
   faAward,
-  faBackwardStep,
   faBan,
   faBars,
   faBell,
@@ -135,6 +134,7 @@ import {
   faPause,
   faPenToSquare,
   faPencil,
+  faPhone,
   faPlay,
   faPlugCircleXmark,
   faPlus,
@@ -170,8 +170,6 @@ import {
   faUserPlus,
   faUsers,
   faVideo,
-  faVolumeHigh,
-  faVolumeXmark,
   faWandMagicSparkles,
   faWrench,
   faXmark,
@@ -250,7 +248,6 @@ export const Bookmark = icon(faBookmark, "Bookmark")
 export const Bot = icon(faRobot, "Bot")
 export const BotIcon = icon(faRobot, "BotIcon")
 export const Brain = icon(faBrain, "Brain")
-export const BrainCircuit = icon(faBrain, "BrainCircuit")
 export const BrainCircuitIcon = icon(faBrain, "BrainCircuitIcon")
 export const Briefcase = icon(faBriefcase, "Briefcase")
 export const Building = icon(faBuilding, "Building")
@@ -320,7 +317,6 @@ export const FileSpreadsheet = icon(faFileExcel, "FileSpreadsheet")
 export const FileSpreadsheetIcon = icon(faFileExcel, "FileSpreadsheetIcon")
 export const FileText = icon(faFileLines, "FileText")
 export const FileTextIcon = icon(faFileLines, "FileTextIcon")
-export const FilesIcon = icon(faFileLines, "FilesIcon")
 export const FlagIcon = icon(faFlag, "FlagIcon")
 export const Flame = icon(faFire, "Flame")
 export const FlipHorizontal = icon(faArrowRightArrowLeft, "FlipHorizontal")
@@ -352,7 +348,6 @@ export const InfoIcon = icon(faCircleInfo, "InfoIcon")
 export const KeyRound = icon(faKey, "KeyRound")
 export const Layers = icon(faLayerGroup, "Layers")
 export const Layers3 = icon(faLayerGroup, "Layers3")
-export const Layers3Icon = icon(faLayerGroup, "Layers3Icon")
 export const LayoutDashboard = icon(faTableColumns, "LayoutDashboard")
 export const LibraryBig = icon(faBookBookmark, "LibraryBig")
 export const Link = icon(faLink, "Link")
@@ -398,6 +393,7 @@ export const PanelsTopLeft = icon(faTableCells, "PanelsTopLeft")
 export const Pause = icon(faPause, "Pause")
 export const Pencil = icon(faPencil, "Pencil")
 export const PencilIcon = icon(faPencil, "PencilIcon")
+export const PhoneIcon = icon(faPhone, "PhoneIcon")
 export const PinIcon = icon(faThumbtack, "PinIcon")
 export const Play = icon(faPlay, "Play")
 export const PlayCircle = icon(faCirclePlay, "PlayCircle")
@@ -427,7 +423,6 @@ export const ShieldAlert = icon(faTriangleExclamation, "ShieldAlert")
 export const ShieldCheck = icon(faShieldHalved, "ShieldCheck")
 export const ShieldCheckIcon = icon(faShieldHalved, "ShieldCheckIcon")
 export const ShieldXIcon = icon(faBan, "ShieldXIcon")
-export const SkipBack = icon(faBackwardStep, "SkipBack")
 export const SkipForward = icon(faForwardStep, "SkipForward")
 export const SkipForwardIcon = icon(faForwardStep, "SkipForwardIcon")
 export const Sparkles = icon(faWandMagicSparkles, "Sparkles")
@@ -462,7 +457,6 @@ export const UploadIcon = icon(faUpload, "UploadIcon")
 export const User = icon(faUser, "User")
 export const UserCheck = icon(faUserCheck, "UserCheck")
 export const UserCog = icon(faUserGear, "UserCog")
-export const UserIcon = icon(faUser, "UserIcon")
 export const UserPlus = icon(faUserPlus, "UserPlus")
 export const UserPlusIcon = icon(faUserPlus, "UserPlusIcon")
 export const UserRound = icon(faUser, "UserRound")
@@ -473,8 +467,6 @@ export const UsersRound = icon(faUsers, "UsersRound")
 export const UsersRoundIcon = icon(faUsers, "UsersRoundIcon")
 export const Video = icon(faVideo, "Video")
 export const VideoIcon = icon(faVideo, "VideoIcon")
-export const Volume2 = icon(faVolumeHigh, "Volume2")
-export const VolumeX = icon(faVolumeXmark, "VolumeX")
 export const WifiOff = icon(faPlugCircleXmark, "WifiOff")
 export const Workflow = icon(faDiagramProject, "Workflow")
 export const WrenchIcon = icon(faWrench, "WrenchIcon")

@@ -258,10 +258,10 @@ function FormSelect({ label, value, onValueChange, options }) {
     )
 }
 
-function FormInput({ label, value, onChange, type = "text", min, max, error }) {
+function FormInput({ label, value, onChange, type = "text", min, max, error, disabled = false }) {
     return (
         <div className="space-y-2">
-            <Label className="text-xs font-semibold text-foreground">
+            <Label className={`text-xs font-semibold ${disabled ? "text-slate-500 dark:text-slate-400" : "text-foreground"}`}>
                 {label}
             </Label>
 
@@ -270,10 +270,15 @@ function FormInput({ label, value, onChange, type = "text", min, max, error }) {
                 value={value}
                 min={min}
                 max={max}
+                disabled={disabled}
                 aria-invalid={error ? true : undefined}
                 onChange={(event) => onChange(event.target.value)}
                 className={`h-10 rounded-lg text-sm ${
-                    error ? "border-destructive focus-visible:ring-destructive/40" : ""
+                    error
+                        ? "border-destructive focus-visible:ring-destructive/40"
+                        : disabled
+                            ? "border-slate-200 bg-slate-200/80 text-slate-500 opacity-100 dark:border-slate-700 dark:bg-slate-700/60 dark:text-slate-400"
+                            : ""
                 }`}
             />
 
@@ -968,71 +973,84 @@ export function StudyPlanContent({
                                                 key={row.id}
                                                 className={`rounded-2xl p-3 transition ${
                                                     checked
-                                                        ? "bg-[var(--tg-softer)] ring-2 ring-[var(--tg)]"
-                                                        : "bg-card ring-1 ring-[var(--tg-line)] hover:bg-[var(--tg-softer)]"
+                                                        ? "bg-[var(--tg-softer)] shadow-sm ring-2 ring-[var(--tg)]"
+                                                        : "bg-slate-100/90 text-slate-600 shadow-inner ring-1 ring-slate-200 hover:bg-slate-200/80 hover:ring-slate-300 dark:bg-slate-800/70 dark:text-slate-300 dark:ring-slate-700"
                                                 }`}
                                             >
                                                 <Label
                                                     htmlFor={`study-plan-certification-${row.id}`}
-                                                    className="flex cursor-pointer items-center gap-3 text-sm font-medium"
+                                                    className="flex cursor-pointer items-center justify-between gap-3 text-sm font-medium"
                                                 >
-                                                    <Checkbox
-                                                        id={`study-plan-certification-${row.id}`}
-                                                        checked={checked}
-                                                        onCheckedChange={() => toggleCertification(row.id)}
-                                                    />
+                                                    <span className="flex min-w-0 items-center gap-3">
+                                                        <Checkbox
+                                                            id={`study-plan-certification-${row.id}`}
+                                                            checked={checked}
+                                                            onCheckedChange={() => toggleCertification(row.id)}
+                                                        />
 
-                                                    <span className="min-w-0 leading-snug">{row.title}</span>
+                                                        <span className="min-w-0 leading-snug">{row.title}</span>
+                                                    </span>
+
+                                                    {!checked ? (
+                                                        <span className="shrink-0 rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                                            Not included
+                                                        </span>
+                                                    ) : null}
                                                 </Label>
 
-                                                {checked ? (
-                                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                                        <FormInput
-                                                            label="Starts"
-                                                            value={dates.calendarStart}
-                                                            onChange={(value) =>
-                                                                setCertificationDate(row.id, "calendarStart", value)
-                                                            }
-                                                            type="date"
-                                                            max={dates.targetExamDate || undefined}
-                                                            error={
-                                                                outOfOrder
-                                                                    ? "Start on or before the exam."
-                                                                    : undefined
-                                                            }
-                                                        />
+                                                <div className={`mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 ${
+                                                    checked
+                                                        ? "border-[var(--tg-line)]"
+                                                        : "border-slate-200 dark:border-slate-700"
+                                                }`}>
+                                                    <FormInput
+                                                        label="Starts"
+                                                        value={dates.calendarStart}
+                                                        onChange={(value) =>
+                                                            setCertificationDate(row.id, "calendarStart", value)
+                                                        }
+                                                        type="date"
+                                                        max={dates.targetExamDate || undefined}
+                                                        disabled={!checked}
+                                                        error={
+                                                            outOfOrder
+                                                                ? "Start on or before the exam."
+                                                                : undefined
+                                                        }
+                                                    />
 
-                                                        <FormInput
-                                                            label="Target exam date"
-                                                            value={dates.targetExamDate}
-                                                            onChange={(value) =>
-                                                                setCertificationDate(row.id, "targetExamDate", value)
-                                                            }
-                                                            type="date"
-                                                            min={dates.calendarStart || undefined}
-                                                            error={
-                                                                outOfOrder
-                                                                    ? "The exam is before the start."
-                                                                    : undefined
-                                                            }
-                                                        />
+                                                    <FormInput
+                                                        label="Target exam date"
+                                                        value={dates.targetExamDate}
+                                                        onChange={(value) =>
+                                                            setCertificationDate(row.id, "targetExamDate", value)
+                                                        }
+                                                        type="date"
+                                                        min={dates.calendarStart || undefined}
+                                                        disabled={!checked}
+                                                        error={
+                                                            outOfOrder
+                                                                ? "The exam is before the start."
+                                                                : undefined
+                                                        }
+                                                    />
 
-                                                        <div className="sm:col-span-2">
-                                                            <FormInput
-                                                                label="Study time"
-                                                                value={
-                                                                    dates.studyTime ??
-                                                                    STUDY_WINDOW_TIMES[studyWindow] ??
-                                                                    "19:00"
-                                                                }
-                                                                onChange={(value) =>
-                                                                    setCertificationDate(row.id, "studyTime", value || null)
-                                                                }
-                                                                type="time"
-                                                            />
-                                                        </div>
+                                                    <div className="sm:col-span-2">
+                                                        <FormInput
+                                                            label="Study time"
+                                                            value={
+                                                                dates.studyTime ??
+                                                                STUDY_WINDOW_TIMES[studyWindow] ??
+                                                                "19:00"
+                                                            }
+                                                            onChange={(value) =>
+                                                                setCertificationDate(row.id, "studyTime", value || null)
+                                                            }
+                                                            type="time"
+                                                            disabled={!checked}
+                                                        />
                                                     </div>
-                                                ) : null}
+                                                </div>
                                             </div>
                                         )
                                     })}

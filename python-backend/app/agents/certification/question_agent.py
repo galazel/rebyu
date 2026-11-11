@@ -44,7 +44,7 @@ EXAMINED. It does not supply items.
 A copied item also fails as assessment: if it is already published, a learner
 can have seen the answer without understanding anything.
 
-Supported question types: MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
+Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
 
 Rules:
 - Respect the requested question count and per-type distribution exactly.
@@ -60,6 +60,17 @@ Rules:
   correct_choice_index to that choice's position). Up to nine are allowed, for
   the COMBINATION and TRACE items described below -- use more than four only
   when the format needs it, never to pad.
+- A MULTIPLE_ANSWER item is the "Select 2 choices" format: four to seven
+  independent statements or options, two or three of them right. List every
+  right position in correct_choice_indices (e.g. [1, 3]) and leave
+  correct_choice_index unset. End the stem with "(Choose two.)" or
+  "(Choose three.)" to match the count. Each option must be true or false on its
+  own -- never "both A and B", "all of the above" or an option that only makes
+  sense next to another. At least two options must be wrong, each a specific
+  misconception, and choice_explanations gives one entry per option saying why
+  it is right or wrong. Use it for things that genuinely have several right
+  answers (the properties of a protocol, the valid commands, the true
+  statements about a design), not to split one fact across options.
 
 WORK ITEMS -- the questions a professional certification is actually made of.
 

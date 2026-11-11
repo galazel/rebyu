@@ -1,149 +1,50 @@
 package com.capstone.rebyu.certification.service;
 
-import com.capstone.rebyu.common.BusinessRuleException;
+import com.capstone.rebyu.common.CascadeDeleteService;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.InOrder;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
+/**
+ * Clearing a curriculum node is a full cascade from the node's own table (2026-11-11: learner
+ * attempts and results go too). What the cascade reaches -- and in which order -- is checked
+ * against the real schema by {@code CascadeDeleteLiveCheckTest}; here, only the contract.
+ */
 class CurriculumSubtreeServiceTest {
 
-    @Mock private EntityManager entityManager;
-    @Mock private Query query;
-
+    private final EntityManager entityManager = mock(EntityManager.class);
+    private final CascadeDeleteService cascade = mock(CascadeDeleteService.class);
     private CurriculumSubtreeService service;
-
-    private final List<String> statements = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
-        statements.clear();
-
-        when(entityManager.createNativeQuery(anyString())).thenAnswer(invocation -> {
-            statements.add(invocation.getArgument(0));
-            return query;
-        });
-        when(query.setParameter(anyString(), any())).thenReturn(query);
-        when(query.executeUpdate()).thenReturn(0);
-        when(query.getSingleResult()).thenReturn(0L);
-
-        service = new CurriculumSubtreeService(entityManager);
+        when(cascade.deleteDependents(anyString(), anyString(), any())).thenReturn(Map.of());
+        service = new CurriculumSubtreeService(entityManager, cascade);
     }
 
-    private String firstMatching(String fragment) {
-        return statements.stream()
-                .filter(sql -> sql.contains(fragment))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("No statement contained: " + fragment));
-    }
+    @ParameterizedTest
+    @CsvSource({
+            "MAJOR,  major_categories,  major_category_id",
+            "MIDDLE, middle_categories, middle_category_id",
+            "LESSON, lessons,           lesson_id",
+    })
+    void flushesThenCascadesFromTheNodesTableThenClears(String node, String table, String key) {
+        service.clearFor(CurriculumSubtreeService.Node.valueOf(node), 7L);
 
-    private int indexOf(String fragment) {
-        for (int i = 0; i < statements.size(); i++) {
-            if (statements.get(i).contains(fragment)) {
-                return i;
-            }
-        }
-        throw new AssertionError("No statement contained: " + fragment);
-    }
-
-    @Test
-    void aModuleTakesItsOwnAssessmentAndItsLessonsQuizzes() {
-        service.clearFor(CurriculumSubtreeService.Node.MIDDLE, 7L);
-
-        String exams = firstMatching("DELETE FROM exams");
-
-        assertTrue(exams.contains("middle_category_id = :nodeId"),
-                "the module's own category assessment must be in scope: " + exams);
-        assertTrue(exams.contains("lesson_id IN (SELECT lesson_id FROM lessons WHERE middle_category_id = :nodeId)"),
-                "every lesson quiz beneath it must be in scope too: " + exams);
-    }
-
-    @Test
-    void aMajorReachesThroughItsModulesToTheLessons() {
-        service.clearFor(CurriculumSubtreeService.Node.MAJOR, 3L);
-
-        String exams = firstMatching("DELETE FROM exams");
-
-        assertTrue(exams.contains("major_category_id = :nodeId"), exams);
-        assertTrue(exams.contains("middle_categories WHERE major_category_id = :nodeId"), exams);
-    }
-
-    @Test
-    void aLessonScopesToItself() {
-        service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L);
-
-        assertEquals(
-                "DELETE FROM exams WHERE exam_id IN (SELECT exam_id FROM exams WHERE lesson_id = :nodeId)",
-                firstMatching("DELETE FROM exams"));
-    }
-
-    @Test
-    void deletesChildrenBeforeTheRowsTheyPointAt() {
-        service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L);
-
-        assertTrue(indexOf("DELETE FROM exam_questions") < indexOf("DELETE FROM exams"));
-        assertTrue(indexOf("DELETE FROM programming_test_cases")
-                < indexOf("DELETE FROM programming_question_configs"));
-        assertTrue(indexOf("DELETE FROM choices") < indexOf("DELETE FROM questions WHERE question_id"));
-        assertTrue(indexOf("DELETE FROM questions WHERE parent_question_id")
-                < indexOf("DELETE FROM questions WHERE question_id"),
-                "a follow-up question has to go before the question it hangs off");
-        assertTrue(indexOf("DELETE FROM exams") < indexOf("DELETE FROM choices"));
-    }
-
-    @Test
-    void refusesRatherThanErasingGradedRecords() {
-        when(query.getSingleResult()).thenReturn(3L);
-
-        BusinessRuleException.CurriculumNodeInUseException error = assertThrows(
-                BusinessRuleException.CurriculumNodeInUseException.class,
-                () -> service.clearFor(CurriculumSubtreeService.Node.MIDDLE, 7L));
-
-        assertTrue(error.getMessage().contains("module"), error.getMessage());
-        assertTrue(error.getMessage().contains("3 assessment attempts"), error.getMessage());
-    }
-
-    @Test
-    void refusingDeletesNothingAtAll() {
-        when(query.getSingleResult()).thenReturn(1L);
-
-        assertThrows(
-                BusinessRuleException.CurriculumNodeInUseException.class,
-                () -> service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L));
-
-        assertTrue(statements.stream().noneMatch(sql -> sql.startsWith("DELETE")),
-                "nothing may be deleted once the node is known to be in use");
-        verify(entityManager, never()).flush();
-    }
-
-    @Test
-    void singularWhenThereIsOnlyOneRecordInTheWay() {
-        when(query.getSingleResult()).thenReturn(1L);
-
-        BusinessRuleException.CurriculumNodeInUseException error = assertThrows(
-                BusinessRuleException.CurriculumNodeInUseException.class,
-                () -> service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L));
-
-        assertTrue(error.getMessage().contains("1 assessment attempt from learners"),
-                error.getMessage());
+        InOrder order = inOrder(entityManager, cascade);
+        order.verify(entityManager).flush();
+        order.verify(cascade).deleteDependents(table, key, List.of(7L));
+        order.verify(entityManager).clear();
     }
 }

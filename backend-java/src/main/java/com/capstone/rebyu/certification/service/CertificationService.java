@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CertificationService {
 
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final CertificationRepository certificationRepository;
     private final com.capstone.rebyu.reference.CertificationProgramFiler programFiler;
     private final com.capstone.rebyu.certification.repository.LessonRepository lessonRepository;
@@ -708,6 +709,10 @@ public class CertificationService {
                 DELETE FROM generation_requests
                 WHERE certification_id = :certificationId
                 """, certificationId);
+    
+        // Sweep: anything still referencing the certification -- by foreign key, or by an id
+        // column with none (Champions Cup editions/queue, review cycles, exam sections, archives).
+        cascade.deleteDependents("certifications", "certification_id", java.util.List.of(certificationId));
     }
 
     private void executeDelete(String sql, Long certificationId) {

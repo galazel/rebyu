@@ -66,6 +66,8 @@ public class InstitutionLearnerInsightsService {
     private final AssessmentAttemptRepository assessmentAttemptRepository;
     private final ExamRepository examRepository;
     private final AssessmentAttemptService assessmentAttemptService;
+    private final com.capstone.rebyu.assessment.repository.AssessmentIntegrityEventRepository integrityEventRepository;
+    private final com.capstone.rebyu.aigateway.repository.TutorSafetyAlertRepository safetyAlertRepository;
     private final InstitutionMembershipService membershipService;
 
     /** One attempt at a department assessment, as the department head sees it in a list. */
@@ -259,17 +261,161 @@ public class InstitutionLearnerInsightsService {
         AssessmentAttempt attempt = assessmentAttemptRepository.findById(attemptId)
                 .filter(a -> learnerId.equals(a.getLearnerId()))
                 .orElseThrow(() -> new EntityNotFoundException("Attempt not found: " + attemptId));
-        Exam exam = attempt.getExam();
+        if (!visibleToDepartment(group, departmentId, attempt.getExam())) {
+            throw new EntityNotFoundException("Attempt not found: " + attemptId);
+        }
+        return assessmentAttemptService.getResult(attemptId, learnerId, true);
+    }
+
+    /** The department's own papers and the certifications it allocates; nothing else the learner sat. */
+    private boolean visibleToDepartment(Department group, Long departmentId, Exam exam) {
+        if (exam == null) return false;
         boolean ownPaper = exam.getOwnerDepartment() != null
                 && departmentId.equals(exam.getOwnerDepartment().getDepartmentId());
         boolean groupCertification = exam.getOwnerDepartment() == null
                 && exam.getLearner() == null
                 && exam.getCertification() != null
                 && group.allocationFor(exam.getCertification().getCertificationId()).isPresent();
-        if (!ownPaper && !groupCertification) {
-            throw new EntityNotFoundException("Attempt not found: " + attemptId);
+        return ownPaper || groupCertification;
+    }
+
+    public record SafetyAlertRow(
+            Long alertId, String kind, String surface, String message, String status,
+            java.time.Instant createdAt, java.time.Instant reviewedAt, String reviewNote) {
+        static SafetyAlertRow of(com.capstone.rebyu.aigateway.entity.TutorSafetyAlert alert) {
+            return new SafetyAlertRow(alert.getSafetyAlertId(), alert.getKind().name(), alert.getSurface(),
+                    alert.getMessageExcerpt(), alert.getStatus().name(), alert.getCreatedAt(),
+                    alert.getReviewedAt(), alert.getReviewNote());
         }
-        return assessmentAttemptService.getResult(attemptId, learnerId, true);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SafetyAlertRow> learnerSafetyAlerts(
+            Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
+        return safetyAlertRepository.findByLearnerIdOrderByCreatedAtDesc(learnerId).stream()
+                .map(SafetyAlertRow::of).toList();
+    }
+
+    @Transactional
+    public SafetyAlertRow reviewSafetyAlert(
+            Long departmentId, Long learnerId, Long alertId, String note,
+            Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
+        var alert = safetyAlertRepository.findById(alertId)
+                .filter(a -> learnerId.equals(a.getLearnerId()))
+                .orElseThrow(() -> new EntityNotFoundException("Safety alert not found: " + alertId));
+        alert.setStatus(com.capstone.rebyu.aigateway.entity.TutorSafetyAlert.Status.REVIEWED);
+        alert.setReviewedAt(java.time.Instant.now());
+        alert.setReviewedByUserId(callerUserId);
+        if (note != null && !note.isBlank()) {
+            alert.setReviewNote(note.length() > 500 ? note.substring(0, 500) : note.trim());
+        }
+        return SafetyAlertRow.of(safetyAlertRepository.save(alert));
+    }
+
+    public record IntegrityEventRow(
+            String type, String detail, Integer awaySeconds, Integer violationNumber, LocalDateTime occurredAt) {
+    }
+
+    public record IntegrityAttemptRow(
+            Long attemptId,
+            Long examId,
+            String examTitle,
+            String examType,
+            Integer attemptNumber,
+            String status,
+            LocalDateTime startedAt,
+            LocalDateTime submittedAt,
+            BigDecimal percentage,
+            boolean forfeited,
+            int exits,
+            int copyPasteTries,
+            int otherBlocked,
+            long awaySeconds,
+            List<IntegrityEventRow> events) {
+    }
+
+    /**
+     * risk: HIGH (a forfeit, or 5+ copy/paste tries), MEDIUM (any exit or blocked action),
+     * NONE. A signal for the head to look closer, not a verdict.
+     */
+    public record LearnerIntegrity(
+            String risk,
+            int flaggedAttempts,
+            int totalExits,
+            int forfeits,
+            int copyPasteTries,
+            int otherBlocked,
+            long totalAwaySeconds,
+            List<IntegrityAttemptRow> attempts) {
+    }
+
+    private static final java.util.Set<String> COPY_PASTE = java.util.Set.of("COPY", "CUT", "PASTE", "DROP");
+    private static final java.util.Set<String> OTHER_BLOCKED = java.util.Set.of("CONTEXT_MENU", "SHORTCUT", "PRINT_SCREEN");
+    private static final int EVENTS_PER_ATTEMPT = 100;
+
+    @Transactional(readOnly = true)
+    public LearnerIntegrity learnerIntegrity(
+            Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
+
+        Map<Long, List<com.capstone.rebyu.assessment.entity.AssessmentIntegrityEvent>> eventsByAttempt =
+                integrityEventRepository.findByLearnerIdOrderByOccurredAtAsc(learnerId).stream()
+                        .collect(Collectors.groupingBy(e -> e.getAttempt().getAssessmentAttemptId(),
+                                java.util.LinkedHashMap::new, Collectors.toList()));
+
+        List<IntegrityAttemptRow> rows = new java.util.ArrayList<>();
+        for (AssessmentAttempt attempt : assessmentAttemptRepository.findAllById(eventsByAttempt.keySet())) {
+            if (!learnerId.equals(attempt.getLearnerId())) continue;
+            Exam exam = attempt.getExam();
+            if (!visibleToDepartment(group, departmentId, exam)) continue;
+            List<com.capstone.rebyu.assessment.entity.AssessmentIntegrityEvent> events =
+                    eventsByAttempt.getOrDefault(attempt.getAssessmentAttemptId(), List.of());
+            int copyPaste = 0;
+            int other = 0;
+            long away = 0;
+            for (var event : events) {
+                String type = event.getEventType().name();
+                if (COPY_PASTE.contains(type)) copyPaste++;
+                else if (OTHER_BLOCKED.contains(type)) other++;
+                if (event.getAwaySeconds() != null) away += event.getAwaySeconds();
+            }
+            rows.add(new IntegrityAttemptRow(
+                    attempt.getAssessmentAttemptId(),
+                    exam.getExamId(),
+                    exam.getTitle(),
+                    exam.getExamType() == null ? null : exam.getExamType().getExamTypeText(),
+                    attempt.getAttemptNumber(),
+                    attempt.getStatus().name(),
+                    attempt.getStartedAt(),
+                    attempt.getSubmittedAt(),
+                    attempt.getPercentage(),
+                    Boolean.TRUE.equals(attempt.getForfeited()),
+                    attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                    copyPaste,
+                    other,
+                    away,
+                    events.stream()
+                            .skip(Math.max(0, events.size() - EVENTS_PER_ATTEMPT))
+                            .map(e -> new IntegrityEventRow(e.getEventType().name(), e.getDetail(),
+                                    e.getAwaySeconds(), e.getViolationNumber(), e.getOccurredAt()))
+                            .toList()));
+        }
+        rows.sort(Comparator.comparing(IntegrityAttemptRow::startedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+
+        int exits = rows.stream().mapToInt(IntegrityAttemptRow::exits).sum();
+        int forfeits = (int) rows.stream().filter(IntegrityAttemptRow::forfeited).count();
+        int copyPaste = rows.stream().mapToInt(IntegrityAttemptRow::copyPasteTries).sum();
+        int other = rows.stream().mapToInt(IntegrityAttemptRow::otherBlocked).sum();
+        long away = rows.stream().mapToLong(IntegrityAttemptRow::awaySeconds).sum();
+        String risk = forfeits > 0 || copyPaste >= 5 ? "HIGH"
+                : exits + copyPaste + other > 0 ? "MEDIUM" : "NONE";
+        return new LearnerIntegrity(risk, rows.size(), exits, forfeits, copyPaste, other, away, rows);
     }
 
     private Exam requireDepartmentExam(Long departmentId, Long examId) {

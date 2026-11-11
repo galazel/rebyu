@@ -19,6 +19,7 @@ import java.util.List;
 @Transactional
 public class LearnerOrderService {
     private final LearnerOrderRepository learnerOrderRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final LearnerOrderMapper learnerOrderMapper;
 
     public List<LearnerOrderDto> getAll() {
@@ -61,7 +62,8 @@ public class LearnerOrderService {
 
     public void delete(Long id) {
         log.info("Deleting learner order id: {}", id);
-        learnerOrderRepository.delete(findEntity(id));
+        findEntity(id);
+        cascade.delete("learner_orders", "order_id", id);
         log.info("LearnerOrder id: {} deleted", id);
     }
 

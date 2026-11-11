@@ -18,6 +18,7 @@ const SetNewPasswordPage = lazyRoute(() => import("@/pages/auth/set-new-password
 const Certifications = lazyRoute(() => import("./pages/admin/certifications-page.jsx"))
 const Challenges = lazyRoute(() => import("./pages/admin/challenges-page.jsx"))
 const Learners = lazyRoute(() => import("./pages/admin/learners-page.jsx"))
+const AdminSafetyAlerts = lazyRoute(() => import("./pages/admin/safety-alerts-page.jsx"))
 const Institutions = lazyRoute(() => import("./pages/admin/institutions-page.jsx"))
 const AdminInstitutionDetail = lazyRoute(() => import("./pages/admin/admin-institution-detail-page.jsx"))
 const ViewCertificationAdmin = lazyRoute(() => import("./pages/admin/view-certification-admin-page.jsx"))
@@ -94,10 +95,10 @@ const RewardsManagement = lazyRoute(() => import("./pages/admin/rewards-manageme
 const SeedChallenges = lazyRoute(() => import("./pages/admin/seed-challenges-page.jsx"))
 const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx"))
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
-const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
 const TermsPage = lazyRoute(() => import("./pages/public/legal/terms-page.jsx"))
 const PrivacyPage = lazyRoute(() => import("./pages/public/legal/privacy-page.jsx"))
 const GuidelinesPage = lazyRoute(() => import("./pages/public/legal/guidelines-page.jsx"))
+const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
 
 function InstitutionHome() {
     const { user } = useAuth()
@@ -284,6 +285,7 @@ export function App() {
                     <Route path="rewards" element={<RewardsManagement />} />
                     <Route path="seed-challenges" element={<SeedChallenges />} />
                     <Route path="learners" element={<Learners />} />
+                    <Route path="safety-alerts" element={<AdminSafetyAlerts />} />
                     <Route
                         path="certification/:id"
                         element={<ViewCertificationAdmin />}

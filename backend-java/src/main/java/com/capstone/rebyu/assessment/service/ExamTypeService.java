@@ -18,6 +18,7 @@ import java.util.List;
 @Transactional
 public class ExamTypeService {
     private final ExamTypeRepository examTypeRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final ExamTypeMapper examTypeMapper;
 
     public List<ExamTypeDto> getAll() {
@@ -51,7 +52,14 @@ public class ExamTypeService {
 
     public void delete(Long id) {
         log.info("Deleting exam type id: {}", id);
-        examTypeRepository.delete(findEntity(id));
+        var type = findEntity(id);
+        long used = cascade.countReferences("exam_types", id);
+        if (used > 0) {
+            throw new com.capstone.rebyu.common.BusinessRuleException.InUseException(
+                    "This exam type is used by " + used + " exam" + (used == 1 ? "" : "s")
+                    + ". Move or delete those exams first.");
+        }
+        examTypeRepository.delete(type);
         log.info("ExamType id: {} deleted", id);
     }
 

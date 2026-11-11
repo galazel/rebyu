@@ -67,6 +67,18 @@ public class AssessmentAttempt {
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
+    /** Set while the learner is away from the attempt tab; the clock is stopped until resume. */
+    @Column(name = "paused_at")
+    private LocalDateTime pausedAt;
+
+    /** How many times the learner left the attempt tab (tab switch, window blur). */
+    @Column(name = "focus_violations")
+    private Integer focusViolations;
+
+    /** Ended by the server with a zero score for leaving the attempt too many times. */
+    @Column(name = "forfeited")
+    private Boolean forfeited;
+
     @Column(precision = 5, scale = 2)
     private BigDecimal percentage;
 

@@ -16,6 +16,7 @@ import java.util.List;
 @Transactional
 public class PartnershipRequestService {
     private final PartnershipRequestRepository partnershipRequestRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final PartnershipRequestMapper partnershipRequestMapper;
 
     public List<PartnershipRequestDto> getAll() {
@@ -41,7 +42,8 @@ public class PartnershipRequestService {
     }
 
     public void delete(Long id) {
-        partnershipRequestRepository.delete(findEntity(id));
+        findEntity(id);
+        cascade.delete("partnership_requests", "request_id", id);
     }
 
     private PartnershipRequest findEntity(Long id) {

@@ -39,6 +39,7 @@ public class TutorConductService {
     private final TutorConductRepository conduct;
     private final AiServiceClient aiServiceClient;
     private final TransactionTemplate transactions;
+    private final TutorSafetyAlertService safetyAlerts;
 
     private static Long subject(CurrentUserDto user) {
         return user != null && user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role())
@@ -63,13 +64,23 @@ public class TutorConductService {
     public Map<String, Object> screen(CurrentUserDto user, String message, String surface) {
         Long learnerId = subject(user);
         if (learnerId == null || message == null || message.isBlank()) return null;
-        String reason;
+        AiServiceClient.TutorScreen screened;
         try {
-            reason = aiServiceClient.screenTutorMessage(message);
+            screened = aiServiceClient.screenTutorMessage(message);
         } catch (RuntimeException unavailable) {
             log.warn("Tutor conduct screen unavailable, turn allowed: {}", unavailable.toString());
             return null;
         }
+        // A safety alert is raised first and on its own: a learner at risk is never struck, and
+        // a message that also locks the learner out must still reach staff.
+        if (screened.alert() != null) {
+            try {
+                safetyAlerts.raise(learnerId, TutorSafetyAlertService.kindOf(screened.alert()), surface, message);
+            } catch (RuntimeException failed) {
+                log.error("Could not record tutor safety alert {} for learner {}", screened.alert(), learnerId, failed);
+            }
+        }
+        String reason = screened.strike();
         if (reason == null) return null;
 
         TutorConduct record = transactions.execute(status -> strike(learnerId, reason));

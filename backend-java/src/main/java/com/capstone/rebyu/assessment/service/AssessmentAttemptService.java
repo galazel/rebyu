@@ -66,6 +66,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -85,6 +86,8 @@ public class AssessmentAttemptService {
     private static final String TYPE_QUIZ = "QUIZ";
     private static final String TYPE_MOCK = "MOCK_EXAM";
     private static final String TYPE_CHALLENGE = "CHALLENGE";
+    /** Leaving a certification assessment this many times ends it with a zero score. */
+    public static final int MAX_FOCUS_VIOLATIONS = 3;
     private static final Set<String> RETAKE_GATED_TYPES = Set.of("QUIZ", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM");
     private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
@@ -97,6 +100,7 @@ public class AssessmentAttemptService {
     private final ProgrammingQuestionConfigRepository programmingQuestionConfigRepository;
     private final DiagramQuestionConfigRepository diagramQuestionConfigRepository;
     private final AssessmentAttemptRepository attemptRepository;
+    private final AssessmentIntegrityEventRepository integrityEventRepository;
     private final AssessmentAttemptQuestionRepository attemptQuestionRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final LearnerCertificationRepository learnerCertificationRepository;
@@ -214,6 +218,7 @@ public class AssessmentAttemptService {
                         examId, learnerId, AssessmentAttempt.Status.IN_PROGRESS);
         if (inProgress.isPresent()) {
             AssessmentAttempt attempt = inProgress.get();
+            settlePause(attempt);
             if (attempt.getExpiresAt() == null
                     || LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
                 return buildStartResponse(attempt, true);
@@ -486,8 +491,9 @@ public class AssessmentAttemptService {
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
-        if (attempt.getExpiresAt() != null
-                && LocalDateTime.now().isAfter(attempt.getExpiresAt().plus(SUBMIT_GRACE))) {
+        LocalDateTime effectiveExpiry = effectiveExpiry(attempt);
+        if (effectiveExpiry != null
+                && LocalDateTime.now().isAfter(effectiveExpiry.plus(SUBMIT_GRACE))) {
             throw new BusinessRuleException.AssessmentLockedException(
                     "The time limit for this assessment has passed.");
         }
@@ -500,12 +506,14 @@ public class AssessmentAttemptService {
 
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
 
-        if (attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED) {
+        if (attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED
+                || Boolean.TRUE.equals(attempt.getForfeited())) {
             return getResult(attemptId, request.learnerId());
         }
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
+        settlePause(attempt);
         if (attempt.getExpiresAt() != null
                 && LocalDateTime.now().isAfter(attempt.getExpiresAt().plus(SUBMIT_GRACE))) {
             attempt.setStatus(AssessmentAttempt.Status.EXPIRED);
@@ -715,6 +723,8 @@ public class AssessmentAttemptService {
 
     void finalizeSubmission(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                             Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        // A void attempt is evidence of nothing: no rewards, no record, no BKT.
+        if (Boolean.TRUE.equals(attempt.getForfeited())) return;
         awardAssessmentXp(attempt);
         achievementAwardService.evaluate(attempt.getLearnerId());
         recordLegacyExamResult(attempt);
@@ -769,7 +779,9 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "This attempt has not been submitted yet.");
         }
-        boolean releaseAnswers = forReviewer || attempt.getExam().effectiveReleaseAnswers();
+        // A forfeited attempt is void: no verdicts and no answer key, for the learner or a reviewer.
+        boolean releaseAnswers = !Boolean.TRUE.equals(attempt.getForfeited())
+                && (forReviewer || attempt.getExam().effectiveReleaseAnswers());
         PhaseTimer.mark(timer, "attempt + exam");
 
         List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
@@ -804,6 +816,10 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "sub-questions");
 
         List<AttemptAnswerReviewDto> reviews = new ArrayList<>();
+        // Forfeited: the answers are invalid. They stay visible but carry no verdict and no
+        // credit (adaptive quizzes check answers live, so the saved verdicts are overridden),
+        // and none counts as correct or incorrect.
+        boolean forfeited = Boolean.TRUE.equals(attempt.getForfeited());
         int correct = 0;
         int incorrect = 0;
         int pending = 0;
@@ -821,7 +837,7 @@ public class AssessmentAttemptService {
             Long lessonId = attemptQuestion.getLessonId();
             if (lessonId != null) {
                 lessonItems.merge(lessonId, 1, Integer::sum);
-                if (countsAsCorrect(answer)) {
+                if (!forfeited && countsAsCorrect(answer)) {
                     lessonCorrect.merge(lessonId, 1, Integer::sum);
                 }
                 if (answer != null && answer.isPendingManualEvaluation()) {
@@ -844,6 +860,23 @@ public class AssessmentAttemptService {
                             .filter(c -> c.getChoiceId().equals(answer.getSelectedChoiceId()))
                             .map(Choice::getChoiceText).findFirst().orElse(null);
                 }
+            } else if (source != null && isMultipleAnswer(source.getQuestionType())) {
+                if (releaseAnswers) {
+                    List<Choice> right = source.getChoices().stream().filter(Choice::isCorrect).toList();
+                    correctChoiceText = right.isEmpty() ? null
+                            : right.stream().map(Choice::getChoiceText).collect(Collectors.joining("; "));
+                    String why = right.stream().map(Choice::getExplanation)
+                            .filter(text -> text != null && !text.isBlank())
+                            .collect(Collectors.joining(" "));
+                    explanation = why.isBlank() ? null : why;
+                }
+                if (answer != null) {
+                    Set<Long> picked = parseSelectedChoiceIds(answer.getLearnerAnswer());
+                    String texts = source.getChoices().stream()
+                            .filter(c -> picked.contains(c.getChoiceId()))
+                            .map(Choice::getChoiceText).collect(Collectors.joining("; "));
+                    selectedChoiceText = texts.isBlank() ? null : texts;
+                }
             } else if (source != null && "SHORT_ANSWER".equals(source.getQuestionType()) && releaseAnswers) {
                 correctChoiceText = Optional.ofNullable(source.getTextQuestionConfig())
                         .map(TextQuestionConfig::getCorrectAnswer)
@@ -853,6 +886,8 @@ public class AssessmentAttemptService {
 
             if (answer == null || !hasSubmittedContent(answer)) {
                 unanswered++;
+            } else if (forfeited) {
+                // invalid: counted in neither correct nor incorrect
             } else if (answer.isPendingManualEvaluation()) {
                 pending++;
             } else if (countsAsCorrect(answer)) {
@@ -866,9 +901,9 @@ public class AssessmentAttemptService {
                     attemptQuestion.getDisplayOrder(),
                     attemptQuestion.getQuestionType(),
                     attemptQuestion.getQuestionTextSnapshot(),
-                    answer == null ? null : answer.getIsCorrect(),
-                    answer != null && answer.isPendingManualEvaluation(),
-                    answer == null ? null : answer.getCredit(),
+                    answer == null || forfeited ? null : answer.getIsCorrect(),
+                    !forfeited && answer != null && answer.isPendingManualEvaluation(),
+                    answer == null || forfeited ? null : answer.getCredit(),
                     attemptQuestion.getPoints(),
                     answer == null ? null : answer.getLearnerAnswer(),
                     answer == null ? null : answer.getSelectedChoiceId(),
@@ -886,7 +921,7 @@ public class AssessmentAttemptService {
                     programErrorFor(answer),
                     source == null ? null : source.getDifficultyLevel(),
                     source == null ? null : source.getImageKey(),
-                    source == null || !isMultipleChoice(source.getQuestionType())
+                    source == null || !hasChoices(source.getQuestionType())
                             ? List.of()
                             : source.getChoices().stream()
                                     .filter(c -> c.getImageKey() != null && !c.getImageKey().isBlank())
@@ -939,7 +974,14 @@ public class AssessmentAttemptService {
                 reviews,
                 lessonBreakdown,
                 exam.getCertification().getCertificationId(),
-                attempt.isGradingPending()
+                attempt.isGradingPending(),
+                Boolean.TRUE.equals(attempt.getForfeited()),
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                integrityEventRepository
+                        .findByAttempt_AssessmentAttemptIdOrderByOccurredAtAsc(attempt.getAssessmentAttemptId())
+                        .stream()
+                        .collect(Collectors.groupingBy(e -> e.getEventType().name(),
+                                LinkedHashMap::new, Collectors.counting()))
         );
     }
 
@@ -962,6 +1004,8 @@ public class AssessmentAttemptService {
             summary.put("answeredCount", attempt.getAnsweredCount());
             summary.put("itemCount", attempt.getItemCount());
             summary.put("proficiency", proficiencyOf(attempt));
+            summary.put("forfeited", Boolean.TRUE.equals(attempt.getForfeited()));
+            summary.put("focusViolations", attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations());
             summary.put("totalPoints", attempt.getTotalPoints());
             summary.put("earnedPoints", attempt.getEarnedPoints());
             summaries.add(summary);
@@ -1066,7 +1110,15 @@ public class AssessmentAttemptService {
     }
 
     static ProficiencyDto proficiencyOf(AssessmentAttempt attempt) {
-        if (attempt == null || !attempt.isAdaptive() || attempt.getThetaCurrent() == null) {
+        if (attempt == null || !attempt.isAdaptive()) {
+            return null;
+        }
+        // A forfeited attempt is worth nothing, whatever the engine estimated while it ran.
+        if (Boolean.TRUE.equals(attempt.getForfeited())) {
+            return new ProficiencyDto(BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP),
+                    IrtModel.proficiencyLabel(0), null, null);
+        }
+        if (attempt.getThetaCurrent() == null) {
             return null;
         }
         double theta = attempt.getThetaCurrent();
@@ -1076,6 +1128,188 @@ public class AssessmentAttemptService {
                 IrtModel.proficiencyLabel(rating),
                 BigDecimal.valueOf(theta).setScale(2, RoundingMode.HALF_UP),
                 attempt.getThetaSe() == null ? null : BigDecimal.valueOf(attempt.getThetaSe()).setScale(2, RoundingMode.HALF_UP));
+    }
+
+    @Transactional
+    public AttemptClockDto pauseAttempt(Long attemptId, Long learnerId, String reason, Long attemptQuestionId) {
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        if (Boolean.TRUE.equals(attempt.getForfeited())) {
+            return clockOf(attempt);
+        }
+        requireEditable(attempt);
+        // Challenges are played, not sat: leaving one is not policed.
+        if (isChallenge(attempt)) {
+            return clockOf(attempt);
+        }
+        // A second pause while already paused (blur then visibilitychange) is one absence.
+        if (attempt.getPausedAt() != null) {
+            return clockOf(attempt);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int violations = (attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations()) + 1;
+        logIntegrity(attempt,
+                "WINDOW_BLUR".equals(reason)
+                        ? AssessmentIntegrityEvent.Type.WINDOW_BLUR : AssessmentIntegrityEvent.Type.TAB_HIDDEN,
+                attemptQuestionId == null ? null : "question " + attemptQuestionId, null, violations);
+        if (violations >= MAX_FOCUS_VIOLATIONS) {
+            // The forfeit stays a normal, versioned save: it must not silently override a submit.
+            attempt.setPausedAt(now);
+            attempt.setFocusViolations(violations);
+            forfeit(attempt);
+            attemptRepository.save(attempt);
+            return clockOf(attempt);
+        }
+        // Not through the entity (which would bump @Version and break a submit in flight):
+        // the loaded attempt is left untouched and the clock is answered from the new values.
+        attemptRepository.markPaused(attemptId, now, violations);
+        LocalDateTime expiry = attempt.getExpiresAt();
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                true, violations, MAX_FOCUS_VIOLATIONS, false);
+    }
+
+    @Transactional
+    public AttemptClockDto resumeAttempt(Long attemptId, Long learnerId) {
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
+            throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
+        }
+        if (attempt.getPausedAt() == null) {
+            return clockOf(attempt);
+        }
+        // Same as pause: own columns only, no @Version bump.
+        LocalDateTime expiry = effectiveExpiry(attempt);
+        long away = Math.max(0, Duration.between(attempt.getPausedAt(), LocalDateTime.now()).getSeconds());
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.RESUMED, null,
+                (int) Math.min(Integer.MAX_VALUE, away), attempt.getFocusViolations());
+        attemptRepository.clearPause(attemptId, expiry);
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                false, attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS, false);
+    }
+
+    /** What the browser may report; exits, resumes and forfeits are recorded by the server only. */
+    private static final java.util.Set<AssessmentIntegrityEvent.Type> CLIENT_REPORTED_EVENTS =
+            java.util.EnumSet.of(
+                    AssessmentIntegrityEvent.Type.COPY,
+                    AssessmentIntegrityEvent.Type.CUT,
+                    AssessmentIntegrityEvent.Type.PASTE,
+                    AssessmentIntegrityEvent.Type.DROP,
+                    AssessmentIntegrityEvent.Type.CONTEXT_MENU,
+                    AssessmentIntegrityEvent.Type.SHORTCUT,
+                    AssessmentIntegrityEvent.Type.PRINT_SCREEN);
+    private static final int MAX_EVENTS_PER_REPORT = 50;
+
+    @Transactional
+    public void reportIntegrityEvents(Long attemptId, Long learnerId, List<IntegrityEventDto> events) {
+        if (events == null || events.isEmpty()) return;
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        // A late batch after submission is still evidence; only challenges are not policed.
+        if (isChallenge(attempt)) return;
+        events.stream().limit(MAX_EVENTS_PER_REPORT).forEach(event -> {
+            AssessmentIntegrityEvent.Type type;
+            try {
+                type = AssessmentIntegrityEvent.Type.valueOf(String.valueOf(event.type()));
+            } catch (IllegalArgumentException unknown) {
+                return;
+            }
+            if (!CLIENT_REPORTED_EVENTS.contains(type)) return;
+            String detail = event.detail();
+            if (event.attemptQuestionId() != null) {
+                detail = (detail == null || detail.isBlank() ? "" : detail + " - ")
+                        + "question " + event.attemptQuestionId();
+            }
+            logIntegrity(attempt, type, detail, null, null);
+        });
+    }
+
+    private void logIntegrity(AssessmentAttempt attempt, AssessmentIntegrityEvent.Type type,
+                              String detail, Integer awaySeconds, Integer violationNumber) {
+        if (detail != null && detail.length() > 120) detail = detail.substring(0, 120);
+        integrityEventRepository.save(AssessmentIntegrityEvent.builder()
+                .attempt(attempt)
+                .learnerId(attempt.getLearnerId())
+                .examId(attempt.getExam() == null ? null : attempt.getExam().getExamId())
+                .eventType(type)
+                .detail(detail)
+                .awaySeconds(awaySeconds)
+                .violationNumber(violationNumber)
+                .occurredAt(LocalDateTime.now())
+                .build());
+    }
+
+    private boolean isChallenge(AssessmentAttempt attempt) {
+        return attempt.getExam() != null && attempt.getExam().getExamType() != null
+                && TYPE_CHALLENGE.equals(attempt.getExam().getExamType().getExamTypeText());
+    }
+
+    /**
+     * Voids the attempt: score 0, every answer invalid. It is CANCELLED, not SUBMITTED, so
+     * nothing that reads finished attempts sees it: no XP, achievements, certificates, BKT,
+     * learner skill estimate, readiness, averages or legacy exam result. The answers and the
+     * integrity log are kept as the record of what happened.
+     */
+    private void forfeit(AssessmentAttempt attempt) {
+        List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
+                .findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(attempt.getAssessmentAttemptId());
+        boolean weighted = questions.stream().anyMatch(q -> q.getPoints() != null);
+        BigDecimal totalPoints = questions.stream()
+                .map(q -> q.getPoints() == null ? BigDecimal.ONE : q.getPoints())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDateTime now = LocalDateTime.now();
+        attempt.setForfeited(true);
+        attempt.setPausedAt(null);
+        attempt.setStatus(AssessmentAttempt.Status.CANCELLED);
+        attempt.setSubmittedAt(now);
+        attempt.setDurationSeconds((int) Duration.between(attempt.getStartedAt(), now).getSeconds());
+        attempt.setGradingPending(false);
+        attempt.setItemCount(questions.size());
+        attempt.setAnsweredCount(0);
+        attempt.setCorrectCount(0);
+        attempt.setTotalPoints(weighted ? totalPoints.setScale(2, RoundingMode.HALF_UP) : null);
+        attempt.setEarnedPoints(weighted ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP) : null);
+        attempt.setPercentage(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        attempt.setPassed(false);
+        attemptRepository.save(attempt);
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.FORFEITED,
+                "left the assessment " + attempt.getFocusViolations() + " times", null,
+                attempt.getFocusViolations());
+        log.info("Attempt {} forfeited: learner {} left it {} times",
+                attempt.getAssessmentAttemptId(), attempt.getLearnerId(), attempt.getFocusViolations());
+    }
+
+    /**
+     * Ends a pause: the deadline moves forward by the time spent paused. Returns true when the
+     * attempt was paused (and so changed). The caller saves.
+     */
+    boolean settlePause(AssessmentAttempt attempt) {
+        if (attempt.getPausedAt() == null) return false;
+        long away = Math.max(0, Duration.between(attempt.getPausedAt(), LocalDateTime.now()).getSeconds());
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.RESUMED, null,
+                (int) Math.min(Integer.MAX_VALUE, away), attempt.getFocusViolations());
+        attempt.setExpiresAt(effectiveExpiry(attempt));
+        attempt.setPausedAt(null);
+        return true;
+    }
+
+    /** The deadline with any running pause credited: paused time never counts against the learner. */
+    LocalDateTime effectiveExpiry(AssessmentAttempt attempt) {
+        if (attempt.getExpiresAt() == null || attempt.getPausedAt() == null) {
+            return attempt.getExpiresAt();
+        }
+        Duration paused = Duration.between(attempt.getPausedAt(), LocalDateTime.now());
+        return paused.isNegative() ? attempt.getExpiresAt() : attempt.getExpiresAt().plus(paused);
+    }
+
+    private AttemptClockDto clockOf(AssessmentAttempt attempt) {
+        LocalDateTime expiry = effectiveExpiry(attempt);
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                attempt.getPausedAt() != null,
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS,
+                Boolean.TRUE.equals(attempt.getForfeited()));
     }
 
     AssessmentAttempt requireOwnedAttempt(Long attemptId, Long learnerId) {
@@ -1248,7 +1482,7 @@ public class AssessmentAttemptService {
                     .durationSeconds(attempt.getDurationSeconds() == null
                             ? 0 : attempt.getDurationSeconds())
                     .isPassed(Boolean.TRUE.equals(attempt.getPassed()))
-                    .rating(attempt.getThetaCurrent() == null ? null
+                    .rating(attempt.getThetaCurrent() == null || Boolean.TRUE.equals(attempt.getForfeited()) ? null
                             : java.math.BigDecimal.valueOf(
                                     com.capstone.rebyu.adaptive.engine.IrtModel.proficiencyRating(attempt.getThetaCurrent()))
                                     .setScale(2, java.math.RoundingMode.HALF_UP))
@@ -1346,6 +1580,39 @@ public class AssessmentAttemptService {
                 || "MCQ".equalsIgnoreCase(questionType);
     }
 
+    /** Several choices are right and the learner must tick all of them (Cisco "Select 2"). */
+    static boolean isMultipleAnswer(String questionType) {
+        return "MULTIPLE_ANSWER".equalsIgnoreCase(questionType);
+    }
+
+    /** Any type whose learner sees a list of choices. */
+    static boolean hasChoices(String questionType) {
+        return isMultipleChoice(questionType) || isMultipleAnswer(questionType);
+    }
+
+    /**
+     * A MULTIPLE_ANSWER answer is stored in {@code learnerAnswer} as a JSON array of choice ids
+     * ({@code [12,15]}). A comma list is read too, so a hand-built request still marks.
+     */
+    static Set<Long> parseSelectedChoiceIds(String learnerAnswer) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (learnerAnswer == null || learnerAnswer.isBlank()) return ids;
+        for (String part : learnerAnswer.replaceAll("[\\[\\]\"\\s]", "").split(",")) {
+            if (part.isEmpty()) continue;
+            try {
+                ids.add(Long.valueOf(part));
+            } catch (NumberFormatException ignored) {
+                // not a choice id: ignored, so it can only cost the learner the mark
+            }
+        }
+        return ids;
+    }
+
+    static Set<Long> correctChoiceIds(Question source) {
+        return source.getChoices().stream().filter(Choice::isCorrect)
+                .map(Choice::getChoiceId).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     static String normalizeQuestionType(String questionType) {
         return isMultipleChoice(questionType) ? "MULTIPLE_CHOICE" : questionType;
     }
@@ -1369,6 +1636,17 @@ public class AssessmentAttemptService {
                             .anyMatch(choice -> choice.getChoiceId()
                                     .equals(answer.getSelectedChoiceId())
                                     && choice.isCorrect());
+            answer.setIsCorrect(correct);
+            answer.setCredit(correct ? points : BigDecimal.ZERO);
+            answer.setPendingManualEvaluation(false);
+            return;
+        }
+
+        if (isMultipleAnswer(type) && source != null) {
+            // All or nothing, as on the real exams: every right choice ticked and no wrong one.
+            Set<Long> correctIds = correctChoiceIds(source);
+            boolean correct = !correctIds.isEmpty()
+                    && parseSelectedChoiceIds(answer.getLearnerAnswer()).equals(correctIds);
             answer.setIsCorrect(correct);
             answer.setCredit(correct ? points : BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
@@ -1417,16 +1695,30 @@ public class AssessmentAttemptService {
             if ("PROGRAMMING".equals(criticalThinkingType)) {
                 if (hasFreshVerdict(answer)) {
                     applyCodeStrikeWeightsFromStoredRun(attemptQuestion, answer, points);
+                    if (hasWrittenParts(source, subQuestionsByParentId)) {
+                        // Start from the raw run, not the stored credit: a re-score must not
+                        // blend an already-blended mark a second time.
+                        storedRunCredit(answer, points).ifPresent(answer::setCredit);
+                    }
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                     return;
                 }
                 gradeProgrammingOnSubmit(attemptQuestion, source, answer, points, batch);
                 if (hasDefinitiveVerdict(answer)) {
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
+                    return;
+                }
+                // The code could not be run (runner down, language it cannot execute): the AI
+                // marks it against the test cases instead of the answer being closed at zero.
+                if (gradeCodeWithAi(attemptQuestion, source, answer, points)) {
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                     return;
                 }
             }
 
             if ("DIAGRAM".equals(criticalThinkingType)
                     && gradeDiagramAnswer(attemptQuestion, source, answer, points, batch)) {
+                blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                 return;
             }
         }
@@ -1493,10 +1785,17 @@ public class AssessmentAttemptService {
                     continue;
                 }
 
+                AnswerGradingRequestDto written = writtenPartsRequest(
+                        attemptQuestion, source, answer, points, subQuestionsByParentId);
+                if (written != null && parseSubAnswerText(answer.getLearnerAnswer()).values().stream()
+                        .anyMatch(text -> text != null && !text.isBlank())) {
+                    workload.ai(key, () -> gradeWithRetry(written));
+                }
+
                 if ("PROGRAMMING".equals(criticalThinkingType) && !hasFreshVerdict(answer)) {
                     List<TestCaseInputDto> inputs = programmingInputsFor(source);
                     String code = answer.getSubmittedCode();
-                    String language = answer.getProgrammingLanguage();
+                    String language = submittedLanguage(answer, source);
                     if (!inputs.isEmpty() && code != null && !code.isBlank()) {
                         workload.code(key, () -> Optional.ofNullable(
                                 codeExecutionService.execute(
@@ -1609,7 +1908,7 @@ public class AssessmentAttemptService {
         if (result == null) {
             try {
                 result = codeExecutionService.execute(new CodeExecutionRequestDto(
-                        answer.getProgrammingLanguage(), code, inputs));
+                        submittedLanguage(answer, source), code, inputs));
             } catch (RuntimeException ex) {
                 log.warn("Submit-time programming grading failed for attemptQuestion {}: {}",
                         attemptQuestion.getAttemptQuestionId(), ex.toString());
@@ -1686,6 +1985,172 @@ public class AssessmentAttemptService {
         answer.setFeedback(existing == null || existing.isBlank()
                 ? breakdown.summary()
                 : existing + "\n\n" + breakdown.summary());
+    }
+
+    /** Java is what the editor shows (and runs) before the learner picks anything. */
+    static final String DEFAULT_PROGRAMMING_LANGUAGE = "Java";
+
+    /**
+     * The language the submitted code was written in. The editor only saved a language when the
+     * learner changed the dropdown, so code typed in the default editor arrived with none -- the
+     * runner rejected it as UNSUPPORTED_LANGUAGE and a real answer was closed at zero. Fall back
+     * to the question's language, then to the editor default, and keep it on the answer.
+     */
+    private String submittedLanguage(AssessmentAttemptAnswer answer, Question source) {
+        String language = answer.getProgrammingLanguage();
+        if (language != null && !language.isBlank()) {
+            return language;
+        }
+        ProgrammingQuestionConfig config = source == null ? null : source.getProgrammingQuestionConfig();
+        language = config != null && config.getLanguage() != null && !config.getLanguage().isBlank()
+                ? config.getLanguage() : DEFAULT_PROGRAMMING_LANGUAGE;
+        answer.setProgrammingLanguage(language);
+        return language;
+    }
+
+    /**
+     * AI marking for code the runner could not execute. Goes through the same AI grading service
+     * (and so the same OpenRouter-first model fallback chain) as written answers; the test cases
+     * are given as the reference so the model judges behaviour, not style.
+     */
+    private boolean gradeCodeWithAi(
+            AssessmentAttemptQuestion attemptQuestion, Question source,
+            AssessmentAttemptAnswer answer, BigDecimal points) {
+        String code = answer.getSubmittedCode();
+        if (code == null || code.isBlank()) {
+            return false;
+        }
+        StringBuilder reference = new StringBuilder(
+                "The learner's program could not be executed, so judge it by reading it. Award "
+                        + "credit in proportion to the test cases it would pass (same input -> exactly "
+                        + "the expected output). Code that does not attempt the task, or is not valid "
+                        + "code, earns 0. Ignore style; judge behaviour.\n");
+        for (IndexedTestCase it : loadIndexedProgrammingTestCases(source)) {
+            reference.append("\nTest ").append(it.index())
+                    .append("\n  input: ").append(Objects.requireNonNullElse(it.testCase().getInputData(), ""))
+                    .append("\n  expected output: ")
+                    .append(Objects.requireNonNullElse(it.testCase().getExpectedOutput(), ""));
+        }
+        String question = Objects.requireNonNullElse(attemptQuestion.getQuestionTextSnapshot(), "")
+                + "\n\nLanguage: " + submittedLanguage(answer, source);
+        Optional<AnswerGradingResultDto> graded = gradeWithRetry(new AnswerGradingRequestDto(
+                question, points, reference.toString(), List.of(), code, null));
+        if (graded.isEmpty()) {
+            return false;
+        }
+        AnswerGradingResultDto result = graded.get();
+        answer.setCredit(result.earnedPoints());
+        answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
+        answer.setPendingManualEvaluation(false);
+        String note = "Your code could not be run, so it was marked by AI against the test cases.";
+        String feedback = result.feedback();
+        answer.setFeedback(feedback == null || feedback.isBlank() ? note : feedback + "\n\n" + note);
+        return true;
+    }
+
+    private static boolean hasWrittenParts(Question source, Map<Long, List<Question>> subQuestionsByParentId) {
+        return source != null && !subQuestionsByParentId
+                .getOrDefault(source.getQuestionId(), List.of()).isEmpty();
+    }
+
+    /** Code/diagram counts as one part, each written sub-question as one more. */
+    private static BigDecimal writtenShare(BigDecimal points, int writtenCount) {
+        return points.multiply(BigDecimal.valueOf(writtenCount))
+                .divide(BigDecimal.valueOf(writtenCount + 1L), 4, RoundingMode.HALF_UP);
+    }
+
+    /** The AI request for a code/diagram item's written sub-questions, or null when it has none. */
+    private AnswerGradingRequestDto writtenPartsRequest(
+            AssessmentAttemptQuestion attemptQuestion, Question source, AssessmentAttemptAnswer answer,
+            BigDecimal points, Map<Long, List<Question>> subQuestionsByParentId) {
+        if (!hasWrittenParts(source, subQuestionsByParentId)) {
+            return null;
+        }
+        int count = subQuestionsByParentId.get(source.getQuestionId()).size();
+        return criticalThinkingGradingRequest(attemptQuestion, source, answer,
+                writtenShare(points, count), subQuestionsByParentId);
+    }
+
+    /** points x passed/total of the last stored run, for re-deriving the raw code mark. */
+    private Optional<BigDecimal> storedRunCredit(AssessmentAttemptAnswer answer, BigDecimal points) {
+        String payload = answer.getExecutionResult();
+        if (payload == null || payload.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode run = objectMapper.readTree(payload);
+            int total = run.path("totalTests").asInt(0);
+            if (total <= 0) {
+                return Optional.empty();
+            }
+            int passed = run.path("passedTests").asInt(0);
+            return Optional.of(points.multiply(BigDecimal.valueOf(passed))
+                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Folds the written sub-questions of a code or diagram item into its mark. Before, only the
+     * code/diagram was marked and whatever the learner wrote in the written parts was ignored.
+     * The code/diagram credit (out of the full points) is scaled to its one share, and the
+     * written answers are AI-graded (same fallback chain as every other written answer) for the
+     * rest. If the AI cannot be reached, the written parts are scored zero with a note rather
+     * than the code mark being thrown away.
+     */
+    private void blendWrittenParts(
+            AssessmentAttemptQuestion attemptQuestion, Question source, AssessmentAttemptAnswer answer,
+            BigDecimal points, GradingBatch batch, Map<Long, List<Question>> subQuestionsByParentId) {
+        if (!hasWrittenParts(source, subQuestionsByParentId)) {
+            return;
+        }
+        List<Question> subQuestions = subQuestionsByParentId.get(source.getQuestionId());
+        BigDecimal writtenPoints = writtenShare(points, subQuestions.size());
+        BigDecimal workPoints = points.subtract(writtenPoints);
+
+        BigDecimal workCredit = answer.getCredit() == null ? BigDecimal.ZERO : answer.getCredit();
+        BigDecimal scaledWork = workCredit.multiply(workPoints)
+                .divide(points, 4, RoundingMode.HALF_UP);
+        Boolean workCorrect = answer.getIsCorrect();
+
+        Map<Long, String> subAnswerText = parseSubAnswerText(answer.getLearnerAnswer());
+        boolean anyWritten = subAnswerText.values().stream().anyMatch(text -> text != null && !text.isBlank());
+
+        Optional<AnswerGradingResultDto> graded = Optional.empty();
+        if (anyWritten) {
+            graded = Optional.ofNullable(batch.aiResults().get(attemptQuestion.getAttemptQuestionId()));
+            if (graded.isEmpty()) {
+                graded = gradeWithRetry(writtenPartsRequest(
+                        attemptQuestion, source, answer, points, subQuestionsByParentId));
+            }
+        }
+
+        BigDecimal writtenCredit = graded.map(AnswerGradingResultDto::earnedPoints)
+                .map(earned -> earned.max(BigDecimal.ZERO).min(writtenPoints))
+                .orElse(BigDecimal.ZERO);
+        BigDecimal total = scaledWork.add(writtenCredit).setScale(4, RoundingMode.HALF_UP);
+
+        answer.setCredit(total);
+        answer.setIsCorrect(Boolean.TRUE.equals(workCorrect)
+                && Boolean.TRUE.equals(isPassingShare(writtenCredit, writtenPoints)));
+        answer.setPendingManualEvaluation(false);
+
+        Map<Long, BigDecimal> pointSplit = splitPointsAcrossSubQuestions(subQuestions, writtenPoints);
+        AnswerGradingResultDto written = graded.orElseGet(() -> new AnswerGradingResultDto(
+                BigDecimal.ZERO, null, List.of()));
+        answer.setSubAnswerScores(serializeSubAnswerScores(subQuestions, pointSplit, subAnswerText, written));
+
+        String note = !anyWritten
+                ? "The written part" + (subQuestions.size() == 1 ? " was" : "s were") + " left blank."
+                : graded.isEmpty()
+                        ? "The written part could not be marked automatically and was scored zero. "
+                                + "If you believe it deserves credit, raise it with your instructor."
+                        : graded.get().feedback();
+        String existing = answer.getFeedback();
+        if (note != null && !note.isBlank()) {
+            answer.setFeedback(existing == null || existing.isBlank() ? note : existing + "\n\n" + note);
+        }
     }
 
     private void noteVerdictFromEarlierCode(AssessmentAttemptAnswer answer) {
@@ -2332,7 +2797,9 @@ public class AssessmentAttemptService {
                 attempt.getCurrentQuestionId(),
                 flaggedIds,
                 skippedIds,
-                attempt.isAdaptive() ? adaptiveAttemptService.getObject().progressOf(attempt) : null
+                attempt.isAdaptive() ? adaptiveAttemptService.getObject().progressOf(attempt) : null,
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS
         );
     }
 
@@ -2399,7 +2866,11 @@ public class AssessmentAttemptService {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("questionImageKey", question.getImageKey());
 
-        if (isMultipleChoice(question.getQuestionType())) {
+        if (isMultipleAnswer(question.getQuestionType())) {
+            data.put("selectCount", (int) question.getChoices().stream().filter(Choice::isCorrect).count());
+        }
+
+        if (hasChoices(question.getQuestionType())) {
             List<Map<String, Object>> choices = new ArrayList<>();
             List<Choice> ordered = new ArrayList<>(question.getChoices());
             if (shuffle != null && choicesCanShuffle(ordered)) {
@@ -2500,7 +2971,7 @@ public class AssessmentAttemptService {
             }
         }
 
-        if (choices.isEmpty() && isMultipleChoice(attemptQuestion.getQuestionType())) {
+        if (choices.isEmpty() && hasChoices(attemptQuestion.getQuestionType())) {
             questionRepository.findById(attemptQuestion.getSourceQuestionId())
                     .ifPresent(source -> source.getChoices().forEach(choice ->
                             choices.add(new LearnerChoiceDto(
@@ -2538,7 +3009,8 @@ public class AssessmentAttemptService {
                 parseLearnerTestCases(data),
                 parseRubric(data),
                 attemptQuestion.getStage(),
-                null
+                null,
+                data.get("selectCount") instanceof Number count ? count.intValue() : null
         );
     }
 

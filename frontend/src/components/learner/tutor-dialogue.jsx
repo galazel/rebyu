@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { AiLimitNotice, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
+import { TutorSafetyCard, parseSafetyReply } from "@/components/learner/tutor-safety-card.jsx"
 import { toast } from "sonner"
 import {
   ArrowLeft,
@@ -578,7 +579,17 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
         ) : (
           <div className="space-y-5">
             {live.history.map((message, index) =>
-              message.role === "tutor" ? (
+              message.role === "tutor" && parseSafetyReply(message.content) ? (
+                // The same safety card the chat shows, in place of a tutor turn.
+                <div key={index} className="flex items-start gap-2.5">
+                  <TutorDot />
+                  <div className="min-w-0 flex-1">
+                    {parseSafetyReply(message.content).kind ? (
+                      <TutorSafetyCard kind={parseSafetyReply(message.content).kind} />
+                    ) : null}
+                  </div>
+                </div>
+              ) : message.role === "tutor" ? (
                 <div key={index} className="flex items-start gap-2.5">
                   <TutorDot />
                   <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-[var(--tg-line)] bg-white px-4 py-3.5 text-[15px] leading-7 text-foreground shadow-[0_2px_10px_rgba(17,55,43,0.06)]">

@@ -208,12 +208,13 @@ def get_assessment_attempt_with_recipient(session: Session, assessment_attempt_i
             assessment_attempts.c.percentage,
             assessment_attempts.c.passed,
             exams.c.title.label("exam_title"),
+            exam_types.c.exam_type_text.label("exam_type"),
             learners.c.user_id,
         )
         .select_from(
             assessment_attempts.join(exams, exams.c.exam_id == assessment_attempts.c.exam_id).join(
                 learners, learners.c.learner_id == assessment_attempts.c.learner_id
-            )
+            ).outerjoin(exam_types, exam_types.c.exam_type_id == exams.c.exam_type_id)
         )
         .where(assessment_attempts.c.assessment_attempt_id == assessment_attempt_id)
     ).mappings().first()

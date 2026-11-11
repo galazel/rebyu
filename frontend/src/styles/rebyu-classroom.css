@@ -465,6 +465,22 @@ body.netacad-overlay-theme {
     }
 }
 
+/* The loading screen's photo, built to paint on the first frame:
+   1. a 32px copy of the photo, inlined (~400 bytes), shows at once -- the layer is blurred
+      anyway, so it already looks like the classroom;
+   2. the 1280px photo (87 kB, preloaded from index.html) replaces it when it arrives --
+      2560px buys nothing under a blur;
+   3. the photo's own average colour is the last resort, not near-black. */
+.rb-classroom-photo--fast,
+.rb-classroom-photo.rb-classroom-photo--fast {
+    background-color: #5f4c3a;
+    background:
+        linear-gradient(180deg, rgb(28 20 12 / 0.2), rgb(28 20 12 / 0.45)),
+        url("/brand/classroom-1280.webp") center 40% / cover no-repeat,
+        url("data:image/webp;base64,UklGRiYBAABXRUJQVlA4IBoBAADwBQCdASogACAAPt1epkyopSOiMAgBEBuJQBOmUBUgmXeIWvohuQ8QLALGukCxUVGabUfI4q9zgAD++G645ZLVmrnYWNwble33SLuKqSjF4sFWwVgR6sbr4gIsS1fK0V0lHUAtLnTyr5VFkVkv64ZAhpdgAmGIYUCJKjMpCaP0lkwqfAMiEHjh0rgboJu/b3P+iUNE5KMlPiXjFPUASXqjHPhmwuaH2RtU5ZGwDKxsR7MZZhsLvMnT7zDYAY0aGe8u5Bnhu+EdElRBaZsVq1x0XqhPlL3/W79UWfQ8+TLHVpIhG75V00uKN0AVObuPDFggLs0pNaAI/wM9XSLXsy3kEpBxGy0zG0ZME4y/1n9qaRCL+1fYWfplvAA=") center 40% / cover no-repeat,
+        #5f4c3a;
+}
+
 .rb-chalkboard {
     position: relative;
     color: var(--rb-chalk);

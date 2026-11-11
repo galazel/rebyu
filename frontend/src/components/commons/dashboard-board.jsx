@@ -43,6 +43,11 @@ const COLS = { lg: 6, md: 6, sm: 2, xs: 1, xxs: 1 }
 const BREAKPOINTS = { lg: 1024, md: 768, sm: 640, xs: 480, xxs: 0 }
 const ROW_HEIGHT = 88
 const MARGIN = [16, 16]
+// View mode keeps the exact saved arrangement only while one grid column is at least this wide
+// (the narrowest card, e.g. the streak, needs it); below, cards flow instead of being squeezed.
+const MIN_PLACED_COLUMN = 230
+// Board width from which flowing cards sit two to a row.
+const TWO_COLUMN_MIN = 720
 
 function defaultLayout(tiles) {
   let x = 0
@@ -106,7 +111,8 @@ export function DashboardBoard({
   // With nothing saved, the board's preset (a full default arrangement) stands in for it.
   const layout = savedLayout?.length ? savedLayout : preset ?? savedLayout
   const [containerRef, width] = useContainerWidth()
-  const isDesktop = typeof window !== "undefined" && window.innerWidth >= BREAKPOINTS.lg
+  // From the measured board width (re-renders on resize), not a one-off window read.
+  const isDesktop = (width || (typeof window !== "undefined" ? window.innerWidth : 0)) >= BREAKPOINTS.lg
   const byId = useMemo(() => new Map(tiles.map((tile) => [tile.id, tile])), [tiles])
 
   /* Where each tile actually sits in the normal view, in grid units. Rearrange mode
@@ -314,20 +320,33 @@ export function DashboardBoard({
     // On desktop a saved arrangement is placed exactly where Rearrange put it — the
     // same columns, rows and heights, gaps included. Dense auto-flow used to pull
     // tiles up into gaps, so the view never matched what was saved.
-    const placed = isDesktop && (layout ?? []).some((item) => Number.isInteger(item?.x) && Number.isInteger(item?.y))
+    // Responsive by the board's OWN width (the sidebar takes part of the window), re-measured on
+    // every resize. The exact saved arrangement needs columns wide enough for a one-column card;
+    // narrower than that, a one-column card (the streak, say) was squeezed to ~200px inside a
+    // fixed height and clipped. Below it, cards flow in saved order: two columns, then one, with
+    // heights that follow their content.
+    const boardWidth = width || (typeof window !== "undefined" ? window.innerWidth : 0)
+    const columnWidth = (boardWidth - 5 * MARGIN[0]) / 6
+    const hasPlacement = (layout ?? []).some((item) => Number.isInteger(item?.x) && Number.isInteger(item?.y))
+    const placed = hasPlacement && isDesktop && columnWidth >= MIN_PLACED_COLUMN
+    const flowColumns = boardWidth >= TWO_COLUMN_MIN ? 2 : 1
     const savedById = new Map((layout ?? []).map((item) => [item.id ?? item.i, item]))
+    const flowOrder = placed ? orderedTiles : [...orderedTiles].sort((a, b) => {
+      const sa = savedById.get(a.id)
+      const sb = savedById.get(b.id)
+      if (!sa || !sb) return 0
+      return (sa.y ?? 0) - (sb.y ?? 0) || (sa.x ?? 0) - (sb.x ?? 0)
+    })
     return (
       <div ref={containerRef} className="w-full">
         <div
           ref={viewGridRef}
-          className={
-            placed
-              ? "grid grid-cols-6 items-stretch gap-4"
-              : "grid grid-flow-row-dense grid-cols-1 items-stretch gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-6"
-          }
-          style={placed ? { gridAutoRows: `${ROW_HEIGHT}px` } : undefined}
+          className={placed ? "grid grid-cols-6 items-stretch gap-4" : "grid items-stretch gap-4 sm:gap-5"}
+          style={placed
+            ? { gridAutoRows: `${ROW_HEIGHT}px` }
+            : { gridTemplateColumns: `repeat(${flowColumns}, minmax(0, 1fr))` }}
         >
-          {orderedTiles.map((tile) => {
+          {flowOrder.map((tile) => {
             const saved = savedById.get(tile.id)
             const span = Math.min(6, Math.max(1, Number(saved?.w ?? tile.col ?? 3)))
             const isCollapsed = Boolean(collapsedTiles[tile.id])
@@ -341,16 +360,16 @@ export function DashboardBoard({
                   gridRow: Number.isInteger(saved?.y) ? `${saved.y + 1} / span ${savedRows}` : `span ${savedRows}`,
                 }
               : undefined
-            const colSpanClass = placed
-              ? ""
-              : `col-span-1 ${span >= 4 ? "md:col-span-2" : "md:col-span-1"} ${LG_SPAN[span]}`
+            // Flow mode: a card saved wide (4+ of 6 columns) spans both columns; the rest take one.
+            const flowStyle = !placed && flowColumns === 2 && span >= 4 ? { gridColumn: "span 2" } : undefined
+            const colSpanClass = ""
 
             return (
               <div
                 key={tile.id}
                 id={tile.id}
                 data-tile-id={tile.id}
-                style={style}
+                style={style ?? flowStyle}
                 className={`${colSpanClass} min-w-0 w-full transition-all duration-300 ease-out ${alignClass} ${
                   placed ? "overflow-y-auto [&>*]:min-h-full" : ""
                 }`}

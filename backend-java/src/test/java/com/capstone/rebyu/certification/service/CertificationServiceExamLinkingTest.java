@@ -43,6 +43,7 @@ class CertificationServiceExamLinkingTest {
     @BeforeEach
     void setUp() {
         service = new CertificationService(
+                org.mockito.Mockito.mock(com.capstone.rebyu.common.CascadeDeleteService.class),
                 certificationRepository,
                 org.mockito.Mockito.mock(com.capstone.rebyu.reference.CertificationProgramFiler.class),
                 org.mockito.Mockito.mock(com.capstone.rebyu.certification.repository.LessonRepository.class),

@@ -1563,6 +1563,18 @@ body.rb-attempt-lock {
     overscroll-behavior: none;
 }
 
+/* Assessment integrity: question text cannot be selected (and so copied); the learner's
+   own answer fields and code editors stay selectable for editing. */
+body.rb-attempt-nocopy {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+body.rb-attempt-nocopy :is(input, textarea, [contenteditable="true"], [contenteditable=""], .cm-editor, .cm-editor *) {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 
 
 .rb-docx > :first-child { margin-top: 0; }

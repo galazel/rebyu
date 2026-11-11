@@ -110,6 +110,47 @@ public class LearnerAssessmentController {
                 attemptId, request.attemptQuestionId(), me(jwt));
     }
 
+    /** The learner left the attempt tab: stop the clock and count the violation. */
+    @PostMapping("/assessment-attempts/{attemptId}/pause")
+    public AttemptClockDto pauseAttempt(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long attemptId,
+            @RequestBody(required = false) PauseAttemptRequestDto request) {
+        Long learnerId = me(jwt);
+        String reason = request == null ? null : request.reason();
+        Long questionId = request == null ? null : request.attemptQuestionId();
+        try {
+            return assessmentAttemptService.pauseAttempt(attemptId, learnerId, reason, questionId);
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException raced) {
+            // Another save of this attempt (an autosave, an answer) committed first: try once more
+            // on the fresh row rather than surfacing a conflict for a background pause.
+            return assessmentAttemptService.pauseAttempt(attemptId, learnerId, reason, questionId);
+        }
+    }
+
+    /** Copy, paste, shortcut and similar attempts the browser blocked, logged for review. */
+    @PostMapping("/assessment-attempts/{attemptId}/integrity-events")
+    public void reportIntegrityEvents(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long attemptId,
+            @RequestBody ReportIntegrityEventsRequestDto request) {
+        assessmentAttemptService.reportIntegrityEvents(attemptId, me(jwt),
+                request == null ? null : request.events());
+    }
+
+    /** The learner is back on the attempt tab: restart the clock with the paused time credited. */
+    @PostMapping("/assessment-attempts/{attemptId}/resume")
+    public AttemptClockDto resumeAttempt(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long attemptId) {
+        Long learnerId = me(jwt);
+        try {
+            return assessmentAttemptService.resumeAttempt(attemptId, learnerId);
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException raced) {
+            return assessmentAttemptService.resumeAttempt(attemptId, learnerId);
+        }
+    }
+
     @PostMapping("/assessment-attempts/{attemptId}/programming/{attemptQuestionId}/run")
     public ExecutionResultDto runProgramming(
             @PathVariable Long attemptId,

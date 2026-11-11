@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
     BookOpen,
+    CheckCheck,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
@@ -33,6 +34,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatBytes, useFileUpload } from "@/hooks/use-file-upload";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,6 +124,7 @@ const PAGE_SIZE = 10;
 
 const questionTypeLabels = {
     MCQ: "Multiple Choice",
+    MULTIPLE_ANSWER: "Multiple Answer",
     SHORT_ANSWER: "Short Answer",
     DESCRIPTIVE: "Descriptive",
     CRITICAL_THINKING: "Critical Thinking",
@@ -257,6 +260,26 @@ const questionTypes = [
                     isCorrect: false,
                 },
             ],
+            correctChoiceIndex: null,
+            difficulty: "average",
+        },
+    },
+    {
+        id: "MULTIPLE_ANSWER",
+        title: "Multiple Answer",
+        description: "Several right options; the learner ticks all of them",
+        icon: CheckCheck,
+        component: MultipleAnswers,
+        data: {
+            questionType: "MULTIPLE_ANSWER",
+            question: "",
+            image: null,
+            choices: Array.from({ length: 5 }, () => ({
+                choiceText: "",
+                image: null,
+                explanation: "",
+                isCorrect: false,
+            })),
             correctChoiceIndex: null,
             difficulty: "average",
         },
@@ -506,7 +529,7 @@ function validateQuestionData(typeId, data) {
         errors.image = questionImageError;
     }
 
-    if (typeId === "MCQ") {
+    if (typeId === "MCQ" || typeId === "MULTIPLE_ANSWER") {
         const choices = data.choices ?? [];
 
         if (choices.length < 2) {
@@ -530,7 +553,15 @@ function validateQuestionData(typeId, data) {
             }
         });
 
-        if (
+        if (typeId === "MULTIPLE_ANSWER") {
+            const correctCount = choices.filter((choice) => choice.isCorrect).length;
+            if (correctCount < 2) {
+                errors.correctChoiceIndex =
+                    "Tick at least two correct choices. With only one, use Multiple Choice.";
+            } else if (correctCount === choices.length) {
+                errors.correctChoiceIndex = "Leave at least one choice unticked as a wrong answer.";
+            }
+        } else if (
             data.correctChoiceIndex === null ||
             data.correctChoiceIndex === undefined
         ) {
@@ -1049,6 +1080,22 @@ function SubQuestions({
     );
 }
 
+/** Radio group for one right answer; a plain grid of checkboxes for several. */
+function ChoiceGroup({ multiple, value, onValueChange, className, children }) {
+    if (multiple) {
+        return <div className={className}>{children}</div>;
+    }
+    return (
+        <RadioGroup value={value} onValueChange={onValueChange} className={className}>
+            {children}
+        </RadioGroup>
+    );
+}
+
+function MultipleAnswers(props) {
+    return <MultipleChoices {...props} multiple />;
+}
+
 function MultipleChoices({
                              questionKey,
                              questionNumber,
@@ -1056,8 +1103,20 @@ function MultipleChoices({
                              data,
                              onDataChange,
                              errors = {},
+                             multiple = false,
                          }) {
     const choices = data.choices ?? [];
+    const correctCount = choices.filter((choice) => choice.isCorrect).length;
+
+    function toggleCorrectChoice(toggledIndex) {
+        onDataChange((currentData) => ({
+            ...currentData,
+            correctChoiceIndex: null,
+            choices: currentData.choices.map((choice, index) =>
+                index === toggledIndex ? { ...choice, isCorrect: !choice.isCorrect } : choice,
+            ),
+        }));
+    }
 
     function onFieldChange(path, value) {
         onDataChange((currentData) => updateDataAtPath(currentData, path, value));
@@ -1100,8 +1159,8 @@ function MultipleChoices({
 
     return (
         <CompactQuestionCard
-            type="MCQ"
-            title="Multiple Choice Question"
+            type={multiple ? "Multi" : "MCQ"}
+            title={multiple ? "Multiple Answer Question" : "Multiple Choice Question"}
             questionNumber={questionNumber}
             onRemove={onRemove}
             errors={errors}
@@ -1122,10 +1181,18 @@ function MultipleChoices({
                         </p>
 
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            Fill every choice and select one correct answer. Choices are
-                            shuffled when a learner retakes, so write each one to stand on its own.
+                            {multiple
+                                ? "Fill every choice and tick every correct one. Learners are told how many to select, and only an exact match earns the mark."
+                                : "Fill every choice and select one correct answer."}{" "}
+                            Choices are shuffled when a learner retakes, so write each one to stand on its own.
                         </p>
                     </div>
+
+                    {multiple && !errors.correctChoiceIndex && (
+                        <span className="text-xs font-medium text-muted-foreground">
+                            Learners see &ldquo;Select {correctCount || "…"}&rdquo;
+                        </span>
+                    )}
 
                     {errors.correctChoiceIndex && (
                         <span className="text-xs font-medium text-destructive">
@@ -1143,7 +1210,8 @@ function MultipleChoices({
                     </p>
                 )}
 
-                <RadioGroup
+                <ChoiceGroup
+                    multiple={multiple}
                     value={
                         data.correctChoiceIndex === null
                             ? ""
@@ -1159,7 +1227,9 @@ function MultipleChoices({
 
                         const imageError = errors[`choices.${index}.image`];
 
-                        const isCorrect = data.correctChoiceIndex === index;
+                        const isCorrect = multiple
+                            ? Boolean(choice.isCorrect)
+                            : data.correctChoiceIndex === index;
 
                         return (
                             <div
@@ -1183,11 +1253,21 @@ function MultipleChoices({
                                     </button>
                                 )}
                                 <div className="flex items-center gap-2">
-                                    <RadioGroupItem
-                                        id={`${questionKey}-correct-${index}`}
-                                        value={String(index)}
-                                        className="shrink-0"
-                                    />
+                                    {multiple ? (
+                                        <Checkbox
+                                            id={`${questionKey}-correct-${index}`}
+                                            checked={isCorrect}
+                                            onCheckedChange={() => toggleCorrectChoice(index)}
+                                            aria-label={`Choice ${letter} is correct`}
+                                            className="shrink-0"
+                                        />
+                                    ) : (
+                                        <RadioGroupItem
+                                            id={`${questionKey}-correct-${index}`}
+                                            value={String(index)}
+                                            className="shrink-0"
+                                        />
+                                    )}
 
                                     <Label
                                         htmlFor={`${questionKey}-correct-${index}`}
@@ -1271,7 +1351,7 @@ function MultipleChoices({
                             </div>
                         );
                     })}
-                </RadioGroup>
+                </ChoiceGroup>
 
                 <Button
                     type="button"
@@ -3004,7 +3084,8 @@ function QuestionBank({
 
             try {
             switch (question.typeId) {
-                case "MCQ": {
+                case "MCQ":
+                case "MULTIPLE_ANSWER": {
                     const savedMCQ = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
@@ -3526,6 +3607,10 @@ OUTPUT RULES:
 
                                                 <SelectItem value="MCQ" className="min-h-10">
                                                     Multiple Choice
+                                                </SelectItem>
+
+                                                <SelectItem value="MULTIPLE_ANSWER" className="min-h-10">
+                                                    Multiple Answer
                                                 </SelectItem>
 
                                                 <SelectItem value="SHORT_ANSWER" className="min-h-10">
@@ -4422,6 +4507,9 @@ OUTPUT RULES:
                                         >
                                             <SelectItem value="MCQ" className="min-h-10">
                                                 Multiple Choice
+                                            </SelectItem>
+                                            <SelectItem value="MULTIPLE_ANSWER" className="min-h-10">
+                                                Multiple Answer
                                             </SelectItem>
                                             <SelectItem value="SHORT_ANSWER" className="min-h-10">
                                                 Short Answer

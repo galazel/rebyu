@@ -75,7 +75,7 @@ import {
   markSectionUnread,
   parseLessonStructure,
 } from "@/services/learnerService.js"
-import { getExams, getExamTypes } from "@/services/assessmentService.js"
+import { getExams, getExamTypes, getLearnerAssessment } from "@/services/assessmentService.js"
 import { getTopicReflection } from "@/services/reflectionService.js"
 import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
@@ -997,6 +997,16 @@ function LevelMeter({ standing, latest, best, taken }) {
 
 function QuizBand({ quiz, taken, standing, latest, best }) {
   const location = useLocation()
+  // The server's start rules (earlier lesson quiz not cleared, diagnostic first, Pro-only
+  // retakes, ...) shown here, before the learner clicks, not after the attempt page loads.
+  const gateQuery = useQuery({
+    queryKey: ["learner-assessment-gate", quiz.examId],
+    queryFn: () => getLearnerAssessment(quiz.examId),
+    // Re-checked on every visit: passing the previous quiz unlocks this one right away.
+    staleTime: 0,
+    retry: 1,
+  })
+  const lockReason = gateQuery.data && gateQuery.data.canStart === false ? gateQuery.data.lockReason : null
   return (
     <section id={`quiz-${quiz.examId}`} data-no-snip className="tg-cat-explain relative scroll-mt-8 overflow-hidden tg-solid px-5 py-12 sm:px-10 lg:px-14">
       <div className="relative w-full">
@@ -1036,14 +1046,34 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
 
 
           <div className="mt-5 flex flex-col items-center gap-3">
-            <Link
-              to={`/learner/assessments/${quiz.examId}`}
-              state={returnState(location)}
-              className="tg-btn tg-btn-primary !px-7 !py-3 !text-base"
-            >
-              {taken ? "Retake quiz" : "Start quiz"}
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+            {lockReason ? (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  aria-describedby={`quiz-lock-${quiz.examId}`}
+                  className="tg-btn !cursor-not-allowed !px-7 !py-3 !text-base opacity-70"
+                >
+                  <Lock className="size-4" aria-hidden="true" />
+                  {taken ? "Retake locked" : "Quiz locked"}
+                </button>
+                <p
+                  id={`quiz-lock-${quiz.examId}`}
+                  className="max-w-md text-center text-sm font-semibold text-rb-cardinal-lip"
+                >
+                  {lockReason}
+                </p>
+              </>
+            ) : (
+              <Link
+                to={`/learner/assessments/${quiz.examId}`}
+                state={returnState(location)}
+                className="tg-btn tg-btn-primary !px-7 !py-3 !text-base"
+              >
+                {taken ? "Retake quiz" : "Start quiz"}
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            )}
 
             {taken ? (
               <Link

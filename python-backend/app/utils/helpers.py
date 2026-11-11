@@ -56,7 +56,10 @@ async def get_checkpointer():
         if _checkpointer is None:
             pool = AsyncConnectionPool(
                 conninfo=connection_string,
-                kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+                # prepare_threshold=None, never 0: 0 prepares EVERY statement server-side,
+                # and the transaction pooler (:6543) moves statements between server
+                # connections, so they fail with "prepared statement _pg3_N does not exist".
+                kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
                 min_size=0,
                 max_size=2,
                 check=AsyncConnectionPool.check_connection,

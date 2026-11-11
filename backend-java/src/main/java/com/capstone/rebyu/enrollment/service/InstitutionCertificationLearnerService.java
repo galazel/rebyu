@@ -18,6 +18,7 @@ import java.util.List;
 @Transactional
 public class InstitutionCertificationLearnerService {
     private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final InstitutionCertificationLearnerMapper institutionCertificationLearnerMapper;
 
     public List<InstitutionCertificationLearnerDto> getAll() {
@@ -52,7 +53,8 @@ public class InstitutionCertificationLearnerService {
 
     public void delete(Long id) {
         log.info("Deleting institution certification learner id: {}", id);
-        institutionCertificationLearnerRepository.delete(findEntity(id));
+        findEntity(id);
+        cascade.delete("institution_certification_learners", "institution_cert_learner_id", id);
         log.info("InstitutionCertificationLearner id: {} deleted", id);
     }
 

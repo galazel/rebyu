@@ -41,7 +41,8 @@ spring:
       # mid-query. Recycle well inside its limits and ping often, so the pool
       # rarely hands out a connection the pooler has already closed.
       keepalive-time: 30000
-      idle-timeout: 120000
+      # No idle-timeout: it has no effect on a fixed-size pool (minimum-idle == maximum-pool-size)
+      # and Hikari warned about it on every start. max-lifetime does the recycling.
       max-lifetime: 300000
       # A transaction whose client vanished (dropped socket, killed container) keeps its row
       # locks until Postgres ends it; without this it stalls every writer behind it for good.

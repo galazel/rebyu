@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { CheckCircle2, Clock, MinusCircleIcon, XCircle } from "@/components/icons"
+import { CheckCircle2, Clock, MinusCircleIcon, ShieldAlert, XCircle } from "@/components/icons"
+import { IntegrityAttemptBadges, IntegrityTimeline } from "@/components/institution/assessment-integrity-section.jsx"
 
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -22,6 +23,7 @@ function formatPoints(value) {
 }
 
 function answerState(answer) {
+  if (answer.invalid) return "invalid"
   if (answer.pendingManualEvaluation) return "pending"
   if (!answer.learnerAnswer && answer.selectedChoiceId == null && !answer.submittedCode && !answer.diagramSubmitted) {
     return "unanswered"
@@ -36,6 +38,7 @@ const STATE = {
   incorrect: { label: "Incorrect", icon: XCircle, tone: "text-rose-700 bg-rose-50 border-rose-200" },
   pending: { label: "Awaiting grading", icon: Clock, tone: "text-amber-700 bg-amber-50 border-amber-200" },
   unanswered: { label: "Not answered", icon: MinusCircleIcon, tone: "text-muted-foreground bg-muted/40 border-border" },
+  invalid: { label: "Invalid", icon: ShieldAlert, tone: "text-red-700 bg-red-50 border-red-300" },
 }
 
 function Stat({ label, value }) {
@@ -118,17 +121,66 @@ function AnswerCard({ answer, index }) {
         </ul>
       ) : null}
 
-      <p className="mt-3 text-xs text-muted-foreground">
-        {formatPoints(answer.credit != null && answer.points != null ? Number(answer.credit) * Number(answer.points) : null)}
-        {" / "}
-        {formatPoints(answer.points)} pts
-      </p>
+      {state === "invalid" ? (
+        <p className="mt-3 text-xs font-medium text-red-700">Not graded: the attempt was ended for leaving.</p>
+      ) : (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {formatPoints(answer.credit != null && answer.points != null ? Number(answer.credit) * Number(answer.points) : null)}
+          {" / "}
+          {formatPoints(answer.points)} pts
+        </p>
+      )}
     </li>
   )
 }
 
 /** A member's attempt, question by question with the correct answers, for the department head. */
-export default function MemberAttemptReviewSheet({ departmentId, learnerId, learnerName, attemptId, onOpenChange }) {
+/** What happened during the attempt that may be cheating: exits, copy/paste tries, a forfeit. */
+function IntegrityPanel({ integrity, result }) {
+  const forfeited = integrity?.forfeited || result?.forfeited
+  const severe = forfeited || (integrity?.copyPasteTries ?? 0) > 0
+  const questionLabel = (attemptQuestionId) => {
+    const answer = (result?.answers ?? []).find((item) => item.attemptQuestionId === attemptQuestionId)
+    return answer?.displayOrder != null ? `Question ${answer.displayOrder}` : null
+  }
+  return (
+    <section
+        className={cn(
+          "rounded-xl border p-4",
+          severe
+            ? "border-red-300 bg-red-50 dark:border-red-500/40 dark:bg-red-500/10"
+            : "border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10"
+        )}
+        aria-labelledby="attempt-integrity-heading"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <ShieldAlert className={cn("size-4", severe ? "text-red-600" : "text-amber-700")} aria-hidden="true" />
+        <h3 id="attempt-integrity-heading" className="text-sm font-semibold text-foreground">
+          Integrity flags on this attempt
+        </h3>
+        <IntegrityAttemptBadges attempt={integrity} />
+      </div>
+      {forfeited ? (
+        <p className="mt-2 text-sm font-medium text-red-800 dark:text-red-200">
+          The learner left the assessment {integrity?.exits ?? result?.focusViolations ?? 3} times, so it was ended
+          with a score of 0. The answers below were saved but not graded.
+        </p>
+      ) : null}
+      {integrity?.events?.length ? (
+        <IntegrityTimeline
+            events={integrity.events}
+            questionLabel={questionLabel}
+            className="mt-3 rounded-lg border border-border/60 bg-card px-3 py-2.5"
+        />
+      ) : null}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Signals to follow up on, not proof: a pop-up notification can also take focus away from the page.
+      </p>
+    </section>
+  )
+}
+
+export default function MemberAttemptReviewSheet({ departmentId, learnerId, learnerName, attemptId, integrity, onOpenChange }) {
   const open = attemptId != null
   const resultQuery = useQuery({
     queryKey: ["member-attempt-result", departmentId, learnerId, attemptId],
@@ -183,12 +235,26 @@ export default function MemberAttemptReviewSheet({ departmentId, learnerId, lear
                 {result.passingScore != null ? (
                   <span className="text-xs text-muted-foreground">{Number(result.passingScore)}% to pass</span>
                 ) : null}
+                {integrity || result.forfeited ? (
+                  <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+                    <ShieldAlert className="size-3" aria-hidden="true" />
+                    {result.forfeited ? "Ended for leaving" : "Integrity flags"}
+                  </Badge>
+                ) : null}
               </div>
 
+              {integrity || result.forfeited ? <IntegrityPanel integrity={integrity} result={result} /> : null}
+
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Stat label="Correct" value={result.correctCount ?? 0} />
-                <Stat label="Incorrect" value={result.incorrectCount ?? 0} />
-                <Stat label="Unanswered" value={result.unansweredCount ?? 0} />
+                {result.forfeited ? (
+                  <Stat label="Invalid" value={(result.answers ?? []).length} />
+                ) : (
+                  <>
+                    <Stat label="Correct" value={result.correctCount ?? 0} />
+                    <Stat label="Incorrect" value={result.incorrectCount ?? 0} />
+                    <Stat label="Unanswered" value={result.unansweredCount ?? 0} />
+                  </>
+                )}
                 <Stat label="Time taken" value={formatDuration(result.durationSeconds)} />
                 <Stat label="Points" value={`${formatPoints(result.earnedPoints)} / ${formatPoints(result.totalPoints)}`} />
                 {result.pendingCount ? <Stat label="Awaiting grading" value={result.pendingCount} /> : null}
@@ -215,7 +281,11 @@ export default function MemberAttemptReviewSheet({ departmentId, learnerId, lear
                 <h3 className="text-sm font-semibold text-foreground">Answers</h3>
                 <ol className="mt-2 space-y-3">
                   {(result.answers ?? []).map((answer, index) => (
-                    <AnswerCard key={answer.attemptQuestionId ?? index} answer={answer} index={index} />
+                    <AnswerCard
+                        key={answer.attemptQuestionId ?? index}
+                        answer={result.forfeited ? { ...answer, invalid: true } : answer}
+                        index={index}
+                    />
                   ))}
                 </ol>
               </section>

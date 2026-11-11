@@ -116,16 +116,111 @@ export const CATEGORY_COLUMNS = [
   "Category", "Level", "Mastery (%)", "Mastery level", "Lessons finished", "Lessons", "Lessons assessed", "Weak lessons", "Priority",
 ]
 
-/** Every block a learner report needs, from the analytics response. */
-export function learnerReportBlocks(analytics, extraSummary = []) {
+const NOT_YET = "Not yet"
+const orNotYet = (value) => (value == null || value === "" || Number.isNaN(value) ? NOT_YET : value)
+const mean = (values) => (values.length ? values.reduce((s, v) => s + v, 0) / values.length : null)
+const median = (values) => {
+  if (!values.length) return null
+  const sorted = [...values].sort((x, y) => x - y)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+}
+const dateOnly = (value) => (value ? String(value).slice(0, 10) : "")
+
+/**
+ * Score statistics across every graded attempt: averages (all, first, best, latest), median,
+ * highest and lowest with where and when, pass rate, retakes and improvement, recent form.
+ */
+export function scoreStatistics(scoreTrend = []) {
+  const groups = groupAttempts(scoreTrend)
+  const attempts = groups.flatMap((g) => g.attempts.map((a) => ({ ...a, title: g.title, score: Number(a.percentage) })))
+  if (!attempts.length) return { rows: [], byType: [] }
+
+  const scores = attempts.map((a) => a.score)
+  const highest = attempts.reduce((top, a) => (a.score > top.score ? a : top))
+  const lowest = attempts.reduce((low, a) => (a.score < low.score ? a : low))
+  const firsts = groups.map((g) => Number(g.attempts[0].percentage))
+  const bests = groups.map((g) => Math.max(...g.attempts.map((a) => Number(a.percentage))))
+  const latests = groups.map((g) => Number(g.attempts[g.attempts.length - 1].percentage))
+  const passedGroups = groups.filter((g) => g.attempts.some((a) => a.passed))
+  const attemptsToPass = passedGroups.map((g) => g.attempts.findIndex((a) => a.passed) + 1)
+  const retaken = groups.filter((g) => g.attempts.length > 1)
+  const gains = retaken.map((g) => ({
+    title: g.title,
+    gain: Math.max(...g.attempts.map((a) => Number(a.percentage))) - Number(g.attempts[0].percentage),
+  }))
+  const mostImproved = gains.reduce((top, g) => (top == null || g.gain > top.gain ? g : top), null)
+  const chronological = [...attempts].sort((x, y) => String(x.submittedAt ?? "").localeCompare(String(y.submittedAt ?? "")))
+  const window = Math.min(5, Math.floor(chronological.length / 2))
+
+  const rows = [
+    ["Assessments attempted", groups.length],
+    ["Graded attempts", attempts.length],
+    ["Average score, all attempts (%)", round(mean(scores))],
+    ["Average first-attempt score (%)", round(mean(firsts))],
+    ["Average best score per assessment (%)", round(mean(bests))],
+    ["Average latest score (%)", round(mean(latests))],
+    ["Median score (%)", round(median(scores))],
+    ["Highest score (%)", round(highest.score)],
+    ["Highest score: assessment", highest.title],
+    ["Highest score: date", dateOnly(highest.submittedAt)],
+    ["Lowest score (%)", round(lowest.score)],
+    ["Lowest score: assessment", lowest.title],
+    ["Lowest score: date", dateOnly(lowest.submittedAt)],
+    ["Passing attempts (%)", round((attempts.filter((a) => a.passed).length / attempts.length) * 100)],
+    ["Assessments passed", `${passedGroups.length}/${groups.length}`],
+    ["Passed on the first try", passedGroups.filter((g) => g.attempts[0].passed).length],
+    ["Average attempts needed to pass", orNotYet(attemptsToPass.length ? Math.round(mean(attemptsToPass) * 10) / 10 : null)],
+    ["Assessments retaken", retaken.length],
+    ["Average gain from first to best try (points)", orNotYet(gains.length ? round(mean(gains.map((g) => g.gain))) : null)],
+    ["Most improved assessment", mostImproved && mostImproved.gain > 0 ? `${mostImproved.title} (+${round(mostImproved.gain)})` : NOT_YET],
+    ...(window >= 2
+      ? [
+          [`Average of your first ${window} attempts (%)`, round(mean(chronological.slice(0, window).map((a) => a.score)))],
+          [`Average of your latest ${window} attempts (%)`, round(mean(chronological.slice(-window).map((a) => a.score)))],
+        ]
+      : []),
+  ]
+
+  const byTypeMap = new Map()
+  for (const g of groups) {
+    const key = g.type ?? "OTHER"
+    if (!byTypeMap.has(key)) byTypeMap.set(key, { assessments: 0, attempts: [], passed: 0 })
+    const entry = byTypeMap.get(key)
+    entry.assessments += 1
+    entry.attempts.push(...g.attempts.map((a) => Number(a.percentage)))
+    if (g.attempts.some((a) => a.passed)) entry.passed += 1
+  }
+  const byType = [...byTypeMap.entries()].map(([type, e]) => [
+    assessmentTypeLabel(type), e.assessments, e.attempts.length, round(mean(e.attempts)),
+    round(Math.max(...e.attempts)), round(Math.min(...e.attempts)), `${e.passed}/${e.assessments}`,
+  ])
+  return { rows, byType }
+}
+
+/** A section with nothing in it yet says so in one line, instead of a bare header. */
+function orEmpty(rows, message) {
+  return rows && rows.length ? rows : [[message]]
+}
+
+/**
+ * Every block a learner report needs, from the analytics response. `extras.behavior` (the
+ * study-behavior summary) adds a Study habits section when the caller has it.
+ */
+export function learnerReportBlocks(analytics, extraSummary = [], extras = {}) {
   const a = analytics ?? {}
   const summary = assessmentSummary(a.scoreTrend)
-  const bucket = (title, list) => ({
+  const stats = scoreStatistics(a.scoreTrend)
+  const behavior = extras.behavior ?? null
+  const bucket = (title, list, empty) => ({
     title,
     columns: ["Group", "Answered", "Correct", "Incorrect", "Accuracy (%)"],
-    rows: (list ?? []).map((b) => [assessmentTypeLabel(b.bucketKey), b.totalAnswered, b.correctAnswers, b.incorrectAnswers, round(b.accuracyPercentage)]),
+    rows: orEmpty(
+      (list ?? []).map((b) => [assessmentTypeLabel(b.bucketKey), b.totalAnswered, b.correctAnswers, b.incorrectAnswers, round(b.accuracyPercentage)]),
+      empty,
+    ),
   })
-  return [
+  const blocks = [
     {
       title: "Summary",
       columns: ["Metric", "Value"],
@@ -134,37 +229,82 @@ export function learnerReportBlocks(analytics, extraSummary = []) {
         ["Certification", a.certificationTitle],
         ["Figures as of", a.generatedAt],
         ["Lessons finished", `${a.completedLessonCount ?? 0}/${a.totalLessonCount ?? 0}`],
-        ["Curriculum completion (%)", round(a.completionPercentage)],
+        ["Curriculum completion (%)", round(a.completionPercentage) ?? 0],
         ["Assessments passed", `${a.passedAssessmentCount ?? 0}/${a.totalAssessmentCount ?? 0}`],
-        ["Graded attempts", a.totalAssessmentAttempts],
-        ["Average assessment score (%)", round(a.averageAssessmentScore)],
-        ["Correct answers", a.totalCorrectAnswers],
-        ["Incorrect answers", a.totalIncorrectAnswers],
-        ["Overall mastery (%)", round(a.overallMasteryPercentage)],
-        ["Confidence (%)", round(a.confidencePercentage)],
-        ["Readiness — chance of passing (%)", round(a.readinessPercentage)],
-        ["Topics mastered", a.masteredTopicCount],
-        ["Weak topics", a.weakTopicCount],
-        ["Topics not yet assessed", a.unassessedTopicCount],
-        ["Challenge attempts", a.totalChallengeAttempts],
-        ["Average challenge score (%)", round(a.averageChallengeScore)],
+        ["Graded attempts", a.totalAssessmentAttempts ?? 0],
+        ["Average assessment score (%)", orNotYet(round(a.averageAssessmentScore))],
+        ["Highest score (%)", orNotYet(stats.rows.find((r) => r[0] === "Highest score (%)")?.[1])],
+        ["Lowest score (%)", orNotYet(stats.rows.find((r) => r[0] === "Lowest score (%)")?.[1])],
+        ["Correct answers", a.totalCorrectAnswers ?? 0],
+        ["Incorrect answers", a.totalIncorrectAnswers ?? 0],
+        ["Answer accuracy (%)", orNotYet(
+          (a.totalCorrectAnswers ?? 0) + (a.totalIncorrectAnswers ?? 0) > 0
+            ? round((a.totalCorrectAnswers / (a.totalCorrectAnswers + a.totalIncorrectAnswers)) * 100)
+            : null,
+        )],
+        ["Overall mastery (%)", orNotYet(round(a.overallMasteryPercentage))],
+        ["Confidence (%)", orNotYet(a.totalAssessmentAttempts ? round(a.confidencePercentage) : null)],
+        ["Readiness: chance of passing (%)", orNotYet(a.totalAssessmentAttempts ? round(a.readinessPercentage) : null)],
+        ["Topics mastered", a.masteredTopicCount ?? 0],
+        ["Weak topics", a.weakTopicCount ?? 0],
+        ["Topics not yet assessed", a.unassessedTopicCount ?? 0],
+        ["Challenge attempts", a.totalChallengeAttempts ?? 0],
+        ["Average challenge score (%)", orNotYet(round(a.averageChallengeScore))],
       ],
     },
-    { title: "Assessments (one row each)", columns: summary.columns, rows: summary.rows },
-    { title: "Topic mastery (weakest first)", columns: TOPIC_COLUMNS, rows: topicRows(a) },
-    { title: "Category mastery", columns: CATEGORY_COLUMNS, rows: categoryRows(a.categoryMastery) },
+    {
+      title: "Score statistics",
+      columns: ["Metric", "Value"],
+      rows: orEmpty(stats.rows, "No assessments taken yet. Scores appear here after your first quiz or exam."),
+    },
+    {
+      title: "Scores by assessment type",
+      columns: ["Type", "Assessments", "Attempts", "Average (%)", "Highest (%)", "Lowest (%)", "Passed"],
+      rows: orEmpty(stats.byType, "No assessments taken yet."),
+    },
+    { title: "Assessments (one row each)", columns: summary.columns, rows: orEmpty(summary.rows, "No assessments taken yet.") },
+  ]
+  if (behavior) {
+    blocks.push({
+      title: "Study habits (last 7 days)",
+      columns: ["Metric", "Value"],
+      rows: [
+        ["Minutes studied this week", behavior.weekStudyMinutes ?? 0],
+        ["Minutes studied today", behavior.todayStudyMinutes ?? 0],
+        ["Focus consistency (%)", behavior.focusConsistency ?? 100],
+        ["Reading pace", behavior.readingPace ?? NOT_YET],
+        ["Focus checks completed", behavior.challengeCompletions ?? 0],
+        ["Sections skimmed too fast", behavior.rushEvents ?? 0],
+      ],
+    })
+    blocks.push({
+      title: "Study time by day",
+      columns: ["Date", "Minutes studied", "Sections skimmed too fast"],
+      rows: orEmpty((behavior.trend ?? []).map((d) => [d.date, d.studyMinutes ?? 0, d.rushes ?? 0]), "No study sessions recorded this week."),
+    })
+  }
+  blocks.push(
+    { title: "Topic mastery (weakest first)", columns: TOPIC_COLUMNS, rows: orEmpty(topicRows(a), "No topic has enough answers to score yet.") },
+    { title: "Category mastery", columns: CATEGORY_COLUMNS, rows: orEmpty(categoryRows(a.categoryMastery), "No categories yet.") },
     {
       title: "Recommended next topics",
       columns: ["Topic", "Why", "Suggested action", "Priority"],
-      rows: (a.recommendedTopics ?? []).map((r) => [r.lessonTitle, r.reason, r.recommendedAction, r.priorityTag]),
+      rows: orEmpty(
+        (a.recommendedTopics ?? []).map((r) => [r.lessonTitle, r.reason, r.recommendedAction, r.priorityTag]),
+        "Recommendations appear once you have answered some questions.",
+      ),
     },
-    bucket("Accuracy by assessment type", a.performanceByAssessmentType),
-    bucket("Accuracy by difficulty", a.performanceByDifficulty),
-    bucket("Accuracy by question type", a.performanceByQuestionType),
+    bucket("Accuracy by assessment type", a.performanceByAssessmentType, "No answers yet."),
+    bucket("Accuracy by difficulty", a.performanceByDifficulty, "No answers yet."),
+    bucket("Accuracy by question type", a.performanceByQuestionType, "No answers yet."),
     {
       title: "Recent activity",
       columns: ["When", "Activity", "Title", "Score (%)", "Passed"],
-      rows: (a.recentActivity ?? []).map((r) => [r.occurredAt, assessmentTypeLabel(r.activityType), r.title, round(r.scorePercentage), r.passed]),
+      rows: orEmpty(
+        (a.recentActivity ?? []).map((r) => [r.occurredAt, assessmentTypeLabel(r.activityType), r.title, round(r.scorePercentage), r.passed]),
+        "No activity yet.",
+      ),
     },
-  ]
+  )
+  return blocks
 }

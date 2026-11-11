@@ -112,6 +112,12 @@ export function mapGeneratedQuestionDraftToQuestionType(draft) {
                 questionTypeName: "Multiple Choice",
                 data: createMcqData(draft),
             };
+        case "MULTIPLE_ANSWER":
+            return {
+                typeId: "MULTIPLE_ANSWER",
+                questionTypeName: "Multiple Answer",
+                data: { ...createMcqData(draft), questionType: "MULTIPLE_ANSWER", correctChoiceIndex: null },
+            };
         case "SHORT_ANSWER":
             return {
                 typeId: "SHORT_ANSWER",

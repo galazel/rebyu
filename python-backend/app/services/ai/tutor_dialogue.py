@@ -614,8 +614,9 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
         vocabulary = f"{plan.material(max(0, answered - 1))}\n{previous.content if previous else ''}"
         if last is not None:
             guard = await asyncio.to_thread(tutor_guard.check_learner_message, last.content, vocabulary)
-            if guard.blocked and guard.reason in ("self_harm", "abuse"):
-                # Someone who may be at risk gets the support message alone -- no quiz question after it.
+            if guard.blocked and guard.reason in tutor_guard.SAFETY_KINDS:
+                # Safety events (someone at risk, a threat, probing for others' data) get the shared
+                # safety card alone -- no quiz question after it, and the turn is not counted.
                 return DialogueResponse(reply=guard.redirect, topics=topics,
                                         topicIndex=max(0, answered - 1), counted=False)
             if guard.blocked:
@@ -624,6 +625,14 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
         if last is not None and _is_hint_request(last.content):
             return await _hint(plan, max(0, answered), previous, topics)
         reason = screen_answer(last.content, explanation=answered >= 2, vocabulary=vocabulary) if last else None
+        if not reason and last is not None and not (previous and previous.options):
+            # An open question answered with one unrecognised word ("fasd") is not an answer;
+            # a short mash like that slips past the keyboard-pattern checks. Choice questions
+            # (a single letter or option is fine) are exempt.
+            words = re.findall(r"[A-Za-z]{2,}", last.content)
+            known = tutor_guard._COMMON | tutor_guard._vocab(vocabulary)
+            if len(words) == 1 and words[0].lower() not in known:
+                reason = "gibberish"
         if not reason and last is not None and answered >= 2:
             earlier = [m.content.strip().lower() for m in request.history[:-1]
                        if m.role == "learner" and not m.ignored]

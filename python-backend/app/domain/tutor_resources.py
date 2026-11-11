@@ -117,18 +117,65 @@ def _topic(query: str, lesson_name: str | None) -> str:
     return " ".join(query.split()[:MAX_QUERY_WORDS]) or lesson
 
 
-def _videos(topic: str, limit: int = MAX_VIDEOS) -> list[dict]:
+# ---- Relevance ------------------------------------------------------------------------------
+# A search engine always returns *something*: for a niche lesson YouTube happily fills the list
+# with viral stories and unrelated explainers. Every result is therefore checked against the
+# lesson's own key terms before it is shown; an empty list is better than a wrong one.
+
+_GENERIC_TERMS = frozenset("""
+introduction intro basics basic overview fundamentals fundamental concepts concept principles principle
+part lesson topic chapter unit module explained explanation guide tutorial course and the with for from
+into what how why its their about understanding overview using use types type role roles
+""".split())
+CANDIDATES = 12  # fetched per search, so filtering still leaves enough
+
+
+def _stem(word: str) -> str:
+    word = word.lower()
+    for suffix in ("ments", "ment", "ings", "ing", "ies", "es", "s"):
+        if len(word) - len(suffix) >= 4 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def key_terms(text: str | None) -> set[str]:
+    """The distinctive word stems of a lesson name or question (no filler, 4+ letters)."""
+    words = re.findall(r"[A-Za-z][A-Za-z+#-]{2,}", text or "")
+    return {_stem(w) for w in words if len(w) >= 4 and w.lower() not in _GENERIC_TERMS}
+
+
+def relevant(result_text: str, lesson_terms: set[str], query_terms: set[str]) -> bool:
+    """A result is about the lesson when its title/description shares enough of the lesson's
+    key terms: two of them (or the only one), or one lesson term plus one from the question."""
+    found = {_stem(w) for w in re.findall(r"[A-Za-z][A-Za-z+#-]{2,}", result_text or "")}
+    lesson_hits = len(lesson_terms & found)
+    if not lesson_terms:
+        return len(query_terms & found) >= min(2, len(query_terms)) if query_terms else False
+    if lesson_hits >= min(2, len(lesson_terms)):
+        return True
+    return lesson_hits >= 1 and bool((query_terms - lesson_terms) & found)
+
+
+def _videos(topic: str, limit: int = MAX_VIDEOS, lesson_terms: set[str] | None = None,
+            query_terms: set[str] | None = None) -> list[dict]:
     try:
-        items = youtube_search(topic, max_results=limit)
+        items = youtube_search(topic, max_results=max(limit, CANDIDATES), safe=True)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
         logger.warning("Tutor video search failed: %s", error)
         return []
+    lesson_terms = lesson_terms if lesson_terms is not None else key_terms(topic)
+    query_terms = query_terms or set()
     videos = []
     for item in items:
         video_id = (item.get("id") or {}).get("videoId")
         snippet = item.get("snippet") or {}
         if not video_id:
             continue
+        text = f"{snippet.get('title') or ''} {snippet.get('description') or ''}"
+        if not relevant(html.unescape(text), lesson_terms, query_terms):
+            continue
+        if len(videos) >= limit:
+            break
         thumbnails = snippet.get("thumbnails") or {}
         thumbnail = (thumbnails.get("medium") or thumbnails.get("default") or {}).get("url")
         videos.append({
@@ -175,23 +222,29 @@ def _wikipedia(topic: str, limit: int) -> list[dict]:
     } for hit in hits if hit.get("title")]
 
 
-def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -> list[dict]:
+def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS,
+           lesson_terms: set[str] | None = None, query_terms: set[str] | None = None) -> list[dict]:
+    lesson_terms = lesson_terms if lesson_terms is not None else key_terms(lesson_name or topic)
+    query_terms = query_terms or set()
     try:
-        results = serper_search(topic, num=8)
+        results = serper_search(topic, num=10)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
         # Serper without a key or out of credit: a keyless search keeps website links coming.
         logger.warning("Tutor link search via Serper failed (%s); trying DuckDuckGo", error)
         try:
-            results = duckduckgo_search(topic, num=8)
+            results = duckduckgo_search(topic, num=10)
         except Exception as fallback_error:  # noqa: BLE001
             logger.warning("Tutor link search via DuckDuckGo failed (%s); falling back to Wikipedia",
                            fallback_error)
-            return _wikipedia(lesson_name or topic, limit)
+            return [link for link in _wikipedia(lesson_name or topic, limit)
+                    if relevant(f"{link['title']} {link['snippet']}", lesson_terms, query_terms)]
     links, seen = [], set()
     for result in results:
         url = result.get("link") or ""
         host = urlparse(url).netloc.lower().removeprefix("www.")
         if not url.startswith(("https://", "http://")) or "youtube.com" in host or host in seen:
+            continue
+        if not relevant(f"{result.get('title') or ''} {result.get('snippet') or ''}", lesson_terms, query_terms):
             continue
         seen.add(host)
         links.append({
@@ -203,7 +256,10 @@ def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -
         })
         if len(links) >= limit:
             break
-    return links or _wikipedia(lesson_name or topic, limit)
+    if links:
+        return links
+    return [link for link in _wikipedia(lesson_name or topic, limit)
+            if relevant(f"{link['title']} {link['snippet']}", lesson_terms, query_terms)]
 
 
 def find_resources(query: str, lesson_name: str | None) -> list[dict]:
@@ -218,12 +274,15 @@ def find_resources(query: str, lesson_name: str | None) -> list[dict]:
     topic = _topic(query, lesson_name)
     if not topic:
         return []
+    # Results must be about the lesson (its key terms), optionally narrowed by the question.
+    lesson_terms = key_terms(lesson_name) or key_terms(topic)
+    query_terms = key_terms(concise(query, MAX_QUERY_WORDS))
     with ThreadPoolExecutor(max_workers=2) as pool:
-        videos_job = pool.submit(_videos, topic, MAX_TOTAL)
-        links_job = pool.submit(_links, topic, lesson_name, MAX_TOTAL)
+        videos_job = pool.submit(_videos, topic, MAX_TOTAL, lesson_terms, query_terms)
+        links_job = pool.submit(_links, topic, lesson_name, MAX_TOTAL, lesson_terms, query_terms)
         videos, links = videos_job.result(), links_job.result()
-    if not videos and lesson_name and topic != lesson_name:
-        videos = _videos(f"{lesson_name} explained", MAX_TOTAL)
+    if not videos and lesson_name:
+        videos = _videos(f"{lesson_name} explained", MAX_TOTAL, lesson_terms, query_terms)
     if videos and links:
         if _WANTS_READING.search(query or "") and not _WANTS_VIDEO.search(query or ""):
             # Asked for websites or reading: lead with links, then a video if there is room.

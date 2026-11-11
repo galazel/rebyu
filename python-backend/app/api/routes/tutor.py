@@ -70,7 +70,9 @@ async def screen(payload: ScreenRequest) -> dict:
     """Whether a learner message earns a conduct strike. Java asks before every tutor
     turn and keeps the strike count; the turn itself still goes through the full guard."""
     reason = tutor_guard.severe_reason(payload.message)
-    return {"severe": reason is not None, "reason": reason}
+    # `alert`: a safety event Java records and raises to staff (self_harm, abuse, threat,
+    # data_probe), whether or not the message also earns a strike.
+    return {"severe": reason is not None, "reason": reason, "alert": tutor_guard.safety_alert(payload.message)}
 
 
 @router.post("/live/turn")

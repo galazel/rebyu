@@ -13,6 +13,7 @@ import {
   Check,
   GripHorizontal,
   BookOpen,
+  CalendarDays,
   ClipboardListIcon,
   Loader2,
   Target,
@@ -35,7 +36,7 @@ import {
   LearnerErrorState,
 } from "@/components/learner/learner-ui.jsx"
 import { PlayerCardTile } from "@/components/learner/player-card-tile.jsx"
-import { ExamCountdownTile } from "@/components/learner/exam-countdown-tile.jsx"
+import { ExamCountdownBody } from "@/components/learner/exam-countdown-tile.jsx"
 import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
 import { PrioritySeal } from "@/components/learner/priority-tag.jsx"
@@ -184,21 +185,155 @@ function MasteryRow({ title, caption, value, color = SERIES_INK[0], leading, evi
   )
 }
 
-function StudyBehaviorTile({ behavior }) {
+const PACE_STYLE = {
+  Steady: {
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300",
+    note: "You read at a steady pace this week.",
+  },
+  Fast: {
+    chip: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
+    note: "A few sections were skimmed quickly. Slowing down helps it stick.",
+  },
+  Rushed: {
+    chip: "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300",
+    note: "Many sections were skimmed quickly. Slow down to remember more.",
+  },
+}
+
+// 2026-11-10: Study behavior folded into Today's plan. A layout saved before that still lists
+// the absorbed card; the merged card takes over its partner's space when the two sat side by
+// side, so nobody's arrangement gets a hole in it.
+const MERGED_TILES = [
+  ["todays-plan", "study-behavior"],
+]
+
+// 2026-11-11: Exam readiness and Exam countdown are separate cards again. A layout saved while
+// they were one card holds only "exam-readiness"; it is split in two so the countdown lands
+// beside it instead of at the bottom of the board.
+const SPLIT_TILES = [
+  ["exam-readiness", "exam-countdown"],
+]
+
+function migrateLearnerLayout(layout) {
+  if (!Array.isArray(layout) || layout.length === 0) return layout
+  let next = layout.map((item) => ({ ...item }))
+  const idOf = (item) => item.id ?? item.i
+  for (const [keepId, newId] of SPLIT_TILES) {
+    const keep = next.find((item) => idOf(item) === keepId)
+    if (!keep || next.some((item) => idOf(item) === newId) || !(keep.w >= 2)) continue
+    const leftW = Math.ceil(keep.w / 2)
+    const added = { ...keep, id: newId, x: keep.x + leftW, w: keep.w - leftW }
+    if (keep.i != null) added.i = newId
+    keep.w = leftW
+    next.push(added)
+  }
+  for (const [keepId, goneId] of MERGED_TILES) {
+    const keep = next.find((item) => idOf(item) === keepId)
+    const gone = next.find((item) => idOf(item) === goneId)
+    if (!gone) continue
+    if (!keep) {
+      // Only the absorbed card was placed: the merged card inherits its slot.
+      gone.id = keepId
+      if (gone.i != null) gone.i = keepId
+      continue
+    }
+    const sameRow = keep.y === gone.y
+    const adjacent = keep.x + keep.w === gone.x || gone.x + gone.w === keep.x
+    if (sameRow && adjacent) {
+      keep.x = Math.min(keep.x, gone.x)
+      keep.w = keep.w + gone.w
+      keep.h = Math.max(keep.h, gone.h)
+    }
+    next = next.filter((item) => idOf(item) !== goneId)
+  }
+  return next
+}
+
+function dayLetter(date) {
+  const parsed = new Date(`${date}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toLocaleDateString(undefined, { weekday: "narrow" })
+}
+
+/** Seven bars, one per day: minutes studied, with days that had rushed reading marked. */
+function WeekBars({ trend }) {
+  const days = Array.isArray(trend) ? trend.slice(-7) : []
+  const peak = Math.max(1, ...days.map((day) => Number(day.studyMinutes) || 0))
+  if (days.length === 0) return null
+  return (
+    <div className="flex items-end gap-1.5" role="img"
+      aria-label={`Minutes studied each day: ${days.map((d) => `${dayLetter(d.date)} ${d.studyMinutes}`).join(", ")}`}>
+      {days.map((day, index) => {
+        const minutes = Number(day.studyMinutes) || 0
+        const isToday = index === days.length - 1
+        return (
+          <div key={day.date} className="flex flex-col items-center gap-1"
+            title={`${minutes} min${day.rushes ? ` · ${day.rushes} rushed` : ""}`}>
+            <div className="relative flex h-12 w-3.5 items-end overflow-hidden rounded-sm bg-muted">
+              <div
+                className={`w-full rounded-sm ${isToday ? "bg-emerald-600" : "bg-emerald-400/80"}`}
+                style={{ height: minutes ? `max(3px, ${(minutes / peak) * 100}%)` : 0 }}
+              />
+            </div>
+            <span className={`text-[10px] font-bold leading-none ${isToday ? "text-foreground" : "text-muted-foreground"}`}>
+              {dayLetter(day.date)}
+            </span>
+            <span className={`size-1 rounded-full ${day.rushes ? "bg-red-500" : "bg-transparent"}`} aria-hidden="true" />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** This week's study behaviour, as the footer of Today's plan. */
+function StudyWeekSummary({ behavior, isLoading }) {
+  if (isLoading) return <div className="h-16 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
   const minutes = Number(behavior?.weekStudyMinutes ?? 0)
-  const pace = behavior?.readingPace ?? "Building"
-  return <BentoTile tone="leaf" col={2} row={2}>
-    <BentoHeading icon={TrendingUp} kicker="Study behavior" title="Focus & reading pace" hint="Saved from your lesson study sessions." />
-    <div className="grid grid-cols-2 gap-3">
-      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{minutes}</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">minutes this week</p></div>
-      <div><p className="font-rb-display text-4xl font-extrabold leading-none">{behavior?.focusConsistency ?? 100}%</p><p className="mt-1 text-xs font-bold text-rb-leaf-lip">focus consistency</p></div>
+  const today = Number(behavior?.todayStudyMinutes ?? 0)
+  const focus = Number(behavior?.focusConsistency ?? 100)
+  const pace = behavior?.readingPace ?? "Steady"
+  const paceStyle = PACE_STYLE[pace] ?? PACE_STYLE.Steady
+  const rushes = Number(behavior?.rushEvents ?? 0)
+  const checks = Number(behavior?.challengeCompletions ?? 0)
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+            This week
+          </p>
+          <p className="mt-1 leading-none">
+            <span className="font-rb-display text-3xl font-extrabold tabular-nums text-foreground">{minutes}</span>
+            <span className="ml-1 text-xs font-bold text-muted-foreground">
+              min studied · {today} today
+            </span>
+          </p>
+        </div>
+        <WeekBars trend={behavior?.trend} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+        <span
+          className={`rounded-full border px-2 py-0.5 ${focus >= 75 ? PACE_STYLE.Steady.chip : focus >= 50 ? PACE_STYLE.Fast.chip : PACE_STYLE.Rushed.chip}`}
+          title="How consistently you read without skimming. Every fast-scroll lowers it."
+        >
+          {focus}% focus
+        </span>
+        <span className={`rounded-full border px-2 py-0.5 ${paceStyle.chip}`} title={`${rushes} fast-scroll event${rushes === 1 ? "" : "s"} this week`}>
+          {pace} pace
+        </span>
+        <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
+          {checks} focus check{checks === 1 ? "" : "s"} done
+        </span>
+      </div>
+      {minutes > 0 ? (
+        <p className="mt-1.5 truncate text-[11px] font-medium text-muted-foreground">{paceStyle.note}</p>
+      ) : (
+        <p className="mt-1.5 truncate text-[11px] font-medium text-muted-foreground">
+          Open a lesson to start tracking your study time.
+        </p>
+      )}
     </div>
-    <div className="mt-auto space-y-2 border-t border-rb-leaf/20 pt-3 text-xs font-semibold text-rb-eel">
-      <div className="flex justify-between"><span>Reading pace</span><span>{pace}</span></div>
-      <div className="flex justify-between"><span>Focus checks completed</span><span>{behavior?.challengeCompletions ?? 0}</span></div>
-      <div className="flex justify-between"><span>Fast-scroll events</span><span>{behavior?.rushEvents ?? 0}</span></div>
-    </div>
-  </BentoTile>
+  )
 }
 
 function NextUpTile({
@@ -296,19 +431,42 @@ function NextUpTile({
   )
 }
 
-function ReadinessTile({ readiness }) {
+/** Estimated chance of passing. */
+function ExamReadinessTile({ readiness }) {
+  return (
+    <BentoTile col={1} row={2}>
+      <BentoHeading
+        icon={Target}
+        kicker="Exam Readiness"
+        title="chance of passing"
+        hint="Your estimated chance of passing the exam."
+      />
+      <ReadinessBody readiness={readiness} />
+    </BentoTile>
+  )
+}
+
+/** Countdown to the target exam date from the study plan. */
+function ExamDayTile({ certificationId }) {
+  return (
+    <BentoTile col={1} row={2}>
+      <BentoHeading
+        icon={CalendarDays}
+        kicker="Exam Day"
+        title="exam countdown"
+        hint="How long until the exam date in your study plan."
+      />
+      <ExamCountdownBody certificationId={certificationId} />
+    </BentoTile>
+  )
+}
+
+function ReadinessBody({ readiness }) {
   const theme = useChartTheme()
   const meta = readinessMeta(readiness)
 
   return (
-    <BentoTile col={2} row={2}>
-      <BentoHeading
-        icon={Target}
-        kicker="Exam Outlook"
-        title="exam readiness"
-        hint="Your estimated chance of passing."
-      />
-
+    <>
       {readiness === null ? (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
           <Target className="size-6 text-muted-foreground/50" aria-hidden="true" />
@@ -323,7 +481,7 @@ function ReadinessTile({ readiness }) {
         <div className="flex flex-1 flex-col items-center justify-center">
           <RadialGauge
             value={readiness}
-            height={150}
+            height={130}
             color={readinessColor(theme, readiness)}
           />
 
@@ -334,12 +492,12 @@ function ReadinessTile({ readiness }) {
             {meta?.label}
           </p>
 
-          <p className="mt-2 text-center text-xs font-semibold leading-5 text-muted-foreground">
+          <p className="mt-1.5 text-center text-xs font-semibold leading-5 text-muted-foreground">
             {meta?.hint}
           </p>
         </div>
       )}
-    </BentoTile>
+    </>
   )
 }
 
@@ -758,17 +916,15 @@ export default function LearnerProgressPage() {
       y: 1,
       col: 2,
       row: 2,
-      element: (
-        <ReadinessTile readiness={readinessLevel} />
-      ),
+      element: <ExamReadinessTile readiness={readinessLevel} />,
     },
     {
-      id: "study-behavior",
-      x: 5,
-      y: 3,
+      id: "exam-countdown",
+      x: 4,
+      y: 1,
       col: 1,
       row: 2,
-      element: <StudyBehaviorTile behavior={behaviorQuery.data} />,
+      element: <ExamDayTile certificationId={selectedCertificationId} />,
     },
     {
       id: "topic-mastery",
@@ -856,21 +1012,13 @@ export default function LearnerProgressPage() {
       y: 1,
       col: 1,
       row: 2,
+      // Today's plan with this week's study behaviour underneath (the Study behavior card folded in).
       element: (
         <TodaysPlanTile
           certificationId={selectedCertificationId}
           onCreatePlan={openOverallStudyPlan}
+          footer={<StudyWeekSummary behavior={behaviorQuery.data} isLoading={behaviorQuery.isLoading} />}
         />
-      ),
-    },
-    {
-      id: "exam-countdown",
-      x: 2,
-      y: 0,
-      col: 2,
-      row: 1,
-      element: (
-        <ExamCountdownTile certificationId={selectedCertificationId} />
       ),
     },
     {
@@ -1154,7 +1302,7 @@ export default function LearnerProgressPage() {
   const queryClient = useQueryClient()
   const [rearranging, setRearranging] = useState(false)
   const [localLayout, setLocalLayout] = useState(null)
-  const savedLayout = localLayout ?? layoutQuery.data?.tiles ?? null
+  const savedLayout = migrateLearnerLayout(localLayout ?? layoutQuery.data?.tiles ?? null)
   const tileLayout = savedLayout ?? []
 
   const saveLayoutMutation = useMutation({
@@ -1225,7 +1373,7 @@ export default function LearnerProgressPage() {
             report="My progress"
             details={[["Certification", selectedCertification?.title]]}
             disabled={!analytics}
-            sections={() => learnerReportBlocks(analytics)}
+            sections={() => learnerReportBlocks(analytics, [], { behavior: behaviorQuery.data })}
           />
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (

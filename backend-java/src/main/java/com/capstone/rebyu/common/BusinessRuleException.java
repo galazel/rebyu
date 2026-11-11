@@ -54,6 +54,13 @@ public abstract class BusinessRuleException extends RuntimeException {
         }
     }
 
+    /** A lookup value (exam type, user type) cannot be deleted while records still use it. */
+    public static class InUseException extends BusinessRuleException {
+        public InUseException(String message) {
+            super(message);
+        }
+    }
+
     public static class CurriculumNodeInUseException extends BusinessRuleException {
         public CurriculumNodeInUseException(String message) {
             super(message);

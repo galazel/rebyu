@@ -71,8 +71,14 @@ import {
 import { GeneratedQuizArena } from "@/components/practice/generated-quiz-arena.jsx"
 import { AdaptiveAttemptRunner } from "@/components/assessments/attempt/adaptive-attempt-runner.jsx"
 import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
+import { AttemptPausedModal } from "@/components/assessments/attempt/attempt-paused-modal.jsx"
+import { useAttemptIntegrity } from "@/hooks/use-attempt-integrity.js"
 import { getMyWorldCupBracket } from "@/services/challengeService.js"
 import { getLearnerPortalData } from "@/services/learnerService.js"
+import {
+  isMultipleAnswer,
+  MultipleAnswerChoices,
+} from "@/components/assessments/attempt/multiple-answer-choices.jsx"
 
 function toDraftDto(attemptQuestionId, answer) {
   const subAnswers = answer.subAnswers ?? {}
@@ -97,6 +103,10 @@ function isMultipleChoice(question) {
 const QUESTION_TYPE_STYLES = {
   MULTIPLE_CHOICE: {
     label: "Multiple Choice",
+    className: "border-rb-macaw bg-rb-macaw-wash text-rb-macaw-lip",
+  },
+  MULTIPLE_ANSWER: {
+    label: "Multiple Answer",
     className: "border-rb-macaw bg-rb-macaw-wash text-rb-macaw-lip",
   },
   SHORT_ANSWER: {
@@ -246,7 +256,13 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
             className="max-h-80 w-auto rounded-xl border"
         />
 
-        {isMultipleChoice(question) ? (
+        {isMultipleAnswer(question) ? (
+            <MultipleAnswerChoices
+                question={question}
+                learnerAnswer={answer?.learnerAnswer ?? null}
+                onChange={(learnerAnswer) => onAnswer({ learnerAnswer })}
+            />
+        ) : isMultipleChoice(question) ? (
             <RadioGroup
                 value={
                   answer?.selectedChoiceId != null
@@ -414,7 +430,12 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
               value={answer?.submittedCode ?? question.starterCode ?? ""}
               language={answer?.programmingLanguage ?? "Java"}
               starterCode={question.starterCode ?? ""}
-              onChange={(code) => onAnswer({ submittedCode: code })}
+              // The shown language goes with the code: before, it was saved only when the
+              // dropdown changed, and default-editor code reached the grader with none.
+              onChange={(code) => onAnswer({
+                submittedCode: code,
+                programmingLanguage: answer?.programmingLanguage ?? "Java",
+              })}
               onLanguageChange={(language) =>
                   onAnswer({ programmingLanguage: language })
               }
@@ -566,6 +587,34 @@ export default function LearnerAssessmentAttemptPage() {
   const [remainingSeconds, setRemainingSeconds] = useState(null)
   const warnedRef = useRef({ ten: false, one: false })
   const autoSubmittedRef = useRef(false)
+  // The deadline the countdown runs to. It starts at the attempt's expiresAt and moves
+  // forward whenever the server credits time spent paused (the learner left the tab).
+  const [clockExpiresAt, setClockExpiresAt] = useState(null)
+  const currentQuestionIdRef = useRef(null)
+  // Off from the moment the paper is handed in: no pausing, copy blocking or exit counting while
+  // it is marked. A pause racing the submit hit the attempt's version check and failed one of them.
+  const [handedIn, setHandedIn] = useState(false)
+  const integrity = useAttemptIntegrity({
+    attemptId: attempt?.assessmentAttemptId ?? null,
+    // Every certification assessment is policed; a challenge is a game, not a sitting.
+    enabled: attempt != null && !timeUp && !handedIn
+        && String(attempt.assessmentType ?? "").toUpperCase() !== "CHALLENGE",
+    onClock: setClockExpiresAt,
+    getQuestionId: () => currentQuestionIdRef.current,
+    initialViolations: attempt?.focusViolations,
+    initialMaxViolations: attempt?.maxFocusViolations,
+    onForfeit: (forfeitedAttemptId) => {
+      // The server has already ended the attempt with a score of 0: never auto-submit after it.
+      autoSubmittedRef.current = true
+      sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
+      toast.error("You left the assessment too many times. It has ended with a score of 0.")
+      queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+      navigate(`/learner/results/${forfeitedAttemptId}`, {
+        replace: true,
+        state: { returnTo: returnPath(location), forfeited: true },
+      })
+    },
+  })
 
   useEffect(() => {
     if (learnerId == null || startedRef.current) return
@@ -580,6 +629,7 @@ export default function LearnerAssessmentAttemptPage() {
     startAssessmentAttempt(examId, learnerId, idempotencyKey, questionIndex, matchId ? Number(matchId) : null)
         .then((response) => {
           setAttempt(response)
+          setClockExpiresAt(response.expiresAt ?? null)
           const rehydrated = {}
           Object.values(response.savedAnswers ?? {}).forEach((draft) => {
             let subAnswers
@@ -662,8 +712,9 @@ export default function LearnerAssessmentAttemptPage() {
   }, [])
 
   useEffect(() => {
-    if (!attempt?.expiresAt) return
-    const endAt = new Date(attempt.expiresAt).getTime()
+    // While paused the clock stands still; resuming hands back a later deadline.
+    if (!clockExpiresAt || integrity.paused) return
+    const endAt = new Date(clockExpiresAt).getTime()
     // Warn only when the clock CROSSES a mark while the learner is working: a quiz
     // that starts with 10 minutes or less (or is resumed late) must not open with a
     // "10 minutes remaining" warning.
@@ -686,7 +737,7 @@ export default function LearnerAssessmentAttemptPage() {
     tick()
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [attempt?.expiresAt])
+  }, [clockExpiresAt, integrity.paused])
 
   useEffect(() => {
     const handler = (event) => {
@@ -827,7 +878,10 @@ export default function LearnerAssessmentAttemptPage() {
           payload
       )
     },
-    onMutate: () => snapshotRewards(queryClient),
+    onMutate: () => {
+      setHandedIn(true)
+      return snapshotRewards(queryClient)
+    },
     onSuccess: (result, _variables, before) => {
       sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
 
@@ -879,6 +933,8 @@ export default function LearnerAssessmentAttemptPage() {
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
     },
     onError: (error) => {
+      // Back in the attempt after a failed submit: the guard applies again.
+      setHandedIn(false)
       toast.error(
           error?.response?.data?.message ??
           "Unable to submit the assessment. Please try again."
@@ -922,6 +978,7 @@ export default function LearnerAssessmentAttemptPage() {
   }
 
   const currentQuestion = questions[currentIndex]
+  currentQuestionIdRef.current = currentQuestion?.attemptQuestionId ?? null
 
   const workspaceKind =
       currentQuestion?.criticalThinkingType
@@ -949,8 +1006,20 @@ export default function LearnerAssessmentAttemptPage() {
       />
   )
 
+  const pausedModal = (
+      <AttemptPausedModal
+          open={integrity.paused}
+          violations={integrity.violations}
+          maxViolations={integrity.maxViolations}
+          resuming={integrity.resuming}
+          onResume={integrity.resume}
+      />
+  )
+
   if (attempt.adaptive) {
     return (
+        <>
+        {pausedModal}
         <AdaptiveAttemptRunner
             attempt={attempt}
             learnerId={learnerId}
@@ -965,11 +1034,14 @@ export default function LearnerAssessmentAttemptPage() {
             isMultipleChoice={isMultipleChoice}
             WorkspaceQuestionPanel={WorkspaceQuestionPanel}
         />
+        </>
     )
   }
 
   if (attempt.assessmentType === "GENERATED_QUIZ" && !timeUp) {
     return (
+        <>
+        {pausedModal}
         <GeneratedQuizArena
             attempt={attempt}
             questions={questions}
@@ -985,11 +1057,13 @@ export default function LearnerAssessmentAttemptPage() {
             isSubmitting={submitMutation.isPending}
             remainingSeconds={remainingSeconds}
         />
+        </>
     )
   }
 
   return (
       <div className="rebyu-ds tg-cat-explain flex h-dvh flex-col overflow-hidden bg-[var(--tg-softer)]">
+        {pausedModal}
         <header className="shrink-0 border-b border-[var(--tg-line)] bg-card">
           <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">

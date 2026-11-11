@@ -23,6 +23,12 @@ import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
 import ProgrammingQuestionLayout from "./programming-question-layout.jsx"
 import DiagramQuestionLayout from "./diagram-question-layout.jsx"
 import { FinalRoundInterstitial } from "./final-round-interstitial.jsx"
+import {
+  isExactSelection,
+  isMultipleAnswer,
+  MultipleAnswerChoices,
+  parseChoiceIds,
+} from "./multiple-answer-choices.jsx"
 
 export function AdaptiveAttemptRunner({
   attempt,
@@ -344,7 +350,15 @@ export function AdaptiveAttemptRunner({
               />
 
               <div className="mt-6">
-                {isMultipleChoice(current) ? (
+                {isMultipleAnswer(current) ? (
+                  <MultipleAnswerChoices
+                    question={current}
+                    learnerAnswer={draft?.learnerAnswer ?? null}
+                    onChange={(learnerAnswer) => setAnswer({ learnerAnswer })}
+                    disabled={revealed || grading}
+                    correctChoiceIds={revealed && Array.isArray(verdict?.correctChoiceIds) ? verdict.correctChoiceIds : null}
+                  />
+                ) : isMultipleChoice(current) ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {(current.choices ?? []).map((choice, choiceIndex) => {
                       const selected = draft?.selectedChoiceId === choice.choiceId
@@ -572,9 +586,17 @@ function QuestionStem({ text }) {
   const asked = at === -1 ? full : full.slice(0, at).trimEnd()
   const citation = at === -1 ? "" : full.slice(at).trim()
 
+  // A one-line question reads as a headline; a long past-paper scenario reads as body text.
+  const size =
+    asked.length <= 140
+      ? "text-lg font-bold leading-7 sm:text-xl sm:leading-8"
+      : asked.length <= 320
+        ? "text-base font-semibold leading-7 sm:text-lg"
+        : "text-[15px] font-medium leading-7 sm:text-base"
+
   return (
     <>
-      <p className="whitespace-pre-wrap text-xl font-bold leading-8 text-foreground sm:text-2xl sm:leading-9">
+      <p className={`whitespace-pre-wrap text-foreground ${size}`}>
         {asked}
       </p>
       {citation ? (
@@ -587,6 +609,7 @@ function QuestionStem({ text }) {
 function typeLabel(question) {
   const type = String(question?.questionType ?? "").toUpperCase()
   if (type === "MULTIPLE_CHOICE" || type === "MCQ") return "Multiple choice"
+  if (type === "MULTIPLE_ANSWER") return "Multiple answer"
   if (type === "SHORT_ANSWER") return (question.subQuestions ?? []).length > 0 ? "Fill in the blanks" : "Short answer"
   if (type === "DESCRIPTIVE") return "Written answer"
   return type.replaceAll("_", " ").toLowerCase()
@@ -609,6 +632,17 @@ function isAnswered(question, draft, isMultipleChoice) {
 function localVerdict(question, answerDraft, isMultipleChoice) {
   const key = question?.answerKey
   if (!key) return null
+  if (isMultipleAnswer(question)) {
+    if (!Array.isArray(key.correctChoiceIds) || key.correctChoiceIds.length === 0) return null
+    const correct = isExactSelection(parseChoiceIds(answerDraft?.learnerAnswer), key.correctChoiceIds)
+    return {
+      isCorrect: correct,
+      credit: correct ? 1 : 0,
+      correctChoiceIds: key.correctChoiceIds,
+      correctChoiceText: key.correctChoiceText,
+      explanation: key.explanation,
+    }
+  }
   if (isMultipleChoice(question)) {
     if (key.correctChoiceId == null) return null
     const correct = answerDraft?.selectedChoiceId === key.correctChoiceId

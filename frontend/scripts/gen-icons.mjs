@@ -120,6 +120,7 @@ const MAP = {
   Loader2: "faSpinner",
   LoaderCircle: "faSpinner",
   Lock: "faLock",
+  Phone: "faPhone",
   LockKeyhole: "faLock",
   LogIn: "faRightToBracket",
   LogOut: "faRightFromBracket",

@@ -59,8 +59,9 @@ class Conduct:
 # The chat guard's strike rules (app.ai.tutor_guard.severe_reason), mapped onto the
 # Live Tutor's kinds, so voice and chat refuse the same things -- including attack
 # how-tos, drugs and jailbreaks, which this file's own lists never covered.
-_SEVERE_KIND = {"violence": "threat", "sexual": "sexual", "hate": "insult",
-                "unsafe": "unsafe", "illegal": "unsafe", "injection": "manipulation"}
+_SEVERE_KIND = {"violence": "threat", "threat": "threat", "sexual": "sexual", "hate": "insult",
+                "unsafe": "unsafe", "illegal": "unsafe", "injection": "manipulation",
+                "data_probe": "manipulation"}
 
 
 def classify(message: str | None) -> Conduct:
