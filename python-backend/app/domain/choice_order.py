@@ -37,6 +37,8 @@ def shuffle_choices(question: dict[str, Any], rng: random.Random | None = None) 
     whose explanations describe other options, which is worse than a
     predictable position.
     """
+    if question.get("question_type") == "MULTIPLE_ANSWER":
+        return _shuffle_multiple_answer(question, rng or random)
     if question.get("question_type") != "MCQ":
         return question
 
@@ -63,6 +65,26 @@ def shuffle_choices(question: dict[str, Any], rng: random.Random | None = None) 
     shuffled["choices"] = [choices[i] for i in order]
     shuffled["correct_choice_index"] = order.index(correct)
     if has_explanations:
+        shuffled["choice_explanations"] = [explanations[i] for i in order]
+    return shuffled
+
+
+def _shuffle_multiple_answer(question: dict[str, Any], rng) -> dict[str, Any]:
+    """The MULTIPLE_ANSWER twin of the above: every right index moves with its option."""
+    choices = question.get("choices") or []
+    right = question.get("correct_choice_indices") or []
+    explanations = question.get("choice_explanations") or []
+    if (len(choices) < 2 or not right
+            or any(not isinstance(i, int) or not 0 <= i < len(choices) for i in right)
+            or (explanations and len(explanations) != len(choices))):
+        return question
+
+    order = list(range(len(choices)))
+    rng.shuffle(order)
+    shuffled = dict(question)
+    shuffled["choices"] = [choices[i] for i in order]
+    shuffled["correct_choice_indices"] = sorted(order.index(i) for i in right)
+    if explanations:
         shuffled["choice_explanations"] = [explanations[i] for i in order]
     return shuffled
 

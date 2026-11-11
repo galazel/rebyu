@@ -66,7 +66,8 @@ function actionFor(event) {
   return null
 }
 
-export function TodaysPlanTile({ onCreatePlan }) {
+/** `footer` renders under the plan, full width (the board puts this week's study summary there). */
+export function TodaysPlanTile({ onCreatePlan, footer = null }) {
   const navigate = useNavigate()
   const location = useLocation()
   // Only one pomodoro at a time: hide Start while a session is running.
@@ -153,29 +154,30 @@ export function TodaysPlanTile({ onCreatePlan }) {
   return (
     <BentoTile col={3} row={3} className="!p-0">
       <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-        <BentoHeading
-          icon={CalendarDays}
-          kicker="Scheduled"
-          title="today's plan"
-          hint={
-            todaysEvents.length > 0
-              ? `${doneCount} of ${todaysEvents.length} ${todaysEvents.length === 1 ? "task" : "tasks"} done today${
-                  certificationCount > 1 ? ` across ${certificationCount} certifications` : ""
-                }.`
-              : "Everything your study plans schedule for today, across all certifications."
-          }
-          action={
-            planCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => navigate("/learner/plan")}
-                className="shrink-0 text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80 whitespace-nowrap"
-              >
-                view calendar
-              </button>
-            ) : null
-          }
-        />
+        <div className="flex items-start justify-between gap-3">
+          <BentoHeading
+            icon={CalendarDays}
+            kicker="Your study"
+            title="today's plan"
+            hint={
+              todaysEvents.length > 0
+                ? `${doneCount} of ${todaysEvents.length} ${todaysEvents.length === 1 ? "task" : "tasks"} done today${
+                    certificationCount > 1 ? ` across ${certificationCount} certifications` : ""
+                  }.`
+                : "Everything your study plans schedule for today, across all certifications."
+            }
+          />
+
+          {planCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => navigate("/learner/plan")}
+              className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80"
+            >
+              view calendar
+            </button>
+          ) : null}
+        </div>
 
         {plansQuery.isLoading ? (
           <BentoSkeleton rows={2} />
@@ -336,6 +338,9 @@ export function TodaysPlanTile({ onCreatePlan }) {
           </div>
         )}
       </div>
+      {footer ? (
+        <div className="shrink-0 border-t border-border/60 px-5 py-4 sm:px-6">{footer}</div>
+      ) : null}
     </BentoTile>
   )
 }

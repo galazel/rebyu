@@ -1,11 +1,10 @@
-"""Generated coding questions store what their reference solution actually prints.
+"""Generated coding questions store what their reference program actually prints.
 
-The question bank's broken coding items all had the same root: the model wrote
-expected outputs by hand, and they were wrong -- an expired card expected to
-succeed, a module name contradicting the question's own example. Generation now
-runs the reference solution on Judge0 through the grader's harness and keeps
-only what that run prints. Judge0 is faked here; `tests/test_code_harness.py`
-pins the harness itself.
+A programming question is a problem plus one exact expected output: the
+learner's program runs once with no input and its stdout is compared with it.
+The model writes that output by hand and is often wrong, so generation runs the
+reference program on Judge0 and keeps only what that run prints. Judge0 is
+faked here; `tests/test_code_harness.py` pins the harness itself.
 """
 
 from __future__ import annotations
@@ -13,20 +12,21 @@ from __future__ import annotations
 import pytest
 
 from app.ai import programming_verification as verification
-from app.schemas.certification.question_schema import ProgrammingTestCase, QuestionDraft
+from app.schemas.certification.question_schema import QuestionDraft
 from app.services.code_runner import CodeRunnerUnavailable, CodeRunResult
 
+RULES = "Print each doubled value on its own line, in the order given."
 
-def _coding(inputs, question="Implement double(n), which returns n times two."):
+
+def _coding(question="Double each of 1, 5 and -3 and print the results."):
     return QuestionDraft(
         question_type="PROGRAMMING",
         question=question,
-        function_name="double",
-        rules="double(n) returns n * 2 for any integer n.",
-        reference_solution="def double(n):\n    return n * 2\n",
+        rules=RULES,
+        reference_solution="for n in (1, 5, -3):\n    print(n * 2)\n",
         programming_language="PYTHON",
-        test_cases=[ProgrammingTestCase(input_data=i, expected_output="WRONG") for i in inputs],
-        explanation="Doubling multiplies the input by two.",
+        expected_output="WRONG",
+        explanation="Doubling multiplies each value by two.",
     )
 
 
@@ -46,84 +46,74 @@ def _mcq():
     )
 
 
-def _fake_runner(monkeypatch, results):
+def _fake_runner(monkeypatch, result):
     calls = []
 
     async def fake(source, inputs, language="PYTHON"):
-        calls.append((source, list(inputs)))
-        if isinstance(results, Exception):
-            raise results
-        return [results(text) for text in inputs]
+        calls.append((source, list(inputs), language))
+        if isinstance(result, Exception):
+            raise result
+        return [result for _ in inputs]
 
     monkeypatch.setattr(verification, "run_tests", fake)
     return calls
 
 
-async def test_expected_outputs_are_replaced_by_what_the_reference_prints(monkeypatch):
-    _fake_runner(monkeypatch, lambda text: CodeRunResult(ok=True, stdout=str(int(text[7:-1]) * 2)))
-    question = _coding(["double(1)", "double(5)", "double(-3)"])
+async def test_the_expected_output_is_replaced_by_what_the_reference_prints(monkeypatch):
+    calls = _fake_runner(monkeypatch, CodeRunResult(ok=True, stdout="2\n10\n-6\n"))
+    question = _coding()
 
     kept = await verification.verify_programming_questions([question])
 
     assert kept == [question]
-    assert [case.expected_output for case in question.test_cases] == ["2", "10", "-6"]
+    assert question.expected_output == "2\n10\n-6\n"
+    # One run, with no input: the program carries its own data.
+    assert calls == [(question.reference_solution, [""], "PYTHON")]
 
 
 async def test_the_rules_are_appended_to_the_question_once(monkeypatch):
-    _fake_runner(monkeypatch, lambda text: CodeRunResult(ok=True, stdout="2"))
-    question = _coding(["double(1)", "double(1)", "double(1)"])
+    _fake_runner(monkeypatch, CodeRunResult(ok=True, stdout="2"))
+    question = _coding()
 
     await verification.verify_programming_questions([question])
     await verification.verify_programming_questions([question])
 
     assert question.question.count("Rules for this question:") == 1
-    assert question.question.endswith("Rules for this question: double(n) returns n * 2 for any integer n.")
+    assert question.question.endswith(f"Rules for this question: {RULES}")
 
 
-async def test_a_test_that_fails_on_the_reference_is_discarded(monkeypatch):
-    def run(text):
-        if text == "double('x')":
-            return CodeRunResult(ok=False, stdout="", error="TypeError")
-        return CodeRunResult(ok=True, stdout="4")
-
-    _fake_runner(monkeypatch, run)
-    question = _coding(["double(2)", "double('x')", "double(2)", "double(2)"])
-
-    kept = await verification.verify_programming_questions([question])
-
-    assert kept == [question]
-    assert [case.input_data for case in question.test_cases] == ["double(2)", "double(2)", "double(2)"]
-
-
-async def test_a_question_left_with_too_few_working_tests_is_dropped(monkeypatch):
-    _fake_runner(monkeypatch, lambda text: CodeRunResult(ok=text == "double(1)", stdout="2", error="boom"))
+async def test_a_question_whose_reference_fails_is_dropped(monkeypatch):
+    _fake_runner(monkeypatch, CodeRunResult(ok=False, stdout="", error="TypeError"))
     mcq = _mcq()
-    question = _coding(["double(1)", "double(2)", "double(3)"])
 
-    kept = await verification.verify_programming_questions([mcq, question])
-
-    assert kept == [mcq]
+    assert await verification.verify_programming_questions([mcq, _coding()]) == [mcq]
 
 
-async def test_a_test_that_prints_nothing_is_not_kept(monkeypatch):
-    _fake_runner(monkeypatch, lambda text: CodeRunResult(ok=True, stdout=""))
-    question = _coding(["double(1)", "double(2)", "double(3)"])
+async def test_a_reference_that_prints_nothing_is_dropped(monkeypatch):
+    _fake_runner(monkeypatch, CodeRunResult(ok=True, stdout="  \n"))
 
-    assert await verification.verify_programming_questions([question]) == []
+    assert await verification.verify_programming_questions([_coding()]) == []
 
 
 async def test_coding_questions_are_dropped_when_judge0_is_unreachable(monkeypatch):
     _fake_runner(monkeypatch, CodeRunnerUnavailable("down"))
     mcq = _mcq()
 
-    kept = await verification.verify_programming_questions([mcq, _coding(["double(1)"] * 3)])
+    kept = await verification.verify_programming_questions([mcq, _coding()])
 
     assert kept == [mcq]
 
 
 async def test_batches_without_coding_questions_never_call_judge0(monkeypatch):
-    calls = _fake_runner(monkeypatch, lambda text: pytest.fail("Judge0 must not be called"))
+    calls = _fake_runner(monkeypatch, None)
     batch = [_mcq()]
 
     assert await verification.verify_programming_questions(batch) is batch
     assert calls == []
+
+
+def test_a_programming_draft_has_no_test_cases_field():
+    assert "test_cases" not in QuestionDraft.model_fields
+    assert "expected_output" in QuestionDraft.model_fields
+    with pytest.raises(AttributeError):
+        _coding().test_cases  # noqa: B018

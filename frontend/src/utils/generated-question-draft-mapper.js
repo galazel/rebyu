@@ -72,10 +72,7 @@ function createProgrammingData(draft) {
         image: null,
         imageKey: draft.imageKey ?? null,
         starterCode: draft.starterCode ?? "",
-        testCases: (draft.testCases ?? []).map((testCase) => ({
-            inputData: testCase?.inputData ?? "",
-            expectedOutput: testCase?.expectedOutput ?? "",
-        })),
+        expectedOutput: draft.expectedOutput ?? "",
         subQuestions: mapSubQuestions(draft),
         difficulty: draft.difficulty ?? "average",
         lessonId: String(draft.suggestedLessonId ?? ""),
@@ -111,6 +108,12 @@ export function mapGeneratedQuestionDraftToQuestionType(draft) {
                 typeId: "MCQ",
                 questionTypeName: "Multiple Choice",
                 data: createMcqData(draft),
+            };
+        case "MULTIPLE_ANSWER":
+            return {
+                typeId: "MULTIPLE_ANSWER",
+                questionTypeName: "Multiple Answer",
+                data: { ...createMcqData(draft), questionType: "MULTIPLE_ANSWER", correctChoiceIndex: null },
             };
         case "SHORT_ANSWER":
             return {

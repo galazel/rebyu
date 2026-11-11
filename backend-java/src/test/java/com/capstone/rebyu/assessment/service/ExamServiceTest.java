@@ -61,7 +61,7 @@ class ExamServiceTest {
     @BeforeEach
     void setUp() {
         service = new ExamService(
-                examRepository, examQuestionRepository, questionRepository,
+                examRepository, org.mockito.Mockito.mock(com.capstone.rebyu.common.CascadeDeleteService.class), examQuestionRepository, questionRepository,
                 examTypeRepository, certificationRepository, majorCategoryRepository,
                 middleCategoryRepository, lessonRepository, examMapper, majorCategoryService,
                 adaptivePolicy, questionBankSize);

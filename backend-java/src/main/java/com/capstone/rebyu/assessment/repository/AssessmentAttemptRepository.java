@@ -260,4 +260,25 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
 
     List<AssessmentAttempt> findByStatusAndGradingPendingTrueAndSubmittedAtBefore(
             AssessmentAttempt.Status status, java.time.LocalDateTime before);
+
+    /**
+     * Pause / resume touch only their own columns and NOT the @Version: a submit marks for 30+
+     * seconds holding the attempt it loaded, and a pause that bumped the version made that
+     * submit fail at the very end (StaleObjectStateException) -- graded work thrown away.
+     * Only an attempt still in progress is changed.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE assessment_attempts SET paused_at = :pausedAt, focus_violations = :violations
+            WHERE assessment_attempt_id = :id AND status = 'IN_PROGRESS' AND paused_at IS NULL
+            """, nativeQuery = true)
+    int markPaused(@Param("id") Long id, @Param("pausedAt") java.time.LocalDateTime pausedAt,
+                   @Param("violations") int violations);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = """
+            UPDATE assessment_attempts SET paused_at = NULL, expires_at = :expiresAt
+            WHERE assessment_attempt_id = :id AND status = 'IN_PROGRESS' AND paused_at IS NOT NULL
+            """, nativeQuery = true)
+    int clearPause(@Param("id") Long id, @Param("expiresAt") java.time.LocalDateTime expiresAt);
 }

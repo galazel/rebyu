@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useEffect, useMemo, useState } from "react"
+import { Link, useLocation, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
   AwardIcon,
@@ -30,6 +30,8 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import {
   getGroupLearnerAnalytics,
+  getGroupLearnerIntegrity,
+  getGroupLearnerSafetyAlerts,
   getGroupLearnerAwards,
   getGroupLearnerRoster,
 } from "@/services/institutionService.js"
@@ -39,6 +41,9 @@ import MemberAttemptReviewSheet from "@/components/institution/member-attempt-re
 import { ExportButton } from "@/components/commons/export-button.jsx"
 import { learnerReportBlocks } from "@/lib/learner-export.js"
 import { LEARNER_STATUS, relativeDays, useDepartmentOverview } from "@/hooks/use-my-department.js"
+import { AssessmentIntegritySection, INTEGRITY_RISK } from "@/components/institution/assessment-integrity-section.jsx"
+import { SafetyAlertsSection } from "@/components/institution/safety-alerts-section.jsx"
+import { ShieldAlert } from "@/components/icons"
 
 function toPercent(value) {
   const number = Number(value)
@@ -306,22 +311,39 @@ function AttemptMovement({ attempts }) {
 }
 
 /** A strip of small bars, one per attempt, oldest first. Click one to open its answers. */
-function AttemptStrip({ attempts, onOpen }) {
+function flagSummary(flag) {
+  if (!flag) return ""
+  const parts = []
+  if (flag.forfeited) parts.push("ended with 0")
+  if (flag.exits) parts.push(`${flag.exits} exit${flag.exits === 1 ? "" : "s"}`)
+  if (flag.copyPasteTries) parts.push(`${flag.copyPasteTries} copy/paste`)
+  if (flag.otherBlocked) parts.push(`${flag.otherBlocked} other blocked`)
+  return parts.length ? ` — integrity flags: ${parts.join(", ")}` : ""
+}
+
+function AttemptStrip({ attempts, onOpen, flags }) {
   return (
     <div className="flex h-8 items-end gap-1">
       {attempts.map((attempt) => {
         const value = Math.min(100, Math.max(0, Number(attempt.score) || 0))
+        const flag = flags?.get(attempt.attemptId)
         return (
           <button
             type="button"
             key={attempt.attemptId ?? attempt.attemptNumber}
             disabled={!attempt.attemptId || !onOpen}
             onClick={() => onOpen?.(attempt.attemptId)}
-            className="flex h-full w-3 items-end rounded-sm bg-muted/60 transition enabled:hover:ring-2 enabled:hover:ring-primary/40"
+            className={cn(
+              "relative flex h-full w-3 items-end rounded-sm bg-muted/60 transition enabled:hover:ring-2 enabled:hover:ring-primary/40",
+              flag && "ring-2 ring-red-500/80 enabled:hover:ring-red-500"
+            )}
             title={`Attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
               attempt.correctCount != null && attempt.itemCount != null ? ` (${attempt.correctCount}/${attempt.itemCount})` : ""
-            }${attempt.takenOn ? ` on ${attempt.takenOn}` : ""} — open its answers`}
+            }${attempt.takenOn ? ` on ${attempt.takenOn}` : ""}${flagSummary(flag)} — open its answers`}
           >
+            {flag ? (
+              <span className="absolute -top-1.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-red-500" aria-hidden="true" />
+            ) : null}
             <span
               className={cn("w-full rounded-sm", attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail")}
               style={{ height: `max(3px, ${value}%)` }}
@@ -338,9 +360,10 @@ const RESULT_FILTERS = [
   { id: "failing", label: "Not passed yet" },
   { id: "retaken", label: "Retaken" },
   { id: "exams", label: "Exams only" },
+  { id: "flagged", label: "Flagged" },
 ]
 
-function AssessmentResultsSection({ groups, onOpen }) {
+function AssessmentResultsSection({ groups, onOpen, flags }) {
   const [filter, setFilter] = useState("all")
   const [showAll, setShowAll] = useState(false)
 
@@ -352,6 +375,7 @@ function AssessmentResultsSection({ groups, onOpen }) {
       best: Math.max(...scores),
       latest: scores[scores.length - 1],
       passed: group.attempts.some((attempt) => attempt.passed),
+      flaggedAttempts: group.attempts.filter((attempt) => flags?.has(attempt.attemptId)).length,
     }
   })
   const counts = {
@@ -359,9 +383,10 @@ function AssessmentResultsSection({ groups, onOpen }) {
     failing: rows.filter((r) => !r.passed).length,
     retaken: rows.filter((r) => r.attempts.length > 1).length,
     exams: rows.filter((r) => r.assessmentType !== "LESSON_QUIZ").length,
+    flagged: rows.filter((r) => r.flaggedAttempts > 0).length,
   }
   const visible = rows.filter((r) =>
-    filter === "failing" ? !r.passed : filter === "retaken" ? r.attempts.length > 1 : filter === "exams" ? r.assessmentType !== "LESSON_QUIZ" : true
+    filter === "failing" ? !r.passed : filter === "retaken" ? r.attempts.length > 1 : filter === "exams" ? r.assessmentType !== "LESSON_QUIZ" : filter === "flagged" ? r.flaggedAttempts > 0 : true
   )
   const shown = showAll ? visible : visible.slice(0, 12)
   const totalAttempts = groups.reduce((sum, group) => sum + group.attempts.length, 0)
@@ -384,7 +409,7 @@ function AssessmentResultsSection({ groups, onOpen }) {
         ) : (
           <>
             <div className="flex flex-wrap gap-1">
-              {RESULT_FILTERS.map((item) => (
+              {RESULT_FILTERS.filter((item) => item.id !== "flagged" || counts.flagged > 0).map((item) => (
                 <button
                   key={item.id}
                   type="button"
@@ -395,7 +420,11 @@ function AssessmentResultsSection({ groups, onOpen }) {
                   }}
                   className={cn(
                     "h-7 rounded-lg px-2.5 text-xs font-semibold transition-colors",
-                    filter === item.id ? "bg-foreground text-background" : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted"
+                    filter === item.id
+                      ? item.id === "flagged" ? "bg-red-600 text-white" : "bg-foreground text-background"
+                      : item.id === "flagged"
+                        ? "border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300"
+                        : "border border-border/60 bg-muted/40 text-muted-foreground hover:bg-muted"
                   )}
                 >
                   {item.label} ({counts[item.id]})
@@ -430,12 +459,18 @@ function AssessmentResultsSection({ groups, onOpen }) {
                       <td className="px-2 py-2 text-right font-semibold tabular-nums">{Math.round(row.best)}%</td>
                       <td className="px-2 py-2 text-right tabular-nums">{Math.round(row.latest)}%</td>
                       <td className="px-2 py-2">
-                        <AttemptStrip attempts={row.attempts} onOpen={onOpen} />
+                        <AttemptStrip attempts={row.attempts} onOpen={onOpen} flags={flags} />
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-col gap-0.5">
                           <AttemptOutcome passed={row.passed} />
                           <AttemptMovement attempts={row.attempts} />
+                          {row.flaggedAttempts > 0 ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400">
+                              <ShieldAlert className="size-3" aria-hidden="true" />
+                              {row.flaggedAttempts} flagged attempt{row.flaggedAttempts === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -549,6 +584,29 @@ export default function InstitutionDepartmentLearnerPage() {
     retry: 1,
   })
 
+  const safetyQuery = useQuery({
+    queryKey: ["group-learner-safety-alerts", departmentIdNumber, learnerIdNumber],
+    queryFn: () => getGroupLearnerSafetyAlerts(departmentIdNumber, learnerIdNumber),
+    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    retry: 1,
+  })
+  const location = useLocation()
+  // A safety notification links to #safety-alerts; the section renders after its data loads.
+  useEffect(() => {
+    if (location.hash === "#safety-alerts" && safetyQuery.isSuccess) {
+      document.getElementById("safety-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [location.hash, safetyQuery.isSuccess])
+  const openSafetyAlerts = (Array.isArray(safetyQuery.data) ? safetyQuery.data : [])
+    .filter((alert) => alert.status === "OPEN").length
+
+  const integrityQuery = useQuery({
+    queryKey: ["group-learner-integrity", departmentIdNumber, learnerIdNumber],
+    queryFn: () => getGroupLearnerIntegrity(departmentIdNumber, learnerIdNumber),
+    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    retry: 1,
+  })
+
   const awardsQuery = useQuery({
     queryKey: ["group-learner-awards", learnerIdNumber],
     queryFn: () => getGroupLearnerAwards(learnerIdNumber),
@@ -630,6 +688,10 @@ export default function InstitutionDepartmentLearnerPage() {
   const totalAttempts = analytics?.totalAssessmentAttempts ?? 0
   const lessonShare = totalLessons ? (completedLessons / totalLessons) * 100 : 0
   const statusStyle = status ? LEARNER_STATUS[status.status] : null
+  const integrityRisk = INTEGRITY_RISK[integrityQuery.data?.risk]
+  const integrityByAttempt = new Map(
+    (integrityQuery.data?.attempts ?? []).map((row) => [row.attemptId, row])
+  )
 
   const csv = () =>
     learnerReportBlocks(analytics, [
@@ -668,6 +730,20 @@ export default function InstitutionDepartmentLearnerPage() {
             {statusStyle ? (
               <Badge variant="outline" className={cn("text-[11px]", statusStyle.className)}>
                 {statusStyle.label}
+              </Badge>
+            ) : null}
+            {openSafetyAlerts > 0 ? (
+              <a href="#safety-alerts">
+                <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-[11px] text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+                  <ShieldAlert className="size-3" aria-hidden="true" />
+                  {openSafetyAlerts} safety alert{openSafetyAlerts === 1 ? "" : "s"}
+                </Badge>
+              </a>
+            ) : null}
+            {integrityRisk ? (
+              <Badge variant="outline" className={cn("gap-1 text-[11px]", integrityRisk.className)}>
+                <ShieldAlert className="size-3" aria-hidden="true" />
+                {integrityRisk.label}
               </Badge>
             ) : null}
             {learner?.mockExamPassed ? (
@@ -761,6 +837,8 @@ export default function InstitutionDepartmentLearnerPage() {
 
       {/* Main column */}
       <div className="min-w-0 space-y-6">
+        <SafetyAlertsSection query={safetyQuery} departmentId={departmentIdNumber} learnerId={learnerIdNumber} />
+
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">
             {gradedAttempts.length} graded attempt{gradedAttempts.length === 1 ? "" : "s"} in the last year
@@ -778,7 +856,9 @@ export default function InstitutionDepartmentLearnerPage() {
           />
         ) : null}
 
-        <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} />
+        <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} flags={integrityByAttempt} />
+
+        <AssessmentIntegritySection query={integrityQuery} onOpen={setReviewAttemptId} />
 
         <TopicList
           title="Weakest topics"
@@ -797,6 +877,7 @@ export default function InstitutionDepartmentLearnerPage() {
         learnerId={learnerIdNumber}
         learnerName={learner?.name}
         attemptId={reviewAttemptId}
+        integrity={reviewAttemptId != null ? integrityByAttempt.get(reviewAttemptId) : null}
         onOpenChange={(open) => {
           if (!open) setReviewAttemptId(null)
         }}

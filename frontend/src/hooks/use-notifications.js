@@ -18,9 +18,9 @@ export const NOTIFICATIONS_QUERY_KEY = ["my-notifications"]
 // inbox. The client-side guard also hides older records created before the API
 // rule was introduced.
 export function isChallengeNotification(notification) {
-  return /\bchallenge\b/i.test(
-    `${notification?.title ?? ""} ${notification?.body ?? notification?.description ?? ""}`
-  )
+  const content = `${notification?.title ?? ""} ${notification?.body ?? notification?.description ?? ""}`
+  const href = String(notification?.href ?? "").toLowerCase()
+  return /\bchallenge\b/i.test(content) || href.startsWith("/learner/challenges")
 }
 
 export function useNotifications() {

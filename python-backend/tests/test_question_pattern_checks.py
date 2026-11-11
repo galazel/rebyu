@@ -117,12 +117,12 @@ def test_varied_openings_are_not_flagged():
 
 
 
-def _programming(text: str, test_cases: int) -> dict:
+def _programming(text: str, expected_output: str = "17") -> dict:
     return {
         "question_type": "PROGRAMMING",
         "question": text,
         "starter_code": "def solve(rows):\n    ...",
-        "test_cases": [{"input_data": str(i), "expected_output": str(i)} for i in range(test_cases)],
+        "expected_output": expected_output,
         "explanation": "A sufficiently detailed explanation of the answer.",
     }
 
@@ -138,15 +138,16 @@ LONG_TASK = (
 
 
 def test_a_one_line_programming_question_is_flagged():
-    assert "THIN_PROGRAMMING_TASK" in _codes([_programming("Write a function to add two numbers.", 3)])
+    assert "THIN_PROGRAMMING_TASK" in _codes([_programming("Write a function to add two numbers.")])
 
 
 def test_a_fully_stated_programming_task_is_not_flagged():
-    assert "THIN_PROGRAMMING_TASK" not in _codes([_programming(LONG_TASK, 3)])
+    assert "THIN_PROGRAMMING_TASK" not in _codes([_programming(LONG_TASK)])
 
 
-def test_too_few_test_cases_are_flagged():
-    assert "TOO_FEW_TEST_CASES" in _codes([_programming(LONG_TASK, 1)])
+def test_a_programming_question_without_an_expected_output_is_flagged():
+    assert "MISSING_EXPECTED_OUTPUT" in _codes([_programming(LONG_TASK, "")])
+    assert "MISSING_EXPECTED_OUTPUT" not in _codes([_programming(LONG_TASK)])
 
 
 def test_a_thin_diagram_question_is_flagged():
@@ -190,13 +191,15 @@ def test_the_schema_rejects_a_programming_question_with_one_test_case():
     import pytest
     from app.schemas.certification.question_schema import QuestionDraft
 
-    with pytest.raises(ValueError, match="at least 3 test cases"):
+    with pytest.raises(ValueError, match="expected_output"):
         QuestionDraft(
             question_type="PROGRAMMING",
             question=LONG_TASK,
             explanation="A sufficiently detailed explanation of the answer.",
             starter_code="def solve(rows): ...",
-            test_cases=[{"input_data": "1", "expected_output": "1"}],
+            programming_language="PYTHON",
+            rules="Print the driver id only.",
+            reference_solution="print(17)",
         )
 
 

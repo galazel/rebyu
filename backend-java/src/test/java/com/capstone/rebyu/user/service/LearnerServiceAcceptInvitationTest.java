@@ -195,7 +195,11 @@ class LearnerServiceAcceptInvitationTest {
                 .thenReturn(Optional.of(invitation(
                         LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5))));
         when(learnerRepository.findById(9L)).thenReturn(Optional.of(learner(9L)));
-        when(enrollmentRepository.existsByInstitutionCertAndLearner(any(), any())).thenReturn(true);
+        // The service looks the row up (to re-admit a learner who was removed), it no longer asks exists().
+        when(enrollmentRepository.findFirstByInstitutionCertAndLearner(any(), any()))
+                .thenReturn(Optional.of(com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.builder()
+                        .status(com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.active)
+                        .build()));
 
         assertEquals(InvitationAcceptanceException.Code.ALREADY_ENROLLED,
                 assertThrows(InvitationAcceptanceException.class,

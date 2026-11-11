@@ -41,6 +41,10 @@ if not database_url.startswith("sqlite"):
         pool_recycle=settings.db_pool_recycle_seconds,
         connect_args={
             "application_name": "rebyu-python",
+            # The transaction pooler hands one server connection to many clients, so
+            # psycopg's automatic server-side prepared statements ("_pg3_0", ...)
+            # collide with DuplicatePreparedStatement. Never prepare.
+            "prepare_threshold": None,
             "keepalives": 1,
             "keepalives_idle": 30,
             "keepalives_interval": 10,

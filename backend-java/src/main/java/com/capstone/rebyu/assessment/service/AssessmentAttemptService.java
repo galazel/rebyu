@@ -66,6 +66,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -85,6 +86,8 @@ public class AssessmentAttemptService {
     private static final String TYPE_QUIZ = "QUIZ";
     private static final String TYPE_MOCK = "MOCK_EXAM";
     private static final String TYPE_CHALLENGE = "CHALLENGE";
+    /** Leaving a certification assessment this many times ends it with a zero score. */
+    public static final int MAX_FOCUS_VIOLATIONS = 3;
     private static final Set<String> RETAKE_GATED_TYPES = Set.of("QUIZ", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM");
     private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
@@ -97,6 +100,7 @@ public class AssessmentAttemptService {
     private final ProgrammingQuestionConfigRepository programmingQuestionConfigRepository;
     private final DiagramQuestionConfigRepository diagramQuestionConfigRepository;
     private final AssessmentAttemptRepository attemptRepository;
+    private final AssessmentIntegrityEventRepository integrityEventRepository;
     private final AssessmentAttemptQuestionRepository attemptQuestionRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final LearnerCertificationRepository learnerCertificationRepository;
@@ -214,6 +218,7 @@ public class AssessmentAttemptService {
                         examId, learnerId, AssessmentAttempt.Status.IN_PROGRESS);
         if (inProgress.isPresent()) {
             AssessmentAttempt attempt = inProgress.get();
+            settlePause(attempt);
             if (attempt.getExpiresAt() == null
                     || LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
                 return buildStartResponse(attempt, true);
@@ -486,8 +491,9 @@ public class AssessmentAttemptService {
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
-        if (attempt.getExpiresAt() != null
-                && LocalDateTime.now().isAfter(attempt.getExpiresAt().plus(SUBMIT_GRACE))) {
+        LocalDateTime effectiveExpiry = effectiveExpiry(attempt);
+        if (effectiveExpiry != null
+                && LocalDateTime.now().isAfter(effectiveExpiry.plus(SUBMIT_GRACE))) {
             throw new BusinessRuleException.AssessmentLockedException(
                     "The time limit for this assessment has passed.");
         }
@@ -500,12 +506,14 @@ public class AssessmentAttemptService {
 
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
 
-        if (attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED) {
+        if (attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED
+                || Boolean.TRUE.equals(attempt.getForfeited())) {
             return getResult(attemptId, request.learnerId());
         }
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
+        settlePause(attempt);
         if (attempt.getExpiresAt() != null
                 && LocalDateTime.now().isAfter(attempt.getExpiresAt().plus(SUBMIT_GRACE))) {
             attempt.setStatus(AssessmentAttempt.Status.EXPIRED);
@@ -715,6 +723,8 @@ public class AssessmentAttemptService {
 
     void finalizeSubmission(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                             Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        // A void attempt is evidence of nothing: no rewards, no record, no BKT.
+        if (Boolean.TRUE.equals(attempt.getForfeited())) return;
         awardAssessmentXp(attempt);
         achievementAwardService.evaluate(attempt.getLearnerId());
         recordLegacyExamResult(attempt);
@@ -769,7 +779,9 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "This attempt has not been submitted yet.");
         }
-        boolean releaseAnswers = forReviewer || attempt.getExam().effectiveReleaseAnswers();
+        // A forfeited attempt is void: no verdicts and no answer key, for the learner or a reviewer.
+        boolean releaseAnswers = !Boolean.TRUE.equals(attempt.getForfeited())
+                && (forReviewer || attempt.getExam().effectiveReleaseAnswers());
         PhaseTimer.mark(timer, "attempt + exam");
 
         List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
@@ -804,6 +816,10 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "sub-questions");
 
         List<AttemptAnswerReviewDto> reviews = new ArrayList<>();
+        // Forfeited: the answers are invalid. They stay visible but carry no verdict and no
+        // credit (adaptive quizzes check answers live, so the saved verdicts are overridden),
+        // and none counts as correct or incorrect.
+        boolean forfeited = Boolean.TRUE.equals(attempt.getForfeited());
         int correct = 0;
         int incorrect = 0;
         int pending = 0;
@@ -821,7 +837,7 @@ public class AssessmentAttemptService {
             Long lessonId = attemptQuestion.getLessonId();
             if (lessonId != null) {
                 lessonItems.merge(lessonId, 1, Integer::sum);
-                if (countsAsCorrect(answer)) {
+                if (!forfeited && countsAsCorrect(answer)) {
                     lessonCorrect.merge(lessonId, 1, Integer::sum);
                 }
                 if (answer != null && answer.isPendingManualEvaluation()) {
@@ -844,6 +860,23 @@ public class AssessmentAttemptService {
                             .filter(c -> c.getChoiceId().equals(answer.getSelectedChoiceId()))
                             .map(Choice::getChoiceText).findFirst().orElse(null);
                 }
+            } else if (source != null && isMultipleAnswer(source.getQuestionType())) {
+                if (releaseAnswers) {
+                    List<Choice> right = source.getChoices().stream().filter(Choice::isCorrect).toList();
+                    correctChoiceText = right.isEmpty() ? null
+                            : right.stream().map(Choice::getChoiceText).collect(Collectors.joining("; "));
+                    String why = right.stream().map(Choice::getExplanation)
+                            .filter(text -> text != null && !text.isBlank())
+                            .collect(Collectors.joining(" "));
+                    explanation = why.isBlank() ? null : why;
+                }
+                if (answer != null) {
+                    Set<Long> picked = parseSelectedChoiceIds(answer.getLearnerAnswer());
+                    String texts = source.getChoices().stream()
+                            .filter(c -> picked.contains(c.getChoiceId()))
+                            .map(Choice::getChoiceText).collect(Collectors.joining("; "));
+                    selectedChoiceText = texts.isBlank() ? null : texts;
+                }
             } else if (source != null && "SHORT_ANSWER".equals(source.getQuestionType()) && releaseAnswers) {
                 correctChoiceText = Optional.ofNullable(source.getTextQuestionConfig())
                         .map(TextQuestionConfig::getCorrectAnswer)
@@ -853,6 +886,8 @@ public class AssessmentAttemptService {
 
             if (answer == null || !hasSubmittedContent(answer)) {
                 unanswered++;
+            } else if (forfeited) {
+                // invalid: counted in neither correct nor incorrect
             } else if (answer.isPendingManualEvaluation()) {
                 pending++;
             } else if (countsAsCorrect(answer)) {
@@ -866,9 +901,9 @@ public class AssessmentAttemptService {
                     attemptQuestion.getDisplayOrder(),
                     attemptQuestion.getQuestionType(),
                     attemptQuestion.getQuestionTextSnapshot(),
-                    answer == null ? null : answer.getIsCorrect(),
-                    answer != null && answer.isPendingManualEvaluation(),
-                    answer == null ? null : answer.getCredit(),
+                    answer == null || forfeited ? null : answer.getIsCorrect(),
+                    !forfeited && answer != null && answer.isPendingManualEvaluation(),
+                    answer == null || forfeited ? null : answer.getCredit(),
                     attemptQuestion.getPoints(),
                     answer == null ? null : answer.getLearnerAnswer(),
                     answer == null ? null : answer.getSelectedChoiceId(),
@@ -881,12 +916,13 @@ public class AssessmentAttemptService {
                     answer == null ? null : answer.getFeedback(),
                     buildSubQuestionAnswerReviews(source, answer, subQuestionsByParentId),
                     buildDiagramElementReviews(answer, releaseAnswers),
-                    buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
+                    releaseAnswers && source != null && source.getProgrammingQuestionConfig() != null
+                            ? expectedOutputOf(source) : null,
                     programOutputFor(answer),
                     programErrorFor(answer),
                     source == null ? null : source.getDifficultyLevel(),
                     source == null ? null : source.getImageKey(),
-                    source == null || !isMultipleChoice(source.getQuestionType())
+                    source == null || !hasChoices(source.getQuestionType())
                             ? List.of()
                             : source.getChoices().stream()
                                     .filter(c -> c.getImageKey() != null && !c.getImageKey().isBlank())
@@ -939,7 +975,14 @@ public class AssessmentAttemptService {
                 reviews,
                 lessonBreakdown,
                 exam.getCertification().getCertificationId(),
-                attempt.isGradingPending()
+                attempt.isGradingPending(),
+                Boolean.TRUE.equals(attempt.getForfeited()),
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                integrityEventRepository
+                        .findByAttempt_AssessmentAttemptIdOrderByOccurredAtAsc(attempt.getAssessmentAttemptId())
+                        .stream()
+                        .collect(Collectors.groupingBy(e -> e.getEventType().name(),
+                                LinkedHashMap::new, Collectors.counting()))
         );
     }
 
@@ -962,6 +1005,8 @@ public class AssessmentAttemptService {
             summary.put("answeredCount", attempt.getAnsweredCount());
             summary.put("itemCount", attempt.getItemCount());
             summary.put("proficiency", proficiencyOf(attempt));
+            summary.put("forfeited", Boolean.TRUE.equals(attempt.getForfeited()));
+            summary.put("focusViolations", attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations());
             summary.put("totalPoints", attempt.getTotalPoints());
             summary.put("earnedPoints", attempt.getEarnedPoints());
             summaries.add(summary);
@@ -1066,7 +1111,15 @@ public class AssessmentAttemptService {
     }
 
     static ProficiencyDto proficiencyOf(AssessmentAttempt attempt) {
-        if (attempt == null || !attempt.isAdaptive() || attempt.getThetaCurrent() == null) {
+        if (attempt == null || !attempt.isAdaptive()) {
+            return null;
+        }
+        // A forfeited attempt is worth nothing, whatever the engine estimated while it ran.
+        if (Boolean.TRUE.equals(attempt.getForfeited())) {
+            return new ProficiencyDto(BigDecimal.ZERO.setScale(0, RoundingMode.HALF_UP),
+                    IrtModel.proficiencyLabel(0), null, null);
+        }
+        if (attempt.getThetaCurrent() == null) {
             return null;
         }
         double theta = attempt.getThetaCurrent();
@@ -1076,6 +1129,188 @@ public class AssessmentAttemptService {
                 IrtModel.proficiencyLabel(rating),
                 BigDecimal.valueOf(theta).setScale(2, RoundingMode.HALF_UP),
                 attempt.getThetaSe() == null ? null : BigDecimal.valueOf(attempt.getThetaSe()).setScale(2, RoundingMode.HALF_UP));
+    }
+
+    @Transactional
+    public AttemptClockDto pauseAttempt(Long attemptId, Long learnerId, String reason, Long attemptQuestionId) {
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        if (Boolean.TRUE.equals(attempt.getForfeited())) {
+            return clockOf(attempt);
+        }
+        requireEditable(attempt);
+        // Challenges are played, not sat: leaving one is not policed.
+        if (isChallenge(attempt)) {
+            return clockOf(attempt);
+        }
+        // A second pause while already paused (blur then visibilitychange) is one absence.
+        if (attempt.getPausedAt() != null) {
+            return clockOf(attempt);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        int violations = (attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations()) + 1;
+        logIntegrity(attempt,
+                "WINDOW_BLUR".equals(reason)
+                        ? AssessmentIntegrityEvent.Type.WINDOW_BLUR : AssessmentIntegrityEvent.Type.TAB_HIDDEN,
+                attemptQuestionId == null ? null : "question " + attemptQuestionId, null, violations);
+        if (violations >= MAX_FOCUS_VIOLATIONS) {
+            // The forfeit stays a normal, versioned save: it must not silently override a submit.
+            attempt.setPausedAt(now);
+            attempt.setFocusViolations(violations);
+            forfeit(attempt);
+            attemptRepository.save(attempt);
+            return clockOf(attempt);
+        }
+        // Not through the entity (which would bump @Version and break a submit in flight):
+        // the loaded attempt is left untouched and the clock is answered from the new values.
+        attemptRepository.markPaused(attemptId, now, violations);
+        LocalDateTime expiry = attempt.getExpiresAt();
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                true, violations, MAX_FOCUS_VIOLATIONS, false);
+    }
+
+    @Transactional
+    public AttemptClockDto resumeAttempt(Long attemptId, Long learnerId) {
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
+            throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
+        }
+        if (attempt.getPausedAt() == null) {
+            return clockOf(attempt);
+        }
+        // Same as pause: own columns only, no @Version bump.
+        LocalDateTime expiry = effectiveExpiry(attempt);
+        long away = Math.max(0, Duration.between(attempt.getPausedAt(), LocalDateTime.now()).getSeconds());
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.RESUMED, null,
+                (int) Math.min(Integer.MAX_VALUE, away), attempt.getFocusViolations());
+        attemptRepository.clearPause(attemptId, expiry);
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                false, attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS, false);
+    }
+
+    /** What the browser may report; exits, resumes and forfeits are recorded by the server only. */
+    private static final java.util.Set<AssessmentIntegrityEvent.Type> CLIENT_REPORTED_EVENTS =
+            java.util.EnumSet.of(
+                    AssessmentIntegrityEvent.Type.COPY,
+                    AssessmentIntegrityEvent.Type.CUT,
+                    AssessmentIntegrityEvent.Type.PASTE,
+                    AssessmentIntegrityEvent.Type.DROP,
+                    AssessmentIntegrityEvent.Type.CONTEXT_MENU,
+                    AssessmentIntegrityEvent.Type.SHORTCUT,
+                    AssessmentIntegrityEvent.Type.PRINT_SCREEN);
+    private static final int MAX_EVENTS_PER_REPORT = 50;
+
+    @Transactional
+    public void reportIntegrityEvents(Long attemptId, Long learnerId, List<IntegrityEventDto> events) {
+        if (events == null || events.isEmpty()) return;
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
+        // A late batch after submission is still evidence; only challenges are not policed.
+        if (isChallenge(attempt)) return;
+        events.stream().limit(MAX_EVENTS_PER_REPORT).forEach(event -> {
+            AssessmentIntegrityEvent.Type type;
+            try {
+                type = AssessmentIntegrityEvent.Type.valueOf(String.valueOf(event.type()));
+            } catch (IllegalArgumentException unknown) {
+                return;
+            }
+            if (!CLIENT_REPORTED_EVENTS.contains(type)) return;
+            String detail = event.detail();
+            if (event.attemptQuestionId() != null) {
+                detail = (detail == null || detail.isBlank() ? "" : detail + " - ")
+                        + "question " + event.attemptQuestionId();
+            }
+            logIntegrity(attempt, type, detail, null, null);
+        });
+    }
+
+    private void logIntegrity(AssessmentAttempt attempt, AssessmentIntegrityEvent.Type type,
+                              String detail, Integer awaySeconds, Integer violationNumber) {
+        if (detail != null && detail.length() > 120) detail = detail.substring(0, 120);
+        integrityEventRepository.save(AssessmentIntegrityEvent.builder()
+                .attempt(attempt)
+                .learnerId(attempt.getLearnerId())
+                .examId(attempt.getExam() == null ? null : attempt.getExam().getExamId())
+                .eventType(type)
+                .detail(detail)
+                .awaySeconds(awaySeconds)
+                .violationNumber(violationNumber)
+                .occurredAt(LocalDateTime.now())
+                .build());
+    }
+
+    private boolean isChallenge(AssessmentAttempt attempt) {
+        return attempt.getExam() != null && attempt.getExam().getExamType() != null
+                && TYPE_CHALLENGE.equals(attempt.getExam().getExamType().getExamTypeText());
+    }
+
+    /**
+     * Voids the attempt: score 0, every answer invalid. It is CANCELLED, not SUBMITTED, so
+     * nothing that reads finished attempts sees it: no XP, achievements, certificates, BKT,
+     * learner skill estimate, readiness, averages or legacy exam result. The answers and the
+     * integrity log are kept as the record of what happened.
+     */
+    private void forfeit(AssessmentAttempt attempt) {
+        List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
+                .findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(attempt.getAssessmentAttemptId());
+        boolean weighted = questions.stream().anyMatch(q -> q.getPoints() != null);
+        BigDecimal totalPoints = questions.stream()
+                .map(q -> q.getPoints() == null ? BigDecimal.ONE : q.getPoints())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDateTime now = LocalDateTime.now();
+        attempt.setForfeited(true);
+        attempt.setPausedAt(null);
+        attempt.setStatus(AssessmentAttempt.Status.CANCELLED);
+        attempt.setSubmittedAt(now);
+        attempt.setDurationSeconds((int) Duration.between(attempt.getStartedAt(), now).getSeconds());
+        attempt.setGradingPending(false);
+        attempt.setItemCount(questions.size());
+        attempt.setAnsweredCount(0);
+        attempt.setCorrectCount(0);
+        attempt.setTotalPoints(weighted ? totalPoints.setScale(2, RoundingMode.HALF_UP) : null);
+        attempt.setEarnedPoints(weighted ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP) : null);
+        attempt.setPercentage(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        attempt.setPassed(false);
+        attemptRepository.save(attempt);
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.FORFEITED,
+                "left the assessment " + attempt.getFocusViolations() + " times", null,
+                attempt.getFocusViolations());
+        log.info("Attempt {} forfeited: learner {} left it {} times",
+                attempt.getAssessmentAttemptId(), attempt.getLearnerId(), attempt.getFocusViolations());
+    }
+
+    /**
+     * Ends a pause: the deadline moves forward by the time spent paused. Returns true when the
+     * attempt was paused (and so changed). The caller saves.
+     */
+    boolean settlePause(AssessmentAttempt attempt) {
+        if (attempt.getPausedAt() == null) return false;
+        long away = Math.max(0, Duration.between(attempt.getPausedAt(), LocalDateTime.now()).getSeconds());
+        logIntegrity(attempt, AssessmentIntegrityEvent.Type.RESUMED, null,
+                (int) Math.min(Integer.MAX_VALUE, away), attempt.getFocusViolations());
+        attempt.setExpiresAt(effectiveExpiry(attempt));
+        attempt.setPausedAt(null);
+        return true;
+    }
+
+    /** The deadline with any running pause credited: paused time never counts against the learner. */
+    LocalDateTime effectiveExpiry(AssessmentAttempt attempt) {
+        if (attempt.getExpiresAt() == null || attempt.getPausedAt() == null) {
+            return attempt.getExpiresAt();
+        }
+        Duration paused = Duration.between(attempt.getPausedAt(), LocalDateTime.now());
+        return paused.isNegative() ? attempt.getExpiresAt() : attempt.getExpiresAt().plus(paused);
+    }
+
+    private AttemptClockDto clockOf(AssessmentAttempt attempt) {
+        LocalDateTime expiry = effectiveExpiry(attempt);
+        return new AttemptClockDto(
+                expiry == null ? null : expiry.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
+                attempt.getPausedAt() != null,
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS,
+                Boolean.TRUE.equals(attempt.getForfeited()));
     }
 
     AssessmentAttempt requireOwnedAttempt(Long attemptId, Long learnerId) {
@@ -1248,7 +1483,7 @@ public class AssessmentAttemptService {
                     .durationSeconds(attempt.getDurationSeconds() == null
                             ? 0 : attempt.getDurationSeconds())
                     .isPassed(Boolean.TRUE.equals(attempt.getPassed()))
-                    .rating(attempt.getThetaCurrent() == null ? null
+                    .rating(attempt.getThetaCurrent() == null || Boolean.TRUE.equals(attempt.getForfeited()) ? null
                             : java.math.BigDecimal.valueOf(
                                     com.capstone.rebyu.adaptive.engine.IrtModel.proficiencyRating(attempt.getThetaCurrent()))
                                     .setScale(2, java.math.RoundingMode.HALF_UP))
@@ -1346,6 +1581,39 @@ public class AssessmentAttemptService {
                 || "MCQ".equalsIgnoreCase(questionType);
     }
 
+    /** Several choices are right and the learner must tick all of them (Cisco "Select 2"). */
+    static boolean isMultipleAnswer(String questionType) {
+        return "MULTIPLE_ANSWER".equalsIgnoreCase(questionType);
+    }
+
+    /** Any type whose learner sees a list of choices. */
+    static boolean hasChoices(String questionType) {
+        return isMultipleChoice(questionType) || isMultipleAnswer(questionType);
+    }
+
+    /**
+     * A MULTIPLE_ANSWER answer is stored in {@code learnerAnswer} as a JSON array of choice ids
+     * ({@code [12,15]}). A comma list is read too, so a hand-built request still marks.
+     */
+    static Set<Long> parseSelectedChoiceIds(String learnerAnswer) {
+        Set<Long> ids = new LinkedHashSet<>();
+        if (learnerAnswer == null || learnerAnswer.isBlank()) return ids;
+        for (String part : learnerAnswer.replaceAll("[\\[\\]\"\\s]", "").split(",")) {
+            if (part.isEmpty()) continue;
+            try {
+                ids.add(Long.valueOf(part));
+            } catch (NumberFormatException ignored) {
+                // not a choice id: ignored, so it can only cost the learner the mark
+            }
+        }
+        return ids;
+    }
+
+    static Set<Long> correctChoiceIds(Question source) {
+        return source.getChoices().stream().filter(Choice::isCorrect)
+                .map(Choice::getChoiceId).collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     static String normalizeQuestionType(String questionType) {
         return isMultipleChoice(questionType) ? "MULTIPLE_CHOICE" : questionType;
     }
@@ -1369,6 +1637,17 @@ public class AssessmentAttemptService {
                             .anyMatch(choice -> choice.getChoiceId()
                                     .equals(answer.getSelectedChoiceId())
                                     && choice.isCorrect());
+            answer.setIsCorrect(correct);
+            answer.setCredit(correct ? points : BigDecimal.ZERO);
+            answer.setPendingManualEvaluation(false);
+            return;
+        }
+
+        if (isMultipleAnswer(type) && source != null) {
+            // All or nothing, as on the real exams: every right choice ticked and no wrong one.
+            Set<Long> correctIds = correctChoiceIds(source);
+            boolean correct = !correctIds.isEmpty()
+                    && parseSelectedChoiceIds(answer.getLearnerAnswer()).equals(correctIds);
             answer.setIsCorrect(correct);
             answer.setCredit(correct ? points : BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
@@ -1417,16 +1696,30 @@ public class AssessmentAttemptService {
             if ("PROGRAMMING".equals(criticalThinkingType)) {
                 if (hasFreshVerdict(answer)) {
                     applyCodeStrikeWeightsFromStoredRun(attemptQuestion, answer, points);
+                    if (hasWrittenParts(source, subQuestionsByParentId)) {
+                        // Start from the raw run, not the stored credit: a re-score must not
+                        // blend an already-blended mark a second time.
+                        storedRunCredit(answer, points).ifPresent(answer::setCredit);
+                    }
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                     return;
                 }
                 gradeProgrammingOnSubmit(attemptQuestion, source, answer, points, batch);
                 if (hasDefinitiveVerdict(answer)) {
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
+                    return;
+                }
+                // The code could not be run (runner down, language it cannot execute): the AI
+                // marks it against the test cases instead of the answer being closed at zero.
+                if (gradeCodeWithAi(attemptQuestion, source, answer, points)) {
+                    blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                     return;
                 }
             }
 
             if ("DIAGRAM".equals(criticalThinkingType)
                     && gradeDiagramAnswer(attemptQuestion, source, answer, points, batch)) {
+                blendWrittenParts(attemptQuestion, source, answer, points, batch, subQuestionsByParentId);
                 return;
             }
         }
@@ -1493,10 +1786,17 @@ public class AssessmentAttemptService {
                     continue;
                 }
 
+                AnswerGradingRequestDto written = writtenPartsRequest(
+                        attemptQuestion, source, answer, points, subQuestionsByParentId);
+                if (written != null && parseSubAnswerText(answer.getLearnerAnswer()).values().stream()
+                        .anyMatch(text -> text != null && !text.isBlank())) {
+                    workload.ai(key, () -> gradeWithRetry(written));
+                }
+
                 if ("PROGRAMMING".equals(criticalThinkingType) && !hasFreshVerdict(answer)) {
                     List<TestCaseInputDto> inputs = programmingInputsFor(source);
                     String code = answer.getSubmittedCode();
-                    String language = answer.getProgrammingLanguage();
+                    String language = submittedLanguage(answer, source);
                     if (!inputs.isEmpty() && code != null && !code.isBlank()) {
                         workload.code(key, () -> Optional.ofNullable(
                                 codeExecutionService.execute(
@@ -1536,12 +1836,24 @@ public class AssessmentAttemptService {
                         .orElse(false);
     }
 
+    /**
+     * The one check a programming answer is graded by: the learner's program runs once with no
+     * input, and its stdout must equal the question's expected output (trailing whitespace on each
+     * line and at the end is ignored by the runner). Empty when the question has no expected output.
+     */
     private List<TestCaseInputDto> programmingInputsFor(Question source) {
-        return loadIndexedProgrammingTestCases(source).stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
+        String expected = expectedOutputOf(source);
+        return expected == null ? List.of() : List.of(new TestCaseInputDto(1, false, "", expected));
+    }
+
+    private String expectedOutputOf(Question source) {
+        if (source == null) {
+            return null;
+        }
+        return programmingQuestionConfigRepository.findByQuestion_QuestionId(source.getQuestionId())
+                .map(ProgrammingQuestionConfig::getExpectedOutput)
+                .filter(output -> !output.isBlank())
+                .orElse(null);
     }
 
     static boolean hasSubmittedContent(AssessmentAttemptAnswer answer) {
@@ -1592,24 +1904,18 @@ public class AssessmentAttemptService {
             return;
         }
 
-        List<IndexedTestCase> testCases = loadIndexedProgrammingTestCases(source);
-        if (testCases.isEmpty()) {
+        List<TestCaseInputDto> inputs = programmingInputsFor(source);
+        if (inputs.isEmpty()) {
             noteVerdictFromEarlierCode(answer);
             return;
         }
-
-        List<TestCaseInputDto> inputs = testCases.stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
 
         CodeExecutionResultDto result =
                 batch.codeResults().get(attemptQuestion.getAttemptQuestionId());
         if (result == null) {
             try {
                 result = codeExecutionService.execute(new CodeExecutionRequestDto(
-                        answer.getProgrammingLanguage(), code, inputs));
+                        submittedLanguage(answer, source), code, inputs));
             } catch (RuntimeException ex) {
                 log.warn("Submit-time programming grading failed for attemptQuestion {}: {}",
                         attemptQuestion.getAttemptQuestionId(), ex.toString());
@@ -1686,6 +1992,167 @@ public class AssessmentAttemptService {
         answer.setFeedback(existing == null || existing.isBlank()
                 ? breakdown.summary()
                 : existing + "\n\n" + breakdown.summary());
+    }
+
+    /** Java is what the editor shows (and runs) before the learner picks anything. */
+    static final String DEFAULT_PROGRAMMING_LANGUAGE = "Java";
+
+    /**
+     * The language the submitted code was written in. The editor only saved a language when the
+     * learner changed the dropdown, so code typed in the default editor arrived with none -- the
+     * runner rejected it as UNSUPPORTED_LANGUAGE and a real answer was closed at zero. Fall back
+     * to the question's language, then to the editor default, and keep it on the answer.
+     */
+    private String submittedLanguage(AssessmentAttemptAnswer answer, Question source) {
+        String language = answer.getProgrammingLanguage();
+        if (language != null && !language.isBlank()) {
+            return language;
+        }
+        ProgrammingQuestionConfig config = source == null ? null : source.getProgrammingQuestionConfig();
+        language = config != null && config.getLanguage() != null && !config.getLanguage().isBlank()
+                ? config.getLanguage() : DEFAULT_PROGRAMMING_LANGUAGE;
+        answer.setProgrammingLanguage(language);
+        return language;
+    }
+
+    /**
+     * AI marking for code the runner could not execute. Goes through the same AI grading service
+     * (and so the same OpenRouter-first model fallback chain) as written answers; the test cases
+     * are given as the reference so the model judges behaviour, not style.
+     */
+    private boolean gradeCodeWithAi(
+            AssessmentAttemptQuestion attemptQuestion, Question source,
+            AssessmentAttemptAnswer answer, BigDecimal points) {
+        String code = answer.getSubmittedCode();
+        if (code == null || code.isBlank()) {
+            return false;
+        }
+        String reference = "The learner's program could not be executed, so judge it by reading it. "
+                + "The program reads no input; award full credit only if running it would print "
+                + "exactly the expected output below (trailing whitespace aside), partial credit "
+                + "for a program that is clearly close, and 0 for code that does not attempt the "
+                + "task or is not valid code. Ignore style; judge behaviour.\n\nExpected output:\n"
+                + Objects.requireNonNullElse(expectedOutputOf(source), "(none recorded)");
+        String question = Objects.requireNonNullElse(attemptQuestion.getQuestionTextSnapshot(), "")
+                + "\n\nLanguage: " + submittedLanguage(answer, source);
+        Optional<AnswerGradingResultDto> graded = gradeWithRetry(new AnswerGradingRequestDto(
+                question, points, reference, List.of(), code, null));
+        if (graded.isEmpty()) {
+            return false;
+        }
+        AnswerGradingResultDto result = graded.get();
+        answer.setCredit(result.earnedPoints());
+        answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
+        answer.setPendingManualEvaluation(false);
+        String note = "Your code could not be run, so it was marked by AI against the expected output.";
+        String feedback = result.feedback();
+        answer.setFeedback(feedback == null || feedback.isBlank() ? note : feedback + "\n\n" + note);
+        return true;
+    }
+
+    private static boolean hasWrittenParts(Question source, Map<Long, List<Question>> subQuestionsByParentId) {
+        return source != null && !subQuestionsByParentId
+                .getOrDefault(source.getQuestionId(), List.of()).isEmpty();
+    }
+
+    /** Code/diagram counts as one part, each written sub-question as one more. */
+    private static BigDecimal writtenShare(BigDecimal points, int writtenCount) {
+        return points.multiply(BigDecimal.valueOf(writtenCount))
+                .divide(BigDecimal.valueOf(writtenCount + 1L), 4, RoundingMode.HALF_UP);
+    }
+
+    /** The AI request for a code/diagram item's written sub-questions, or null when it has none. */
+    private AnswerGradingRequestDto writtenPartsRequest(
+            AssessmentAttemptQuestion attemptQuestion, Question source, AssessmentAttemptAnswer answer,
+            BigDecimal points, Map<Long, List<Question>> subQuestionsByParentId) {
+        if (!hasWrittenParts(source, subQuestionsByParentId)) {
+            return null;
+        }
+        int count = subQuestionsByParentId.get(source.getQuestionId()).size();
+        return criticalThinkingGradingRequest(attemptQuestion, source, answer,
+                writtenShare(points, count), subQuestionsByParentId);
+    }
+
+    /** points x passed/total of the last stored run, for re-deriving the raw code mark. */
+    private Optional<BigDecimal> storedRunCredit(AssessmentAttemptAnswer answer, BigDecimal points) {
+        String payload = answer.getExecutionResult();
+        if (payload == null || payload.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode run = objectMapper.readTree(payload);
+            int total = run.path("totalTests").asInt(0);
+            if (total <= 0) {
+                return Optional.empty();
+            }
+            int passed = run.path("passedTests").asInt(0);
+            return Optional.of(points.multiply(BigDecimal.valueOf(passed))
+                    .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Folds the written sub-questions of a code or diagram item into its mark. Before, only the
+     * code/diagram was marked and whatever the learner wrote in the written parts was ignored.
+     * The code/diagram credit (out of the full points) is scaled to its one share, and the
+     * written answers are AI-graded (same fallback chain as every other written answer) for the
+     * rest. If the AI cannot be reached, the written parts are scored zero with a note rather
+     * than the code mark being thrown away.
+     */
+    private void blendWrittenParts(
+            AssessmentAttemptQuestion attemptQuestion, Question source, AssessmentAttemptAnswer answer,
+            BigDecimal points, GradingBatch batch, Map<Long, List<Question>> subQuestionsByParentId) {
+        if (!hasWrittenParts(source, subQuestionsByParentId)) {
+            return;
+        }
+        List<Question> subQuestions = subQuestionsByParentId.get(source.getQuestionId());
+        BigDecimal writtenPoints = writtenShare(points, subQuestions.size());
+        BigDecimal workPoints = points.subtract(writtenPoints);
+
+        BigDecimal workCredit = answer.getCredit() == null ? BigDecimal.ZERO : answer.getCredit();
+        BigDecimal scaledWork = workCredit.multiply(workPoints)
+                .divide(points, 4, RoundingMode.HALF_UP);
+        Boolean workCorrect = answer.getIsCorrect();
+
+        Map<Long, String> subAnswerText = parseSubAnswerText(answer.getLearnerAnswer());
+        boolean anyWritten = subAnswerText.values().stream().anyMatch(text -> text != null && !text.isBlank());
+
+        Optional<AnswerGradingResultDto> graded = Optional.empty();
+        if (anyWritten) {
+            graded = Optional.ofNullable(batch.aiResults().get(attemptQuestion.getAttemptQuestionId()));
+            if (graded.isEmpty()) {
+                graded = gradeWithRetry(writtenPartsRequest(
+                        attemptQuestion, source, answer, points, subQuestionsByParentId));
+            }
+        }
+
+        BigDecimal writtenCredit = graded.map(AnswerGradingResultDto::earnedPoints)
+                .map(earned -> earned.max(BigDecimal.ZERO).min(writtenPoints))
+                .orElse(BigDecimal.ZERO);
+        BigDecimal total = scaledWork.add(writtenCredit).setScale(4, RoundingMode.HALF_UP);
+
+        answer.setCredit(total);
+        answer.setIsCorrect(Boolean.TRUE.equals(workCorrect)
+                && Boolean.TRUE.equals(isPassingShare(writtenCredit, writtenPoints)));
+        answer.setPendingManualEvaluation(false);
+
+        Map<Long, BigDecimal> pointSplit = splitPointsAcrossSubQuestions(subQuestions, writtenPoints);
+        AnswerGradingResultDto written = graded.orElseGet(() -> new AnswerGradingResultDto(
+                BigDecimal.ZERO, null, List.of()));
+        answer.setSubAnswerScores(serializeSubAnswerScores(subQuestions, pointSplit, subAnswerText, written));
+
+        String note = !anyWritten
+                ? "The written part" + (subQuestions.size() == 1 ? " was" : "s were") + " left blank."
+                : graded.isEmpty()
+                        ? "The written part could not be marked automatically and was scored zero. "
+                                + "If you believe it deserves credit, raise it with your instructor."
+                        : graded.get().feedback();
+        String existing = answer.getFeedback();
+        if (note != null && !note.isBlank()) {
+            answer.setFeedback(existing == null || existing.isBlank() ? note : existing + "\n\n" + note);
+        }
     }
 
     private void noteVerdictFromEarlierCode(AssessmentAttemptAnswer answer) {
@@ -2152,74 +2619,19 @@ public class AssessmentAttemptService {
         }
     }
 
-    private List<ProgrammingTestReviewDto> buildProgrammingTestReviews(
-            AssessmentAttemptQuestion attemptQuestion,
-            AssessmentAttemptAnswer answer,
-            Question source,
-            boolean releaseAnswers) {
-
-        if (answer == null || answer.getExecutionResult() == null
-                || answer.getSubmittedCode() == null || answer.getSubmittedCode().isBlank()) {
-            return List.of();
-        }
-
-        Map<Integer, String> labels = new LinkedHashMap<>();
-        for (LearnerTestCaseDto snapshotCase : readSnapshotTestCases(attemptQuestion)) {
-            labels.put(snapshotCase.index(), snapshotCase.label());
-        }
-
-        Map<Integer, ProgrammingTestCase> authored = new LinkedHashMap<>();
-        if (source != null) {
-            for (IndexedTestCase indexed : loadIndexedProgrammingTestCases(source)) {
-                authored.put(indexed.index(), indexed.testCase());
-            }
-        }
-
-        try {
-            JsonNode tests = objectMapper.readTree(answer.getExecutionResult()).path("testResults");
-            if (!tests.isArray()) {
-                return List.of();
-            }
-            List<ProgrammingTestReviewDto> reviews = new ArrayList<>();
-            for (JsonNode test : tests) {
-                int index = test.path("index").asInt();
-                boolean sample = test.path("sample").asBoolean(false);
-                ProgrammingTestCase authoredCase = authored.get(index);
-                reviews.add(new ProgrammingTestReviewDto(
-                        index,
-                        labels.getOrDefault(index, (sample ? "Sample " : "Hidden ") + index),
-                        sample,
-                        test.path("passed").asBoolean(false),
-                        test.path("status").asText(null),
-                        authoredCase != null ? authoredCase.getInputData() : null,
-                        releaseAnswers && authoredCase != null
-                                ? authoredCase.getExpectedOutput() : null,
-                        test.hasNonNull("actualOutput")
-                                ? test.get("actualOutput").asText() : null));
-            }
-            return reviews;
-        } catch (Exception e) {
-            log.warn("Could not parse persisted execution result for attempt question {}",
-                    attemptQuestion.getAttemptQuestionId());
-            return List.of();
-        }
-    }
-
     private String programOutputFor(AssessmentAttemptAnswer answer) {
         JsonNode payload = gradedPayload(answer);
         if (payload == null) {
             return null;
         }
-        JsonNode tests = payload.path("testResults");
-        if (!tests.isArray() || tests.isEmpty()) {
-            return payload.hasNonNull("output") ? payload.get("output").asText() : null;
-        }
-        for (JsonNode test : tests) {
-            if (test.path("sample").asBoolean(false) && test.hasNonNull("actualOutput")) {
+        // Attempts graded before programming questions had a single expected output stored one
+        // row per test case; any row's output is the learner's own program output.
+        for (JsonNode test : payload.path("testResults")) {
+            if (test.hasNonNull("actualOutput")) {
                 return test.get("actualOutput").asText();
             }
         }
-        return null;
+        return payload.hasNonNull("output") ? payload.get("output").asText() : null;
     }
 
     private String programErrorFor(AssessmentAttemptAnswer answer) {
@@ -2227,20 +2639,7 @@ public class AssessmentAttemptService {
         if (payload == null || !payload.hasNonNull("error")) {
             return null;
         }
-        if ("COMPILE_ERROR".equals(payload.path("status").asText(null))) {
-            return payload.get("error").asText();
-        }
-        JsonNode tests = payload.path("testResults");
-        if (!tests.isArray() || tests.isEmpty()) {
-            return payload.get("error").asText();
-        }
-        for (JsonNode test : tests) {
-            String status = test.path("status").asText("");
-            if (status.equals("RUNTIME_ERROR") || status.equals("TIME_LIMIT_EXCEEDED")) {
-                return test.path("sample").asBoolean(false) ? payload.get("error").asText() : null;
-            }
-        }
-        return null;
+        return payload.get("error").asText();
     }
 
     private JsonNode gradedPayload(AssessmentAttemptAnswer answer) {
@@ -2332,7 +2731,9 @@ public class AssessmentAttemptService {
                 attempt.getCurrentQuestionId(),
                 flaggedIds,
                 skippedIds,
-                attempt.isAdaptive() ? adaptiveAttemptService.getObject().progressOf(attempt) : null
+                attempt.isAdaptive() ? adaptiveAttemptService.getObject().progressOf(attempt) : null,
+                attempt.getFocusViolations() == null ? 0 : attempt.getFocusViolations(),
+                MAX_FOCUS_VIOLATIONS
         );
     }
 
@@ -2399,7 +2800,11 @@ public class AssessmentAttemptService {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("questionImageKey", question.getImageKey());
 
-        if (isMultipleChoice(question.getQuestionType())) {
+        if (isMultipleAnswer(question.getQuestionType())) {
+            data.put("selectCount", (int) question.getChoices().stream().filter(Choice::isCorrect).count());
+        }
+
+        if (hasChoices(question.getQuestionType())) {
             List<Map<String, Object>> choices = new ArrayList<>();
             List<Choice> ordered = new ArrayList<>(question.getChoices());
             if (shuffle != null && choicesCanShuffle(ordered)) {
@@ -2420,20 +2825,6 @@ public class AssessmentAttemptService {
             if (programmingConfig != null) {
                 data.put("criticalThinkingType", "PROGRAMMING");
                 data.put("starterCode", programmingConfig.getStarterCode());
-                List<Map<String, Object>> tests = new ArrayList<>();
-                int index = 1;
-                int sampleNo = 1;
-                int hiddenNo = 1;
-                for (ProgrammingTestCase testCase : programmingConfig.getTestCases()) {
-                    Map<String, Object> safe = new LinkedHashMap<>();
-                    boolean sample = testCase.isSample();
-                    safe.put("index", index++);
-                    safe.put("sample", sample);
-                    safe.put("label", sample ? "Sample " + (sampleNo++) : "Hidden " + (hiddenNo++));
-                    safe.put("input", sample ? testCase.getInputData() : null);
-                    tests.add(safe);
-                }
-                data.put("testCases", tests);
             }
             DiagramQuestionConfig diagramConfig = question.getDiagramQuestionConfig();
             if (diagramConfig != null) {
@@ -2500,7 +2891,7 @@ public class AssessmentAttemptService {
             }
         }
 
-        if (choices.isEmpty() && isMultipleChoice(attemptQuestion.getQuestionType())) {
+        if (choices.isEmpty() && hasChoices(attemptQuestion.getQuestionType())) {
             questionRepository.findById(attemptQuestion.getSourceQuestionId())
                     .ifPresent(source -> source.getChoices().forEach(choice ->
                             choices.add(new LearnerChoiceDto(
@@ -2535,10 +2926,10 @@ public class AssessmentAttemptService {
                 (String) data.get("instructions"),
                 subQuestions,
                 attemptQuestion.getPoints(),
-                parseLearnerTestCases(data),
                 parseRubric(data),
                 attemptQuestion.getStage(),
-                null
+                null,
+                data.get("selectCount") instanceof Number count ? count.intValue() : null
         );
     }
 
@@ -2637,21 +3028,6 @@ public class AssessmentAttemptService {
     @Transactional
     public ExecutionResultDto runProgramming(
             Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
-        return executeProgramming(
-                attemptId, attemptQuestionId, request, AssessmentAttemptExecution.Mode.RUN);
-    }
-
-    @Transactional
-    public ExecutionResultDto checkProgramming(
-            Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
-        throw new BusinessRuleException.InvalidAssessmentSubmissionException(
-                "Test cases are checked when you submit the attempt. Use Run to see your program's output.");
-    }
-
-    private ExecutionResultDto executeProgramming(
-            Long attemptId, Long attemptQuestionId,
-            ProgrammingRunRequestDto request, AssessmentAttemptExecution.Mode mode) {
-
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
         requireEditable(attempt);
         AssessmentAttemptQuestion attemptQuestion = requireAttemptQuestion(attempt, attemptQuestionId);
@@ -2663,100 +3039,22 @@ public class AssessmentAttemptService {
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
                 attemptQuestionId, null, null, request.code(), request.language(), null)));
 
-        if (mode == AssessmentAttemptExecution.Mode.RUN) {
-            return runForOutputOnly(attempt, attemptQuestion, request);
-        }
+        return runForOutputOnly(attempt, attemptQuestion, request);
+    }
 
-        List<LearnerTestCaseDto> learnerTests = readSnapshotTestCases(attemptQuestion);
-        Question source = questionRepository
-                .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
-        List<IndexedTestCase> allTestCases = source == null
-                ? List.of() : loadIndexedProgrammingTestCases(source);
-        List<IndexedTestCase> scopedTestCases = mode == AssessmentAttemptExecution.Mode.RUN
-                ? allTestCases.stream().filter(it -> it.testCase().isSample()).toList()
-                : allTestCases;
-
-        LocalDateTime now = LocalDateTime.now();
-        if (scopedTestCases.isEmpty()) {
-            String message = allTestCases.isEmpty()
-                    ? "No test cases are configured for this item yet."
-                    : "No sample test cases are available for Run — use Check to grade against all tests.";
-            AssessmentAttemptExecution execution = executionRepository.save(
-                    AssessmentAttemptExecution.builder()
-                            .attempt(attempt).attemptQuestion(attemptQuestion).mode(mode)
-                            .language(request.language()).submittedCode(request.code())
-                            .status(AssessmentAttemptExecution.Status.UNAVAILABLE)
-                            .totalTests(learnerTests.isEmpty() ? null : learnerTests.size())
-                            .output(message)
-                            .createdAt(now)
-                            .build());
-            return new ExecutionResultDto(
-                    execution.getExecutionId(), mode.name(), execution.getStatus().name(),
-                    message, request.language(), null, execution.getTotalTests(), now, learnerTests,
-                    null, null);
-        }
-
-        List<TestCaseInputDto> inputs = scopedTestCases.stream()
-                .map(it -> new TestCaseInputDto(
-                        it.index(), it.testCase().isSample(),
-                        it.testCase().getInputData(), it.testCase().getExpectedOutput()))
-                .toList();
-
-        CodeExecutionResultDto result = codeExecutionService.execute(
-                new CodeExecutionRequestDto(request.language(), request.code(), inputs));
-
-        applyExecutionResultToAnswer(attemptQuestion, mode, result, hashCode(request.code()));
-
-        AssessmentAttemptExecution execution = executionRepository.save(
-                AssessmentAttemptExecution.builder()
-                        .attempt(attempt)
-                        .attemptQuestion(attemptQuestion)
-                        .mode(mode)
-                        .language(request.language())
-                        .submittedCode(request.code())
-                        .status(toExecutionEntityStatus(result.status()))
-                        .passedTests(result.passedTests())
-                        .totalTests(result.totalTests())
-                        .output(executionOutputSummary(result))
-                        .createdAt(now)
-                        .build());
-
-        return new ExecutionResultDto(
-                execution.getExecutionId(),
-                mode.name(),
-                execution.getStatus().name(),
-                executionOutputSummary(result),
-                request.language(),
-                result.passedTests(),
-                result.totalTests(),
-                now,
-                mergeTestStatuses(learnerTests, result, scopedTestCases),
-                result.output(),
-                result.error());
+    @Transactional
+    public ExecutionResultDto checkProgramming(
+            Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
+        throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                "Your program's output is compared with the expected output when you submit. Use Run to see what it prints.");
     }
 
     private ExecutionResultDto runForOutputOnly(
             AssessmentAttempt attempt, AssessmentAttemptQuestion attemptQuestion,
             ProgrammingRunRequestDto request) {
-        Question source = questionRepository
-                .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
-        List<IndexedTestCase> allCases = source == null ? List.of() : loadIndexedProgrammingTestCases(source);
-        String stdin = allCases.stream()
-                .map(IndexedTestCase::testCase)
-                .filter(ProgrammingTestCase::isSample)
-                .map(ProgrammingTestCase::getInputData)
-                .filter(input -> input != null)
-                .findFirst()
-                .or(() -> allCases.stream()
-                        .map(IndexedTestCase::testCase)
-                        .map(ProgrammingTestCase::getInputData)
-                        .filter(input -> input != null)
-                        .findFirst())
-                .orElse("");
-
         CodeExecutionResultDto result = codeExecutionService.execute(new CodeExecutionRequestDto(
                 request.language(), request.code(),
-                List.of(new TestCaseInputDto(1, true, stdin, null))));
+                List.of(new TestCaseInputDto(1, true, "", null))));
 
         boolean ran = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
         String message = ran ? null : result.error();
@@ -2780,67 +3078,13 @@ public class AssessmentAttemptService {
                 execution.getStatus().name(),
                 message,
                 request.language(),
-                null,
-                null,
                 now,
-                List.of(),
                 result.output(),
                 ran ? result.error() : null);
     }
 
     private static String firstNonBlankText(String first, String second) {
         return first != null && !first.isBlank() ? first : second;
-    }
-
-    private record IndexedTestCase(int index, ProgrammingTestCase testCase) {}
-
-    private List<IndexedTestCase> loadIndexedProgrammingTestCases(Question source) {
-        return programmingQuestionConfigRepository.findByQuestion_QuestionId(source.getQuestionId())
-                .map(config -> {
-                    List<IndexedTestCase> indexed = new ArrayList<>();
-                    int index = 1;
-                    for (ProgrammingTestCase testCase : config.getTestCases()) {
-                        indexed.add(new IndexedTestCase(index++, testCase));
-                    }
-                    return indexed;
-                })
-                .orElse(List.of());
-    }
-
-    private void applyExecutionResultToAnswer(
-            AssessmentAttemptQuestion attemptQuestion,
-            AssessmentAttemptExecution.Mode mode,
-            CodeExecutionResultDto result,
-            String codeHash) {
-        AssessmentAttemptAnswer answer = attemptAnswerRepository
-                .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
-                        attemptQuestion.getAttempt().getAssessmentAttemptId(),
-                        attemptQuestion.getAttemptQuestionId())
-                .orElse(null);
-        if (answer == null) {
-            return;
-        }
-
-        answer.setExecutionResult(serializeExecutionResult(
-                attemptQuestion.getAttemptQuestionId(), mode, result, codeHash));
-
-        boolean definitive = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
-        if (mode == AssessmentAttemptExecution.Mode.CHECK && definitive) {
-            BigDecimal points = UNIT;
-            int total = result.totalTests() == null ? 0 : result.totalTests();
-            int passed = result.passedTests() == null ? 0 : result.passedTests();
-            if (total > 0) {
-                BigDecimal ratio = BigDecimal.valueOf(passed)
-                        .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
-                answer.setCredit(points.multiply(ratio).setScale(4, RoundingMode.HALF_UP));
-                answer.setIsCorrect(passed == total);
-            } else {
-                answer.setCredit(BigDecimal.ZERO);
-                answer.setIsCorrect(false);
-            }
-            answer.setPendingManualEvaluation(false);
-        }
-        attemptAnswerRepository.save(answer);
     }
 
     private String serializeExecutionResult(
@@ -2883,47 +3127,6 @@ public class AssessmentAttemptService {
         };
     }
 
-    private String executionOutputSummary(CodeExecutionResultDto result) {
-        if ("COMPILE_ERROR".equals(result.status())) {
-            return "Compilation failed:\n" + (result.error() == null ? "" : result.error());
-        }
-        if ("UNAVAILABLE".equals(result.status()) || "UNSUPPORTED_LANGUAGE".equals(result.status())) {
-            return result.error();
-        }
-        if (result.error() != null && !result.error().isBlank()) {
-            return result.error();
-        }
-        if (result.totalTests() != null) {
-            return result.passedTests() + " / " + result.totalTests() + " test case(s) passed.";
-        }
-        return result.output();
-    }
-
-    private List<LearnerTestCaseDto> mergeTestStatuses(
-            List<LearnerTestCaseDto> learnerTests, CodeExecutionResultDto result,
-            List<IndexedTestCase> ranTestCases) {
-        Map<Integer, TestCaseResultDto> byIndex = new LinkedHashMap<>();
-        for (TestCaseResultDto testResult : result.testResults()) {
-            byIndex.put(testResult.index(), testResult);
-        }
-        Map<Integer, ProgrammingTestCase> ranByIndex = new LinkedHashMap<>();
-        for (IndexedTestCase indexed : ranTestCases) {
-            ranByIndex.put(indexed.index(), indexed.testCase());
-        }
-        List<LearnerTestCaseDto> merged = new ArrayList<>();
-        for (LearnerTestCaseDto test : learnerTests) {
-            TestCaseResultDto matched = byIndex.get(test.index());
-            ProgrammingTestCase source = ranByIndex.get(test.index());
-            boolean showOutputs = test.sample() && source != null && source.isSample();
-            merged.add(new LearnerTestCaseDto(
-                    test.index(), test.label(), test.sample(), test.input(),
-                    matched != null ? matched.status() : test.status(),
-                    showOutputs ? source.getExpectedOutput() : null,
-                    showOutputs && matched != null ? matched.actualOutput() : null));
-        }
-        return merged;
-    }
-
     private String hashCode(String code) {
         if (code == null) {
             return null;
@@ -2955,46 +3158,10 @@ public class AssessmentAttemptService {
                         execution.getMode().name(),
                         execution.getLanguage(),
                         execution.getStatus().name(),
-                        execution.getPassedTests(),
-                        execution.getTotalTests(),
                         execution.getCreatedAt()))
                 .toList();
     }
 
-    @SuppressWarnings("unchecked")
-    private List<LearnerTestCaseDto> readSnapshotTestCases(AssessmentAttemptQuestion attemptQuestion) {
-        try {
-            if (attemptQuestion.getQuestionDataSnapshot() == null) {
-                return List.of();
-            }
-            Map<String, Object> data = objectMapper.readValue(
-                    attemptQuestion.getQuestionDataSnapshot(),
-                    new TypeReference<Map<String, Object>>() {});
-            return parseLearnerTestCases(data);
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
 
-    private List<LearnerTestCaseDto> parseLearnerTestCases(Map<String, Object> data) {
-        List<LearnerTestCaseDto> tests = new ArrayList<>();
-        Object raw = data.get("testCases");
-        if (raw instanceof List<?> list) {
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> map) {
-                    Object indexValue = map.get("index");
-                    tests.add(new LearnerTestCaseDto(
-                            indexValue == null ? tests.size() + 1
-                                    : Integer.parseInt(indexValue.toString()),
-                            (String) map.get("label"),
-                            Boolean.TRUE.equals(map.get("sample")),
-                            (String) map.get("input"),
-                            "NOT_RUN",
-                            null,
-                            null));
-                }
-            }
-        }
-        return tests;
-    }
+
 }

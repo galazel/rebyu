@@ -146,6 +146,25 @@ public class StudyPlanService {
         saved.getStartedAt(), saved.getCompletedAt());
   }
 
+  /**
+   * Removes the learner's study plan: every ACTIVE plan (overall and per-certification) is
+   * marked ABANDONED and its task statuses are deleted, so the calendar, Today's plan, the exam
+   * countdown and the study reminders all go empty. The plan rows are kept as history.
+   */
+  @Transactional
+  public int clearActivePlans(Long learnerId) {
+    List<StudyPlan> active = planRepository.findByLearner_LearnerIdOrderByCreatedAtDesc(learnerId).stream()
+        .filter(plan -> ACTIVE.equals(plan.getStatus()))
+        .toList();
+    if (active.isEmpty()) {
+      return 0;
+    }
+    active.forEach(plan -> plan.setStatus(ABANDONED));
+    planRepository.saveAll(active);
+    taskStatusRepository.deleteByPlanIds(active.stream().map(StudyPlan::getPlanId).toList());
+    return active.size();
+  }
+
   @Transactional
   public void completePlan(Long planId, Long learnerId) {
     StudyPlan plan = planRepository.findById(planId)

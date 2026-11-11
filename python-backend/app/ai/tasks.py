@@ -204,6 +204,10 @@ def profile_for(task: str, settings: Settings | None = None) -> TaskProfile:
         provider=provider_for(provider_name),
         model=chosen or getattr(settings, f"ai_{name}_model"),
         fallbacks=_split(getattr(settings, f"ai_{name}_fallbacks"))
+        # Grading borrows the tutor's whole chain after its own: OpenRouter is the main
+        # provider, and when it is down or out of credit the tutor carries on through Groq,
+        # Hugging Face and free models -- a mark must not be lost where a chat reply is not.
+        + (_split(settings.ai_tutor_fallbacks) if name == GRADING else ())
         + (settings.ai_default_model,),
         max_tokens=getattr(settings, f"ai_{name}_max_tokens"),
         temperature=getattr(settings, f"ai_{name}_temperature"),

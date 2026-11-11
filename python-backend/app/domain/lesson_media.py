@@ -20,9 +20,13 @@ and cannot fail the generation.
 
 Images are looked for in order, and the first that fits is used:
 
-  1. Serper image search -- the best-scoring candidate that actually loads.
-  2. Wikipedia and Wikimedia Commons (see `wikimedia_images`).
-  3. A figure drawn from the lesson's own words and stored (see
+  1. Serper image search -- the best-ranked candidate that is about the request
+     (shares at least half its key terms), is big enough, and actually loads.
+  2. Bing, then DuckDuckGo, image search with the same checks -- keyless, so
+     images keep coming when Serper has no key or no credit left. Stock-photo
+     libraries (watermarked previews) are never used.
+  3. Wikipedia and Wikimedia Commons (see `wikimedia_images`).
+  4. A figure drawn from the lesson's own words and stored (see
      `lesson_figures`), so a lesson that asked for a picture always gets one.
 """
 
@@ -38,7 +42,9 @@ import httpx
 
 from app.domain.lesson_figures import draw_and_store_figure
 from app.domain.wikimedia_images import find_image as find_wikimedia_image
-from app.tools.certification.web_search import serper_image_search, youtube_search
+from app.tools.certification.web_search import (
+    bing_image_search, duckduckgo_image_search, serper_image_search, youtube_search,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,14 @@ _LOW_SIGNAL_DOMAINS = {
     "pinterest.com", "pinimg.com", "tumblr.com", "imgur.com",
     "facebook.com", "instagram.com", "twitter.com", "x.com", "reddit.com",
 }
+
+# Stock-photo libraries serve watermarked previews: never used, whatever their rank.
+_WATERMARKED_DOMAINS = (
+    "ftcdn.net", "stock.adobe.com", "shutterstock.com", "alamy.com", "dreamstime.com",
+    "istockphoto.com", "gettyimages.com", "depositphotos.com", "123rf.com", "canstockphoto.com",
+    "bigstockphoto.com", "stockfresh.com", "pond5.com", "agefotostock.com", "vectorstock.com",
+    "colourbox.com", "megapixl.com", "featurepics.com", "stocksy.com", "photodune.net", "vecteezy.com",
+)
 
 _STOPWORDS = {"the", "a", "an", "of", "for", "and", "or", "to", "in", "on", "with", "vs"}
 
@@ -113,19 +127,88 @@ def _image_loads(url: str) -> bool:
     return response.status_code == 200 and content_type.startswith("image/") and len(response.content) > _MIN_IMAGE_BYTES
 
 
+def _stem(word: str) -> str:
+    for suffix in ("ments", "ment", "ings", "ing", "ies", "es", "s"):
+        if len(word) - len(suffix) >= 4 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def _topic_terms(text: str) -> set[str]:
+    """The distinctive word stems of a query or a result (no picture words, no filler)."""
+    return {_stem(w) for w in _keywords(text) if w not in _MATCH_STOPWORDS}
+
+
+_MIN_SIDE = 250
+
+
+def _is_related(query: str, image: dict) -> bool:
+    """A web image is used only when it is about the lesson's request: its title, page
+    address and source share at least half of the query's distinctive terms (and at
+    least one). Search engines always return *something*; a wrong picture is worse than
+    the drawn figure that replaces it."""
+    wanted = _topic_terms(query)
+    if not wanted:
+        return True
+    found = _topic_terms(" ".join(str(image.get(k) or "") for k in ("title", "link", "imageUrl", "source"))
+                         .replace("-", " ").replace("_", " ").replace("/", " "))
+    return len(wanted & found) >= max(1, -(-len(wanted) // 2))
+
+
+def _watermarked(image: dict) -> bool:
+    hosts = {_domain(image.get("imageUrl", "")), _domain(image.get("link", ""))}
+    return any(host == d or host.endswith("." + d) for host in hosts for d in _WATERMARKED_DOMAINS)
+
+
+def _big_enough(image: dict) -> bool:
+    width, height = image.get("imageWidth"), image.get("imageHeight")
+    try:
+        return not (width and height) or min(int(width), int(height)) >= _MIN_SIDE
+    except (TypeError, ValueError):
+        return True
+
+
+def _first_usable(query: str, candidates: list[dict], provider: str) -> dict | None:
+    """The best-ranked candidate that is about the request, big enough, and loads."""
+    for image in _ranked_candidates(query, candidates or []):
+        url = image.get("imageUrl", "")
+        if not url or not _is_related(query, image) or not _big_enough(image) or _watermarked(image):
+            continue
+        if _image_loads(url):
+            source_url = image.get("link", "")
+            logger.info("Lesson image for %r from %s: %s", query, provider, url)
+            return {"url": url, "sourceUrl": source_url, "sourceName": image.get("source") or _domain(source_url)}
+    return None
+
+
 def _search_serper_image(query: str) -> dict | None:
-    """The best-scoring Serper image that actually loads, or None."""
+    """The best Serper image that is related and actually loads, or None."""
     try:
         candidates = serper_image_search(_search_terms(query), num=_IMAGE_CANDIDATES)
     except Exception as error:
         logger.warning("Serper image search for %r failed: %s", query, error)
         return None
-    for image in _ranked_candidates(query, candidates or []):
-        url = image.get("imageUrl", "")
-        if _image_loads(url):
-            source_url = image.get("link", "")
-            return {"url": url, "sourceUrl": source_url, "sourceName": image.get("source") or _domain(source_url)}
-    return None
+    return _first_usable(query, candidates, "Serper")
+
+
+def _search_bing_image(query: str) -> dict | None:
+    """Keyless fallback for when Serper has no key or no credit: same checks."""
+    try:
+        candidates = bing_image_search(_search_terms(query), num=_IMAGE_CANDIDATES * 3)
+    except Exception as error:
+        logger.warning("Bing image search for %r failed: %s", query, error)
+        return None
+    return _first_usable(query, candidates, "Bing")
+
+
+def _search_duckduckgo_image(query: str) -> dict | None:
+    """Keyless fallback for when Serper has no key or no credit: same checks."""
+    try:
+        candidates = duckduckgo_image_search(_search_terms(query), num=_IMAGE_CANDIDATES * 2)
+    except Exception as error:
+        logger.warning("DuckDuckGo image search for %r failed: %s", query, error)
+        return None
+    return _first_usable(query, candidates, "DuckDuckGo")
 
 MEDIA_REQUESTS = {
     "imageQuery": ("imageKey", "imageSourceUrl", "imageSourceName"),
@@ -193,12 +276,13 @@ def _match_document_visual(query: str, visuals: list[dict] | None) -> dict | Non
 
 
 def _search_image(query: str, context: dict | None = None) -> dict:
-    """The uploaded documents first, then Serper, then Wikimedia, then drawn."""
+    """The uploaded documents first, then Serper, Bing, DuckDuckGo, Wikimedia, then drawn."""
     from_document = _match_document_visual(query, (context or {}).get("_documentVisuals"))
     if from_document:
         return from_document
 
-    found = _search_serper_image(query) or find_wikimedia_image(query)
+    found = (_search_serper_image(query) or _search_bing_image(query)
+             or _search_duckduckgo_image(query) or find_wikimedia_image(query))
     if found:
         return {"url": found["url"], "sourceUrl": found["sourceUrl"], "sourceName": found["sourceName"]}
 

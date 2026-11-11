@@ -37,7 +37,8 @@ function formatExamDate(date) {
   })
 }
 
-export function ExamCountdownTile({ certificationId }) {
+/** The countdown itself, without a tile around it: used alone and inside the Exam outlook card. */
+export function ExamCountdownBody({ certificationId }) {
   const { plan, isLoading } = useCertificationStudyPlan(certificationId)
 
   const examDate = parseDay(
@@ -47,48 +48,59 @@ export function ExamCountdownTile({ certificationId }) {
   const past = days !== null && days < 0
   const today = days === 0
 
+  if (isLoading) return <BentoSkeleton rows={1} />
+
+  if (!examDate) {
+    return (
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-sm font-semibold text-foreground">No exam date yet</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Set a target date in your study plan to start the countdown.
+        </p>
+      </div>
+    )
+  }
+
+  if (past) {
+    return (
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+          Your exam date has passed
+        </p>
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+          {formatExamDate(examDate)} · {Math.abs(days)} day{Math.abs(days) === 1 ? "" : "s"} ago
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">Set a new date in your study plan.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 flex-col justify-center">
+      <p className="leading-none">
+        <span className="font-rb-display text-4xl font-black tabular-nums text-foreground">
+          {today ? "Today" : days}
+        </span>
+        {today ? null : (
+          <span className="ml-1.5 text-xs font-bold text-muted-foreground">
+            day{days === 1 ? "" : "s"} to go
+          </span>
+        )}
+      </p>
+      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
+        {formatExamDate(examDate)}
+      </p>
+    </div>
+  )
+}
+
+export function ExamCountdownTile({ certificationId }) {
   return (
     <BentoTile col={2} row={3}>
       <BentoHeading icon={CalendarDays} kicker="Exam Day" title="Exam countdown" />
-
-      {isLoading ? (
-        <BentoSkeleton rows={1} />
-      ) : !examDate ? (
-        <div className="flex flex-1 flex-col justify-center">
-          <p className="text-sm font-semibold text-foreground">No exam date yet</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Set a target date in your study plan to start the countdown.
-          </p>
-        </div>
-      ) : past ? (
-        <div className="flex flex-1 flex-col justify-center space-y-1">
-          <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
-            Your exam date has passed
-          </p>
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-            {formatExamDate(examDate)} · {Math.abs(days)} day{Math.abs(days) === 1 ? "" : "s"} ago
-          </p>
-          <p className="text-xs text-muted-foreground">Set a new date in your study plan.</p>
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-between gap-3">
-          <p className="leading-none">
-            <span className="font-rb-display text-3xl sm:text-4xl font-black tabular-nums text-foreground">
-              {today ? "Today" : days}
-            </span>
-            {today ? null : (
-              <span className="ml-1.5 text-xs font-bold text-muted-foreground">
-                day{days === 1 ? "" : "s"} to go
-              </span>
-            )}
-          </p>
-          <p className="flex items-center gap-1.5 text-right text-xs font-medium text-muted-foreground">
-            <CalendarDays className="size-3.5 shrink-0" aria-hidden="true" />
-            {formatExamDate(examDate)}
-          </p>
-        </div>
-      )}
+      <ExamCountdownBody certificationId={certificationId} />
     </BentoTile>
   )
 }

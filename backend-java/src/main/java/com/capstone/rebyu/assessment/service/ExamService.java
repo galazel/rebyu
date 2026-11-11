@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class ExamService {
     private final ExamRepository examRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
     private final ExamTypeRepository examTypeRepository;
@@ -206,9 +207,9 @@ public class ExamService {
         Exam exam = findEntity(id);
         majorCategoryService.requireCanActOn(
                 exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
-        examQuestionRepository.deleteByExam_ExamId(id);
-        examQuestionRepository.flush();
-        examRepository.delete(exam);
+        // Every learner attempt (answers, executions, integrity log), result and paper row with it.
+        examRepository.flush();
+        cascade.delete("exams", "exam_id", id);
         log.info("Exam id: {} deleted", id);
     }
 

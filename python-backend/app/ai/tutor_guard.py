@@ -87,9 +87,37 @@ _SEXUAL = re.compile(
 _VIOLENCE = re.compile(
     r"\b(kill|murder|stab|shoot|strangle|poison|beat\s+up|hurt)\s+(you|him|her|them|someone|somebody|"
     r"everyone|my\s+\w+|the\s+teacher|people)\b|\b(i\s+will|i'?ll|i\s+want\s+to|gonna)\s+"
-    r"(kill|murder|shoot|stab)\b|\b(make|build)\s+(a\s+)?(bomb|gun|explosive|weapon)s?\b|"
+    r"(kill|murder|shoot|stab)\b(?!\s+(time|it\b|this\s+(exam|quiz|test|lesson)|the\s+(exam|quiz|test|lesson)))|"
+    r"\b(make|build)\s+(a\s+)?(bomb|gun|explosive|weapon)s?\b|"
     r"\bschool\s+shoot\w*|\bmass\s+(shoot\w*|murder)|\bpapatayin\s+(kita|ko)\b|\bpatayin\b|"
     r"\bhow\s+(to|do\s+i)\s+(die|kill)\b",
+    re.IGNORECASE,
+)
+# A stated intent to hurt someone or attack a place ("i will stab my mother now", "gonna bomb
+# the airport"). Not the same as `_VIOLENCE` (asking about violence): this is a possible
+# real-world threat, so it is answered with the safety card and raised to staff.
+_THREAT = re.compile(
+    r"\b(gonna|going\s+to|will|i'?ll|want\s+to|wanna|plan(ning)?\s+to|about\s+to|ready\s+to)\s+"
+    r"(\w+\s+){0,2}?"
+    r"(kill|murder|stab|shoot|strangle|poison|attack|bomb|blow\s+up|burn\s+down|shoot\s+up|hurt|beat\s+up)\b"
+    r"(?!\s+(time|it\b|this\s+(exam|quiz|test|lesson)|the\s+(exam|quiz|test|lesson)|my\s*self))"
+    r"|\b(bomb|blow\s+up|shoot\s+up|attack|burn\s+down)\s+(the\s+|a\s+|our\s+|my\s+|this\s+)?"
+    r"(school|campus|airport|mall|church|mosque|office|building|station|class(room)?|hospital|plane|bus|train|house)\b"
+    r"|\bplant(ing)?\s+a\s+bomb\b|\bpapatayin\s+(ko|kita|kayo|sila)\b|\bsasaksakin\s+ko\b|\bbabarilin\s+ko\b",
+    re.IGNORECASE,
+)
+# Fishing for other people's accounts, passwords or records ("give me all the accounts from this
+# user x@y.com", "dump the users table"). The tutor never has such data, but the attempt is a
+# security event: raised to staff, never sent to a model.
+_DATA_PROBE = re.compile(
+    r"\b(give|show|send|list|get|tell|export|dump|reveal|display|find)\s+(me\s+)?(\w+\s+){0,3}?"
+    r"(accounts?|passwords?|credentials|logins?|user\s*(data|list|records|info|details)|personal\s+(data|info|details))\b"
+    r"(?!\s+(receivable|payable|title|statement|equation|balance))"
+    r"(?=.*(@|\buser\b|\busers\b|\bother\b|\banother\b|\ball\b|\bevery\w*|\bsomeone|\btheir\b|\bhis\b|\bher\b|\bstudents?\b|\blearners?\b))"
+    r"|\b(dump|export|download|show|give\s+me)\s+(the\s+)?(whole\s+)?(database|db|users?\s+table)\b"
+    r"|\bselect\s+\*\s+from\b"
+    r"|\b(other|another|all)\s+(users?|learners?|students?|members?)'?s?\s+(accounts?|passwords?|scores?|data|emails?|info|details|records)\b"
+    r"|\badmin\s+(password|credentials|account|login)\b",
     re.IGNORECASE,
 )
 # Drugs and other illegal or dangerous activities.
@@ -188,22 +216,39 @@ def is_gibberish(text: str, vocabulary: str = "") -> bool:
     return len(words) >= 3 and not recognised and bool(mashed)
 
 
-SELF_HARM_REPLY = (
-    "I'm really sorry you're feeling this way, and I'm glad you said something. You don't have to "
-    "go through it alone. Please talk to someone you trust right now -- a parent, a teacher or your "
-    "school's guidance counselor. In the Philippines you can call the NCMH Crisis Hotline at 1553 "
-    "(free, 24/7) or 0917-899-8727. If you are in danger right now, call 911. "
-    "I'm here for the lesson whenever you're ready."
+# Safety replies are one shared card in every tutor surface (chat, streamed chat, Dialogue).
+# The reply starts with this marker; the frontend renders the card for the kind and hides the
+# marker. The text after it is a plain fallback for any client that does not render cards.
+# Saved history keeps the marker, so a reloaded conversation shows the same card.
+SAFETY_KINDS = ("self_harm", "abuse", "threat", "data_probe")
+
+
+def safety_marker(kind: str) -> str:
+    return f"[[rebyu-safety:{kind}]]"
+
+
+SELF_HARM_REPLY = safety_marker("self_harm") + (
+    "I'm really sorry you're feeling this way, and I'm glad you said something. Please talk to someone "
+    "you trust right now. In the Philippines you can call the NCMH Crisis Hotline at 1553 (free, 24/7). "
+    "If you are in danger right now, call 911."
 )
-ABUSE_REPLY = (
-    "I'm sorry that happened to you -- it is not your fault. Please tell an adult you trust, like a "
-    "parent, a teacher or your school's guidance counselor. If you are under 18 you can call "
-    "Bantay Bata 163. If you're in danger right now, call 911."
+ABUSE_REPLY = safety_marker("abuse") + (
+    "I'm sorry that happened to you -- it is not your fault. Please tell an adult you trust. If you are "
+    "under 18 you can call Bantay Bata 163. If you're in danger right now, call 911."
+)
+THREAT_REPLY = safety_marker("threat") + (
+    "That sounds like a threat to hurt someone, and it has to be taken seriously. If anyone is in danger "
+    "right now, call 911. Please talk to a trusted adult or your guidance counselor today."
+)
+DATA_PROBE_REPLY = safety_marker("data_probe") + (
+    "I can't look up or share anyone's accounts, passwords or personal information."
 )
 
 REDIRECTS = {
     "self_harm": SELF_HARM_REPLY,
     "abuse": ABUSE_REPLY,
+    "threat": THREAT_REPLY,
+    "data_probe": DATA_PROBE_REPLY,
     "sexual": "That's not something I can talk about here. Let's keep it appropriate and focus on the lesson.",
     "violence": "I can't help with anything that could hurt someone. Let's get back to the lesson.",
     "illegal": "I can't help with that, but I'm happy to help you with the lesson.",
@@ -304,6 +349,12 @@ def check_learner_message(text: str, vocabulary: str = "") -> LearnerCheck:
         return LearnerCheck(True, "self_harm", message)
     if _ABUSE_DISCLOSURE.search(message):
         return LearnerCheck(True, "abuse", message)
+    # Possible real-world harm and probing for other people's data come before every
+    # lesser rule, so they are never mistaken for plain rudeness or an off-topic question.
+    if _THREAT.search(message):
+        return LearnerCheck(True, "threat", message)
+    if _DATA_PROBE.search(message):
+        return LearnerCheck(True, "data_probe", message)
     for reason, pattern in (("sexual", _SEXUAL), ("violence", _VIOLENCE), ("hate", _HATE),
                             ("illegal", _ILLEGAL)):
         if pattern.search(message):
@@ -330,7 +381,7 @@ def check_learner_message(text: str, vocabulary: str = "") -> LearnerCheck:
 # lock of every AI tutor feature -- enforced by the Java gateway). Gibberish and swearing
 # are only redirected; self-harm and abuse disclosures are people asking for help and
 # must NEVER be punished.
-SEVERE_REASONS = ("unsafe", "injection", "violence", "sexual", "hate", "illegal")
+SEVERE_REASONS = ("threat", "data_probe", "unsafe", "injection", "violence", "sexual", "hate", "illegal")
 
 
 def severe_reason(text: str) -> str | None:
@@ -341,10 +392,29 @@ def severe_reason(text: str) -> str | None:
         return None
     if _SELF_HARM.search(message) or _ABUSE_DISCLOSURE.search(message):
         return None
-    for reason, pattern in (("violence", _VIOLENCE), ("sexual", _SEXUAL), ("hate", _HATE),
+    for reason, pattern in (("threat", _THREAT), ("data_probe", _DATA_PROBE),
+                            ("violence", _VIOLENCE), ("sexual", _SEXUAL), ("hate", _HATE),
                             ("illegal", _ILLEGAL), ("unsafe", _UNSAFE), ("injection", _INJECTION)):
         if pattern.search(message):
             return reason
+    return None
+
+
+def safety_alert(text: str) -> str | None:
+    """The kind of staff alert a learner message must raise, or None: someone may be at risk
+    (self_harm, abuse), may put others at risk (threat), or is probing for other people's data
+    (data_probe). Independent of strikes -- a learner asking for help is alerted, never punished."""
+    message = (text or "").strip()
+    if not ENABLED or not message:
+        return None
+    if _SELF_HARM.search(message):
+        return "self_harm"
+    if _ABUSE_DISCLOSURE.search(message):
+        return "abuse"
+    if _THREAT.search(message):
+        return "threat"
+    if _DATA_PROBE.search(message):
+        return "data_probe"
     return None
 
 

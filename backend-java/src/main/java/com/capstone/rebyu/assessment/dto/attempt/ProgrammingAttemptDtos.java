@@ -17,27 +17,13 @@ public final class ProgrammingAttemptDtos {
     ) {
     }
 
-    public record LearnerTestCaseDto(
-            int index,
-            String label,
-            boolean sample,
-            String input,
-            String status,
-            String expectedOutput,
-            String actualOutput
-    ) {
-    }
-
     public record ExecutionResultDto(
             Long executionId,
             String mode,
             String status,
             String message,
             String language,
-            Integer passedTests,
-            Integer totalTests,
             LocalDateTime createdAt,
-            List<LearnerTestCaseDto> tests,
             String stdout,
             String stderr
     ) {
@@ -48,8 +34,6 @@ public final class ProgrammingAttemptDtos {
             String mode,
             String language,
             String status,
-            Integer passedTests,
-            Integer totalTests,
             LocalDateTime createdAt
     ) {
     }

@@ -92,6 +92,10 @@ def _answer_of(question: dict) -> str | None:
     index = question.get("correct_choice_index")
     if choices and isinstance(index, int) and 0 <= index < len(choices):
         return str(choices[index])
+    indices = [i for i in (question.get("correct_choice_indices") or [])
+               if isinstance(i, int) and 0 <= i < len(choices)]
+    if indices:
+        return "; ".join(str(choices[i]) for i in sorted(indices))
     for key in ("correct_answer", "rubric_answer", "reference_solution"):
         value = question.get(key)
         if value:

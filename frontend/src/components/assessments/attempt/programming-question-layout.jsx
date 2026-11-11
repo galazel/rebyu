@@ -124,7 +124,7 @@ export default function ProgrammingQuestionLayout({
           language={language}
           starterCode={question.starterCode ?? ""}
           readOnly={editingLocked}
-          onChange={(next) => onAnswer({ submittedCode: next })}
+          onChange={(next) => onAnswer({ submittedCode: next, programmingLanguage: language })}
           onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
           actions={runKey}
         />
@@ -168,8 +168,8 @@ export default function ProgrammingQuestionLayout({
 
       <SidePanel title="Your runs" icon={HistoryIcon}>
         <p className="mb-3 text-xs leading-5 text-rb-wolf">
-          Run shows what your program prints. It is checked against the test
-          cases when you submit.
+          Run shows what your program prints. When you submit, that output is
+          compared with the expected output.
         </p>
         <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
       </SidePanel>

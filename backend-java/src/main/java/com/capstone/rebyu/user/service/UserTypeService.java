@@ -16,6 +16,7 @@ import java.util.List;
 @Transactional
 public class UserTypeService {
     private final UserTypeRepository userTypeRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final UserTypeMapper userTypeMapper;
 
     public List<UserTypeDto> getAll() {
@@ -40,7 +41,14 @@ public class UserTypeService {
     }
 
     public void delete(Long id) {
-        userTypeRepository.delete(findEntity(id));
+        var type = findEntity(id);
+        long used = cascade.countReferences("user_types", id);
+        if (used > 0) {
+            throw new com.capstone.rebyu.common.BusinessRuleException.InUseException(
+                    "This user type is used by " + used + " account" + (used == 1 ? "" : "s")
+                    + ". Change those accounts' type first.");
+        }
+        userTypeRepository.delete(type);
     }
 
     private UserType findEntity(Long id) {

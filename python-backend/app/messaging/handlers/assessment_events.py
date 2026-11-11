@@ -23,11 +23,22 @@ def _fetch_recipient(assessment_attempt_id: int):
         return repo.get_assessment_attempt_with_recipient(session, assessment_attempt_id)
 
 
+# Challenges (CodeStrike, Blueprint Arena, Champions Cup, skim checks) are played inside the
+# learning flow and show their own result screen; they never go to the notification inbox.
+_NO_INBOX_TYPES = {"CHALLENGE", "KNOWLEDGE_CHECK"}
+
+
+def _is_challenge(attempt: dict) -> bool:
+    return str(attempt.get("exam_type") or "").upper() in _NO_INBOX_TYPES
+
+
 async def handle_assessment_submitted(payload: dict) -> None:
     assessment_attempt_id = payload["assessmentAttemptId"]
     attempt = _fetch_recipient(assessment_attempt_id)
     if attempt is None:
         logger.warning("assessment_attempt %s not found, dropping message", assessment_attempt_id)
+        return
+    if _is_challenge(attempt):
         return
 
     percentage = attempt["percentage"]
@@ -55,6 +66,8 @@ async def handle_assessment_retake_requested(payload: dict) -> None:
     attempt = _fetch_recipient(assessment_attempt_id)
     if attempt is None:
         logger.warning("assessment_attempt %s not found, dropping message", assessment_attempt_id)
+        return
+    if _is_challenge(attempt):
         return
 
     with SessionLocal() as session:

@@ -24,7 +24,6 @@ DUPLICATE_SIMILARITY_THRESHOLD = 0.75
 
 from app.schemas.certification.question_schema import (  # noqa: E402
     MIN_EXPLANATION_CHARS,
-    MIN_PROGRAMMING_TEST_CASES,
 )
 MAX_QUESTION_CHARS = 2000
 
@@ -388,7 +387,7 @@ def _check_task_depth(questions: list[Any], issues: list[ValidationIssue]) -> No
     fields are *present*; this asks whether there is enough there to do.
     """
     thin_programming: list[int] = []
-    few_tests: list[int] = []
+    no_output: list[int] = []
     thin_diagram: list[int] = []
     programming_total = 0
     diagram_total = 0
@@ -401,8 +400,8 @@ def _check_task_depth(questions: list[Any], issues: list[ValidationIssue]) -> No
             programming_total += 1
             if len(text) < MIN_PROGRAMMING_QUESTION_CHARS:
                 thin_programming.append(index)
-            if len(_get(question, "test_cases", []) or []) < MIN_PROGRAMMING_TEST_CASES:
-                few_tests.append(index)
+            if not (_get(question, "expected_output", "") or "").strip():
+                no_output.append(index)
 
         elif question_type == "DIAGRAM":
             diagram_total += 1
@@ -425,17 +424,16 @@ def _check_task_depth(questions: list[Any], issues: list[ValidationIssue]) -> No
                 question_indices=thin_programming,
             )
         )
-    if few_tests:
+    if no_output:
         issues.append(
             ValidationIssue(
-                code="TOO_FEW_TEST_CASES",
-                severity=_depth_severity(len(few_tests), programming_total),
+                code="MISSING_EXPECTED_OUTPUT",
+                severity=Severity.ERROR,
                 message=(
-                    f"{len(few_tests)} PROGRAMMING question(s) have fewer than "
-                    f"{MIN_PROGRAMMING_TEST_CASES} test cases, so the edge cases go "
-                    f"unchecked."
+                    f"{len(no_output)} PROGRAMMING question(s) have no expected output, so a "
+                    f"learner's program has nothing to be compared with."
                 ),
-                question_indices=few_tests,
+                question_indices=no_output,
             )
         )
     if thin_diagram:

@@ -162,17 +162,28 @@ public class AiServiceClient {
 
     private static final Duration SCREEN_TIMEOUT = Duration.ofSeconds(5);
 
-    /** The strike-worthy reason a learner message is blocked for, or null (see tutor_guard.severe_reason). */
+/**
+     * What the tutor screen decided about one learner message: {@code strike} is the
+     * strike-worthy reason (tutor_guard.severe_reason) or null; {@code alert} is the safety
+     * alert to raise to staff (self_harm, abuse, threat, data_probe) or null.
+     */
+    public record TutorScreen(String strike, String alert) {
+        public static final TutorScreen CLEAR = new TutorScreen(null, null);
+    }
+
     @SuppressWarnings("unchecked")
-    public String screenTutorMessage(String message) {
+    public TutorScreen screenTutorMessage(String message) {
         Map<String, Object> result = webClient.post()
                 .uri("/tutor/screen")
                 .bodyValue(Map.of("message", message.length() > 20000 ? message.substring(0, 20000) : message))
                 .retrieve()
                 .bodyToMono(Map.class)
                 .block(SCREEN_TIMEOUT);
-        return result != null && Boolean.TRUE.equals(result.get("severe")) && result.get("reason") instanceof String reason
+        if (result == null) return TutorScreen.CLEAR;
+        String strike = Boolean.TRUE.equals(result.get("severe")) && result.get("reason") instanceof String reason
                 ? reason : null;
+        String alert = result.get("alert") instanceof String kind && !kind.isBlank() ? kind : null;
+        return new TutorScreen(strike, alert);
     }
 
     private static final Duration DIALOGUE_TIMEOUT = Duration.ofSeconds(90);

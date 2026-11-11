@@ -8,6 +8,12 @@ export const QUESTION_TYPE_OPTIONS = [
     description: "Four options, one right answer. Marked automatically.",
   },
   {
+    value: "MULTIPLE_ANSWER",
+    label: "Multiple answer",
+    description:
+      "Several right options — \"Select 2 choices\". Marked only when every right one is ticked.",
+  },
+  {
     value: "SHORT_ANSWER",
     label: "Short answer",
     description: "One exact term, value or acronym. Marked by exact match.",

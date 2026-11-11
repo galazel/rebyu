@@ -85,12 +85,15 @@ def create_descriptive_question(
 
 @tool(
     "create_programming_question",
-    description="Creates a Programming question with starter code, test cases, and optional sub-questions."
+    description=(
+        "Creates a Programming question: a problem, optional starter code, and the exact output "
+        "a correct program prints (the program reads no input), plus optional sub-questions."
+    ),
 )
 def create_programming_question(
     question: str,
     starter_code: str,
-    test_cases: list[dict],
+    expected_output: str,
     sub_questions: Optional[list[dict]] = None,
     difficulty: str = "average",
     image_key: str = ""
@@ -101,7 +104,7 @@ def create_programming_question(
         "question": question,
         "imageKey": image_key,
         "starterCode": starter_code,
-        "testCases": test_cases,
+        "expectedOutput": expected_output,
         "subQuestions": sub_questions or [],
         "difficulty": difficulty
     }
@@ -152,20 +155,6 @@ def create_sub_question(
 
 
 @tool(
-    "create_programming_test_case",
-    description="Creates a programming test case consisting of input and expected output."
-)
-def create_programming_test_case(
-    input_data: str,
-    expected_output: str
-):
-    return {
-        "inputData": input_data,
-        "expectedOutput": expected_output
-    }
-
-
-@tool(
     "create_multiple_choice_option",
     description="Creates a single answer choice for a Multiple Choice Question."
 )
@@ -190,6 +179,5 @@ question_builder_tools = [
     create_programming_question,
     create_diagram_question,
     create_sub_question,
-    create_programming_test_case,
     create_multiple_choice_option,
 ]

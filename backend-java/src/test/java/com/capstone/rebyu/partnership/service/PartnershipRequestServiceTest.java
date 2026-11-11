@@ -33,7 +33,7 @@ class PartnershipRequestServiceTest {
         partnershipRequestRepository = mock(PartnershipRequestRepository.class);
         partnershipRequestMapper = mock(PartnershipRequestMapper.class);
 
-        service = new PartnershipRequestService(partnershipRequestRepository, partnershipRequestMapper);
+        service = new PartnershipRequestService(partnershipRequestRepository, org.mockito.Mockito.mock(com.capstone.rebyu.common.CascadeDeleteService.class), partnershipRequestMapper);
 
         when(partnershipRequestMapper.toDto(any(PartnershipRequest.class))).thenAnswer(inv -> {
             PartnershipRequest entity = inv.getArgument(0);

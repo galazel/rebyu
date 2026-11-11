@@ -20,6 +20,9 @@ import java.util.List;
 @Transactional
 public class InstitutionService {
     private final InstitutionRepository institutionRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final com.capstone.rebyu.certification.service.S3StorageService s3StorageService;
     private final InstitutionMapper institutionMapper;
     private final InstitutionCertificateRepository institutionCertificateRepository;
     private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
@@ -72,7 +75,19 @@ public class InstitutionService {
 
     public void delete(Long id) {
         log.info("Deleting institution id: {}", id);
-        institutionRepository.delete(findEntity(id));
+        findEntity(id);
+        java.util.List<String> fileKeys = jdbc.queryForList(
+                "SELECT storage_key FROM institution_files WHERE institution_id = ? AND storage_key IS NOT NULL",
+                String.class, id);
+        institutionRepository.flush();
+        cascade.delete("institutions", "institution_id", id);
+        for (String key : fileKeys) {
+            try {
+                s3StorageService.deleteFile(key);
+            } catch (Exception e) {
+                log.warn("Institution {} deleted, but stored file {} could not be removed: {}", id, key, e.getMessage());
+            }
+        }
         log.info("Institution id: {} deleted", id);
     }
 

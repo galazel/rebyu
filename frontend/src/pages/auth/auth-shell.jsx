@@ -73,10 +73,10 @@ export default function AuthShell({
       onBack()
       return
     }
-    if (window.history.state && window.history.state.idx > 0) {
-      e.preventDefault()
-      navigate(-1)
-    }
+    // Always go to the named target, never browser history: after logout the
+    // previous entry is a protected page that bounces straight back to /login.
+    e.preventDefault()
+    navigate(backTo, { replace: true })
   }
 
   return (

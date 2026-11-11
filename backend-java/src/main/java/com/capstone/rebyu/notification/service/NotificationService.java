@@ -33,7 +33,7 @@ public class NotificationService {
         // Challenges are intentionally kept inside the learning flow. They are
         // not inbox events, so a learner is not repeatedly notified about
         // skim-check or arena challenge attempts.
-        if (isChallengeNotification(title, body)) {
+        if (isChallengeNotification(title, body, href)) {
             return;
         }
         Notification saved = notificationRepository.save(Notification.builder()
@@ -80,7 +80,8 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationDto> forUser(Long userId) {
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId).stream()
-                .filter(notification -> !isChallengeNotification(notification.getTitle(), notification.getBody()))
+                .filter(notification -> !isChallengeNotification(
+                        notification.getTitle(), notification.getBody(), notification.getHref()))
                 .map(this::toDto)
                 .toList();
     }
@@ -89,7 +90,8 @@ public class NotificationService {
     public long unreadCount(Long userId) {
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId).stream()
                 .filter(notification -> notification.getReadAt() == null)
-                .filter(notification -> !isChallengeNotification(notification.getTitle(), notification.getBody()))
+                .filter(notification -> !isChallengeNotification(
+                        notification.getTitle(), notification.getBody(), notification.getHref()))
                 .count();
     }
 
@@ -128,9 +130,10 @@ public class NotificationService {
                 n.getCreatedAt(), n.getReadAt() != null);
     }
 
-    private boolean isChallengeNotification(String title, String body) {
+    private boolean isChallengeNotification(String title, String body, String href) {
         String content = ((title == null ? "" : title) + " " + (body == null ? "" : body))
                 .toLowerCase(Locale.ROOT);
-        return content.contains("challenge");
+        String path = href == null ? "" : href.toLowerCase(Locale.ROOT);
+        return content.contains("challenge") || path.startsWith("/learner/challenges");
     }
 }

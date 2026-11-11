@@ -19,6 +19,13 @@ function intersects(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 }
 
+// A line or word counts as inside when its middle is, so a sliver clipped by the edge does not.
+function centredIn(box, rect) {
+  const cx = (box.left + box.right) / 2
+  const cy = (box.top + box.bottom) / 2
+  return cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom
+}
+
 function textInside(root, rect) {
   const parts = []
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
@@ -38,7 +45,22 @@ function textInside(root, rect) {
       continue
     }
     range.selectNodeContents(node)
-    if ([...range.getClientRects()].some((box) => intersects(box, rect))) parts.push(node.textContent.trim())
+    const boxes = [...range.getClientRects()]
+    if (!boxes.some((box) => intersects(box, rect))) continue
+    if (boxes.every((box) => centredIn(box, rect))) {
+      parts.push(node.textContent.trim())
+      continue
+    }
+    // Partly covered (a paragraph cut by the edge, a label sliced off at the top): keep only
+    // the words whose middle is inside the snip, so the text matches what the picture shows.
+    const words = []
+    const text = node.textContent
+    for (const match of text.matchAll(/\S+/g)) {
+      range.setStart(node, match.index)
+      range.setEnd(node, match.index + match[0].length)
+      if ([...range.getClientRects()].some((box) => centredIn(box, rect))) words.push(match[0])
+    }
+    if (words.length) parts.push(words.join(" "))
   }
   return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, MAX_QUOTE)
 }

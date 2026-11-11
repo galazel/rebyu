@@ -16,6 +16,7 @@ public class CorsConfig {
             + "https://www.rebyu.online,"
             + "https://rebyu.online,"
             + "https://rebyu.up.railway.app,"
+            + "https://rebyu-production.up.railway.app,"
             + "http://localhost:3000,"
             + "http://localhost:5173}")
     private List<String> allowedOrigins;

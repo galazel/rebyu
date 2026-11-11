@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
+import { TutorSafetyCard, parseSafetyReply } from "@/components/learner/tutor-safety-card.jsx"
 import remarkGfm from "remark-gfm"
 import {
   ArrowRight,
@@ -95,7 +96,9 @@ async function streamTutorAnswer(body, entry) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Accept: "text/event-stream",
+        // A refusal before the stream starts (locked, out of quota, no Pro) comes back as JSON:
+        // accepting only text/event-stream made the server unable to send it at all (406).
+        Accept: "text/event-stream, application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
@@ -531,7 +534,8 @@ function SnipViewer({ picture, quote, onClose }) {
           className="tg-media-img-paper max-h-[80vh] max-w-[92vw] cursor-default rounded-lg object-contain p-1.5 shadow-2xl"
         />
       ) : null}
-      {quote ? (
+      {/* A snip shows exactly the area that was snipped; its extracted text is for the tutor only. */}
+      {quote && !picture ? (
         <blockquote
           onClick={(event) => event.stopPropagation()}
           className="max-h-[30vh] max-w-2xl cursor-default overflow-y-auto rounded-lg border border-border bg-card px-4 py-3 text-sm italic leading-6 text-foreground shadow-2xl"
@@ -590,7 +594,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           A snipped part of the lesson
         </span>
       ) : null}
-      {snippet.quote ? (
+      {snippet.quote && !snippet.image && !snippet.imageKey ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -606,6 +610,8 @@ function SnippetPreview({ snippet, onDark = false }) {
 
 export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup, persistenceScope }) {
   const isLearner = message.role === "user"
+  // Self-harm, abuse, threats and data probes get the shared safety card, not a chat answer.
+  const safety = isLearner ? null : parseSafetyReply(message.text)
 
   const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-tl-md"
 
@@ -640,7 +646,7 @@ export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLas
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
-                {message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
+                {safety ? (safety.kind ? <TutorSafetyCard kind={safety.kind} /> : null) : message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
                   isLearner
                     ? "font-medium text-white dark:text-[#10151a]"
                     : "font-normal text-foreground [&_strong]:font-extrabold [&_strong]:text-[var(--tg-ink)] [&_code]:rounded [&_code]:bg-[var(--tg-softer)] [&_code]:px-1 [&_a]:font-semibold [&_a]:text-[var(--tg-ink)] [&_a]:underline"

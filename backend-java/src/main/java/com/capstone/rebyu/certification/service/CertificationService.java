@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CertificationService {
 
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final CertificationRepository certificationRepository;
     private final com.capstone.rebyu.reference.CertificationProgramFiler programFiler;
     private final com.capstone.rebyu.certification.repository.LessonRepository lessonRepository;
@@ -532,19 +533,6 @@ public class CertificationService {
                 """, certificationId);
 
         executeDelete("""
-                DELETE FROM programming_test_cases
-                WHERE programming_question_config_id IN (
-                    SELECT pqc.programming_question_config_id
-                    FROM programming_question_configs pqc
-                    JOIN questions q ON q.question_id = pqc.question_id
-                    JOIN lessons l ON l.lesson_id = q.lesson_id
-                    JOIN middle_categories mc ON mc.middle_category_id = l.middle_category_id
-                    JOIN major_categories maj ON maj.major_category_id = mc.major_category_id
-                    WHERE maj.certification_id = :certificationId
-                )
-                """, certificationId);
-
-        executeDelete("""
                 DELETE FROM diagram_question_configs
                 WHERE question_id IN (
                     SELECT q.question_id
@@ -708,6 +696,10 @@ public class CertificationService {
                 DELETE FROM generation_requests
                 WHERE certification_id = :certificationId
                 """, certificationId);
+    
+        // Sweep: anything still referencing the certification -- by foreign key, or by an id
+        // column with none (Champions Cup editions/queue, review cycles, exam sections, archives).
+        cascade.deleteDependents("certifications", "certification_id", java.util.List.of(certificationId));
     }
 
     private void executeDelete(String sql, Long certificationId) {

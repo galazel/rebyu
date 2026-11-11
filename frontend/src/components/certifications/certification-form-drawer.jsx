@@ -66,7 +66,7 @@ const REVIEW_MODES = [
 
 // Same heading as the badge, document and question-format sections, so every
 // part of the form reads the same way.
-function SectionHeading({ title, children }) {
+export function SectionHeading({ title, children }) {
     return (
         <div>
             <h3 className="rb-form-heading text-base font-semibold text-foreground">{title}</h3>
@@ -77,7 +77,7 @@ function SectionHeading({ title, children }) {
     )
 }
 
-function ReviewModeChoice({ value, onChange, disabled }) {
+export function ReviewModeChoice({ value, onChange, disabled }) {
     return (
         <fieldset disabled={disabled} className="space-y-4">
             <legend className="contents">
@@ -199,8 +199,9 @@ export default function CertificationFormDrawer({
         queryKey: ["ai-credits"],
         queryFn: getAiCredits,
         enabled: Boolean(open),
-        staleTime: 60_000,
-        retry: false,
+        staleTime: 0,
+        // Fresh on every open (staleTime 0), retried through a brief AI-service restart, so the balance is rarely "unknown".
+        retry: 2,
     })
     const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates)
     const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"

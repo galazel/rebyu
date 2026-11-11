@@ -196,6 +196,14 @@ function masteryMap(rows) {
     return map
 }
 
+function priorityMap(rows) {
+    const map = {}
+    for (const row of Array.isArray(rows) ? rows : []) {
+        if (row?.lessonId != null && row?.priorityTag) map[String(row.lessonId)] = row.priorityTag
+    }
+    return map
+}
+
 function shortDate(dateKey) {
     if (!dateKey) return null
     const date = new Date(`${dateKey}T00:00:00`)
@@ -250,10 +258,10 @@ function FormSelect({ label, value, onValueChange, options }) {
     )
 }
 
-function FormInput({ label, value, onChange, type = "text", min, max, error }) {
+function FormInput({ label, value, onChange, type = "text", min, max, error, disabled = false }) {
     return (
         <div className="space-y-2">
-            <Label className="text-xs font-semibold text-foreground">
+            <Label className={`text-xs font-semibold ${disabled ? "text-slate-500 dark:text-slate-400" : "text-foreground"}`}>
                 {label}
             </Label>
 
@@ -262,10 +270,15 @@ function FormInput({ label, value, onChange, type = "text", min, max, error }) {
                 value={value}
                 min={min}
                 max={max}
+                disabled={disabled}
                 aria-invalid={error ? true : undefined}
                 onChange={(event) => onChange(event.target.value)}
                 className={`h-10 rounded-lg text-sm ${
-                    error ? "border-destructive focus-visible:ring-destructive/40" : ""
+                    error
+                        ? "border-destructive focus-visible:ring-destructive/40"
+                        : disabled
+                            ? "border-slate-200 bg-slate-200/80 text-slate-500 opacity-100 dark:border-slate-700 dark:bg-slate-700/60 dark:text-slate-400"
+                            : ""
                 }`}
             />
 
@@ -653,17 +666,20 @@ export function StudyPlanContent({
 
             const byCertification = {}
             const masteryByCertification = {}
+            const priorityByCertification = {}
             results.forEach((result, index) => {
                 const id = selectedCertificationIds[index]
                 if (id != null) {
                     byCertification[id] = topicRefs(result.data?.weakestTopics)
                     masteryByCertification[id] = masteryMap(result.data?.lessonPriorities)
+                    priorityByCertification[id] = priorityMap(result.data?.lessonPriorities)
                 }
             })
 
             return {
                 byCertification,
                 masteryByCertification,
+                priorityByCertification,
 
                 topics: topicRefs(
                     results
@@ -695,6 +711,11 @@ export function StudyPlanContent({
 
     const singleMastery = useMemo(
         () => masteryMap(analyticsQuery.data?.lessonPriorities),
+        [analyticsQuery.data]
+    )
+
+    const singlePriority = useMemo(
+        () => priorityMap(analyticsQuery.data?.lessonPriorities),
         [analyticsQuery.data]
     )
 
@@ -732,8 +753,13 @@ export function StudyPlanContent({
                   title: enrolledCertifications.find((row) => row.id === id)?.title ?? "Certification",
                   ...datesFor(id),
                   mastery: overallPriorities.masteryByCertification?.[String(id)] ?? {},
+                  priority: overallPriorities.priorityByCertification?.[String(id)] ?? {},
+                  topics: overallPriorities.byCertification?.[String(id)] ?? [],
               }))
-            : [{ certificationId, title: certification, calendarStart, targetExamDate, mastery: singleMastery }]
+            : [{
+                  certificationId, title: certification, calendarStart, targetExamDate,
+                  mastery: singleMastery, priority: singlePriority, topics: priorityTopics,
+              }]
 
         return entries
             .filter((entry) => entry.calendarStart && entry.targetExamDate)
@@ -751,12 +777,14 @@ export function StudyPlanContent({
                     preferences: parsedPreferences,
                     curriculum: curriculumFor(data?.lessons, entry.certificationId, overall ? null : certification),
                     masteryByLesson: entry.mastery,
-                    priorityTopics: overall ? [] : priorityTopics,
+                    priorityByLesson: entry.priority,
+                    priorityTopics: entry.topics,
                 }).summary,
             }))
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [overall, selectedCertificationIds, certificationDates, calendarStart, targetExamDate, studyDays, studyWindow,
         selectedTechniqueInfo, targetReadiness, data?.lessons, overallPriorities.masteryByCertification, singleMastery,
+        overallPriorities.priorityByCertification, overallPriorities.byCertification, singlePriority,
         priorityTopics, certification, certificationId, enrolledCertifications, parsedPreferences])
 
     function handleGeneratePlan() {
@@ -794,6 +822,8 @@ export function StudyPlanContent({
                       curriculum: curriculumFor(data?.lessons, entry.certificationId),
                       masteryByLesson:
                           overallPriorities.masteryByCertification[String(entry.certificationId)] ?? {},
+                      priorityByLesson:
+                          overallPriorities.priorityByCertification[String(entry.certificationId)] ?? {},
                       priorityTopics:
                           overallPriorities.byCertification[String(entry.certificationId)] ?? [],
                   }),
@@ -813,6 +843,7 @@ export function StudyPlanContent({
                   preferences: parsedPreferences,
                   curriculum: curriculumFor(data?.lessons, certificationId, certification),
                   masteryByLesson: singleMastery,
+                  priorityByLesson: singlePriority,
                   priorityTopics,
               })
 
@@ -942,71 +973,84 @@ export function StudyPlanContent({
                                                 key={row.id}
                                                 className={`rounded-2xl p-3 transition ${
                                                     checked
-                                                        ? "bg-[var(--tg-softer)] ring-2 ring-[var(--tg)]"
-                                                        : "bg-card ring-1 ring-[var(--tg-line)] hover:bg-[var(--tg-softer)]"
+                                                        ? "bg-[var(--tg-softer)] shadow-sm ring-2 ring-[var(--tg)]"
+                                                        : "bg-slate-100/90 text-slate-600 shadow-inner ring-1 ring-slate-200 hover:bg-slate-200/80 hover:ring-slate-300 dark:bg-slate-800/70 dark:text-slate-300 dark:ring-slate-700"
                                                 }`}
                                             >
                                                 <Label
                                                     htmlFor={`study-plan-certification-${row.id}`}
-                                                    className="flex cursor-pointer items-center gap-3 text-sm font-medium"
+                                                    className="flex cursor-pointer items-center justify-between gap-3 text-sm font-medium"
                                                 >
-                                                    <Checkbox
-                                                        id={`study-plan-certification-${row.id}`}
-                                                        checked={checked}
-                                                        onCheckedChange={() => toggleCertification(row.id)}
-                                                    />
+                                                    <span className="flex min-w-0 items-center gap-3">
+                                                        <Checkbox
+                                                            id={`study-plan-certification-${row.id}`}
+                                                            checked={checked}
+                                                            onCheckedChange={() => toggleCertification(row.id)}
+                                                        />
 
-                                                    <span className="min-w-0 leading-snug">{row.title}</span>
+                                                        <span className="min-w-0 leading-snug">{row.title}</span>
+                                                    </span>
+
+                                                    {!checked ? (
+                                                        <span className="shrink-0 rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                                            Not included
+                                                        </span>
+                                                    ) : null}
                                                 </Label>
 
-                                                {checked ? (
-                                                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                                        <FormInput
-                                                            label="Starts"
-                                                            value={dates.calendarStart}
-                                                            onChange={(value) =>
-                                                                setCertificationDate(row.id, "calendarStart", value)
-                                                            }
-                                                            type="date"
-                                                            max={dates.targetExamDate || undefined}
-                                                            error={
-                                                                outOfOrder
-                                                                    ? "Start on or before the exam."
-                                                                    : undefined
-                                                            }
-                                                        />
+                                                <div className={`mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 ${
+                                                    checked
+                                                        ? "border-[var(--tg-line)]"
+                                                        : "border-slate-200 dark:border-slate-700"
+                                                }`}>
+                                                    <FormInput
+                                                        label="Starts"
+                                                        value={dates.calendarStart}
+                                                        onChange={(value) =>
+                                                            setCertificationDate(row.id, "calendarStart", value)
+                                                        }
+                                                        type="date"
+                                                        max={dates.targetExamDate || undefined}
+                                                        disabled={!checked}
+                                                        error={
+                                                            outOfOrder
+                                                                ? "Start on or before the exam."
+                                                                : undefined
+                                                        }
+                                                    />
 
-                                                        <FormInput
-                                                            label="Target exam date"
-                                                            value={dates.targetExamDate}
-                                                            onChange={(value) =>
-                                                                setCertificationDate(row.id, "targetExamDate", value)
-                                                            }
-                                                            type="date"
-                                                            min={dates.calendarStart || undefined}
-                                                            error={
-                                                                outOfOrder
-                                                                    ? "The exam is before the start."
-                                                                    : undefined
-                                                            }
-                                                        />
+                                                    <FormInput
+                                                        label="Target exam date"
+                                                        value={dates.targetExamDate}
+                                                        onChange={(value) =>
+                                                            setCertificationDate(row.id, "targetExamDate", value)
+                                                        }
+                                                        type="date"
+                                                        min={dates.calendarStart || undefined}
+                                                        disabled={!checked}
+                                                        error={
+                                                            outOfOrder
+                                                                ? "The exam is before the start."
+                                                                : undefined
+                                                        }
+                                                    />
 
-                                                        <div className="sm:col-span-2">
-                                                            <FormInput
-                                                                label="Study time"
-                                                                value={
-                                                                    dates.studyTime ??
-                                                                    STUDY_WINDOW_TIMES[studyWindow] ??
-                                                                    "19:00"
-                                                                }
-                                                                onChange={(value) =>
-                                                                    setCertificationDate(row.id, "studyTime", value || null)
-                                                                }
-                                                                type="time"
-                                                            />
-                                                        </div>
+                                                    <div className="sm:col-span-2">
+                                                        <FormInput
+                                                            label="Study time"
+                                                            value={
+                                                                dates.studyTime ??
+                                                                STUDY_WINDOW_TIMES[studyWindow] ??
+                                                                "19:00"
+                                                            }
+                                                            onChange={(value) =>
+                                                                setCertificationDate(row.id, "studyTime", value || null)
+                                                            }
+                                                            type="time"
+                                                            disabled={!checked}
+                                                        />
                                                     </div>
-                                                ) : null}
+                                                </div>
                                             </div>
                                         )
                                     })}
@@ -1240,6 +1284,27 @@ export function StudyPlanContent({
                                             New lessons done by {shortDate(summary.lessonsEndOn)}, then review and{" "}
                                             {summary.mockCount} mock {summary.mockCount === 1 ? "exam" : "exams"}.
                                         </p>
+                                    ) : null}
+                                    {summary.focusNotice ? (
+                                        <p className="mt-1 text-xs font-semibold text-[var(--tg-ink)]">{summary.focusNotice}</p>
+                                    ) : null}
+                                    {summary.skippedLessons?.length > 0 ? (
+                                        <details className="mt-1 text-xs text-muted-foreground">
+                                            <summary className="cursor-pointer font-semibold text-foreground">
+                                                {summary.skippedLessons.length} skipped{" "}
+                                                {summary.skippedLessons.length === 1 ? "lesson" : "lessons"}
+                                            </summary>
+                                            <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto pr-1">
+                                                {summary.skippedLessons.map((lesson) => (
+                                                    <li key={`${lesson.lessonId ?? ""}-${lesson.title}`} className="flex justify-between gap-2">
+                                                        <span className="min-w-0 truncate">{lesson.title}</span>
+                                                        <span className="shrink-0 tabular-nums">
+                                                            {lesson.mastery == null ? "not assessed" : `${Math.round(lesson.mastery)}%`}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </details>
                                     ) : null}
                                     {summary.warning ? (
                                         <p className="mt-1 text-xs font-semibold text-destructive">{summary.warning}</p>

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     AlertCircle,
     BookOpen,
+    CheckCheck,
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
@@ -33,6 +34,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatBytes, useFileUpload } from "@/hooks/use-file-upload";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,6 +124,7 @@ const PAGE_SIZE = 10;
 
 const questionTypeLabels = {
     MCQ: "Multiple Choice",
+    MULTIPLE_ANSWER: "Multiple Answer",
     SHORT_ANSWER: "Short Answer",
     DESCRIPTIVE: "Descriptive",
     CRITICAL_THINKING: "Critical Thinking",
@@ -262,6 +265,26 @@ const questionTypes = [
         },
     },
     {
+        id: "MULTIPLE_ANSWER",
+        title: "Multiple Answer",
+        description: "Several right options; the learner ticks all of them",
+        icon: CheckCheck,
+        component: MultipleAnswers,
+        data: {
+            questionType: "MULTIPLE_ANSWER",
+            question: "",
+            image: null,
+            choices: Array.from({ length: 5 }, () => ({
+                choiceText: "",
+                image: null,
+                explanation: "",
+                isCorrect: false,
+            })),
+            correctChoiceIndex: null,
+            difficulty: "average",
+        },
+    },
+    {
         id: "SHORT_ANSWER",
         title: "Short Answer",
         description: "Brief text response",
@@ -303,12 +326,7 @@ const questionTypes = [
             question: "",
             image: null,
             starterCode: "",
-            testCases: [
-                {
-                    inputData: "",
-                    expectedOutput: "",
-                },
-            ],
+            expectedOutput: "",
             subQuestions: [],
             difficulty: "average",
         },
@@ -506,7 +524,7 @@ function validateQuestionData(typeId, data) {
         errors.image = questionImageError;
     }
 
-    if (typeId === "MCQ") {
+    if (typeId === "MCQ" || typeId === "MULTIPLE_ANSWER") {
         const choices = data.choices ?? [];
 
         if (choices.length < 2) {
@@ -530,7 +548,15 @@ function validateQuestionData(typeId, data) {
             }
         });
 
-        if (
+        if (typeId === "MULTIPLE_ANSWER") {
+            const correctCount = choices.filter((choice) => choice.isCorrect).length;
+            if (correctCount < 2) {
+                errors.correctChoiceIndex =
+                    "Tick at least two correct choices. With only one, use Multiple Choice.";
+            } else if (correctCount === choices.length) {
+                errors.correctChoiceIndex = "Leave at least one choice unticked as a wrong answer.";
+            }
+        } else if (
             data.correctChoiceIndex === null ||
             data.correctChoiceIndex === undefined
         ) {
@@ -547,18 +573,9 @@ function validateQuestionData(typeId, data) {
     }
 
     if (typeId === "PROGRAMMING") {
-        const testCases = data.testCases ?? [];
-
-        if (testCases.length === 0) {
-            errors.testCases = "Add at least one programming test case.";
+        if (isBlank(data.expectedOutput)) {
+            errors.expectedOutput = "Expected output is required.";
         }
-
-        testCases.forEach((testCase, index) => {
-            if (isBlank(testCase.expectedOutput)) {
-                errors[`testCases.${index}.expectedOutput`] =
-                    `Test case ${index + 1} needs an expected output.`;
-            }
-        });
 
         validateSubQuestions(data, errors);
     }
@@ -1049,6 +1066,22 @@ function SubQuestions({
     );
 }
 
+/** Radio group for one right answer; a plain grid of checkboxes for several. */
+function ChoiceGroup({ multiple, value, onValueChange, className, children }) {
+    if (multiple) {
+        return <div className={className}>{children}</div>;
+    }
+    return (
+        <RadioGroup value={value} onValueChange={onValueChange} className={className}>
+            {children}
+        </RadioGroup>
+    );
+}
+
+function MultipleAnswers(props) {
+    return <MultipleChoices {...props} multiple />;
+}
+
 function MultipleChoices({
                              questionKey,
                              questionNumber,
@@ -1056,8 +1089,20 @@ function MultipleChoices({
                              data,
                              onDataChange,
                              errors = {},
+                             multiple = false,
                          }) {
     const choices = data.choices ?? [];
+    const correctCount = choices.filter((choice) => choice.isCorrect).length;
+
+    function toggleCorrectChoice(toggledIndex) {
+        onDataChange((currentData) => ({
+            ...currentData,
+            correctChoiceIndex: null,
+            choices: currentData.choices.map((choice, index) =>
+                index === toggledIndex ? { ...choice, isCorrect: !choice.isCorrect } : choice,
+            ),
+        }));
+    }
 
     function onFieldChange(path, value) {
         onDataChange((currentData) => updateDataAtPath(currentData, path, value));
@@ -1100,8 +1145,8 @@ function MultipleChoices({
 
     return (
         <CompactQuestionCard
-            type="MCQ"
-            title="Multiple Choice Question"
+            type={multiple ? "Multi" : "MCQ"}
+            title={multiple ? "Multiple Answer Question" : "Multiple Choice Question"}
             questionNumber={questionNumber}
             onRemove={onRemove}
             errors={errors}
@@ -1122,10 +1167,18 @@ function MultipleChoices({
                         </p>
 
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            Fill every choice and select one correct answer. Choices are
-                            shuffled when a learner retakes, so write each one to stand on its own.
+                            {multiple
+                                ? "Fill every choice and tick every correct one. Learners are told how many to select, and only an exact match earns the mark."
+                                : "Fill every choice and select one correct answer."}{" "}
+                            Choices are shuffled when a learner retakes, so write each one to stand on its own.
                         </p>
                     </div>
+
+                    {multiple && !errors.correctChoiceIndex && (
+                        <span className="text-xs font-medium text-muted-foreground">
+                            Learners see &ldquo;Select {correctCount || "…"}&rdquo;
+                        </span>
+                    )}
 
                     {errors.correctChoiceIndex && (
                         <span className="text-xs font-medium text-destructive">
@@ -1143,7 +1196,8 @@ function MultipleChoices({
                     </p>
                 )}
 
-                <RadioGroup
+                <ChoiceGroup
+                    multiple={multiple}
                     value={
                         data.correctChoiceIndex === null
                             ? ""
@@ -1159,7 +1213,9 @@ function MultipleChoices({
 
                         const imageError = errors[`choices.${index}.image`];
 
-                        const isCorrect = data.correctChoiceIndex === index;
+                        const isCorrect = multiple
+                            ? Boolean(choice.isCorrect)
+                            : data.correctChoiceIndex === index;
 
                         return (
                             <div
@@ -1183,11 +1239,21 @@ function MultipleChoices({
                                     </button>
                                 )}
                                 <div className="flex items-center gap-2">
-                                    <RadioGroupItem
-                                        id={`${questionKey}-correct-${index}`}
-                                        value={String(index)}
-                                        className="shrink-0"
-                                    />
+                                    {multiple ? (
+                                        <Checkbox
+                                            id={`${questionKey}-correct-${index}`}
+                                            checked={isCorrect}
+                                            onCheckedChange={() => toggleCorrectChoice(index)}
+                                            aria-label={`Choice ${letter} is correct`}
+                                            className="shrink-0"
+                                        />
+                                    ) : (
+                                        <RadioGroupItem
+                                            id={`${questionKey}-correct-${index}`}
+                                            value={String(index)}
+                                            className="shrink-0"
+                                        />
+                                    )}
 
                                     <Label
                                         htmlFor={`${questionKey}-correct-${index}`}
@@ -1271,7 +1337,7 @@ function MultipleChoices({
                             </div>
                         );
                     })}
-                </RadioGroup>
+                </ChoiceGroup>
 
                 <Button
                     type="button"
@@ -1439,36 +1505,8 @@ function Programming({
                          onDataChange,
                          errors = {},
                      }) {
-    const testCases = data.testCases ?? [];
-
     function onFieldChange(path, value) {
         onDataChange((currentData) => updateDataAtPath(currentData, path, value));
-    }
-
-    function addTestCase() {
-        onDataChange((currentData) => ({
-            ...currentData,
-            testCases: [
-                ...(currentData.testCases ?? []),
-                {
-                    inputData: "",
-                    expectedOutput: "",
-                },
-            ],
-        }));
-    }
-
-    function removeTestCase(indexToRemove) {
-        if (testCases.length === 1) {
-            return;
-        }
-
-        onDataChange((currentData) => ({
-            ...currentData,
-            testCases: currentData.testCases.filter(
-                (_, index) => index !== indexToRemove,
-            ),
-        }));
     }
 
     return (
@@ -1507,132 +1545,35 @@ function Programming({
                 />
             </div>
 
-            <div
-                className={`space-y-3 rounded-md border border-dashed p-3 ${
-                    errors.testCases
-                        ? "border-destructive/70 bg-destructive/5"
-                        : "border-border"
-                }`}
-            >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <p className="text-sm font-medium text-foreground">
-                            Programming Test Cases
-                            <span className="ml-1 text-destructive">*</span>
-                        </p>
+            <div className="space-y-2 border-t border-border pt-4">
+                <Label
+                    htmlFor={`${questionKey}-expected-output`}
+                    className="text-sm font-medium"
+                >
+                    Expected Output
+                    <span className="ml-1 text-destructive">*</span>
+                </Label>
 
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            Input is optional. Every test case needs an expected output.
-                        </p>
-                    </div>
+                <Textarea
+                    id={`${questionKey}-expected-output`}
+                    value={data.expectedOutput ?? ""}
+                    aria-invalid={Boolean(errors.expectedOutput)}
+                    onChange={(event) => onFieldChange("expectedOutput", event.target.value)}
+                    spellCheck={false}
+                    placeholder={"Exactly what a correct program prints, e.g.\nTotal: 150"}
+                    className={`min-h-24 resize-y font-mono text-sm ${
+                        errors.expectedOutput
+                            ? "border-destructive focus-visible:ring-destructive"
+                            : ""
+                    }`}
+                />
 
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addTestCase}
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Test Case
-                    </Button>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                    The learner&apos;s program runs once with no input; its output must
+                    match this exactly (trailing spaces are ignored).
+                </p>
 
-                <FieldError message={errors.testCases} />
-
-                <div className="space-y-3">
-                    {testCases.map((testCase, index) => {
-                        const expectedOutputError =
-                            errors[`testCases.${index}.expectedOutput`];
-
-                        return (
-                            <div
-                                key={`${questionKey}-test-case-${index}`}
-                                className={`rounded-md border p-3 ${
-                                    expectedOutputError
-                                        ? "border-destructive/70 bg-destructive/5"
-                                        : "border-border bg-muted/20"
-                                }`}
-                            >
-                                <div className="mb-3 flex items-center justify-between gap-3">
-                                    <p className="text-sm font-medium text-foreground">
-                                        Test Case {index + 1}
-                                    </p>
-
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        disabled={testCases.length === 1}
-                                        onClick={() => removeTestCase(index)}
-                                        className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    >
-                                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                        Remove
-                                    </Button>
-                                </div>
-
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label
-                                            htmlFor={`${questionKey}-test-case-${index}-input`}
-                                            className="text-xs font-medium"
-                                        >
-                                            Input Data
-                                            <span className="ml-1 font-normal text-muted-foreground">
-                        (Optional)
-                      </span>
-                                        </Label>
-
-                                        <Textarea
-                                            id={`${questionKey}-test-case-${index}-input`}
-                                            value={testCase.inputData ?? ""}
-                                            onChange={(event) =>
-                                                onFieldChange(
-                                                    `testCases.${index}.inputData`,
-                                                    event.target.value,
-                                                )
-                                            }
-                                            spellCheck={false}
-                                            placeholder={"Example:\n5\n10 20 30 40 50"}
-                                            className="min-h-20 resize-y font-mono text-xs"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label
-                                            htmlFor={`${questionKey}-test-case-${index}-output`}
-                                            className="text-xs font-medium"
-                                        >
-                                            Expected Output
-                                            <span className="ml-1 text-destructive">*</span>
-                                        </Label>
-
-                                        <Textarea
-                                            id={`${questionKey}-test-case-${index}-output`}
-                                            value={testCase.expectedOutput ?? ""}
-                                            aria-invalid={Boolean(expectedOutputError)}
-                                            onChange={(event) =>
-                                                onFieldChange(
-                                                    `testCases.${index}.expectedOutput`,
-                                                    event.target.value,
-                                                )
-                                            }
-                                            spellCheck={false}
-                                            placeholder="Example: 150"
-                                            className={`min-h-20 resize-y font-mono text-xs ${
-                                                expectedOutputError
-                                                    ? "border-destructive focus-visible:ring-destructive"
-                                                    : ""
-                                            }`}
-                                        />
-
-                                        <FieldError message={expectedOutputError} />
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                <FieldError message={errors.expectedOutput} />
             </div>
 
             <SubQuestions
@@ -3004,7 +2945,8 @@ function QuestionBank({
 
             try {
             switch (question.typeId) {
-                case "MCQ": {
+                case "MCQ":
+                case "MULTIPLE_ANSWER": {
                     const savedMCQ = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
@@ -3076,10 +3018,7 @@ function QuestionBank({
                     await saveProgrammingQuestion({
                         questionId: savedProgramming.questionId,
                         starterCode: question.data.starterCode,
-                        testCases: question.data.testCases.map((testCase) => ({
-                            inputData: testCase.inputData,
-                            expectedOutput: testCase.expectedOutput,
-                        })),
+                        expectedOutput: question.data.expectedOutput,
                     });
 
                     for (const subQuestion of question.data.subQuestions ?? []) {
@@ -3235,7 +3174,7 @@ QUESTION TYPE RULES:
 - MCQ: Use for concepts, definitions, processes, laws, calculations, terminology, scenarios, and exam-style review questions. Return exactly 4 choices, exactly 1 correct choice, correctChoiceIndex, explanation, difficulty, and lesson.
 - SHORT_ANSWER: Do not use for TOPCIT. Generate only when a non-TOPCIT certification explicitly allows exact one-answer factual questions. Use it for acronym expansions, terms, simple definitions, formulas, commands, standards, names, dates, single values, or one-phrase answers. Example: question "What does SQL stand for?" correctAnswer "Structured Query Language". Do not use SHORT_ANSWER for "explain", "describe", "compare", "why", "how", scenario analysis, or multi-sentence answers; use DESCRIPTIVE instead. Return a non-blank correctAnswer, checkingMethod EXACT_MATCH, explanation, difficulty, and lesson.
 - DESCRIPTIVE: Generate only when the certification allows explanation-based answers. Return a non-blank rubricBasedAnswer, checkingMethod AI_SEMANTIC, difficulty, and lesson.
-- PROGRAMMING: Generate only when BOTH conditions are true: the certification allows programming/performance-based questions, and the source contains code, algorithms, SQL/query writing, debugging, implementation tasks, or programming logic. Return starterCode when useful and testCases with expected outputs.
+- PROGRAMMING: Generate only when BOTH conditions are true: the certification allows programming/performance-based questions, and the source contains code, algorithms, SQL/query writing, debugging, implementation tasks, or programming logic. Return starterCode when useful and expectedOutput: exactly what a correct program prints (the program reads no input).
 - DIAGRAM: Generate only when BOTH conditions are true: the certification allows diagram/performance-based questions, and the source contains workflows, activity diagrams, class diagrams, component diagrams, ER diagrams, flowcharts, sequence diagrams, UI designs, use case diagrams, database/schema design, architecture, network diagrams, or process modeling material. Return diagramType, instructions, authoringNotes, difficulty, and lesson.
 
 QUANTITY RULES:
@@ -3526,6 +3465,10 @@ OUTPUT RULES:
 
                                                 <SelectItem value="MCQ" className="min-h-10">
                                                     Multiple Choice
+                                                </SelectItem>
+
+                                                <SelectItem value="MULTIPLE_ANSWER" className="min-h-10">
+                                                    Multiple Answer
                                                 </SelectItem>
 
                                                 <SelectItem value="SHORT_ANSWER" className="min-h-10">
@@ -4422,6 +4365,9 @@ OUTPUT RULES:
                                         >
                                             <SelectItem value="MCQ" className="min-h-10">
                                                 Multiple Choice
+                                            </SelectItem>
+                                            <SelectItem value="MULTIPLE_ANSWER" className="min-h-10">
+                                                Multiple Answer
                                             </SelectItem>
                                             <SelectItem value="SHORT_ANSWER" className="min-h-10">
                                                 Short Answer

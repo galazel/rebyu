@@ -7,6 +7,7 @@ import {
   ClockIcon,
   HistoryIcon,
   RotateCcwIcon,
+  ShieldAlert,
   StarIcon,
   TrendingUpIcon,
   XCircleIcon,
@@ -124,6 +125,7 @@ function SummaryTile({ label, value, caption, tone = "neutral" }) {
 const PAGE_ANSWER_LIMIT = 6
 
 function answerState(answer) {
+  if (answer.invalid) return "invalid"
   if (answer.pendingManualEvaluation) return "pending"
   if (answer.isCorrect == null) return "neutral"
   return answer.isCorrect ? "correct" : "incorrect"
@@ -134,6 +136,7 @@ const ANSWER_ICON = {
   incorrect: <XCircleIcon className="size-4 text-rb-cardinal" aria-hidden="true" />,
   pending: <ClockIcon className="size-4 text-amber-500" aria-hidden="true" />,
   neutral: <ClockIcon className="size-4 text-muted-foreground" aria-hidden="true" />,
+  invalid: <ShieldAlert className="size-4 text-rb-cardinal-lip" aria-hidden="true" />,
 }
 
 function StatusPill({ tone, children }) {
@@ -151,9 +154,11 @@ function StatusPill({ tone, children }) {
 }
 
 function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
-  const inProgress = attempt.submittedAt == null
+  // Ended for leaving the assessment too many times: void, every answer invalid.
+  const invalid = attempt.status === "CANCELLED"
+  const inProgress = !invalid && attempt.submittedAt == null
   const percentage = Number(attempt.percentage ?? 0)
-  const standing = standingOf(attempt)
+  const standing = invalid ? { rating: null, label: null, cleared: false, measured: false } : standingOf(attempt)
 
   const resultQuery = useQuery({
     queryKey: ["attempt-result", String(attempt.assessmentAttemptId), learnerId],
@@ -163,7 +168,7 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
     staleTime: 5 * 60_000,
   })
   const result = resultQuery.data
-  const answers = result?.answers ?? []
+  const answers = (result?.answers ?? []).map((answer) => (invalid ? { ...answer, invalid: true } : answer))
 
   return (
     <div className="tg-frame">
@@ -171,7 +176,9 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
         <div className="min-w-0 flex-1 space-y-2">
           <p className="font-rb-display text-2xl font-extrabold text-foreground">Attempt {attempt.attemptNumber}</p>
           <div className="flex flex-wrap items-center gap-2">
-            {inProgress ? (
+            {invalid ? (
+              <StatusPill tone="cardinal"><ShieldAlert className="size-3" aria-hidden="true" />Invalid · ended for leaving</StatusPill>
+            ) : inProgress ? (
               <StatusPill tone="amber"><ClockIcon className="size-3" aria-hidden="true" />In progress</StatusPill>
             ) : standing.measured ? (
               <StatusPill tone={standing.cleared ? "leaf" : "cardinal"}>
@@ -189,7 +196,7 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
           <p className="text-sm text-muted-foreground">
             {formatDate(attempt.startedAt)}
             {!inProgress ? ` · took ${formatDuration(attempt.durationSeconds)}` : null}
-            {attempt.correctCount != null && attempt.itemCount != null
+            {!invalid && attempt.correctCount != null && attempt.itemCount != null
               ? ` · ${Number(attempt.correctCount)} of ${Number(attempt.answeredCount ?? attempt.itemCount)} correct`
               : ""}
           </p>
@@ -207,7 +214,7 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
                 {standing.measured ? standing.rating.toFixed(0) : `${percentage.toFixed(0)}%`}
               </p>
               <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                {standing.measured ? "of 100" : attempt.passed ? "passed" : "not passed"}
+                {invalid ? "invalid" : standing.measured ? "of 100" : attempt.passed ? "passed" : "not passed"}
               </p>
             </div>
           </div>
@@ -225,11 +232,17 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
           <p className="text-sm font-semibold text-rb-cardinal-lip">This attempt&apos;s answers could not be loaded.</p>
         ) : (
           <>
-            <div className="flex flex-wrap gap-2">
-              <StatusPill tone="leaf">{result.correctCount ?? 0} correct</StatusPill>
-              <StatusPill tone="cardinal">{result.incorrectCount ?? 0} incorrect</StatusPill>
-              {result.pendingCount > 0 ? <StatusPill tone="amber">{result.pendingCount} pending</StatusPill> : null}
-            </div>
+            {invalid ? (
+              <p className="text-sm font-semibold text-rb-cardinal-lip">
+                You left this assessment too many times, so it was ended with a score of 0. All {answers.length} answers are invalid.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <StatusPill tone="leaf">{result.correctCount ?? 0} correct</StatusPill>
+                <StatusPill tone="cardinal">{result.incorrectCount ?? 0} incorrect</StatusPill>
+                {result.pendingCount > 0 ? <StatusPill tone="amber">{result.pendingCount} pending</StatusPill> : null}
+              </div>
+            )}
 
             {answers.length > 0 ? (
               <ol className="mt-4 divide-y divide-[var(--tg-line)]">

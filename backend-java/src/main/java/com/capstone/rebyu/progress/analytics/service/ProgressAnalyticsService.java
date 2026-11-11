@@ -420,27 +420,29 @@ public class ProgressAnalyticsService {
 
         List<Exam> allCertExams = examRepository.findWithTypeByCertificationIds(List.of(certificationId));
         List<Exam> certExams = new ArrayList<>();
-        List<String> exclusions = new ArrayList<>();
+        // Reason -> count. Every learner's private practice quiz is excluded, so listing each exam
+        // by name produced a multi-kilobyte log line on every analytics load; counts say the same.
+        java.util.Map<String, Integer> exclusions = new java.util.TreeMap<>();
         for (Exam exam : allCertExams) {
             String reason = assessmentExclusionReason(
                     exam, officialLessonIds, officialMiddleIds, officialMajorIds);
             if (reason == null) {
                 certExams.add(exam);
             } else {
-                exclusions.add("#" + exam.getExamId() + " '" + exam.getTitle() + "' (" + reason + ")");
+                exclusions.merge(reason, 1, Integer::sum);
             }
         }
         int totalAssessmentCount = certExams.size();
 
-        if (!exclusions.isEmpty()) {
-            log.debug("Certification {}: {} of {} exam(s) excluded from the assessment total -- {}",
-                    certificationId, exclusions.size(), allCertExams.size(),
-                    String.join(", ", exclusions));
+        if (!exclusions.isEmpty() && log.isDebugEnabled()) {
+            log.debug("Certification {}: {} of {} exam(s) excluded from the assessment total {}",
+                    certificationId, exclusions.values().stream().mapToInt(Integer::intValue).sum(),
+                    allCertExams.size(), exclusions);
         }
         if (certExams.isEmpty() && !allCertExams.isEmpty()) {
             log.warn("Certification {} has {} exam(s) but none count toward its assessment total, "
                             + "so the learner is told it has no assessments. Excluded: {}",
-                    certificationId, allCertExams.size(), String.join(", ", exclusions));
+                    certificationId, allCertExams.size(), exclusions);
         }
 
         Set<Long> passedExamIds = attempts.stream()

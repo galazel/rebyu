@@ -9,7 +9,9 @@ from app.domain.diagrams.validation import check_reference
 
 logger = logging.getLogger(__name__)
 
-QuestionType = Literal["MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"]
+QuestionType = Literal[
+    "MCQ", "MULTIPLE_ANSWER", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"
+]
 Difficulty = Literal["EASY", "AVERAGE", "HARD"]
 
 DIFFICULTY_ALIASES = {"DIFFICULT": "HARD"}
@@ -25,9 +27,13 @@ MCQ_CHOICE_COUNT = 4
 MCQ_MIN_CHOICES = 3
 MCQ_MAX_CHOICES = 9
 
-MIN_EXPLANATION_CHARS = 20
+# MULTIPLE_ANSWER ("Select 2 choices"): enough options that ticking every one
+# is never the answer, and at least two right so it is not an MCQ in disguise.
+MULTI_MIN_CHOICES = 4
+MULTI_MAX_CHOICES = 7
+MULTI_MIN_CORRECT = 2
 
-MIN_PROGRAMMING_TEST_CASES = 3
+MIN_EXPLANATION_CHARS = 20
 
 DIAGRAM_TYPES: tuple[str, ...] = (
     "ACTIVITY_DIAGRAM",
@@ -153,27 +159,6 @@ _COUNTED_SET_PATTERN = re.compile(
 SHORT_ANSWER_MAX_WORDS = 6
 
 
-class ProgrammingTestCase(BaseModel):
-    input_data: str
-    expected_output: str = ""
-
-
-def _calls(code: str, name: str) -> bool:
-    """Whether `code` parses as Python and calls `name` somewhere."""
-    try:
-        tree = ast.parse((code or "").strip())
-    except SyntaxError:
-        return False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            func = node.func
-            if isinstance(func, ast.Name) and func.id == name:
-                return True
-            if isinstance(func, ast.Attribute) and func.attr == name:
-                return True
-    return False
-
-
 class SubQuestionDraft(BaseModel):
     """One part of a critical-thinking question.
 
@@ -230,6 +215,7 @@ class QuestionDraft(BaseModel):
 
     choices: List[str] = Field(default_factory=list)
     correct_choice_index: Optional[int] = None
+    correct_choice_indices: List[int] = Field(default_factory=list)
     choice_explanations: List[str] = Field(default_factory=list)
 
     correct_answer: Optional[str] = None
@@ -237,9 +223,10 @@ class QuestionDraft(BaseModel):
 
     rubric_answer: Optional[str] = None
 
+    # PROGRAMMING: a problem and the one exact output a correct program prints. The
+    # program reads no input -- every value it needs is stated in the question.
     starter_code: Optional[str] = None
-    test_cases: List[ProgrammingTestCase] = Field(default_factory=list)
-    function_name: Optional[str] = None
+    expected_output: Optional[str] = None
     programming_language: Optional[str] = None
     rules: Optional[str] = None
     reference_solution: Optional[str] = None
@@ -336,6 +323,30 @@ class QuestionDraft(BaseModel):
             if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
                 raise ValueError("MCQ choices must be distinct")
 
+        elif self.question_type == "MULTIPLE_ANSWER":
+            if not MULTI_MIN_CHOICES <= len(self.choices) <= MULTI_MAX_CHOICES:
+                raise ValueError(
+                    f"MULTIPLE_ANSWER must have between {MULTI_MIN_CHOICES} and "
+                    f"{MULTI_MAX_CHOICES} choices, got {len(self.choices)}"
+                )
+            indices = sorted(set(self.correct_choice_indices))
+            if len(indices) < MULTI_MIN_CORRECT:
+                raise ValueError(
+                    "MULTIPLE_ANSWER must list at least two right options in "
+                    "correct_choice_indices; with one, write an MCQ instead"
+                )
+            if any(not 0 <= index < len(self.choices) for index in indices):
+                raise ValueError(f"correct_choice_indices {indices} has an index out of range")
+            if len(indices) >= len(self.choices) - 1:
+                raise ValueError(
+                    "MULTIPLE_ANSWER needs at least two wrong options, so ticking "
+                    "everything is never the answer"
+                )
+            if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
+                raise ValueError("MULTIPLE_ANSWER choices must be distinct")
+            self.correct_choice_indices = indices
+            self.correct_choice_index = None
+
         elif self.question_type == "SHORT_ANSWER":
             if not (self.correct_answer or "").strip():
                 raise ValueError("SHORT_ANSWER must set correct_answer")
@@ -352,11 +363,6 @@ class QuestionDraft(BaseModel):
                 raise ValueError("DESCRIPTIVE must set rubric_answer")
 
         elif self.question_type == "PROGRAMMING":
-            if len(self.test_cases) < MIN_PROGRAMMING_TEST_CASES:
-                raise ValueError(
-                    f"PROGRAMMING must include at least {MIN_PROGRAMMING_TEST_CASES} "
-                    f"test cases covering the ordinary case and its edges"
-                )
             lang = (self.programming_language or "").strip().upper()
             if not lang:
                 raise ValueError("PROGRAMMING must set programming_language")
@@ -368,38 +374,26 @@ class QuestionDraft(BaseModel):
                 )
             self.programming_language = lang
 
-            name = (self.function_name or "").strip()
-            if not name:
-                raise ValueError("PROGRAMMING must set function_name")
             if not (self.rules or "").strip():
                 raise ValueError(
-                    "PROGRAMMING must set rules: the signature and every exact return "
-                    "format, message, rounding and ordering the tests depend on"
+                    "PROGRAMMING must set rules: exactly what the program prints -- the "
+                    "format, wording, rounding and ordering the expected output depends on"
                 )
-            if name not in f"{self.question} {self.rules}":
-                raise ValueError(f"the question or its rules must name {name}")
             solution = (self.reference_solution or "").strip()
             if not solution:
                 raise ValueError(
-                    "PROGRAMMING must include reference_solution: a correct "
-                    "solution the tests are run against"
+                    "PROGRAMMING must include reference_solution: a complete program that "
+                    "reads no input and prints the expected output"
                 )
             if lang == "PYTHON":
-                if not name.isidentifier():
-                    raise ValueError(
-                        "PROGRAMMING (Python) function_name must be a valid identifier"
-                    )
                 try:
                     ast.parse(solution)
                 except SyntaxError as error:
                     raise ValueError(f"reference_solution is not valid Python: {error}") from error
-                for index, case in enumerate(self.test_cases, 1):
-                    if not _calls(case.input_data, name):
-                        raise ValueError(
-                            f"test case {index} must be Python code that calls {name}(...), "
-                            "such as a single call or a few statements ending in one; "
-                            "prose descriptions and bare data cannot be run"
-                        )
+            if not (self.expected_output or "").strip():
+                raise ValueError(
+                    "PROGRAMMING must set expected_output: exactly what a correct program prints"
+                )
 
         elif self.question_type == "DIAGRAM":
             if not (self.diagram_type or "").strip():
@@ -440,7 +434,7 @@ class QuestionDraft(BaseModel):
                 "and why the correct answer is correct"
             )
 
-        if self.question_type == "MCQ":
+        if self.question_type in ("MCQ", "MULTIPLE_ANSWER"):
             self._require_an_explanation_per_choice()
         return self
 

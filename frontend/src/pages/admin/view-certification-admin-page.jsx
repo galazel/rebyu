@@ -564,6 +564,7 @@ export default function ViewCertificationAdmin() {
             open={isGenerateMoreOpen}
             onOpenChange={setIsGenerateMoreOpen}
             certification={certification}
+            onStarted={() => setIsWatchingGeneration(true)}
         />
 
         <Dialog open={isWatchingGeneration} onOpenChange={setIsWatchingGeneration}>

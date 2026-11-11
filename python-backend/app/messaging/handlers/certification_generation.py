@@ -58,7 +58,8 @@ def _load_context(generation_request_id: int, certification_id: int):
 
 
 _ALLOWED_QUESTION_TYPE_CHOICES = {
-    "MCQ", "SHORT_ANSWER", "FILL_IN_BLANK", "DESCRIPTIVE", "CRITICAL_THINKING",
+    "MCQ", "MULTIPLE_ANSWER", "SHORT_ANSWER", "FILL_IN_BLANK", "DESCRIPTIVE",
+    "CRITICAL_THINKING",
 }
 
 

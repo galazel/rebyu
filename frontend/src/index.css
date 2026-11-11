@@ -170,7 +170,10 @@ html {
     }
 
     .rebyu-page-fill {
-        @apply h-[calc(100dvh-4rem)] min-h-0 max-w-none gap-0 overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0;
+        /* flex-none: .rebyu-page's flex-1 sits in a column flexbox with no fixed height, where a
+           0% flex-basis falls back to the content height and the fixed height is ignored; the
+           workspace then grows with its content and its side panels never scroll. */
+        @apply h-[calc(100dvh-4rem)] min-h-0 max-h-[calc(100dvh-4rem)] flex-none max-w-none gap-0 overflow-hidden px-0 py-0 sm:px-0 sm:py-0 lg:px-0;
     }
 
     .rebyu-page-header {
@@ -1558,6 +1561,18 @@ body.rb-attempt-lock {
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
+}
+
+/* Assessment integrity: question text cannot be selected (and so copied); the learner's
+   own answer fields and code editors stay selectable for editing. */
+body.rb-attempt-nocopy {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+body.rb-attempt-nocopy :is(input, textarea, [contenteditable="true"], [contenteditable=""], .cm-editor, .cm-editor *) {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 

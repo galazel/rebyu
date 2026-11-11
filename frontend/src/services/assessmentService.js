@@ -90,8 +90,11 @@ export function getProgrammingQuestionConfig(questionId) {
 }
 
 
+// The server takes the learner from the login token; learnerId is optional and is
+// left off entirely when unknown (a literal "undefined" fails Long parsing with a 500).
 export function getLearnerAssessment(assessmentId, learnerId) {
-  return base(`learner/assessments/${assessmentId}?learnerId=${learnerId}`)
+  const query = learnerId != null ? `?learnerId=${learnerId}` : ""
+  return base(`learner/assessments/${assessmentId}${query}`)
 }
 
 export function startAssessmentAttempt(assessmentId, learnerId, idempotencyKey, questionIndex, matchId) {
@@ -130,6 +133,29 @@ export function setAttemptCurrentItem(attemptId, attemptQuestionId, learnerId) {
     method: "PUT",
     data: { learnerId, attemptQuestionId },
   })
+}
+
+// The learner left the attempt tab: the server stops the clock and counts the violation.
+// reason: "TAB_HIDDEN" | "WINDOW_BLUR". On the last allowed exit the server forfeits the
+// attempt (score 0) and answers with forfeited: true.
+export function pauseAttemptClock(attemptId, reason, attemptQuestionId) {
+  return base(`learner/assessment-attempts/${attemptId}/pause`, {
+    method: "POST",
+    data: { reason, attemptQuestionId },
+  })
+}
+
+// Blocked copy/paste/shortcut attempts, stored as the attempt's integrity log.
+export function reportAttemptIntegrityEvents(attemptId, events) {
+  return base(`learner/assessment-attempts/${attemptId}/integrity-events`, {
+    method: "POST",
+    data: { events },
+  })
+}
+
+// Back on the attempt tab: the server credits the paused time and returns the new deadline.
+export function resumeAttemptClock(attemptId) {
+  return base(`learner/assessment-attempts/${attemptId}/resume`, { method: "POST" })
 }
 
 export function runAttemptProgramming(attemptId, attemptQuestionId, learnerId, code, language) {

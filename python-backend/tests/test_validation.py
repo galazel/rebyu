@@ -17,7 +17,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.domain.validation import Severity, find_duplicates, validate_question_batch
-from app.schemas.certification.question_schema import ProgrammingTestCase, QuestionDraft
+from app.schemas.certification.question_schema import QuestionDraft
 
 
 def mcq(question="What is 2+2?", **overrides):
@@ -101,77 +101,56 @@ def test_descriptive_requires_rubric():
         QuestionDraft(question_type="DESCRIPTIVE", question="Explain normalization.")
 
 
-def test_programming_requires_test_cases():
-    with pytest.raises(ValidationError, match="test cases"):
-        QuestionDraft(question_type="PROGRAMMING", question="Reverse a string.")
-
-
-def test_programming_requires_more_than_one_test_case():
-    """One case checks that the happy path runs and nothing else, which is how
-    a coding task degrades into a syntax quiz. The floor is what makes the
-    prompt's "cover the edges" a constraint rather than a request."""
-    with pytest.raises(ValidationError, match="at least 3 test cases"):
-        QuestionDraft(
-            question_type="PROGRAMMING",
-            question="Reverse a string.",
-            test_cases=[ProgrammingTestCase(input_data="ab", expected_output="ba")],
-            explanation="Reversing walks the string from the end to the start.",
-        )
+def test_programming_requires_an_expected_output():
+    with pytest.raises(ValidationError, match="expected_output"):
+        _coding(expected_output="  ")
 
 
 def _coding(**overrides):
     fields = dict(
         question_type="PROGRAMMING",
-        question="Implement reverse_text(text), which returns the text reversed.",
-        function_name="reverse_text",
-        rules="reverse_text(text) returns a new string with the characters in reverse order; '' gives ''.",
-        reference_solution="def reverse_text(text):\n    return text[::-1]\n",
+        question="Reverse the text 'stressed' and print the result.",
+        rules="Print only the reversed text, on one line.",
+        reference_solution="print('stressed'[::-1])\n",
         programming_language="PYTHON",
-        test_cases=[
-            ProgrammingTestCase(input_data="reverse_text('ab')", expected_output="ba"),
-            ProgrammingTestCase(input_data="reverse_text('')", expected_output=""),
-            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
-        ],
+        expected_output="desserts",
         explanation="Reversing walks the string from the end to the start.",
     )
     fields.update(overrides)
     return QuestionDraft(**fields)
 
 
-def test_programming_accepts_a_covered_task():
+def test_programming_accepts_a_problem_with_one_expected_output():
     q = _coding()
-    assert q.test_cases[0].expected_output == "ba"
-    assert q.function_name == "reverse_text"
+    assert q.expected_output == "desserts"
+    assert q.programming_language == "PYTHON"
 
 
 def test_programming_requires_a_reference_solution():
-    """Expected outputs are computed by running it, so without one nothing can be verified."""
+    """The expected output is computed by running it, so without one nothing can be verified."""
     with pytest.raises(ValidationError, match="reference_solution"):
         _coding(reference_solution="")
 
 
-def test_programming_requires_the_rules_the_tests_depend_on():
+def test_programming_requires_the_rules_the_output_depends_on():
     with pytest.raises(ValidationError, match="rules"):
         _coding(rules="")
 
 
-def test_programming_rejects_a_test_described_in_prose():
-    """A prose test ("repo_url=invalid_url => Clone step fails") can never be run."""
-    with pytest.raises(ValidationError, match="must be Python code that calls reverse_text"):
-        _coding(test_cases=[
-            ProgrammingTestCase(input_data="reverse_text('ab')", expected_output="ba"),
-            ProgrammingTestCase(input_data="an empty string gives an empty string", expected_output=""),
-            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
-        ])
+def test_programming_rejects_an_unsupported_language():
+    with pytest.raises(ValidationError, match="not supported"):
+        _coding(programming_language="COBOL")
 
 
-def test_programming_rejects_tests_that_never_call_the_named_function():
-    with pytest.raises(ValidationError, match="calls reverse_text"):
-        _coding(test_cases=[
-            ProgrammingTestCase(input_data="[1, 2, 3]", expected_output="[3, 2, 1]"),
-            ProgrammingTestCase(input_data="reverse_text('')", expected_output=""),
-            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
-        ])
+def test_programming_rejects_a_python_reference_that_does_not_parse():
+    with pytest.raises(ValidationError, match="not valid Python"):
+        _coding(reference_solution="print('x'")
+
+
+def test_programming_ignores_legacy_test_cases():
+    """Old payloads may still carry test_cases; they are not part of the model any more."""
+    q = _coding(test_cases=[{"input_data": "1", "expected_output": "1"}])
+    assert "test_cases" not in q.model_dump()
 
 
 def test_short_answer_alternatives_are_normalised_like_the_grader_compares():

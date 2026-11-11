@@ -217,9 +217,11 @@ def test_short_answer_requires_an_answer():
         QuestionDraft(question_type="SHORT_ANSWER", question="Q?")
 
 
-def test_programming_requires_a_test_case():
-    with pytest.raises(ValueError, match="test case"):
-        QuestionDraft(question_type="PROGRAMMING", question="Q?", starter_code="x")
+def test_programming_requires_an_expected_output():
+    with pytest.raises(ValueError, match="expected_output"):
+        QuestionDraft(question_type="PROGRAMMING", question="Q?", starter_code="x",
+                      programming_language="PYTHON", rules="Print the total.",
+                      reference_solution="print(1)")
 
 
 def test_diagram_requires_type_and_instructions():

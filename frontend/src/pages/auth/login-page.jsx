@@ -187,6 +187,7 @@ export default function LoginPage() {
           showBackButton
           backTo="/"
           backLabel="Back"
+          onBack={() => navigate("/", { replace: true })}
           footer={
             <>
               Don&apos;t have an account?{" "}

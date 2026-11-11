@@ -55,12 +55,6 @@ public class AssessmentAttemptExecution {
     @Column(name = "status", nullable = false, length = 30)
     private Status status;
 
-    @Column(name = "passed_tests")
-    private Integer passedTests;
-
-    @Column(name = "total_tests")
-    private Integer totalTests;
-
     @Column(name = "output", columnDefinition = "TEXT")
     private String output;
 

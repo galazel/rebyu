@@ -173,12 +173,12 @@ export function gradingMessagesFor(questions = []) {
     format: String(question?.criticalThinkingType ?? "").toUpperCase(),
   }))
   const has = (test) => types.some(test)
-  return [
-    ...GRADING_MESSAGES,
-    ...(has(({ type, format }) => type === "DESCRIPTIVE" || (type === "CRITICAL_THINKING" && (format === "" || format === "TEXT"))) ? WRITTEN_GRADING : []),
-    ...(has(({ type, format }) => type === "PROGRAMMING" || format === "PROGRAMMING") ? CODE_GRADING : []),
-    ...(has(({ type, format }) => type === "DIAGRAM" || format === "DIAGRAM") ? DIAGRAM_GRADING : []),
-  ]
+  // One line for the whole wait (the user asked for a single label, not a rotation): the most
+  // telling kind of marking on this paper, else the general one.
+  if (has(({ type, format }) => type === "DESCRIPTIVE" || (type === "CRITICAL_THINKING" && (format === "" || format === "TEXT")))) return WRITTEN_GRADING
+  if (has(({ type, format }) => type === "PROGRAMMING" || format === "PROGRAMMING")) return CODE_GRADING
+  if (has(({ type, format }) => type === "DIAGRAM" || format === "DIAGRAM")) return DIAGRAM_GRADING
+  return GRADING_MESSAGES.slice(0, 1)
 }
 
 export const ATTEMPT_MESSAGES = lines([
@@ -208,7 +208,9 @@ function shuffledOrder(list) {
 
 export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing = false, onFinished }) {
   const list = messages?.length ? messages : MESSAGES
-  const order = useMemo(() => shuffledOrder(list), [list])
+  // One label and one line for the whole load: the first of the set. (It used to shuffle and
+  // rotate every few seconds, with a dot per line -- too many labels flashing past.)
+  const order = useMemo(() => [0], [list])
   const [step, setStep] = useState(0)
   const [progress, setProgress] = useState(4)
   const [leaving, setLeaving] = useState(false)
@@ -226,11 +228,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
   // A new set of lines (another page started loading) starts its own sequence.
   useEffect(() => setStep(0), [order])
 
-  useEffect(() => {
-    if (reduced || finishing) return undefined
-    const id = setInterval(() => setStep((value) => value + 1), ROTATE_MS)
-    return () => clearInterval(id)
-  }, [reduced, finishing, order])
 
   useEffect(() => {
     if (finishing) return undefined
@@ -263,13 +260,15 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
 
   return (
     <div
-      className={`rebyu-ds rb-light-only rb-classroom-face isolate flex h-svh w-full items-center justify-center overflow-hidden bg-[#2a2118] px-4 transition-opacity ${
+      className={`rebyu-ds rb-light-only rb-classroom-face isolate flex h-svh w-full items-center justify-center overflow-hidden bg-[#5f4c3a] px-4 transition-opacity ${
         overlay ? "fixed inset-0 z-[300]" : "relative"
       } ${leaving ? "opacity-0" : "opacity-100"}`}
       style={{ transitionDuration: `${FADE_MS}ms` }}
       aria-busy={!finishing}
     >
-      <div aria-hidden="true" className="rb-classroom-photo absolute inset-[-12px] -z-10 blur-[3px]" />
+      {/* rb-classroom-photo--fast: a tiny inlined blur of the photo paints at once, the light
+          1280px photo (preloaded in index.html) replaces it -- never a bare dark fallback. */}
+      <div aria-hidden="true" className="rb-classroom-photo rb-classroom-photo--fast absolute inset-[-12px] -z-10 blur-[3px]" />
 
       <p className="sr-only" role="status" aria-live="polite">
         {finishing ? "Ready." : slow ? `${text} This is taking longer than usual.` : text}
@@ -310,17 +309,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
               className="h-full rounded-full bg-[var(--rb-chalk)] transition-[width] ease-out"
               style={{ width: `${progress}%`, transitionDuration: finishing ? `${FILL_MS - 150}ms` : "120ms" }}
             />
-          </div>
-          {/* One chalk dot per line in this set; the lit one is the line on the board. */}
-          <div className="mt-3 flex justify-center gap-1.5">
-            {order.map((index, position) => (
-              <span
-                key={index}
-                className={`size-1.5 rounded-full transition-colors duration-300 ${
-                  finishing || position === step % order.length ? "bg-[var(--rb-chalk)]" : "bg-white/20"
-                }`}
-              />
-            ))}
           </div>
           <p className={`rb-chalk mt-3 text-sm transition-opacity duration-500 ${slow && !finishing ? "opacity-80" : "opacity-0"}`}>
             Taking a little longer than usual. Hang tight...

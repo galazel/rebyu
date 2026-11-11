@@ -1,6 +1,7 @@
 package com.capstone.rebyu.aigateway.config;
 
 import io.netty.channel.ChannelOption;
+import io.netty.resolver.DefaultAddressResolverGroup;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +20,11 @@ public class AiServiceClientConfig {
 
     @Bean("aiWebClient")
     public WebClient aiWebClient(AiServiceProperties properties) {
+        // The JVM resolver (30 s cache) instead of Netty's own DNS cache: recreating the
+        // python-api container gives it a new address, and Netty kept dialling the old one
+        // for minutes ("Connection refused: python-api/[old IP]") after it was back up.
         HttpClient httpClient = HttpClient.create()
+                .resolver(DefaultAddressResolverGroup.INSTANCE)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, properties.getConnectTimeoutMs())
                 .responseTimeout(Duration.ofMillis(properties.getReadTimeoutMs()));
 

@@ -92,10 +92,7 @@ export async function reconstructQuestionData(question, allQuestions) {
           image: null,
           imageKey,
           starterCode: programmingConfig.starterCode ?? "",
-          testCases: (programmingConfig.testCases ?? []).map((testCase) => ({
-            inputData: testCase.inputData ?? "",
-            expectedOutput: testCase.expectedOutput ?? "",
-          })),
+          expectedOutput: programmingConfig.expectedOutput ?? "",
           subQuestions: subQuestionData,
           difficulty,
         },

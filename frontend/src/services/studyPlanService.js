@@ -24,6 +24,11 @@ export function saveStudyPlan({ certificationId, goal, schedule }) {
   })
 }
 
+/** Removes every active study plan (overall and per-certification) and its task progress. */
+export function clearStudyPlans() {
+  return base("study-plans/me/active", { method: "DELETE" })
+}
+
 export function getStudyPlanTaskStatuses() {
   return base("study-plans/me/tasks")
 }

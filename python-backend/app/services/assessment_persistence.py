@@ -78,6 +78,22 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
                 explanation=explanation,
             )
 
+    elif question_type == "MULTIPLE_ANSWER":
+        right = set(question.get("correct_choice_indices") or [])
+        per_choice = question.get("choice_explanations") or []
+        choices = question.get("choices") or []
+        aligned = len(per_choice) == len(choices)
+
+        for index, choice_text in enumerate(choices):
+            explanation = per_choice[index] if aligned and (per_choice[index] or "").strip() else None
+            repo.insert_choice(
+                session,
+                question_id,
+                choice_text,
+                is_correct=index in right,
+                explanation=explanation,
+            )
+
     elif question_type in ("SHORT_ANSWER", "DESCRIPTIVE"):
         answer = question.get("correct_answer") or question.get("rubric_answer") or ""
         variations = (
@@ -91,7 +107,7 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
 
     elif question_type == "PROGRAMMING":
         repo.insert_programming_config(
-            session, question_id, question.get("starter_code"), question.get("test_cases") or [],
+            session, question_id, question.get("starter_code"), question.get("expected_output"),
             language=question.get("programming_language"),
         )
 

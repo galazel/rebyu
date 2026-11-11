@@ -126,7 +126,7 @@ at build time. Vite embeds this value in the static bundle; setting it only in
 the running nginx container is too late:
 
 ```bash
-docker build --build-arg VITE_API_URL=https://backend-production-20f5.up.railway.app -t rebyu-frontend ./frontend
+docker build --build-arg VITE_API_URL=https://backend-production-67ff3c0b.up.railway.app -t rebyu-frontend ./frontend
 ```
 
 ### Configuration

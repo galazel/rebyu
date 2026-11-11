@@ -16,6 +16,7 @@ import java.util.List;
 @Transactional
 public class AchievementService {
     private final AchievementRepository achievementRepository;
+    private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final AchievementMapper achievementMapper;
 
     public List<AchievementDto> getAll() {
@@ -40,7 +41,9 @@ public class AchievementService {
     }
 
     public void delete(Long id) {
-        achievementRepository.delete(findEntity(id));
+        findEntity(id);
+        // The badge as earned by learners (learner_achievements) goes with it.
+        cascade.delete("achievements", "achievement_id", id);
     }
 
     private Achievement findEntity(Long id) {
