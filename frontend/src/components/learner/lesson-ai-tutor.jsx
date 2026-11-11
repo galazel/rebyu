@@ -531,7 +531,8 @@ function SnipViewer({ picture, quote, onClose }) {
           className="max-h-[80vh] max-w-[92vw] cursor-default rounded-lg bg-white object-contain shadow-2xl"
         />
       ) : null}
-      {quote ? (
+      {/* A snip shows exactly the area that was snipped; its extracted text is for the tutor only. */}
+      {quote && !picture ? (
         <blockquote
           onClick={(event) => event.stopPropagation()}
           className="max-h-[30vh] max-w-2xl cursor-default overflow-y-auto rounded-lg bg-white px-4 py-3 text-sm italic leading-6 text-rb-eel shadow-2xl"
@@ -590,7 +591,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           A snipped part of the lesson
         </span>
       ) : null}
-      {snippet.quote ? (
+      {snippet.quote && !snippet.image && !snippet.imageKey ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
