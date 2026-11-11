@@ -27,6 +27,7 @@ LANGUAGE_IDS: dict[str, int] = {
     "JAVASCRIPT": 63,
     "PYTHON": 71,
     "C#": 51,
+    "SQL": 82,  # Judge0's SQLite: the script's SELECT results are printed as "a|b" rows
 }
 
 _ACCEPTED = 3

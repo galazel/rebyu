@@ -35,6 +35,10 @@ MULTI_MIN_CORRECT = 2
 
 MIN_EXPLANATION_CHARS = 20
 
+# Every language the learner's editor offers. SQL runs on Judge0's SQLite; PSEUDOCODE
+# cannot run, so its reference_solution is Python and learners are marked by AI.
+PROGRAMMING_LANGUAGES = ("PYTHON", "JAVA", "JAVASCRIPT", "C", "C++", "C#", "SQL", "PSEUDOCODE")
+
 DIAGRAM_TYPES: tuple[str, ...] = (
     "ACTIVITY_DIAGRAM",
     "UML_CLASS",
@@ -368,7 +372,7 @@ class QuestionDraft(BaseModel):
             lang = (self.programming_language or "").strip().upper()
             if not lang:
                 raise ValueError("PROGRAMMING must set programming_language")
-            supported = {"C", "C++", "JAVA", "JAVASCRIPT", "PYTHON", "C#"}
+            supported = set(PROGRAMMING_LANGUAGES)
             if lang not in supported:
                 raise ValueError(
                     f"programming_language '{lang}' is not supported; use one of: "
@@ -387,7 +391,8 @@ class QuestionDraft(BaseModel):
                     "PROGRAMMING must include reference_solution: a complete program that "
                     "reads no input and prints the expected output"
                 )
-            if lang == "PYTHON":
+            if lang in ("PYTHON", "PSEUDOCODE"):
+                # Pseudocode is checked through its Python reference solution.
                 try:
                     ast.parse(solution)
                 except SyntaxError as error:
@@ -475,4 +480,20 @@ class QuestionDraft(BaseModel):
 class QuestionBatch(BaseModel):
     scope: str
     questions: List[QuestionDraft]
+
+    @model_validator(mode="after")
+    def _spread_programming_languages(self) -> "QuestionBatch":
+        """Three or more coding items in one batch must not all be in one language.
+
+        Left to itself the model writes nearly every coding task in Python, while
+        the learner's editor -- and the real papers -- cover Java, C, SQL,
+        pseudocode and more. Rejecting a single-language batch resamples it.
+        """
+        languages = [q.programming_language for q in self.questions if q.question_type == "PROGRAMMING"]
+        if len(languages) >= 3 and len(set(languages)) < 2:
+            raise ValueError(
+                f"all {len(languages)} PROGRAMMING items use {languages[0]}; spread them across "
+                "languages (" + ", ".join(PROGRAMMING_LANGUAGES) + ")"
+            )
+        return self
 

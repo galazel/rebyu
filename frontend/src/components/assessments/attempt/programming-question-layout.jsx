@@ -9,9 +9,15 @@ import {
   runAttemptProgramming,
 } from "@/services/assessmentService.js"
 import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace-shell.jsx"
-import CodeMirrorProgrammingWorkspace from "./code-mirror-programming-workspace.jsx"
+import CodeMirrorProgrammingWorkspace, { PROGRAMMING_LANGUAGES } from "./code-mirror-programming-workspace.jsx"
 import ExecutionHistoryPanel from "./execution-history-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
+
+/** The stored language (PYTHON, SQL, PSEUDOCODE...) as the editor's dropdown label. */
+function editorLanguage(stored) {
+  const key = String(stored ?? "").trim().toUpperCase()
+  return PROGRAMMING_LANGUAGES.find((label) => label.toUpperCase() === key) ?? "Java"
+}
 
 export default function ProgrammingQuestionLayout({
   question,
@@ -30,8 +36,9 @@ export default function ProgrammingQuestionLayout({
   const [executions, setExecutions] = useState([])
   const [executionsLoading, setExecutionsLoading] = useState(false)
 
-  const language = answer?.programmingLanguage ?? "Java"
-  const code = answer?.submittedCode ?? ""
+  const language = answer?.programmingLanguage ?? editorLanguage(question.programmingLanguage)
+  // Until the learner types, the editor holds the starter code -- which carries the problem's data.
+  const code = answer?.submittedCode ?? question.starterCode ?? ""
   const subQuestions = question.subQuestions ?? []
 
   useEffect(() => {

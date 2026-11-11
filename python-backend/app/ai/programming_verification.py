@@ -37,6 +37,10 @@ async def verify_programming_questions(questions: list) -> list:
     dropped: set[int] = set()
     for question in targets:
         language = getattr(question, "programming_language", None) or "PYTHON"
+        # Pseudocode cannot run: its reference_solution is the same algorithm in Python,
+        # and what that prints is the answer a learner's pseudocode is marked against.
+        if language.upper() == "PSEUDOCODE":
+            language = "PYTHON"
         try:
             results = await run_tests(question.reference_solution or "", [""], language)
         except CodeRunnerUnavailable:

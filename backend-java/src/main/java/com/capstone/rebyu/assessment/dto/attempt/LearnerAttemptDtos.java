@@ -57,12 +57,14 @@ public final class LearnerAttemptDtos {
             String stage,
             AdaptiveAnswerKeyDto answerKey,
             // MULTIPLE_ANSWER only: how many choices the learner must tick ("Select 2 choices").
-            Integer selectCount
+            Integer selectCount,
+            // PROGRAMMING only: the language the problem is written for, so the editor opens on it.
+            String programmingLanguage
     ) {
         public LearnerAttemptQuestionDto withAnswerKey(AdaptiveAnswerKeyDto key) {
             return new LearnerAttemptQuestionDto(attemptQuestionId, displayOrder, questionType, criticalThinkingType,
                     question, questionImageKey, choices, starterCode, diagramType, instructions, subQuestions, points,
-                    rubric, stage, key, selectCount);
+                    rubric, stage, key, selectCount, programmingLanguage);
         }
     }
 

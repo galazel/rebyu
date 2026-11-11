@@ -235,11 +235,32 @@ smaller artifacts, not easier thinking.
   Every PROGRAMMING item is graded automatically: the learner's program is
   compiled and run once on a Judge0 code runner with no input, and what it
   prints is compared with expected_output (trailing whitespace ignored).
-  Supported languages: C, C++, Java, JavaScript, Python, C#. Vary the
-  language across questions -- do NOT make every question Python.
+  Supported languages: Python, Java, JavaScript, C, C++, C#, SQL and
+  Pseudocode -- the same list the learner's editor offers. SPREAD THEM: across
+  a batch use several different languages, never only Python, and pick the one
+  the problem and the certification call for:
+    - SQL whenever the lesson covers databases, queries, joins, grouping,
+      transactions or normalisation;
+    - Pseudocode whenever the certification examines algorithms in pseudocode
+      (FE exam, TOPCIT, IT Passport) -- traces, searching, sorting, recursion;
+    - C or C++ for memory, pointers, bit operations and low-level structures;
+    - Java or C# for object-oriented design and collections;
+    - JavaScript for web, JSON and event handling; Python for data processing.
 
-    * programming_language -- one of: C, C++, Java, JavaScript, Python, C#.
-      Pick whichever fits the problem best, and spread across languages.
+    * programming_language -- one of: Python, Java, JavaScript, C, C++, C#,
+      SQL, Pseudocode.
+    * SQL items: starter_code holds the CREATE TABLE and INSERT statements with
+      all the data (deliberately awkward rows: NULLs, duplicates, ties) and a
+      comment where the learner's query goes. reference_solution is that whole
+      script plus the correct SELECT(s). It runs on SQLite, which prints each
+      result row as columns separated by "|" -- state the column order and the
+      ORDER BY in rules so the output is deterministic.
+    * Pseudocode items: write the problem in the certification's pseudocode
+      style (declarations, if/else/endif, while/endwhile, for/endfor, arrays
+      from 1 unless stated). starter_code is a pseudocode skeleton with the
+      data. reference_solution MUST be a Python program implementing exactly the
+      same algorithm on the same data -- it is run to obtain the expected output,
+      and the learner's pseudocode is marked by AI against that output.
     * rules -- one paragraph stating EXACTLY what the program prints: line
       layout, labels and wording, separators, number formats and rounding,
       ordering and tie-breaking, what to print for an invalid record. The

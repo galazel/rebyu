@@ -2870,6 +2870,7 @@ public class AssessmentAttemptService {
             if (programmingConfig != null) {
                 data.put("criticalThinkingType", "PROGRAMMING");
                 data.put("starterCode", programmingConfig.getStarterCode());
+                data.put("programmingLanguage", programmingConfig.getLanguage());
             }
             DiagramQuestionConfig diagramConfig = question.getDiagramQuestionConfig();
             if (diagramConfig != null) {
@@ -2974,10 +2975,25 @@ public class AssessmentAttemptService {
                 parseRubric(data),
                 attemptQuestion.getStage(),
                 null,
-                data.get("selectCount") instanceof Number count ? count.intValue() : null
+                data.get("selectCount") instanceof Number count ? count.intValue() : null,
+                snapshotLanguage(attemptQuestion, data)
         );
     }
 
+
+    /** Snapshots taken before the language was recorded fall back to the question's config. */
+    private String snapshotLanguage(AssessmentAttemptQuestion attemptQuestion, Map<String, Object> data) {
+        if (data.get("programmingLanguage") instanceof String language && !language.isBlank()) {
+            return language;
+        }
+        if (!"PROGRAMMING".equals(data.get("criticalThinkingType")) || attemptQuestion.getSourceQuestionId() == null) {
+            return null;
+        }
+        return programmingQuestionConfigRepository.findByQuestion_QuestionId(attemptQuestion.getSourceQuestionId())
+                .map(ProgrammingQuestionConfig::getLanguage)
+                .filter(language -> language != null && !language.isBlank())
+                .orElse(null);
+    }
 
     @Transactional
     public DiagramCheckResultDto checkDiagram(
