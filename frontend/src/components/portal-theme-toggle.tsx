@@ -32,22 +32,29 @@ export function PortalThemeMenuItem() {
   )
 }
 
-export function PortalThemeToggle() {
+export function PortalThemeToggle({ className = "" } = {}) {
   const { isDark, toggle } = useIsDark()
   const label = isDark ? "Use light theme" : "Use dark theme"
+  const icon = isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={label}
-          onClick={toggle}
-        >
-          {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
-        </Button>
+        {className ? (
+          <button type="button" aria-label={label} onClick={toggle} className={className}>
+            {icon}
+          </button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={label}
+            onClick={toggle}
+          >
+            {icon}
+          </Button>
+        )}
       </TooltipTrigger>
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>

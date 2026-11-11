@@ -214,7 +214,7 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
       ) : null}
 
       <div
-        className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full bg-rb-eel px-4 py-2 text-sm font-semibold text-white shadow-lg"
+        className="absolute left-1/2 top-4 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/15 bg-[#18221d] px-4 py-2 text-sm font-semibold text-[#f4f1ea] shadow-lg"
         onPointerDown={(event) => event.stopPropagation()}
       >
         {busy ? (
@@ -282,7 +282,7 @@ export function SelectionAskButton({ target, onAsk }) {
         window.getSelection()?.removeAllRanges()
         setAnchor(null)
       }}
-      className="fixed z-[75] flex -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-full bg-rb-feather px-3 py-1.5 text-xs font-bold text-white shadow-lg transition-transform hover:scale-105"
+      className="fixed z-[75] flex -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-full bg-rb-feather px-3 py-1.5 text-xs font-bold text-white shadow-lg transition-transform hover:scale-105 dark:text-[#10151a]"
       style={{ left: anchor.left, top: Math.max(anchor.top - 8, 8) }}
     >
       <Sparkles className="size-3.5" aria-hidden="true" />

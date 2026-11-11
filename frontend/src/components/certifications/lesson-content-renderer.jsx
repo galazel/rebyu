@@ -31,12 +31,12 @@ function accentFor(index) {
 }
 
 const RB_PILL_ACTIVE =
-  "data-[state=active]:!border-[var(--tg)] data-[state=active]:!bg-[var(--tg)] data-[state=active]:!text-white"
+  "data-[state=active]:!border-[var(--tg)] data-[state=active]:!bg-[var(--tg)] data-[state=active]:!text-white dark:data-[state=active]:!text-[#10151a]"
 
 const RB_CARD = "overflow-hidden rounded-2xl border border-[var(--tg-line)] bg-card"
 
 const RB_INDEX_CHIP =
-  "grid size-9 shrink-0 place-items-center rounded-xl tg-solid-soft font-rb-display text-sm font-extrabold text-white"
+  "grid size-9 shrink-0 place-items-center rounded-xl tg-solid-soft font-rb-display text-sm font-extrabold text-white dark:text-[#10151a]"
 
 function isDirectMediaSrc(key) {
   return Boolean(key) && (/^https?:\/\//.test(key) || key.startsWith("/"))
@@ -103,7 +103,7 @@ function MediaViewer({ label, ownerId, onClose, children }) {
             onClick={onClose}
             aria-label="Close"
             data-live-media-close=""
-            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
+            className="absolute right-4 top-4 rounded-full border border-border bg-card/95 px-3 py-1.5 text-sm font-bold text-foreground shadow-lg transition hover:bg-card"
         >
           close
         </button>
@@ -144,8 +144,8 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
     return (
         <div className="tg-cat-explain mx-auto flex w-full max-w-xl flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] px-6 py-8 text-center">
           <span className="tg-badge-icon"><ImageIcon className="size-4" aria-hidden="true" /></span>
-          <p className="text-sm font-bold text-foreground">{alt && alt !== "Lesson image" ? alt : "This picture could not load"}</p>
-          <p className="text-xs text-muted-foreground">Its website did not let REBYU show it here.</p>
+          <p className="text-sm font-bold !text-foreground">{alt && alt !== "Lesson image" ? alt : "This picture could not load"}</p>
+          <p className="text-xs !text-muted-foreground">Its website did not let REBYU show it here.</p>
           {sourceUrl ? (
               <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="tg-btn mt-1 !rounded-full !px-3 !py-1 !text-xs">
                 Open it on {sourceName || "the source site"}
@@ -164,12 +164,12 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
             data-live-media-id={mediaId}
             aria-expanded={open}
             aria-label={alt ? `View "${alt}" full size` : "View image full size"}
-            className="group relative mx-auto block w-fit max-w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="tg-media-frame group relative mx-auto block w-fit max-w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />
+          <img src={src} alt={alt} className={`${className ?? ""} tg-media-img`} onError={() => setFailed(true)} />
           <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-[var(--radius-rb-tile)] bg-foreground/0 transition-colors group-hover:bg-foreground/5"
+              className="pointer-events-none absolute inset-0 rounded-[var(--radius-rb-tile)] bg-transparent transition-colors group-hover:bg-black/5"
           />
         </button>
 
@@ -180,7 +180,7 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
               <img
                   src={src}
                   alt={alt}
-                  className="max-h-[88vh] max-w-[92vw] rounded-lg bg-white object-contain shadow-2xl"
+                  className="tg-media-img-paper max-h-[88vh] max-w-[92vw] rounded-lg object-contain p-2 shadow-2xl"
               />
             </MediaViewer>
         ) : null}
@@ -547,8 +547,8 @@ function FlipCard({ cardId, frontTitle, backTitle, description, accent = ACCENTS
             transition={{ duration: 0.5, ease: EASE }}
         >
           <div className="absolute inset-0 flex h-full flex-col justify-between rounded-2xl border border-[var(--tg-line)] bg-card p-5 shadow-[0_3px_0_var(--tg-line)] transition group-hover:border-[var(--tg)] [backface-visibility:hidden]">
-            <p className="text-lg font-bold leading-snug text-foreground">{frontTitle}</p>
-            <span className="inline-flex items-center gap-1.5 self-start text-xs font-bold text-[var(--tg-ink)]">
+            <p className="text-lg font-bold leading-snug !text-foreground">{frontTitle}</p>
+            <span className="inline-flex items-center gap-1.5 self-start text-xs font-bold !text-[var(--tg-ink)]">
               <span className="tg-badge-icon !size-7 !rounded-lg"><RotateCcw className="size-3.5" aria-hidden="true" /></span>
               Tap to flip
             </span>
@@ -692,7 +692,7 @@ function ImageHotspotBlock({ data, accent }) {
             <img
                 src={src}
                 alt={data.altText || "Lesson diagram with labelled points"}
-                className="max-h-[560px] w-auto max-w-full rounded-[calc(var(--radius-rb-tile)-4px)]"
+                className="tg-media-img-paper max-h-[560px] w-auto max-w-full rounded-[calc(var(--radius-rb-tile)-4px)]"
             />
 
             {hotspots.map((hotspot, hotspotIndex) => {
@@ -712,7 +712,7 @@ function ImageHotspotBlock({ data, accent }) {
                       aria-pressed={isOpen}
                       className={`absolute isolate grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-sm font-bold shadow-md ring-2 ring-background transition hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                           isOpen
-                              ? `scale-110 text-white ${accent.bgSolid}`
+                              ? `scale-110 text-white dark:text-[#10151a] ${accent.bgSolid}`
                               : "bg-card text-[var(--tg-ink)] ring-[var(--tg)]"
                       }`}
                   >
@@ -759,12 +759,12 @@ function ImageHotspotBlock({ data, accent }) {
 
                   <div className="flex items-start gap-2.5">
                     <span
-                        className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${accent.bgSolid}`}
+                        className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white dark:text-[#10151a] ${accent.bgSolid}`}
                     >
                       {openIndex + 1}
                     </span>
 
-                    <h3 className="min-w-0 flex-1 font-heading text-base font-semibold text-foreground">
+                    <h3 className="min-w-0 flex-1 font-heading text-base font-semibold !text-foreground">
                       {openHotspot.title}
                     </h3>
 
@@ -779,7 +779,7 @@ function ImageHotspotBlock({ data, accent }) {
                   </div>
 
                   {openHotspot.description ? (
-                      <p className="mt-2 max-h-44 overflow-y-auto text-[15px] leading-6 text-foreground/85">
+                      <p className="mt-2 max-h-44 overflow-y-auto text-[15px] leading-6 !text-foreground/85">
                         {openHotspot.description}
                       </p>
                   ) : null}

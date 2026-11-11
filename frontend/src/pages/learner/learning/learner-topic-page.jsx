@@ -57,6 +57,7 @@ import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 import { useStudyTelemetry } from "@/hooks/useStudyTelemetry.js"
 import { Button } from "@/components/ui/button"
+import { PortalThemeToggle } from "@/components/portal-theme-toggle"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
@@ -241,7 +242,7 @@ function OutlineRow({
             done={done}
             className={`grid size-7 shrink-0 place-items-center rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${
               done
-                ? "border-transparent bg-[var(--tg)] text-white"
+                ? "border-transparent bg-[var(--tg)] text-white dark:text-[#10151a]"
                 : active
                   ? "border-[var(--tg)] bg-card text-[var(--tg-ink)]"
                   : locked
@@ -505,7 +506,7 @@ function ReadCheck({ done, label, onToggle, pending, disabled = false, size = "s
       }
       className={`grid ${size} shrink-0 place-items-center rounded-full border-2 transition-colors ${
         done
-          ? "border-[var(--tg)] bg-[var(--tg)] text-white"
+          ? "border-[var(--tg)] bg-[var(--tg)] text-white dark:text-[#10151a]"
           : disabled
             ? "cursor-not-allowed border-[var(--tg-line)] bg-muted text-muted-foreground/60"
             : "border-[var(--tg-line)] bg-card text-muted-foreground hover:border-[var(--tg)]"
@@ -551,7 +552,7 @@ function sectionTone(section, index) {
 
 const SECTION_TONE = {
   statement: {
-    shell: "tg-solid",
+    shell: "tg-solid border-y border-[var(--tg-line)]",
     heading: "text-white",
     eyebrow: "text-white/70",
     rule: "bg-white/30",
@@ -715,13 +716,16 @@ function LessonView({
             </h1>
           </div>
 
-          {backTo ? (
-            <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Back to curriculum</span>
-              <span className="sm:hidden">Curriculum</span>
-            </Link>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            <PortalThemeToggle className="tg-btn tg-icon-btn shrink-0" />
+            {backTo ? (
+              <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
+                <ArrowLeft className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Back to curriculum</span>
+                <span className="sm:hidden">Curriculum</span>
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -906,7 +910,7 @@ function StandingBand({ standing, latest, best, goal }) {
           <span
             className={cn(
               "text-sm font-bold",
-              cleared ? "text-rb-feather-lip" : "text-rb-fox-lip",
+              cleared ? "text-rb-feather-ink" : "text-rb-fox-lip",
             )}
           >
             {shown.rating != null
@@ -1099,13 +1103,16 @@ function AssessmentView({
             </h1>
           </div>
 
-          {backTo ? (
-            <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Back to curriculum</span>
-              <span className="sm:hidden">Curriculum</span>
-            </Link>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            <PortalThemeToggle className="tg-btn tg-icon-btn shrink-0" />
+            {backTo ? (
+              <Link to={backTo} aria-label="Back to curriculum" className="tg-btn shrink-0">
+                <ArrowLeft className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Back to curriculum</span>
+                <span className="sm:hidden">Curriculum</span>
+              </Link>
+            ) : null}
+          </div>
         </div>
 
       </div>
@@ -1833,7 +1840,7 @@ export default function LearnerTopicPage() {
               whileHover={{ scale: 1.07 }}
               whileTap={{ scale: 0.92 }}
               transition={{ type: "spring", stiffness: 480, damping: 22 }}
-              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]"
+              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] dark:border dark:border-[var(--tg)]/45 dark:bg-[#2a7a52] dark:text-[#f4f1ea]"
             >
               <Sparkles className="size-7" aria-hidden="true" />
             </motion.button>
@@ -1888,7 +1895,7 @@ export default function LearnerTopicPage() {
                 onClick={() => setSnipping(true)}
                 aria-label="Snip part of the lesson to ask the AI tutor"
                 title="Snip part of the lesson to ask the AI tutor"
-                className="fixed bottom-[6.5rem] right-[1.875rem] z-[60] grid size-11 place-items-center rounded-full border-2 border-rb-swan bg-rb-snow text-rb-feather-lip shadow-[var(--comic-shadow-sm)] transition-transform hover:scale-105"
+                className="fixed bottom-[6.5rem] right-[1.875rem] z-[60] grid size-11 place-items-center rounded-full border-2 border-rb-swan bg-rb-snow text-rb-feather-ink shadow-[var(--comic-shadow-sm)] transition-transform hover:scale-105"
               >
                 <Crop className="size-5" aria-hidden="true" />
               </button>
