@@ -734,6 +734,9 @@ QUESTION_TYPE_CHOICES = {
     "SHORT_ANSWER": ["SHORT_ANSWER"],
     "FILL_IN_BLANK": ["SHORT_ANSWER"],
     "DESCRIPTIVE": ["DESCRIPTIVE"],
+    "PROGRAMMING": ["PROGRAMMING"],
+    "DIAGRAM": ["DIAGRAM"],
+    # Older requests ticked one combined box; it still means both.
     "CRITICAL_THINKING": ["PROGRAMMING", "DIAGRAM"],
 }
 

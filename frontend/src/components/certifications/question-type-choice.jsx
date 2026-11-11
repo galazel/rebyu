@@ -30,10 +30,16 @@ export const QUESTION_TYPE_OPTIONS = [
     description: "Explain, compare or justify in writing. Marked on meaning.",
   },
   {
-    value: "CRITICAL_THINKING",
-    label: "Critical thinking",
+    value: "PROGRAMMING",
+    label: "Programming",
     description:
-      "Programming and diagramming tasks — the learner writes code or builds a model, then answers questions about it.",
+      "The learner writes a program; it runs and its output is checked. Saved as a critical-thinking item.",
+  },
+  {
+    value: "DIAGRAM",
+    label: "Diagram",
+    description:
+      "The learner builds a model — ERD, UML class, flowchart and more — marked against a model answer. Saved as a critical-thinking item.",
   },
 ]
 
