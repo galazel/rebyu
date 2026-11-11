@@ -79,7 +79,13 @@
 .tg-btn:disabled { opacity: .4; cursor: not-allowed; }
 .tg-btn-primary { color: #fff; border-color: transparent; background: linear-gradient(140deg, var(--tg-2), var(--tg)); box-shadow: 0 3px 0 color-mix(in oklab, var(--tg) 55%, #000); }
 .tg-btn-primary:hover:not(:disabled) { background: linear-gradient(140deg, var(--tg-2), var(--tg)); filter: brightness(1.05); box-shadow: 0 4px 0 color-mix(in oklab, var(--tg) 55%, #000); }
-.dark .tg-btn-primary { color: #10151a; }
+.dark .tg-btn-primary {
+  color: #10151a;
+  background: linear-gradient(140deg, var(--tg), color-mix(in oklab, var(--tg) 76%, var(--tg-2)));
+}
+.dark .tg-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(140deg, var(--tg), color-mix(in oklab, var(--tg) 76%, var(--tg-2)));
+}
 
 /* ---- draggable cards ---- */
 .tg-card {
@@ -439,6 +445,9 @@
 .rb-hub .rounded-rb-card:not(.tg-frame) {
   border-width: 1px; border-radius: 1.25rem;
   box-shadow: 0 1px 2px rgb(15 40 30 / .05), 0 14px 30px -22px rgb(17 55 43 / .45);
+}
+.dark .rb-hub .rounded-rb-card:not(.tg-frame) {
+  box-shadow: 0 1px 2px rgb(0 0 0 / .35), 0 14px 30px -20px rgb(0 0 0 / .65);
 }
 
 /* Learner sidebar items: the page's coloured icon tile, washed in its colour when active. */

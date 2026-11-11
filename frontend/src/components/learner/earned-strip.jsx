@@ -38,10 +38,10 @@ export default function EarnedStrip({ certificationId, award, onView, className 
                     src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
                     alt=""
                     onError={() => setImageFailed(true)}
-                    className="size-12 shrink-0 rounded-full border-2 border-white bg-white object-cover shadow-sm"
+                    className="size-12 shrink-0 rounded-full border-2 border-white bg-white object-cover shadow-sm dark:border-[#343d38] dark:bg-[#232a26]"
                 />
             ) : (
-                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rb-bee text-white shadow-sm">
+                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rb-bee text-white shadow-sm dark:text-[#1b1a12]">
                   <Award className="size-6" aria-hidden="true" />
                 </span>
             )
