@@ -21,7 +21,7 @@ from urllib.parse import quote, urlparse
 
 import httpx
 
-from app.tools.certification.web_search import serper_search, youtube_search
+from app.tools.certification.web_search import duckduckgo_search, serper_search, youtube_search
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ MAX_QUERY_WORDS = 12
 
 _RESOURCE_NOUN = (
     r"(videos?|vids?|youtube|yt|clips?|links?|urls?|articles?|readings?|reads|"
+    r"re?[sz][ou]{0,2}r?[ou]?c[es]{1,2}s?|webs?ites?|web\s+sites?|webpages?|"
     r"tutorials?|guides?|sources?|resources?|materials?|websites?|sites?|blogs?|"
     r"docs|documentation|references?|courses?|lectures?|podcasts?|books?)"
 )
@@ -43,7 +44,12 @@ _REQUEST_WORD = (
 )
 
 _RESOURCE_PHRASE = re.compile(
-    r"\b(further\s+reading|read(ing)?\s+more|learn\s+more|study\s+more|more\s+info(rmation)?|"
+    r"\b(links?\s+(of|to|for)\s+(the\s+)?(web\s*)?(sites?|pages?)|"
+    r"(links?|web\s*sites?|sites?|sources?|resources?|articles?|videos?|readings?)\s+"
+    r"(that\s+(is|are)\s+)?(rel[a-z]*ted|relevant)\s+to|"
+    r"(call|use|run)\s+(a\s+|the\s+|your\s+)?(web\s+|search\s+)?(tools?|search)|"
+    r"search\s+(the\s+)?(web|online|internet)|(look|search|find)\s+(it\s+|this\s+)?(up\s+)?online|"
+    r"further\s+reading|read(ing)?\s+more|learn\s+more|study\s+more|more\s+info(rmation)?|"
     r"where\s+can\s+i\s+(learn|read|study|watch|find)|something\s+to\s+(watch|read)|"
     r"(video|youtube)\s+(about|on|of|for)|(watch|read)\s+(about|up\s+on))\b",
     re.IGNORECASE,
@@ -135,7 +141,8 @@ def _videos(topic: str, limit: int = MAX_VIDEOS) -> list[dict]:
     return videos
 
 
-_WIKI_HEADERS = {"User-Agent": "REBYU-AI-Tutor/1.0 (educational review platform; contact via rebyu.app)"}
+# Wikimedia rejects (403) a User-Agent without a reachable contact URL.
+_WIKI_HEADERS = {"User-Agent": "REBYU-AI-Tutor/1.0 (https://rebyu.online)"}
 
 
 _HOW_TO_WORDS = re.compile(
@@ -172,8 +179,14 @@ def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -
     try:
         results = serper_search(topic, num=8)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
-        logger.warning("Tutor link search failed (%s); falling back to Wikipedia", error)
-        return _wikipedia(lesson_name or topic, limit)
+        # Serper without a key or out of credit: a keyless search keeps website links coming.
+        logger.warning("Tutor link search via Serper failed (%s); trying DuckDuckGo", error)
+        try:
+            results = duckduckgo_search(topic, num=8)
+        except Exception as fallback_error:  # noqa: BLE001
+            logger.warning("Tutor link search via DuckDuckGo failed (%s); falling back to Wikipedia",
+                           fallback_error)
+            return _wikipedia(lesson_name or topic, limit)
     links, seen = [], set()
     for result in results:
         url = result.get("link") or ""
@@ -212,5 +225,14 @@ def find_resources(query: str, lesson_name: str | None) -> list[dict]:
     if not videos and lesson_name and topic != lesson_name:
         videos = _videos(f"{lesson_name} explained", MAX_TOTAL)
     if videos and links:
+        if _WANTS_READING.search(query or "") and not _WANTS_VIDEO.search(query or ""):
+            # Asked for websites or reading: lead with links, then a video if there is room.
+            return (links[:MAX_TOTAL - 1] + videos)[:MAX_TOTAL]
         return videos[:MAX_VIDEOS] + links[:MAX_LINKS]
     return (videos or links)[:MAX_TOTAL]
+
+
+_WANTS_READING = re.compile(
+    r"\b(links?|urls?|web\s*sites?|sites?|webpages?|pages|articles?|readings?|read|blogs?|docs|"
+    r"documentation|books?|references?)\b", re.IGNORECASE)
+_WANTS_VIDEO = re.compile(r"\b(videos?|vids?|youtube|yt|clips?|watch|lectures?)\b", re.IGNORECASE)

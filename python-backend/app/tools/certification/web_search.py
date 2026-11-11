@@ -70,3 +70,48 @@ def format_organic_results(results: list[dict]) -> str:
         for item in results
     ]
     return "\n\n---\n\n".join(blocks)
+
+
+_DDG_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+}
+_DDG_RESULT = None
+
+
+def duckduckgo_search(query: str, num: int = 10) -> list[dict]:
+    """Keyless web search (DuckDuckGo's HTML endpoint), in Serper's `organic` shape:
+    [{title, link, snippet}]. The fallback when Serper has no key or no credit left.
+    Ads are skipped; links are unwrapped from DuckDuckGo's redirect."""
+    import html as html_lib
+    import re
+    from urllib.parse import parse_qs, urlparse
+
+    global _DDG_RESULT
+    if _DDG_RESULT is None:
+        _DDG_RESULT = re.compile(
+            r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
+            r'(?:.*?class="result__snippet"[^>]*>(.*?)</a>)?',
+            re.DOTALL,
+        )
+    with httpx.Client(timeout=_TIMEOUT, headers=_DDG_HEADERS, follow_redirects=True) as client:
+        response = client.get("https://html.duckduckgo.com/html/", params={"q": query})
+    response.raise_for_status()
+
+    def text(fragment: str | None) -> str:
+        return " ".join(html_lib.unescape(re.sub(r"<[^>]+>", "", fragment or "")).split())
+
+    results: list[dict] = []
+    for href, title, snippet in _DDG_RESULT.findall(response.text):
+        href = html_lib.unescape(href)
+        if "duckduckgo.com/y.js" in href:  # sponsored result
+            continue
+        if href.startswith("//"):
+            href = "https:" + href
+        target = parse_qs(urlparse(href).query).get("uddg", [href])[0]
+        if not target.startswith(("https://", "http://")):
+            continue
+        results.append({"title": text(title), "link": target, "snippet": text(snippet)})
+        if len(results) >= num:
+            break
+    return results
