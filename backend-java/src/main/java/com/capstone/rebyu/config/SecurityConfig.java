@@ -48,6 +48,7 @@ public class SecurityConfig {
                         // public request reports its real status rather than 401.
                         .requestMatchers(HttpMethod.GET, "/").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
                         // Pre-login flows: sign-in state, partnership request/pricing/status/
                         // registration lookup, department-head code lookup, reference options.
                         .requestMatchers("/api/public/**").permitAll()
