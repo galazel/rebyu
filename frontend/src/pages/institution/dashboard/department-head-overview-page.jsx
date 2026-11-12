@@ -112,7 +112,7 @@ function KpiCard({ label, icon: Icon, iconClass, value, suffix, children }) {
 
 function Panel({ icon: Icon, iconClass, title, action, children }) {
   return (
-    <section className="space-y-4 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:p-6">
+    <section className="h-full space-y-4 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:p-6">
       <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-3">
         <div className="flex items-center gap-2">
           <Icon className={cn("size-4", iconClass)} aria-hidden="true" />
@@ -445,7 +445,7 @@ export default function DepartmentHeadOverviewPage() {
               Create sections under a program to group learners into classes.
             </QuietState>
           ) : (
-            <ul className="space-y-2.5">
+            <ul className="max-h-[17rem] space-y-1.5 overflow-y-auto pr-1">
               {sections.map((section) => {
                 const sectionProgress =
                   section.averageProgress == null ? 0 : Math.round(Number(section.averageProgress))
@@ -457,19 +457,28 @@ export default function DepartmentHeadOverviewPage() {
                 const Row = sectionHref ? Link : "div"
                 return (
                   <li key={section.sectionId}>
-                  <Row
-                    {...(sectionHref ? { to: sectionHref } : {})}
-                    className={cn(
-                      "block space-y-1.5 rounded-xl border border-border/60 bg-muted/20 p-3",
-                      sectionHref && "transition-colors hover:border-primary/40 hover:bg-muted/40"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2 text-xs">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-foreground">{section.sectionName}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {[section.programName, section.certificationTitle].filter(Boolean).join(" · ") || "No program"}
-                        </p>
+                    <Row
+                      {...(sectionHref ? { to: sectionHref } : {})}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs",
+                        sectionHref && "transition-colors hover:border-primary/40 hover:bg-muted/40"
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-semibold text-foreground">{section.sectionName}</span>
+                          {flagged > 0 ? (
+                            <span className="shrink-0 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                              {flagged} check-in{flagged === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          {section.pendingInvitations > 0 ? (
+                            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                              {section.pendingInvitations} invited
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-[11px] text-muted-foreground">{section.programName || "No program"}</p>
                       </div>
                       <div className="shrink-0 text-right">
                         <span className="font-bold tabular-nums text-foreground">
@@ -479,22 +488,7 @@ export default function DepartmentHeadOverviewPage() {
                           {section.learners} learner{section.learners === 1 ? "" : "s"}
                         </span>
                       </div>
-                    </div>
-                    <Progress value={sectionProgress} className="h-1.5" aria-label={`${section.sectionName} completion`} />
-                    {flagged > 0 || section.pendingInvitations > 0 ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        {flagged > 0 ? (
-                          <span className="font-semibold text-rose-600 dark:text-rose-400">
-                            {flagged} need{flagged === 1 ? "s" : ""} a check-in
-                          </span>
-                        ) : null}
-                        {flagged > 0 && section.pendingInvitations > 0 ? " · " : null}
-                        {section.pendingInvitations > 0
-                          ? `${section.pendingInvitations} invitation${section.pendingInvitations === 1 ? "" : "s"} pending`
-                          : null}
-                      </p>
-                    ) : null}
-                  </Row>
+                    </Row>
                   </li>
                 )
               })}
