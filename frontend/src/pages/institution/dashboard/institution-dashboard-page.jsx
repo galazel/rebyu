@@ -205,6 +205,13 @@ export default function InstitutionDashboardPage() {
     invitations = { pending: 0, recent: [] },
   } = dashboard
 
+  // A saved board can still reference a tile that was retired. Keep every valid
+  // placement so rearrange mode mirrors the visible board; only discard the old tile.
+  const institutionLayout = useMemo(
+    () => layout.tileLayout.filter((item) => !RETIRED_TILES.has(item.id ?? item.i)),
+    [layout.tileLayout]
+  )
+
   const chartTheme = useChartTheme()
 
   const trendData = useMemo(
@@ -958,9 +965,7 @@ export default function InstitutionDashboardPage() {
             <div className="min-w-0 space-y-6">
               <DashboardBoard
                 tiles={tiles}
-                layout={
-                  layout.tileLayout.some((item) => RETIRED_TILES.has(item.id)) ? [] : layout.tileLayout
-                }
+                layout={institutionLayout}
                 defaultOrder={INSTITUTION_DEFAULT.order}
                 defaultCols={INSTITUTION_DEFAULT.cols}
                 editing={layout.rearranging}
