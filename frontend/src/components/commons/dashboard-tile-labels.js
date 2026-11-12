@@ -36,7 +36,7 @@ export const INSTITUTION_DEFAULT = {
   order: [
     "ent-key-figures",
     "ent-members", "ent-group-completion",
-    "ent-progress", "ent-completion-distribution",
+    "ent-progress",
     "ent-activity-trend",
     "ent-seats", "ent-allocations",
     "ent-invitations",
@@ -50,7 +50,6 @@ export const INSTITUTION_TILE_LABELS = {
   "ent-seats": "Learner slots & capacity",
   "ent-progress": "Average progress",
   "ent-key-figures": "Key figures",
-  "ent-completion-distribution": "Completion spread",
   "ent-group-completion": "Department completion",
   "ent-activity-trend": "Activity over time",
   "ent-member-table": "Member table",

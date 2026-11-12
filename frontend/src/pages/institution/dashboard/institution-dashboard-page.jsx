@@ -7,7 +7,6 @@ import {
   BookOpenCheckIcon,
   Building2,
   CheckCheck,
-  CircleDotIcon,
   ClipboardListIcon,
   GraduationCap,
   GraduationCapIcon,
@@ -41,7 +40,6 @@ import { getInstitutionDashboard } from "@/services/institutionDashboardService.
 import {
   BarBreakdownChart,
   BeadedRadialGauge,
-  DonutChart,
   RadialGauge,
   TrendLineChart,
   seriesColor,
@@ -67,6 +65,8 @@ const EMPTY_DASHBOARD = {
   trend: [],
   invitations: { pending: 0, recent: [] },
 }
+
+const RETIRED_TILES = new Set(["ent-completion-distribution"])
 
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
@@ -202,7 +202,6 @@ export default function InstitutionDashboardPage() {
     certifications = [],
     departments = [],
     enrollments = [],
-    progressBuckets = [],
     invitations = { pending: 0, recent: [] },
   } = dashboard
 
@@ -234,14 +233,6 @@ export default function InstitutionDashboardPage() {
         ["active", "expiring_soon"].includes(accessWindowStatus(cert).status)
       ),
     [certifications]
-  )
-
-  const cohortBuckets = useMemo(
-    () =>
-      progressBuckets
-        .map((bucket) => ({ name: bucket.label, value: bucket.enrollments }))
-        .filter((bucket) => bucket.value > 0),
-    [progressBuckets]
   )
 
   const departmentRows = useMemo(
@@ -480,29 +471,6 @@ export default function InstitutionDashboardPage() {
                 alert={summary.needingSupport > 0}
               />
             </dl>
-          </BentoTile>
-        ),
-      },
-      {
-        id: "ent-completion-distribution",
-        col: 3,
-        row: 2,
-        x: 0,
-        y: 4,
-        element: (
-          <BentoTile col={3} row={2}>
-            <DashboardCardHeader
-              icon={CircleDotIcon}
-              kicker="Progress Milestones"
-              title="Certification Enrollment Progress"
-              hint="How completion is spread across active certification enrollments"
-            />
-            <DonutChart
-              data={cohortBuckets}
-              height={168}
-              centerValue={String(summary.enrollments ?? 0)}
-              centerLabel={summary.enrollments === 1 ? "enrollment" : "enrollments"}
-            />
           </BentoTile>
         ),
       },
@@ -849,7 +817,6 @@ export default function InstitutionDashboardPage() {
     departments,
     enrollments,
     activeCertifications,
-    cohortBuckets,
     departmentRows,
     trendData,
     trendTotals,
@@ -939,11 +906,6 @@ export default function InstitutionDashboardPage() {
                   ]),
                 },
                 {
-                  title: "Completion distribution",
-                  columns: ["Completion band", "Certification enrollments"],
-                  rows: progressBuckets.map((bucket) => [bucket.label, bucket.enrollments]),
-                },
-                {
                   title: "Activity over time",
                   columns: ["Period", "Active learners", "Graded attempts", "Lessons completed"],
                   rows: (dashboard.trend ?? []).map((point) => [point.bucket, point.activeLearners, point.gradedAttempts, point.lessonsCompleted]),
@@ -996,7 +958,9 @@ export default function InstitutionDashboardPage() {
             <div className="min-w-0 space-y-6">
               <DashboardBoard
                 tiles={tiles}
-                layout={layout.tileLayout}
+                layout={
+                  layout.tileLayout.some((item) => RETIRED_TILES.has(item.id)) ? [] : layout.tileLayout
+                }
                 defaultOrder={INSTITUTION_DEFAULT.order}
                 defaultCols={INSTITUTION_DEFAULT.cols}
                 editing={layout.rearranging}

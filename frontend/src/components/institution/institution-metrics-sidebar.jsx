@@ -26,7 +26,6 @@ const OWNER_METRIC_ITEMS = [
   { id: "ent-progress", label: "Average Progress", icon: TrendingUp, category: "Academics" },
   { id: "ent-member-table", label: "Member Table", icon: Users, category: "Core" },
   { id: "ent-key-figures", label: "Key Figures", icon: Activity, category: "Activity" },
-  { id: "ent-completion-distribution", label: "Readiness Spread", icon: Award, category: "Academics" },
   { id: "ent-group-completion", label: "Department Benchmarks", icon: Building2, category: "Academics" },
   { id: "ent-activity-trend", label: "Activity Trends", icon: TrendingUp, category: "Activity" },
   { id: "ent-allocations", label: "Access Windows", icon: CalendarDays, category: "Administration" },
