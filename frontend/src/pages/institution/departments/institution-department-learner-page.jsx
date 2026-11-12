@@ -32,6 +32,7 @@ import {
   getGroupLearnerIntegrity,
   getGroupLearnerAwards,
   getGroupLearnerRoster,
+  getDepartmentById,
 } from "@/services/institutionService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
@@ -618,6 +619,13 @@ export default function InstitutionDepartmentLearnerPage() {
   const overviewQuery = useDepartmentOverview(Number.isFinite(departmentIdNumber) ? departmentIdNumber : null)
 
   const [activeCertificationId, setActiveCertificationId] = useState(null)
+  // The department's certifications name the learner's enrolments (the roster has ids only).
+  const departmentQuery = useQuery({
+    queryKey: ["department", departmentIdNumber],
+    queryFn: () => getDepartmentById(departmentIdNumber),
+    enabled: Number.isFinite(departmentIdNumber),
+    staleTime: 5 * 60_000,
+  })
   const analyticsQuery = useQuery({
     queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber, activeCertificationId],
     // The chosen certification tab decides which certification's results and stats load.
@@ -644,9 +652,12 @@ export default function InstitutionDepartmentLearnerPage() {
   })
 
   // One roster row per certification the learner studies in this department.
-  const enrolments = (Array.isArray(rosterQuery.data) ? rosterQuery.data : []).filter(
-    (row) => row.learnerId === learnerIdNumber && row.status !== "removed"
+  const certificationTitles = new Map(
+    (departmentQuery.data?.certifications ?? []).map((cert) => [cert.certificationId, cert.title])
   )
+  const enrolments = (Array.isArray(rosterQuery.data) ? rosterQuery.data : [])
+    .filter((row) => row.learnerId === learnerIdNumber && row.status !== "removed")
+    .map((row) => ({ ...row, certificationTitle: row.certificationTitle ?? certificationTitles.get(row.certificationId) }))
   const learner = enrolments[0]
   const status = (overviewQuery.data?.learners ?? []).find((row) => row.learnerId === learnerIdNumber)
   const initials = initialsOf(learner?.name)
@@ -723,18 +734,29 @@ export default function InstitutionDepartmentLearnerPage() {
     (integrityQuery.data?.attempts ?? []).map((row) => [row.attemptId, row])
   )
 
+  // The export is for the certification on screen: its enrolment row, and its analytics.
+  const activeEnrolment =
+    enrolments.find((row) => row.certificationId === (activeCertificationId ?? analytics?.certificationId)) ??
+    enrolments[0] ??
+    learner
+  const exportCertification = analytics?.certificationTitle ?? activeEnrolment?.certificationTitle ?? "certification"
+  const exportName = `rebyu-${String(learner?.name ?? "learner")}-${exportCertification}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
   const csv = () =>
     learnerReportBlocks(analytics, [
       ["Learner", learner?.name],
       ["Username", learner?.username],
       ["Status", statusStyle?.label ?? ""],
       ["Why", status?.reason ?? ""],
-      ["Section", learner?.sectionName ?? "No section"],
-      ["Joined the department on", status?.joinedAt ?? learner?.assignedAt ?? ""],
+      ["Section", activeEnrolment?.sectionName ?? "No section"],
+      ["Enrolled in this certification on", activeEnrolment?.assignedAt ?? ""],
       ["Last active", status?.lastActivityAt ?? "Never"],
-      ["Passed a mock exam", Boolean(learner?.mockExamPassed)],
-      ["Best mock exam score (%)", learner?.bestMockExamScore == null ? null : Math.round(Number(learner.bestMockExamScore))],
-      ["Mock exam passed on", learner?.mockExamPassedAt ?? ""],
+      ["Passed a mock exam", Boolean(activeEnrolment?.mockExamPassed)],
+      ["Best mock exam score (%)", activeEnrolment?.bestMockExamScore == null ? null : Math.round(Number(activeEnrolment.bestMockExamScore))],
+      ["Mock exam passed on", activeEnrolment?.mockExamPassedAt ?? ""],
+      ["Other certifications here", enrolments.filter((row) => row !== activeEnrolment).map((row) => row.certificationTitle).filter(Boolean).join(", ") || "None"],
     ])
 
   const averageScore = toPercent(analytics?.averageAssessmentScore)
@@ -816,15 +838,16 @@ export default function InstitutionDepartmentLearnerPage() {
 
           <div className="grid gap-2">
             <ExportButton
-              filename="rebyu-learner-report"
-              report="Learner report"
+              filename={exportName}
+              report={`Learner report · ${exportCertification}`}
               details={[
                 ["Learner", learner?.name],
                 ["Username", learner?.username],
-                ["Certification", analytics?.certificationTitle],
+                ["Certification", exportCertification],
               ]}
               className="h-9"
-              label="Export"
+              label={enrolments.length > 1 ? `Export ${exportCertification}` : "Export"}
+              disabled={analyticsQuery.isPlaceholderData || !analytics}
               sections={csv}
             />
           </div>

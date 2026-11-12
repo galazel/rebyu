@@ -212,16 +212,37 @@ export default function InstitutionCertificationsPage() {
       {data.isError ? (
         <InstitutionErrorState onRetry={data.refetchAll} />
       ) : data.institutionCerts.length === 0 ? (
-        <InstitutionEmptyState
-          icon={GraduationCapIcon}
-          title="No certification allocations yet"
-          description="Submit a partnership request to allocate certifications and learner slots for your institution."
-          action={
-            <Button asChild size="sm">
-              <Link to="/institution/partnership">Go to Partnership</Link>
+        <section className="mx-auto max-w-3xl rounded-2xl border border-border/70 bg-card p-6 shadow-xs sm:p-8">
+          <div className="flex flex-col items-center text-center">
+            <span className="grid size-12 place-items-center rounded-xl bg-primary/10 text-primary">
+              <GraduationCapIcon className="size-6" aria-hidden="true" />
+            </span>
+            <h2 className="mt-3 font-rb-display text-xl font-bold text-foreground">Get your first certifications</h2>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              Your institution has no certifications yet. Three steps and your departments can start teaching.
+            </p>
+          </div>
+          <ol className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Request", "Choose certifications and how many learner slots you need, in a partnership request."],
+              ["Get approved", "REBYU reviews the request and activates the certifications for your institution."],
+              ["Set up", "Your departments appear here. Assign heads, add programs and invite learners."],
+            ].map(([title, text], index) => (
+              <li key={title} className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                <span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                  {index + 1}
+                </span>
+                <p className="mt-2 text-sm font-semibold text-foreground">{title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{text}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-6 flex justify-center">
+            <Button asChild>
+              <Link to="/institution/partnership">Start a partnership request</Link>
             </Button>
-          }
-        />
+          </div>
+        </section>
       ) : (
         <div className="space-y-8">
           {sections.map((section) => (

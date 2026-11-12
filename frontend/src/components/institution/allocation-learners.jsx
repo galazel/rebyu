@@ -230,6 +230,9 @@ export function CertificationArchives() {
     },
   ]
 
+  // Nothing archived yet: the section would only explain itself, so it stays hidden.
+  if (archivesQuery.isSuccess && archives.length === 0) return null
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
