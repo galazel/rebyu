@@ -190,20 +190,45 @@ class LearnerServiceAcceptInvitationTest {
     }
 
     @Test
-    void alreadyEnrolledRejected() {
-        when(invitationRepository.findByTokenHash(anyString()))
-                .thenReturn(Optional.of(invitation(
-                        LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5))));
+    void alreadySeatedLearnerIsAcceptedAndSeatReturned() {
+        LearnerInvitation inv = invitation(LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5));
+        when(invitationRepository.findByTokenHash(anyString())).thenReturn(Optional.of(inv));
         when(learnerRepository.findById(9L)).thenReturn(Optional.of(learner(9L)));
-        // The service looks the row up (to re-admit a learner who was removed), it no longer asks exists().
         when(enrollmentRepository.findFirstByInstitutionCertAndLearner(any(), any()))
-                .thenReturn(Optional.of(com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.builder()
-                        .status(com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.active)
+                .thenReturn(Optional.of(InstitutionCertificationLearner.builder()
+                        .institutionCertLearnerId(55L)
+                        .status(InstitutionCertificationLearner.Status.active)
                         .build()));
+        when(enrollmentRepository.save(any(InstitutionCertificationLearner.class))).thenAnswer(a -> a.getArgument(0));
+        when(learnerCertificationRepository
+                .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(any(), any(), any()))
+                .thenReturn(Optional.of(LearnerCertification.builder().build()));
 
-        assertEquals(InvitationAcceptanceException.Code.ALREADY_ENROLLED,
-                assertThrows(InvitationAcceptanceException.class,
-                        () -> service.acceptInvitation(9L, INVITED_EMAIL, RAW_TOKEN)).code());
-        verify(enrollmentRepository, never()).save(any());
+        AcceptInvitationResponse response = service.acceptInvitation(9L, INVITED_EMAIL, RAW_TOKEN);
+
+        assertEquals(55L, response.enrollmentId());
+        assertEquals(LearnerInvitation.Status.ACCEPTED, inv.getStatus());
+        // The seat reserved at send time goes back: 4 used -> 3.
+        assertEquals(3, inv.getInstitutionCert().getUsedSlots());
+    }
+
+    @Test
+    void soloLearnerKeepsTheirEnrollment() {
+        LearnerInvitation inv = invitation(LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5));
+        when(invitationRepository.findByTokenHash(anyString())).thenReturn(Optional.of(inv));
+        when(learnerRepository.findById(9L)).thenReturn(Optional.of(learner(9L)));
+        when(enrollmentRepository.findFirstByInstitutionCertAndLearner(any(), any())).thenReturn(Optional.empty());
+        when(enrollmentRepository.save(any(InstitutionCertificationLearner.class))).thenAnswer(a -> a.getArgument(0));
+        when(learnerCertificationRepository
+                .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+                        9L, 7L, LearnerCertification.Status.active))
+                .thenReturn(Optional.of(LearnerCertification.builder().learnerCertificationId(77L).build()));
+
+        service.acceptInvitation(9L, INVITED_EMAIL, RAW_TOKEN);
+
+        assertEquals(LearnerInvitation.Status.ACCEPTED, inv.getStatus());
+        // No second learner_certification row: the solo one (with its progress) is reused.
+        verify(learnerCertificationRepository, never()).save(any());
+        assertEquals(4, inv.getInstitutionCert().getUsedSlots());
     }
 }

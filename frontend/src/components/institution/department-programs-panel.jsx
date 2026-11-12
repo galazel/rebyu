@@ -45,6 +45,7 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import { ProgramDialog } from "@/components/institution/program-dialog.jsx"
 import { useDepartmentOverview } from "@/hooks/use-my-department.js"
+import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { cn } from "@/lib/utils"
 import {
   archiveDepartmentProgram,
@@ -218,6 +219,9 @@ function ProgramCard({ code, title, subtitle, certifications = [], totals, secti
 export function DepartmentProgramsPanel({ department }) {
   const departmentId = department?.departmentId
   const queryClient = useQueryClient()
+  // Only the institution adds programs; a department head works inside the ones it was given.
+  const { user } = useAuth()
+  const canAddProgram = isInstitutionOwner(user)
   const [programTarget, setProgramTarget] = useState(null)
   const [deletingProgram, setDeletingProgram] = useState(null)
   const [newSectionFor, setNewSectionFor] = useState(undefined) // undefined = closed; null = no program
@@ -374,10 +378,12 @@ export function DepartmentProgramsPanel({ department }) {
             className="h-9 text-xs"
             sections={csv}
           />
-          <Button size="sm" className="h-9 gap-1 text-xs" onClick={openNewProgram}>
-            <Plus className="size-3.5" aria-hidden="true" />
-            Add program
-          </Button>
+          {canAddProgram ? (
+            <Button size="sm" className="h-9 gap-1 text-xs" onClick={openNewProgram}>
+              <Plus className="size-3.5" aria-hidden="true" />
+              Add program
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -399,7 +405,11 @@ export function DepartmentProgramsPanel({ department }) {
         <InstitutionEmptyState
           icon={GraduationCapIcon}
           title="No programs yet"
-          description="Add programs such as BSIT, BSCS or ACT, then create sections inside each one."
+          description={
+            canAddProgram
+              ? "Add programs such as BSIT, BSCS or ACT, then create sections inside each one."
+              : "Your institution has not given this department a program yet. Ask its administrator to add one."
+          }
         />
       ) : (
         <div className="grid items-stretch gap-4 lg:grid-cols-2">

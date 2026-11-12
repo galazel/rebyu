@@ -53,6 +53,21 @@ public class RoleGuard {
         return user;
     }
 
+    /** True for an institution's own administrator account, false for a department head it invited. */
+    public static boolean isInstitutionOwner(CurrentUserDto user) {
+        return user != null && user.institutionId() != null
+                && "owner".equalsIgnoreCase(user.departmentHeadRole());
+    }
+
+    /** Institution administrator only: department heads are refused with 403. */
+    public CurrentUserDto requireInstitutionOwner(Jwt jwt, String message) {
+        CurrentUserDto user = requireAuthenticated(jwt);
+        if (!isInstitutionOwner(user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
+        }
+        return user;
+    }
+
     public Long requireLearnerScope(Jwt jwt, Long requestedLearnerId) {
         CurrentUserDto user = requireAuthenticated(jwt);
         if (ADMIN.equals(normalize(user.role()))) {

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { REFERENCE_DEGREE_PROGRAM, getReferenceDetails } from "@/services/referenceService.js"
 import { createDepartmentProgram, updateDepartmentProgram } from "@/services/institutionService.js"
+import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 
 /** A numbered step heading in the form. */
 function Step({ n, title, hint, action }) {
@@ -39,6 +40,9 @@ function Step({ n, title, hint, action }) {
 export function ProgramDialog({ target, onClose }) {
   const queryClient = useQueryClient()
   const editing = target?.program ?? null
+  // A department head may only change which certifications an existing program studies.
+  const { user } = useAuth()
+  const certsOnly = editing != null && !isInstitutionOwner(user)
   const emptyForm = { programName: "", programCode: "", description: "", institutionCertIds: [] }
   const [query, setQuery] = useState("")
   const [form, setForm] = useState(
@@ -58,6 +62,7 @@ export function ProgramDialog({ target, onClose }) {
     queryKey: ["reference-details", REFERENCE_DEGREE_PROGRAM],
     queryFn: () => getReferenceDetails(REFERENCE_DEGREE_PROGRAM),
     staleTime: 0,
+    enabled: !certsOnly,
   })
   const degreePrograms = Array.isArray(degreeProgramsQuery.data) ? degreeProgramsQuery.data : []
   const PROGRAM_CHOICES = degreePrograms
@@ -119,7 +124,7 @@ export function ProgramDialog({ target, onClose }) {
           }}
         >
           <DialogHeader className="border-b border-border/50 p-5 pb-4">
-            <DialogTitle>{editing ? "Edit program" : "Add program"}</DialogTitle>
+            <DialogTitle>{certsOnly ? "Edit certifications" : editing ? "Edit program" : "Add program"}</DialogTitle>
             <DialogDescription>
               {target?.deptName} · a program (BSIT, BSCS…) holds sections, and its students study the certifications you pick.
             </DialogDescription>
@@ -127,6 +132,17 @@ export function ProgramDialog({ target, onClose }) {
 
           <div className="flex-1 space-y-6 overflow-y-auto p-5">
             {/* 1. Program */}
+            {certsOnly ? (
+              <section className="space-y-3">
+                <Step n={1} title="Program" hint="Set by your institution — only its administrator can change it." />
+                <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/30 px-2.5 py-2">
+                  <span className="grid h-8 min-w-12 shrink-0 place-items-center rounded-md bg-primary px-1.5 text-[11px] font-extrabold tracking-wide text-primary-foreground">
+                    {form.programCode || "—"}
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm leading-snug text-foreground">{form.programName}</span>
+                </div>
+              </section>
+            ) : (
             <section className="space-y-3">
               <Step
                 n={1}
@@ -184,6 +200,7 @@ export function ProgramDialog({ target, onClose }) {
                 </ul>
               )}
             </section>
+            )}
 
             {/* 2. Certifications */}
             <section className="space-y-3">
@@ -248,6 +265,16 @@ export function ProgramDialog({ target, onClose }) {
             </section>
 
             {/* 3. Description */}
+            {certsOnly ? (
+              form.description ? (
+                <section className="space-y-3">
+                  <Step n={3} title="Description" hint="Set by your institution." />
+                  <p className="whitespace-pre-line rounded-xl border border-border/70 bg-muted/30 p-3 text-sm text-foreground">
+                    {form.description}
+                  </p>
+                </section>
+              ) : null
+            ) : (
             <section className="space-y-3">
               <Step n={3} title="Description" hint="Optional — what makes this program different." />
               <Textarea
@@ -260,6 +287,7 @@ export function ProgramDialog({ target, onClose }) {
               />
               <p className="text-right text-[11px] tabular-nums text-muted-foreground">{form.description.length}/2000</p>
             </section>
+            )}
           </div>
 
           <DialogFooter className="flex flex-row items-center justify-between gap-3 border-t border-border/50 bg-muted/20 p-4">

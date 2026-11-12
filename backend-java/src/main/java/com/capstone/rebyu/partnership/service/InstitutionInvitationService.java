@@ -123,6 +123,7 @@ public class InstitutionInvitationService {
         requireActiveLeader(group, request.invitedByUserId());
 
         List<InstitutionCertificate> certs = resolveCertifications(group, request);
+        requireSectionOffers(group, request.sectionId(), certs);
         for (InstitutionCertificate cert : certs) {
             if (cert.getStatus() != InstitutionCertificate.Status.active) {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
@@ -315,6 +316,27 @@ public class InstitutionInvitationService {
             return List.of(resolveCertification(group, request));
         }
         return certs;
+    }
+
+    /** A section's learners may only be enrolled in the certifications that section's program offers. */
+    private void requireSectionOffers(Department group, Long sectionId, List<InstitutionCertificate> certs) {
+        if (sectionId == null) return;
+        var section = sectionRepository.findBySectionIdAndDepartment_DepartmentId(sectionId, group.getDepartmentId())
+                .orElseThrow(() -> new IllegalArgumentException("That section does not belong to this department."));
+        java.util.Set<Long> offered = new java.util.HashSet<>();
+        if (section.getProgram() != null) {
+            section.getProgram().getInstitutionCerts().forEach(cert -> offered.add(cert.getInstitutionCertId()));
+        } else if (section.getInstitutionCert() != null) {
+            offered.add(section.getInstitutionCert().getInstitutionCertId());
+        } else {
+            return;
+        }
+        for (InstitutionCertificate cert : certs) {
+            if (!offered.contains(cert.getInstitutionCertId())) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        section.getSectionName() + "'s program does not offer " + cert.getCertification().getTitle() + ".");
+            }
+        }
     }
 
     private static String joinTitles(List<InstitutionCertificate> certs) {

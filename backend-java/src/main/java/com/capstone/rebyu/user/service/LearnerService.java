@@ -250,21 +250,14 @@ public class LearnerService {
             }
         }
 
-        if (alreadyEnrolled(institutionCert, learner)) {
-            throw new InvitationAcceptanceException(
-                    InvitationAcceptanceException.Code.ALREADY_ENROLLED,
-                    "You already have access to this certification.");
-        }
-
+        // Already enrolled is not an error: a learner studying the certification on their own
+        // (solo / self-paid) has only a learner_certification row, and enroll() takes it over
+        // keeping its progress; one already in this institution's seat is placed in the section.
         InstitutionCertificationLearner enrollment = enroll(invitation, learner);
 
         // A program's section covers several certifications: one email, one link, and the
         // learner's other pending invitations to the same section are accepted with it.
         for (LearnerInvitation sibling : siblingsOf(invitation)) {
-            if (alreadyEnrolled(sibling.getInstitutionCert(), learner)) {
-                markAccepted(sibling, learner);
-                continue;
-            }
             enroll(sibling, learner);
         }
 
@@ -324,18 +317,12 @@ public class LearnerService {
                 .toList();
     }
 
-    private boolean alreadyEnrolled(InstitutionCertificate institutionCert, Learner learner) {
-        return institutionCertificationLearnerRepository
-                .findFirstByInstitutionCertAndLearner(institutionCert, learner)
-                .filter(row -> row.getStatus() != InstitutionCertificationLearner.Status.revoked)
-                .isPresent();
-    }
-
     /** Enrols the learner in the invitation's certification, places them in its department, marks it accepted. */
     private InstitutionCertificationLearner enroll(LearnerInvitation invitation, Learner learner) {
         InstitutionCertificate institutionCert = invitation.getInstitutionCert();
         var previous = institutionCertificationLearnerRepository
                 .findFirstByInstitutionCertAndLearner(institutionCert, learner);
+        boolean wasActive = previous.filter(row -> row.getStatus() != InstitutionCertificationLearner.Status.revoked).isPresent();
         // A learner the institution removed earlier is re-admitted on their old enrolment row.
         InstitutionCertificationLearner enrollment = previous
                 .map(row -> {
@@ -355,7 +342,7 @@ public class LearnerService {
         ensureDirectCertificationEnrollment(learner, institutionCert.getCertification());
         orgEnrollmentProgressService.sync(enrollment);
 
-        if (learner.getUser() != null && institutionCert.getCertification() != null) {
+        if (!wasActive && learner.getUser() != null && institutionCert.getCertification() != null) {
             notificationService.notify(
                     learner.getUser(),
                     "New certification assigned",
@@ -365,7 +352,15 @@ public class LearnerService {
         }
 
         Department group = invitation.getDepartment();
-        if (group != null && invitation.getInvitedBy() != null) {
+        var placed = group == null ? java.util.Optional.<DepartmentLearner>empty()
+                : departmentLearnerRepository.findByDepartmentAndInstitutionCertLearner(group, enrollment);
+        if (placed.isPresent()) {
+            // Already in this department (e.g. re-invited): move them to the invited section.
+            DepartmentLearner existing = placed.get();
+            existing.setStatus(DepartmentLearner.Status.active);
+            existing.setSection(invitation.getSection());
+            departmentLearnerRepository.save(existing);
+        } else if (group != null && invitation.getInvitedBy() != null) {
             DepartmentLearner assignee = DepartmentLearner.builder()
                     .department(group)
                     .institutionCertLearner(enrollment)
@@ -380,6 +375,11 @@ public class LearnerService {
                     learner.getLearnerId(), group.getDepartmentId(), invitation.getInvitationId());
         }
 
+        if (wasActive) {
+            // No new seat was taken: give back the one reserved when the invitation was sent.
+            restoreSlot(institutionCert);
+            restoreDepartmentSlot(group);
+        }
         markAccepted(invitation, learner);
         return enrollment;
     }

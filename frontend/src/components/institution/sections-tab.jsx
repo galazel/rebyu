@@ -231,6 +231,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
   const remainingSlots = Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
 
   const reset = () => {
+    setChosenCertIds(programOptions.length === 1 ? [programOptions[0].institutionCertId] : [])
     setMode("manual")
     setDraft({ firstName: "", lastName: "", email: "" })
     setStaged([])
@@ -293,10 +294,21 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
     }
   }
 
-  // A program's section takes every certification of its program, so its
-  // learners are invited once per certification.
-  const programCertIds =
-    section && section.institutionCertId == null ? asArray(programCertifications).map((c) => c.institutionCertId) : []
+  // A program's section offers its program's certifications; the inviter picks which of them
+  // these learners are enrolled in (one invitation per certification, one email).
+  const programOptions =
+    section && section.institutionCertId == null
+      ? asArray(programCertifications).filter((c) => c?.institutionCertId != null)
+      : []
+  const [chosenCertIds, setChosenCertIds] = useState(() =>
+    programOptions.length === 1 ? [programOptions[0].institutionCertId] : []
+  )
+  const programCertIds = programOptions.length
+    ? programOptions.map((c) => c.institutionCertId).filter((id) => chosenCertIds.includes(id))
+    : []
+  const needsCertChoice = programOptions.length > 0 && programCertIds.length === 0
+  const toggleChosen = (id) =>
+    setChosenCertIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
   const send = useMutation({
     mutationFn: async () => {
       // One request for every certification: the backend sends each learner a single email
@@ -337,6 +349,45 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
             accept. {remainingSlots} of {group.totalSlots ?? 0} slot(s) remain in this department.
           </DialogDescription>
         </DialogHeader>
+
+        {programOptions.length > 0 ? (
+          <div className="space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Certification</p>
+              <p className="text-xs text-muted-foreground">
+                What these learners are enrolled in. A learner already studying it on their own keeps their progress
+                and moves under {section.sectionName}.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Certifications to enroll in">
+              {programOptions.map((cert) => {
+                const checked = chosenCertIds.includes(cert.institutionCertId)
+                return (
+                  <button
+                    key={cert.institutionCertId}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() => toggleChosen(cert.institutionCertId)}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                      checked ? "border-primary/60 bg-primary/10 text-primary" : "border-border bg-background hover:bg-muted"
+                    }`}
+                  >
+                    <span
+                      className={`grid size-4 place-items-center rounded border text-[10px] ${
+                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {checked ? "✓" : ""}
+                    </span>
+                    {cert.title}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex gap-2" role="tablist">
           {[
@@ -465,6 +516,10 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
           </div>
         ) : null}
 
+        {needsCertChoice && staged.length > 0 ? (
+          <p className="text-xs text-muted-foreground">Pick at least one certification to send the invitations.</p>
+        ) : null}
+
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
@@ -475,7 +530,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
           <Button variant="outline" className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => close(false)} disabled={send.isPending}>
             Cancel
           </Button>
-          <Button className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || send.isPending}>
+          <Button className="min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => send.mutate()} disabled={staged.length === 0 || overCap || needsCertChoice || send.isPending}>
             {send.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
