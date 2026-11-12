@@ -45,6 +45,21 @@ export const INSTITUTION_DEFAULT = {
   cols: { "ent-invitations": 6 },
 }
 
+// A complete desktop grid used whenever an institution board is new or needs
+// migrating after a tile is retired. Heights are intentionally generous so the
+// edit board never crops charts or leaves mismatched holes beside a taller card.
+export const INSTITUTION_PRESET = [
+  { id: "ent-key-figures", x: 0, y: 0, w: 6, h: 2 },
+  { id: "ent-members", x: 0, y: 2, w: 6, h: 4 },
+  { id: "ent-progress", x: 0, y: 6, w: 3, h: 3 },
+  { id: "ent-group-completion", x: 3, y: 6, w: 3, h: 3 },
+  { id: "ent-activity-trend", x: 0, y: 9, w: 6, h: 4 },
+  { id: "ent-seats", x: 0, y: 13, w: 3, h: 2 },
+  { id: "ent-allocations", x: 3, y: 13, w: 3, h: 2 },
+  { id: "ent-invitations", x: 0, y: 15, w: 6, h: 2 },
+  { id: "ent-member-table", x: 0, y: 17, w: 6, h: 3 },
+]
+
 export const INSTITUTION_TILE_LABELS = {
   "ent-members": "Members & certifications",
   "ent-seats": "Learner slots & capacity",

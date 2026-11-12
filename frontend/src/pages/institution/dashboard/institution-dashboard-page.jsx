@@ -33,7 +33,10 @@ import {
 import { BentoTile } from "@/components/commons/bento.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
-import { INSTITUTION_DEFAULT } from "@/components/commons/dashboard-tile-labels.js"
+import {
+  INSTITUTION_DEFAULT,
+  INSTITUTION_PRESET,
+} from "@/components/commons/dashboard-tile-labels.js"
 import { InstitutionMetricsSidebar } from "@/components/institution/institution-metrics-sidebar.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { getInstitutionDashboard } from "@/services/institutionDashboardService.js"
@@ -67,6 +70,30 @@ const EMPTY_DASHBOARD = {
 }
 
 const RETIRED_TILES = new Set(["ent-completion-distribution"])
+
+// This was the automatic grid used before the board had a purpose-built
+// institution preset. Treat it as a migration target, not a user customisation:
+// its one-row/two-row cards crop charts and make rearrange mode look uneven.
+const LEGACY_INSTITUTION_DEFAULT = [
+  ["ent-key-figures", 0, 0, 6, 1],
+  ["ent-members", 0, 1, 3, 3],
+  ["ent-group-completion", 3, 1, 3, 2],
+  ["ent-progress", 0, 4, 3, 2],
+  ["ent-activity-trend", 0, 6, 6, 2],
+  ["ent-seats", 0, 8, 3, 1],
+  ["ent-allocations", 3, 8, 3, 2],
+  ["ent-invitations", 0, 10, 6, 2],
+  ["ent-member-table", 0, 12, 6, 3],
+]
+
+function isLegacyInstitutionDefault(layout) {
+  if (layout.length !== LEGACY_INSTITUTION_DEFAULT.length) return false
+  const byId = new Map(layout.map((item) => [item.id ?? item.i, item]))
+  return LEGACY_INSTITUTION_DEFAULT.every(([id, x, y, w, h]) => {
+    const item = byId.get(id)
+    return item?.x === x && item?.y === y && item?.w === w && item?.h === h
+  })
+}
 
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
@@ -173,7 +200,7 @@ function Figure({ icon: Icon, label, value, hint, alert = false }) {
 export default function InstitutionDashboardPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
-  const layout = useDashboardLayout("institution")
+  const layout = useDashboardLayout("institution", INSTITUTION_PRESET)
 
 
   const [range, setRange] = useState(() => {
@@ -211,6 +238,8 @@ export default function InstitutionDashboardPage() {
     () => layout.tileLayout.filter((item) => !RETIRED_TILES.has(item.id ?? item.i)),
     [layout.tileLayout]
   )
+  const hasRetiredTile = layout.tileLayout.some((item) => RETIRED_TILES.has(item.id ?? item.i))
+  const usesLegacyInstitutionDefault = isLegacyInstitutionDefault(layout.tileLayout)
 
   const chartTheme = useChartTheme()
 
@@ -965,7 +994,8 @@ export default function InstitutionDashboardPage() {
             <div className="min-w-0 space-y-6">
               <DashboardBoard
                 tiles={tiles}
-                layout={institutionLayout}
+                layout={hasRetiredTile || usesLegacyInstitutionDefault ? INSTITUTION_PRESET : institutionLayout}
+                preset={INSTITUTION_PRESET}
                 defaultOrder={INSTITUTION_DEFAULT.order}
                 defaultCols={INSTITUTION_DEFAULT.cols}
                 editing={layout.rearranging}

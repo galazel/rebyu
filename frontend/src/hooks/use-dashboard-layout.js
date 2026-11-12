@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -7,7 +7,7 @@ import {
   saveBoardLayout,
 } from "@/services/dashboardLayoutService.js"
 
-export function useDashboardLayout(board) {
+export function useDashboardLayout(board, defaultLayout = []) {
   const queryClient = useQueryClient()
   const queryKey = ["dashboard-layout", board]
 
@@ -22,8 +22,12 @@ export function useDashboardLayout(board) {
   const [localLayout, setLocalLayout] = useState(null)
   const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
 
+  // Keep the board's intended arrangement in one place. A new board and Reset
+  // now receive the same explicit grid instead of rebuilding an uneven
+  // auto-flow layout from the individual card dimensions.
+  const fallbackLayout = useMemo(() => defaultLayout, [defaultLayout])
   const savedLayout = localLayout ?? layoutQuery.data?.tiles ?? null
-  const tileLayout = savedLayout ?? []
+  const tileLayout = savedLayout ?? fallbackLayout
 
   const saveLayoutMutation = useMutation({
     mutationFn: (tiles) => saveBoardLayout(board, tiles),
@@ -53,14 +57,16 @@ export function useDashboardLayout(board) {
   const resetLayout = () => {
     setRearranging(false)
     setLayoutBeforeEdit(null)
-    setLocalLayout([])
-    queryClient.setQueryData(queryKey, { tiles: [] })
-    saveLayoutMutation.mutate([])
+    setLocalLayout(fallbackLayout)
+    queryClient.setQueryData(queryKey, { tiles: fallbackLayout })
+    saveLayoutMutation.mutate(fallbackLayout)
     toast.success("Layout reset to default")
   }
 
   const startRearranging = () => {
-    setLayoutBeforeEdit(savedLayout)
+    // Capture the displayed layout, including a board's explicit default. This
+    // lets Cancel reliably restore a new board before it has ever been saved.
+    setLayoutBeforeEdit(tileLayout)
     setRearranging(true)
   }
 
