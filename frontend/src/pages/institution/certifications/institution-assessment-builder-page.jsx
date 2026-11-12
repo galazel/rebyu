@@ -43,7 +43,6 @@ import {
   saveTextQuestion,
 } from "@/services/questionService.js"
 import {
-  INSTITUTION_ASSESSMENT_TYPES,
   createExam,
   ensureExamType,
   getExamById,
@@ -113,6 +112,9 @@ const firstQuestionType =
 
 const QUESTION_API = { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion }
 
+/** The builder's names for exam types the database stores under another name. */
+const STORED_EXAM_TYPE = { QUIZ: "LESSON_QUIZ" }
+const BUILDER_EXAM_TYPE = { LESSON_QUIZ: "QUIZ", MIDDLE_EXAM: "MODULE_EXAM" }
 const EXAM_TYPE_SCOPES = {
   QUIZ: "LESSON",
   MODULE_EXAM: "MIDDLE_CATEGORY",
@@ -161,7 +163,8 @@ export default function InstitutionAssessmentBuilderPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [title, setTitle] = useState("")
-  const [examTypeText, setExamTypeText] = useState(searchParams.get("type") ?? "QUIZ")
+  // No exam-type picker: department assessments are lesson quizzes; an edited one keeps its type.
+  const [examTypeText, setExamTypeText] = useState("QUIZ")
   const [durationMinutes, setDurationMinutes] = useState("")
   const [passingScore, setPassingScore] = useState("70")
 
@@ -318,7 +321,8 @@ export default function InstitutionAssessmentBuilderPage() {
     const exam = examQuery.data
     const examType = examTypesQuery.data.find((t) => t.examTypeId === exam.examTypeId)
     setTitle(exam.title ?? "")
-    setExamTypeText(examType?.examTypeText ?? examTypeText)
+    const loadedType = examType?.examTypeText
+    setExamTypeText(loadedType ? BUILDER_EXAM_TYPE[loadedType] ?? loadedType : examTypeText)
     setDurationMinutes(exam.durationMinutes != null ? String(exam.durationMinutes) : "")
     setPassingScore(exam.passingScore != null ? String(exam.passingScore) : "70")
 
@@ -469,7 +473,7 @@ export default function InstitutionAssessmentBuilderPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const examType = await ensureExamType(examTypeText)
+      const examType = await ensureExamType(STORED_EXAM_TYPE[examTypeText] ?? examTypeText)
 
       const finalQuestions = []
       for (const [index, question] of questions.entries()) {
@@ -693,22 +697,6 @@ export default function InstitutionAssessmentBuilderPage() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Week 1 Quiz"
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="a-type">Exam type</Label>
-            <Select value={examTypeText} onValueChange={setExamTypeText}>
-              <SelectTrigger id="a-type">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {INSTITUTION_ASSESSMENT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <SectionLabel className="pt-1">Where it attaches</SectionLabel>
