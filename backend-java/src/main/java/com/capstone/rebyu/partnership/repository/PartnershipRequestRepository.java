@@ -19,6 +19,8 @@ public interface PartnershipRequestRepository extends JpaRepository<PartnershipR
 
     List<PartnershipRequest> findAllByOrderBySubmittedAtDesc();
 
+    List<PartnershipRequest> findByStatus(PartnershipRequest.Status status);
+
     boolean existsByInstitutionEmailIgnoreCaseAndStatus(
             String institutionEmail, PartnershipRequest.Status status);
 

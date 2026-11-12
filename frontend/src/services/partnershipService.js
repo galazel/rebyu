@@ -4,6 +4,11 @@ export function submitPublicPartnershipRequest(payload) {
   return base("public/partnership-requests", { method: "POST", data: payload })
 }
 
+/** Institutions already on REBYU or awaiting review; the request form marks them as taken. */
+export function getTakenInstitutionNames() {
+  return base("public/partnership-requests/taken-institutions")
+}
+
 export function getPartnershipPricing() {
   return base("public/partnership-requests/pricing")
 }

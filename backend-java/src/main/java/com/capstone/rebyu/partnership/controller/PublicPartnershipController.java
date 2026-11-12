@@ -36,6 +36,12 @@ public class PublicPartnershipController {
         return publicPartnershipService.submit(request);
     }
 
+    /** Institution names already registered or awaiting review, so the form can mark them. */
+    @GetMapping("/taken-institutions")
+    public java.util.List<String> takenInstitutions() {
+        return publicPartnershipService.takenInstitutionNames();
+    }
+
     @PostMapping("/registration")
     public com.capstone.rebyu.partnership.dto.PublicPartnershipDtos.RegistrationLookupResponse registration(
             @Valid @RequestBody com.capstone.rebyu.partnership.dto.PublicPartnershipDtos.RegistrationLookupRequest request) {

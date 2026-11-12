@@ -20,13 +20,18 @@ import {
 } from "@/components/partnership/certification-request-picker.jsx"
 import { REFERENCE_INSTITUTION, useReferenceDetails } from "@/services/referenceService.js"
 
+/** Same rule as the server: case, dashes and spacing do not make a different institution. */
+function institutionKey(name) {
+  return String(name ?? "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, "")
+}
+
 import { BrandLogo } from "@/components/brand-logo"
 import {
   Chip,
   RebyuCard,
   TactileButton,
 } from "@/components/rebyu/rebyu-ui.jsx"
-import { getPartnershipPricing, submitPublicPartnershipRequest } from "@/services/partnershipService.js"
+import { getPartnershipPricing, getTakenInstitutionNames, submitPublicPartnershipRequest } from "@/services/partnershipService.js"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -166,6 +171,19 @@ export default function InstitutionRequestAccessPage() {
     [institutionOptions]
   )
 
+  // Institutions already on REBYU or awaiting review cannot be requested again.
+  const takenQuery = useQuery({
+    queryKey: ["public-taken-institutions"],
+    queryFn: getTakenInstitutionNames,
+    staleTime: 60_000,
+  })
+  const takenKeys = useMemo(
+    () => new Set((Array.isArray(takenQuery.data) ? takenQuery.data : []).map(institutionKey)),
+    [takenQuery.data]
+  )
+  const isTaken = (name) => takenKeys.has(institutionKey(name))
+  const typedNameTaken = form.institutionName.trim() !== "" && isTaken(form.institutionName)
+
   const filteredUniversities = useMemo(() => {
     const q = (form.institutionName || "").toLowerCase().trim()
     if (!q) return universities
@@ -179,6 +197,7 @@ export default function InstitutionRequestAccessPage() {
   }, [form.institutionName, universities])
 
   const handleSelectUniversity = (uni) => {
+    if (isTaken(uni.name)) return
     setForm((current) => ({
       ...current,
       institutionName: uni.name,
@@ -228,6 +247,8 @@ export default function InstitutionRequestAccessPage() {
 
   const validate = () => {
     if (!form.institutionName.trim()) return "Enter your institution name."
+    if (typedNameTaken)
+      return `${form.institutionName.trim()} is already registered on REBYU or has a request under review.`
     if (!EMAIL_PATTERN.test(form.institutionEmail.trim()))
       return "Enter a valid institution email."
     if (!form.contactPersonName.trim()) return "Enter a contact person name."
@@ -383,12 +404,18 @@ export default function InstitutionRequestAccessPage() {
                           </p>
                         </div>
                       ) : (
-                        filteredUniversities.map((uni) => (
+                        filteredUniversities.map((uni) => {
+                          const taken = isTaken(uni.name)
+                          return (
                           <button
                             key={uni.name}
                             type="button"
+                            disabled={taken}
+                            aria-disabled={taken}
                             onClick={() => handleSelectUniversity(uni)}
-                            className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-black/5"
+                            className={`flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition ${
+                              taken ? "cursor-not-allowed opacity-50" : "hover:bg-black/5"
+                            }`}
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -404,14 +431,21 @@ export default function InstitutionRequestAccessPage() {
                               </p>
                             </div>
                             <span className="shrink-0 text-[11px] text-rb-wolf/70 font-medium pt-1">
-                              {uni.category.split(" ")[0]}
+                              {taken ? "Already on REBYU" : uni.category.split(" ")[0]}
                             </span>
                           </button>
-                        ))
+                          )
+                        })
                       )}
                     </div>
                   )}
                 </div>
+                {typedNameTaken ? (
+                  <p className="mt-1.5 text-xs font-semibold text-destructive" role="alert">
+                    This institution is already registered on REBYU or has a request under review. Its
+                    administrator can request more certifications from the institution portal.
+                  </p>
+                ) : null}
               </Field>
               <Field
                 id="org-email"

@@ -44,6 +44,45 @@ public class PublicPartnershipService {
     private final NotificationService notificationService;
     private final com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
     private final com.capstone.rebyu.auth.service.AccountRoleGuard accountRoles;
+    private final com.capstone.rebyu.institution.repository.InstitutionRepository institutionRepository;
+
+    /** "University of Cebu – Lapu-Lapu" and "university of cebu - lapu lapu" are the same name. */
+    static String nameKey(String name) {
+        return name == null ? "" : java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFKD)
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "");
+    }
+
+    /**
+     * Institutions that cannot be requested again: already registered on REBYU, or with a
+     * request still pending review. Public, so the form can mark them before anyone submits.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<String> takenInstitutionNames() {
+        java.util.Map<String, String> byKey = new java.util.LinkedHashMap<>();
+        institutionRepository.findAll().forEach(i -> byKey.putIfAbsent(nameKey(i.getInstitutionName()), i.getInstitutionName()));
+        requestRepository.findByStatus(PartnershipRequest.Status.PENDING)
+                .forEach(r -> byKey.putIfAbsent(nameKey(r.getInstitutionName()), r.getInstitutionName()));
+        byKey.remove("");
+        return java.util.List.copyOf(byKey.values());
+    }
+
+    private void requireNewInstitution(String institutionName) {
+        String key = nameKey(institutionName);
+        boolean registered = institutionRepository.findAll().stream()
+                .anyMatch(i -> key.equals(nameKey(i.getInstitutionName())));
+        if (registered) {
+            throw new BusinessRuleException.InvalidPartnershipRequestException(
+                    institutionName + " is already registered on REBYU. Its administrator can request more "
+                            + "certifications from the institution portal.");
+        }
+        boolean pending = requestRepository.findByStatus(PartnershipRequest.Status.PENDING).stream()
+                .anyMatch(r -> key.equals(nameKey(r.getInstitutionName())));
+        if (pending) {
+            throw new BusinessRuleException.InvalidPartnershipRequestException(
+                    "A request for " + institutionName + " is already waiting for review.");
+        }
+    }
 
     @Transactional
     public PublicPartnershipRequestResponse submit(SubmitPublicPartnershipRequest request) {
@@ -69,6 +108,8 @@ public class PublicPartnershipService {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "A partnership request from this institution is already pending review.");
         }
+        // One institution, one registration: a campus already on REBYU or awaiting review is refused.
+        requireNewInstitution(institutionName);
 
         PartnershipRequest partnershipRequest = PartnershipRequest.builder()
                 .referenceNumber(generateReferenceNumber())
