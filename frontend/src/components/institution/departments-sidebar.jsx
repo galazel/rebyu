@@ -1,4 +1,4 @@
-import { CircleHelp, ClipboardCheckIcon, Layers, MailIcon, ShieldCheck } from "@/components/icons"
+import { BookOpen, CircleHelp, ClipboardCheckIcon, Layers, MailIcon, ShieldCheck } from "@/components/icons"
 import {
   Select,
   SelectContent,
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 /** The department's views, in the order they appear in the tab bar. */
 export const DEPARTMENT_VIEWS = [
   { id: "dept-programs", label: "Programs & sections", short: "Programs", icon: Layers },
+  { id: "dept-curriculum", label: "Curriculum", short: "Curriculum", icon: BookOpen },
   { id: "dept-assessments", label: "Assessments", short: "Tests", icon: ClipboardCheckIcon },
   { id: "dept-question-bank", label: "Question bank", short: "Questions", icon: CircleHelp },
   { id: "dept-co-authorities", label: "Co-authorities", short: "Heads", icon: ShieldCheck },
@@ -20,6 +21,7 @@ export const DEPARTMENT_VIEWS = [
 /** The URL names of each view, so links from the dashboard open the right one. */
 export const DEPARTMENT_VIEW_IDS = {
   programs: "dept-programs",
+  curriculum: "dept-curriculum",
   roster: "dept-learner-table",
   assessments: "dept-assessments",
   "question-bank": "dept-question-bank",

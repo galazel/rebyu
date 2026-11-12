@@ -1,6 +1,6 @@
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeftIcon, BookOpen, Layers } from "@/components/icons"
+import { ArrowLeftIcon, Layers } from "@/components/icons"
 
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
@@ -8,7 +8,6 @@ import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
-import { CurriculumOverview } from "@/components/institution/curriculum-overview.jsx"
 import { cn } from "@/lib/utils"
 import { SectionsTab } from "@/components/institution/sections-tab.jsx"
 import {
@@ -26,12 +25,11 @@ function asArray(value) {
 }
 
 /**
- * A program's own pages. Assessments, the question bank, co-authorities and
- * announcements are the whole department's, on its page.
+ * A program workspace is only for its sections and learners. Curriculum, assessments,
+ * the question bank, co-authorities and announcements are department-level views.
  */
 const WORKSPACE_TABS = [
   { tab: "learners", label: "Sections & learners", icon: Layers },
-  { tab: "curriculum", label: "Curriculum", icon: BookOpen },
 ]
 const VALID_TABS = WORKSPACE_TABS.map((item) => item.tab)
 /** Old workspace tabs that now live on the department page. */
@@ -40,6 +38,7 @@ const DEPARTMENT_TAB_VIEWS = {
   announcements: "announcements",
   assessments: "assessments",
   "question-bank": "question-bank",
+  curriculum: "curriculum",
 }
 
 export default function InstitutionDepartmentWorkspacePage() {
@@ -48,8 +47,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
   const programId = Number(searchParams.get("programId")) || null
-  // A program opens on its classes; the department-wide workspace on its curriculum.
-  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : programId != null ? "learners" : "curriculum"
+  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : "learners"
   const focusSectionId = Number(searchParams.get("section")) || null
 
   const departmentQuery = useQuery({
@@ -158,33 +156,19 @@ export default function InstitutionDepartmentWorkspacePage() {
       </header>
 
       <WorkspaceNav
-        tabs={program ? WORKSPACE_TABS : [...WORKSPACE_TABS].reverse()}
-        certifications={coveredCertifications}
+        tabs={WORKSPACE_TABS}
         activeTab={activeTab}
-        activeCertificationId={groupCertificationId}
-        onSelect={(tab, certificationId) =>
+        onSelect={(tab) =>
           setSearchParams((prev) => {
             const params = new URLSearchParams(prev)
             params.set("tab", tab)
-            if (tab !== "learners") params.delete("section")
-            if (certificationId != null) params.set("certificationId", String(certificationId))
+            params.delete("section")
             return params
           })
         }
       />
 
       <Tabs value={activeTab} className="min-w-0">
-        <TabsContent value="curriculum" className="mt-0 space-y-6">
-          {groupCertificationId != null ? (
-            <CurriculumOverview key={groupCertificationId} certificationId={groupCertificationId} departmentId={id} />
-          ) : (
-            <InstitutionEmptyState
-              title="No certification chosen"
-              description="Pick this program's certifications from its card on the Programs & sections tab."
-            />
-          )}
-        </TabsContent>
-
         <TabsContent value="learners" className="mt-0">
           <SectionsTab
             departmentId={id}
@@ -201,10 +185,9 @@ export default function InstitutionDepartmentWorkspacePage() {
 }
 
 /**
- * The program's pages as tabs, and, on the curriculum, which certification.
+ * The program workspace has a single focused view for its sections and learners.
  */
-function WorkspaceNav({ tabs, certifications, activeTab, activeCertificationId, onSelect }) {
-  const perCertification = activeTab !== "learners" && certifications.length > 1
+function WorkspaceNav({ tabs, activeTab, onSelect }) {
   return (
     <div className="space-y-3">
       <nav aria-label="Program" className="-mb-px flex gap-1 overflow-x-auto border-b border-border/70 scrollbar-none">
@@ -230,31 +213,6 @@ function WorkspaceNav({ tabs, certifications, activeTab, activeCertificationId, 
           )
         })}
       </nav>
-      {perCertification ? (
-        <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Certification">
-          <span className="text-xs font-medium text-muted-foreground">Certification</span>
-          {certifications.map((cert) => {
-            const active = cert.certificationId === activeCertificationId
-            return (
-              <button
-                key={cert.certificationId}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => onSelect(activeTab, cert.certificationId)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground hover:bg-muted"
-                )}
-              >
-                {cert.title}
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
     </div>
   )
 }

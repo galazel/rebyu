@@ -3,6 +3,7 @@ import { toast } from "sonner"
 
 import {
   pauseAttemptClock,
+  primeAttemptIntegrityTransport,
   reportAttemptIntegrityEvents,
   resumeAttemptClock,
 } from "@/services/assessmentService.js"
@@ -74,13 +75,20 @@ export function useAttemptIntegrity({
     toast.warning("Copying and pasting are disabled during an assessment. Attempts are recorded.")
   }, [])
 
-  const pause = useCallback((reason) => {
+  // Preload the bearer token before a mobile browser backgrounds the page. Page-lifecycle events
+  // have only a brief window in which a keep-alive request can leave the device.
+  useEffect(() => {
+    if (!enabled || attemptId == null) return
+    primeAttemptIntegrityTransport().catch(() => {})
+  }, [attemptId, enabled])
+
+  const pause = useCallback((reason, { keepalive = false } = {}) => {
     if (!enabled || attemptId == null || pausedRef.current) return
     pausedRef.current = true
     setPaused(true)
     setViolations((count) => count + 1)
     flush()
-    pauseAttemptClock(attemptId, reason, callbacks.current.getQuestionId?.() ?? null)
+    pauseAttemptClock(attemptId, reason, callbacks.current.getQuestionId?.() ?? null, { keepalive })
         .then((clock) => {
           if (clock?.focusViolations != null) setViolations(clock.focusViolations)
           if (clock?.maxFocusViolations) setMaxViolations(clock.maxFocusViolations)
@@ -129,11 +137,21 @@ export function useAttemptIntegrity({
       }, 1500)
     }
     const onPageHide = () => {
-      unloading = true
+      // iOS Safari and Android webviews commonly emit pagehide when the learner switches
+      // apps. That is an absence, not an unload; count it before the page is frozen.
+      if (!unloading && document.visibilityState === "hidden") {
+        pause("TAB_HIDDEN", { keepalive: true })
+      }
+    }
+    const onFreeze = () => {
+      // The Page Lifecycle API fills the gap in webviews that freeze before pagehide.
+      if (!unloading && document.visibilityState === "hidden") {
+        pause("TAB_HIDDEN", { keepalive: true })
+      }
     }
     const onVisibility = () => {
       if (unloading) return
-      if (document.visibilityState === "hidden") pause("TAB_HIDDEN")
+      if (document.visibilityState === "hidden") pause("TAB_HIDDEN", { keepalive: true })
     }
     const onBlur = () => {
       // Focus moving into an embedded frame on this page is not leaving the attempt.
@@ -146,12 +164,14 @@ export function useAttemptIntegrity({
     window.addEventListener("beforeunload", onBeforeUnload)
     window.addEventListener("pagehide", onPageHide)
     document.addEventListener("visibilitychange", onVisibility)
+    document.addEventListener("freeze", onFreeze)
     window.addEventListener("blur", onBlur)
     return () => {
       clearTimeout(unloadTimer)
       window.removeEventListener("beforeunload", onBeforeUnload)
       window.removeEventListener("pagehide", onPageHide)
       document.removeEventListener("visibilitychange", onVisibility)
+      document.removeEventListener("freeze", onFreeze)
       window.removeEventListener("blur", onBlur)
     }
   }, [enabled, forfeited, pause])

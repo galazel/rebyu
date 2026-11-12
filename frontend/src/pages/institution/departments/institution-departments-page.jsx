@@ -39,6 +39,7 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
+import { CurriculumOverview } from "@/components/institution/curriculum-overview.jsx"
 import {
   DEPARTMENT_VIEW_ALIASES,
   DEPARTMENT_VIEW_IDS,
@@ -701,6 +702,15 @@ export default function DepartmentsPage() {
     (Object.values(DEPARTMENT_VIEW_IDS).includes(hashView) ? hashView : DEPARTMENT_VIEW_IDS.programs)
   const rosterFilter = searchParams.get("filter") ?? "all"
   const sectionFilter = searchParams.get("section") ?? "all"
+  const activeCertifications = (activeDepartment?.certifications ?? []).filter(
+    (cert) => cert?.certificationId != null && String(cert?.status ?? "active").toLowerCase() === "active"
+  )
+  const requestedCertificationId = Number(searchParams.get("certificationId"))
+  const curriculumCertificationId = activeCertifications.some(
+    (cert) => cert.certificationId === requestedCertificationId
+  )
+    ? requestedCertificationId
+    : activeCertifications[0]?.certificationId ?? null
 
   // ?department= (from a program page or the assessment builder) picks which department shows.
   const departmentParam = searchParams.get("department")
@@ -760,6 +770,51 @@ export default function DepartmentsPage() {
           <div className="min-w-0">
             {activeFeature === DEPARTMENT_VIEW_IDS.programs ? (
               <DepartmentProgramsPanel key={activeDepartmentId} department={activeDepartment} />
+            ) : activeFeature === DEPARTMENT_VIEW_IDS.curriculum ? (
+              <section className="space-y-4">
+                {activeCertifications.length > 1 ? (
+                  <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Certification">
+                    <span className="text-xs font-medium text-muted-foreground">Certification</span>
+                    {activeCertifications.map((cert) => {
+                      const selected = cert.certificationId === curriculumCertificationId
+                      return (
+                        <button
+                          key={cert.certificationId}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() =>
+                            setSearchParams(
+                              { view: "curriculum", certificationId: String(cert.certificationId) },
+                              { replace: false }
+                            )
+                          }
+                          className={
+                            "rounded-full border px-3 py-1 text-xs font-semibold transition-colors " +
+                            (selected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-foreground hover:bg-muted")
+                          }
+                        >
+                          {cert.title}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : null}
+                {curriculumCertificationId != null ? (
+                  <CurriculumOverview
+                    key={curriculumCertificationId}
+                    certificationId={curriculumCertificationId}
+                    departmentId={activeDepartmentId}
+                  />
+                ) : (
+                  <InstitutionEmptyState
+                    title="No curriculum available"
+                    description="This department does not have an active certification yet."
+                  />
+                )}
+              </section>
             ) : activeFeature === DEPARTMENT_VIEW_IDS.assessments ? (
               <DepartmentAssessmentsPanel key={activeDepartmentId} department={activeDepartment} />
             ) : activeFeature === DEPARTMENT_VIEW_IDS["question-bank"] ? (

@@ -1,4 +1,13 @@
-import { base } from "./base"
+import { API, base, currentAccessToken } from "./base"
+
+// Mobile browsers can freeze a page immediately after it is backgrounded. Cache the token while
+// an attempt is active so its pause request can use fetch({ keepalive: true }) without waiting on
+// storage or Supabase during the page-lifecycle event.
+let attemptIntegrityToken = null
+
+export async function primeAttemptIntegrityTransport() {
+  attemptIntegrityToken = await currentAccessToken()
+}
 
 export function getExamTypes() {
   return base("exam-types")
@@ -138,7 +147,27 @@ export function setAttemptCurrentItem(attemptId, attemptQuestionId, learnerId) {
 // The learner left the attempt tab: the server stops the clock and counts the violation.
 // reason: "TAB_HIDDEN" | "WINDOW_BLUR". On the last allowed exit the server forfeits the
 // attempt (score 0) and answers with forfeited: true.
-export function pauseAttemptClock(attemptId, reason, attemptQuestionId) {
+export async function pauseAttemptClock(attemptId, reason, attemptQuestionId, { keepalive = false } = {}) {
+  if (keepalive && typeof fetch === "function") {
+    const token = attemptIntegrityToken ?? await currentAccessToken()
+    if (token) {
+      try {
+        const response = await fetch(`${API}/learner/assessment-attempts/${attemptId}/pause`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reason, attemptQuestionId }),
+          keepalive: true,
+        })
+        if (!response.ok) throw new Error(`Could not pause assessment (${response.status}).`)
+        return response.json()
+      } catch {
+        // Use the normal client where the browser allows it; this also covers older webviews.
+      }
+    }
+  }
   return base(`learner/assessment-attempts/${attemptId}/pause`, {
     method: "POST",
     data: { reason, attemptQuestionId },
