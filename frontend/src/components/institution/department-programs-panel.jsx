@@ -4,17 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import {
-  BookOpenIcon,
   GraduationCapIcon,
   MoreVertical,
-  Pencil,
   PencilIcon,
   Plus,
-  Trash2,
   Trash2Icon,
-  UsersRound,
-  UserPlusIcon,
-  Download,
   Settings,
 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
@@ -35,9 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { SectionDialog } from "@/components/institution/sections-tab.jsx"
-import { ExportButton, downloadExport } from "@/components/commons/export-button.jsx"
-import { sectionExportBlocks } from "@/lib/section-export.js"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 import { PROGRAM_COLUMNS, SECTION_COLUMNS, sectionRow } from "@/lib/department-export.js"
 import {
   InstitutionEmptyState,
@@ -51,7 +43,6 @@ import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { cn } from "@/lib/utils"
 import {
   archiveDepartmentProgram,
-  deleteGroupSection,
   getDepartmentPrograms,
   getGroupSections,
 } from "@/services/institutionService.js"
@@ -73,86 +64,6 @@ function rollUp(sectionRows) {
   return { learners, progress, checkIns }
 }
 
-/** A program's section opens in its program, where its learners are managed. */
-function SectionRow({ departmentId, section, stats, onRename, onArchive, onExport }) {
-  const href =
-    section.programId != null
-      ? `/institution/departments/${departmentId}?programId=${section.programId}&tab=learners&section=${section.sectionId}`
-      : null
-  const checkIns = Number(stats?.atRisk ?? 0) + Number(stats?.dormant ?? 0)
-  const pending = Number(section.pendingInvitationCount ?? 0)
-  const learners = Number(section.learnerCount ?? stats?.learners ?? 0)
-  const tone = learners === 0 ? "bg-muted-foreground/40" : checkIns > 0 ? "bg-rose-500" : "bg-emerald-500"
-  return (
-    <li className="group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40">
-      <span className={cn("size-2 shrink-0 rounded-full", tone)} aria-hidden="true" />
-      {href ? (
-        <Link
-          to={href}
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground after:absolute after:inset-0 group-hover:underline"
-          title="Open this section"
-        >
-          {section.sectionName}
-        </Link>
-      ) : (
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{section.sectionName}</span>
-      )}
-      {checkIns > 0 ? (
-        <span className="shrink-0 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
-          {checkIns} check-in{checkIns === 1 ? "" : "s"}
-        </span>
-      ) : null}
-      {pending > 0 ? (
-        <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
-          {pending} invited
-        </span>
-      ) : null}
-      <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground" title="Learners">
-        <UsersRound className="size-3.5" aria-hidden="true" />
-        {learners}
-      </span>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative z-10 size-7 shrink-0 text-muted-foreground"
-            aria-label={`${section.sectionName} actions`}
-          >
-            <MoreVertical className="size-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          {href ? (
-            <DropdownMenuItem asChild className="gap-2 text-xs">
-              <Link to={href}>
-                <UserPlusIcon className="size-3.5" />
-                Add learners
-              </Link>
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem onClick={() => onExport(section)} className="gap-2 text-xs">
-            <Download className="size-3.5" />
-            Export section data
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onRename(section)} className="gap-2 text-xs">
-            <Pencil className="size-3.5" />
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => onArchive(section)}
-            className="gap-2 text-xs text-destructive focus:text-destructive"
-          >
-            <Trash2 className="size-3.5" />
-            Archive
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </li>
-  )
-}
-
 function ProgramCard({
   code,
   title,
@@ -163,7 +74,6 @@ function ProgramCard({
   totals,
   sectionCount,
   menu,
-  children,
   footer,
   muted = false,
 }) {
@@ -246,9 +156,7 @@ function ProgramCard({
         ) : null}
       </div>
 
-      <div className="flex-1 border-t border-border/60">{children}</div>
-
-      {footer ? <footer className="flex items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2">{footer}</footer> : null}
+      {footer ? <footer className="mt-auto flex items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2">{footer}</footer> : null}
     </article>
   )
 }
@@ -266,8 +174,6 @@ export function DepartmentProgramsPanel({ department }) {
   const [programTarget, setProgramTarget] = useState(null)
   const [certsFor, setCertsFor] = useState(null)
   const [deletingProgram, setDeletingProgram] = useState(null)
-  const [renamingSection, setRenamingSection] = useState(null)
-  const [archivingSection, setArchivingSection] = useState(null)
 
   const programsQuery = useQuery({
     queryKey: ["department-programs", departmentId],
@@ -291,7 +197,6 @@ export function DepartmentProgramsPanel({ department }) {
     (cert) => String(cert?.status ?? "active").toLowerCase() === "active"
   )
   const existingCodes = programs.map((program) => String(program.programCode ?? "").toUpperCase())
-  const unassigned = sections.filter((section) => section.programId == null)
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["department-programs", departmentId] })
@@ -309,16 +214,6 @@ export function DepartmentProgramsPanel({ department }) {
     },
     onError: (error) => toast.error(message(error, "Could not delete the program")),
   })
-  const archiveSection = useMutation({
-    mutationFn: (section) => deleteGroupSection(departmentId, section.sectionId),
-    onSuccess: () => {
-      toast.success("Section archived. Its learners stay in the department.")
-      refresh()
-      setArchivingSection(null)
-    },
-    onError: (error) => toast.error(message(error, "Could not archive this section")),
-  })
-
   if (programsQuery.isLoading || sectionsQuery.isLoading) return <InstitutionLoadingSkeleton rows={3} />
   if (programsQuery.isError || sectionsQuery.isError) {
     return (
@@ -330,27 +225,6 @@ export function DepartmentProgramsPanel({ department }) {
         }}
       />
     )
-  }
-
-  const exportSection = async (section) => {
-    const pending = toast.loading(`Preparing ${section.sectionName}'s data…`)
-    try {
-      await downloadExport({
-        filename: `rebyu-section-${String(section.sectionName).toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-        report: "Section student data",
-        details: [
-          ["Department", department?.departmentName],
-          ["Section", section.sectionName],
-          ["Program", section.programName ?? "No program"],
-          ["Certification", section.certificationTitle],
-        ],
-        sections: () => sectionExportBlocks({ departmentId, section, overview: overviewQuery.data }),
-      })
-    } catch (error) {
-      toast.error(message(error, "The section export could not be prepared"))
-    } finally {
-      toast.dismiss(pending)
-    }
   }
 
   const sectionsOf = (programId) => sections.filter((section) => section.programId === programId)
@@ -381,27 +255,6 @@ export function DepartmentProgramsPanel({ department }) {
       rows: sections.map((section) => sectionRow(section, statsById.get(section.sectionId))),
     },
   ]
-
-  const renderSections = (list) =>
-    list.length === 0 ? (
-      <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-        No sections yet — add one from Manage.
-      </p>
-    ) : (
-      <ul className="divide-y divide-border/50">
-        {list.map((section) => (
-          <SectionRow
-            key={section.sectionId}
-            departmentId={departmentId}
-            section={section}
-            stats={statsById.get(section.sectionId)}
-            onRename={setRenamingSection}
-            onArchive={setArchivingSection}
-            onExport={exportSection}
-          />
-        ))}
-      </ul>
-    )
 
   const allTotals = rollUp(sections.map((s) => statsById.get(s.sectionId) ?? {}))
 
@@ -450,7 +303,7 @@ export function DepartmentProgramsPanel({ department }) {
           }
         />
       ) : (
-        <div className="grid items-stretch gap-4 lg:grid-cols-2">
+        <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
           {programs.map((program) => {
             const list = sectionsOf(program.programId)
             const totals = rollUp(list.map((s) => statsById.get(s.sectionId) ?? {}))
@@ -501,24 +354,10 @@ export function DepartmentProgramsPanel({ department }) {
                     </Link>
                   </Button>
                 }
-              >
-                {renderSections(list)}
-              </ProgramCard>
+              />
             )
           })}
 
-          {unassigned.length > 0 ? (
-            <ProgramCard
-              muted
-              code="—"
-              title="Not in a program"
-              subtitle="Sections made before programs existed. Rename or archive them, or recreate them in a program."
-              totals={rollUp(unassigned.map((s) => statsById.get(s.sectionId) ?? {}))}
-              sectionCount={unassigned.length}
-            >
-              {renderSections(unassigned)}
-            </ProgramCard>
-          ) : null}
         </div>
       )}
 
@@ -540,23 +379,6 @@ export function DepartmentProgramsPanel({ department }) {
           program={certsFor}
           certifications={certifications}
           onClose={() => setCertsFor(null)}
-        />
-      ) : null}
-
-      {renamingSection && departmentId ? (
-        <SectionDialog
-          key={`edit-${renamingSection.sectionId}`}
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setRenamingSection(null)
-              refresh()
-            }
-          }}
-          departmentId={departmentId}
-          section={renamingSection}
-          institutionCertId={renamingSection.institutionCertId ?? null}
-          certifications={certifications}
         />
       ) : null}
 
@@ -584,27 +406,6 @@ export function DepartmentProgramsPanel({ department }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={archivingSection != null} onOpenChange={(open) => !open && setArchivingSection(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive “{archivingSection?.sectionName}”?</AlertDialogTitle>
-            <AlertDialogDescription>Its learners stay in the department, outside any section.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={archiveSection.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={archiveSection.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                archiveSection.mutate(archivingSection)
-              }}
-            >
-              {archiveSection.isPending ? "Archiving…" : "Archive section"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </section>
   )
 }
