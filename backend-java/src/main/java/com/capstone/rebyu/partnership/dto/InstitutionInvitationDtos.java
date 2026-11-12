@@ -39,7 +39,9 @@ public final class InstitutionInvitationDtos {
             @NotNull Long departmentId,
             @NotEmpty List<@Valid InvitedLearner> learners,
             Long sectionId,
-            Long institutionCertId
+            Long institutionCertId,
+            /** Several certifications at once (a program's section): one email per learner covers them all. */
+            List<Long> institutionCertIds
     ) {
     }
 

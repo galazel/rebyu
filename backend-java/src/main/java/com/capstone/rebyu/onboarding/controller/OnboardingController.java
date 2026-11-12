@@ -34,12 +34,12 @@ public class OnboardingController {
     @PostMapping("/institution")
     public ClaimResult registerInstitution(@AuthenticationPrincipal Jwt jwt,
                                            @Valid @RequestBody CodeRequest request) {
-        return onboardingService.registerInstitution(currentUser(jwt), request.code());
+        return onboardingService.registerInstitution(currentUser(jwt), declaredAccountType(jwt), request.code());
     }
 
     @PostMapping("/department-head/redeem")
     public ClaimResult redeem(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CodeRequest request) {
-        return onboardingService.redeemDepartmentHeadCode(currentUser(jwt), request.code());
+        return onboardingService.redeemDepartmentHeadCode(currentUser(jwt), declaredAccountType(jwt), request.code());
     }
 
     @PostMapping("/department-head/invitations")
@@ -55,6 +55,15 @@ public class OnboardingController {
     @PutMapping("/department-head/invitations/{invitationId}/cancel")
     public InvitationView cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable Long invitationId) {
         return onboardingService.cancelInvitation(currentUser(jwt), invitationId);
+    }
+
+    /** The account type the person chose when signing up (Supabase user_metadata.account_type). */
+    private static String declaredAccountType(Jwt jwt) {
+        if (jwt != null && jwt.getClaims().get("user_metadata") instanceof java.util.Map<?, ?> metadata) {
+            Object type = metadata.get("account_type");
+            return type == null ? null : type.toString();
+        }
+        return null;
     }
 
     private CurrentUserDto currentUser(Jwt jwt) {

@@ -50,7 +50,8 @@ class DepartmentHeadAssignmentServiceTest {
                 mock(org.springframework.context.ApplicationEventPublisher.class),
                 authorityRepository, groupRepository, mapper,
                 mock(UserRepository.class), mock(UserTypeRepository.class),
-                mock(DepartmentHeadRepository.class));
+                mock(DepartmentHeadRepository.class),
+                mock(com.capstone.rebyu.auth.service.AccountRoleGuard.class));
 
         when(mapper.toDto(any(DepartmentHeadAssignment.class))).thenAnswer(inv -> {
             DepartmentHeadAssignment entity = inv.getArgument(0);

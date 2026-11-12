@@ -36,6 +36,7 @@ public class DepartmentHeadAssignmentService {
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
     private final DepartmentHeadRepository departmentHeadRepository;
+    private final com.capstone.rebyu.auth.service.AccountRoleGuard accountRoles;
 
     @Transactional(readOnly = true)
     public List<DepartmentHeadAssignmentDto> getAll(Long departmentId, Long userId) {
@@ -93,6 +94,9 @@ public class DepartmentHeadAssignmentService {
             throw new BusinessRuleException.DepartmentRuleException(
                     "This person already heads another department. Remove them there first.");
         }
+
+        userRepository.findById(dto.getUserId()).ifPresent(existing ->
+                accountRoles.requireCanClaim(existing, null, CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE));
 
         User user = User.builder().userId(dto.getUserId()).build();
         DepartmentHeadAssignment entity = departmentHeadAssignmentRepository

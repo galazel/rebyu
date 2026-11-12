@@ -4,7 +4,10 @@ import { API, base } from "./base"
 
 
 const ERROR_MESSAGES = {
-  UsernameExistsException: "This email may already be registered.",
+  UsernameExistsException:
+      "This email already has a REBYU account. One email can hold only one account, so sign in with it or use a different email.",
+  AccountTypeMismatch:
+      "This email already started signing up as a different account type. One email can hold only one account: finish that sign-up from the code in your email, or use a different email.",
   InvalidPasswordException:
       "Your password does not meet the required requirements.",
   InvalidParameterException:
@@ -90,7 +93,21 @@ export async function registerAccount({ email, password, firstName, lastName, ac
     throw taken
   }
 
-  return { status: "SIGNED_UP" }
+  // Signing up again with an email that never finished verifying does not create a
+  // new account: Supabase resends the code for the FIRST sign-up and keeps its
+  // password and metadata. If that first sign-up was another account type, the
+  // person would verify, sign in, and land in the other role's workspace.
+  const wanted = String(accountType || "learner").toLowerCase()
+  const existing = String(data?.user?.user_metadata?.account_type || "learner").toLowerCase()
+  if (data?.user && existing !== wanted) {
+    const clash = new Error(`already signing up as ${existing}`)
+    clash.name = "AccountTypeMismatch"
+    throw clash
+  }
+
+  const createdAt = Date.parse(data?.user?.created_at ?? "")
+  const resent = Number.isFinite(createdAt) && Date.now() - createdAt > 60_000
+  return { status: resent ? "RESENT_CODE" : "SIGNED_UP" }
 }
 
 export async function confirmRegistration(email, code) {

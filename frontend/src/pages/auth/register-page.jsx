@@ -222,10 +222,11 @@ export default function RegisterPage() {
         setupCode: isInstitution ? referenceNumber : accountType === "department" ? departmentCode : undefined,
       })
 
-      toast.success(
+      // Not "account created" yet: the account only counts once the code is verified.
+      toast.info(
         status === "RESENT_CODE"
           ? "You already started signing up. We sent a new code to your email."
-          : "Account created. Check your email for a verification code.",
+          : "We sent a verification code to your email.",
         status === "RESENT_CODE"
           ? { description: "Verify it, then sign in with the password you first chose." }
           : undefined

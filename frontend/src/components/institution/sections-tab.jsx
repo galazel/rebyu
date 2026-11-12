@@ -299,30 +299,26 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
     section && section.institutionCertId == null ? asArray(programCertifications).map((c) => c.institutionCertId) : []
   const send = useMutation({
     mutationFn: async () => {
-      const certIds = programCertIds.length
-        ? programCertIds
-        : [section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null]
-      let created = 0
-      const skipped = []
-      for (const institutionCertId of certIds) {
-        const response = await sendInstitutionInvitations({
-          departmentId: departmentId,
-          learners: staged,
-          sectionId: section?.sectionId ?? null,
-          institutionCertId,
-        })
-        created += response?.created ?? 0
-        skipped.push(...asArray(response?.skipped))
-      }
-      return { created, skipped }
+      // One request for every certification: the backend sends each learner a single email
+      // listing them all, and one link accepts the lot.
+      const response = await sendInstitutionInvitations({
+        departmentId: departmentId,
+        learners: staged,
+        sectionId: section?.sectionId ?? null,
+        institutionCertId: programCertIds.length
+          ? null
+          : (section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null),
+        institutionCertIds: programCertIds.length ? programCertIds : null,
+      })
+      return { created: response?.created ?? 0, skipped: asArray(response?.skipped) }
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department", departmentId] })
       toast.success(
-        `${response.created} learner(s) invited${section ? ` to ${section.sectionName}` : ""}.` +
-          (response.skipped?.length ? ` ${response.skipped.length} skipped.` : "")
+        `${response.created} learner(s) invited${section ? ` to ${section.sectionName}` : ""}.`,
+        response.skipped?.length ? { description: `Skipped: ${response.skipped.join("; ")}` } : undefined
       )
       close(false)
     },
@@ -758,10 +754,13 @@ function SectionPanel({
     onError: (err) => toast.error(backendMessage(err, "Unable to remove this learner.")),
   })
 
+  // A program section invites one person to several certifications; cancel them together.
   const cancel = useMutation({
-    mutationFn: (invitationId) => cancelInstitutionInvitation(invitationId),
+    mutationFn: async (invitationIds) => {
+      for (const invitationId of invitationIds) await cancelInstitutionInvitation(invitationId)
+    },
     onSuccess: () => {
-      toast.success("Invitation cancelled. Slot restored.")
+      toast.success("Invitation cancelled.")
       invalidate()
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to cancel this invitation.")),
@@ -769,8 +768,22 @@ function SectionPanel({
 
   const isUnsectioned = section == null
   const title = isUnsectioned ? "Not in a section" : section.sectionName
-  const pending = invitations.filter((inv) => inv.status === "PENDING")
-  const pendingCount = section?.pendingInvitationCount != null ? Number(section.pendingInvitationCount) : pending.length
+  const pending = useMemo(() => {
+    const byEmail = new Map()
+    for (const inv of invitations) {
+      if (inv.status !== "PENDING") continue
+      const key = String(inv.email ?? "").toLowerCase()
+      const person = byEmail.get(key)
+      if (person) {
+        person.ids.push(inv.invitationId)
+        if (inv.certificationTitle) person.titles.push(inv.certificationTitle)
+      } else {
+        byEmail.set(key, { ...inv, ids: [inv.invitationId], titles: inv.certificationTitle ? [inv.certificationTitle] : [] })
+      }
+    }
+    return [...byEmail.values()]
+  }, [invitations])
+  const pendingCount = pending.length
 
   return (
     <Card className="overflow-hidden">
@@ -857,6 +870,9 @@ function SectionPanel({
                     <div className="min-w-0 flex-1">
                       {fullName(inv) ? <p className="font-medium text-foreground truncate">{fullName(inv)}</p> : null}
                       <p className="text-xs text-muted-foreground break-all">{inv.email}</p>
+                      {inv.titles.length > 1 ? (
+                        <p className="text-xs text-muted-foreground">{inv.titles.join(", ")}</p>
+                      ) : null}
                     </div>
                     <InstitutionStatusBadge status={inv.status} />
                   </div>
@@ -864,7 +880,7 @@ function SectionPanel({
                     variant="ghost"
                     size="sm"
                     className="self-end sm:self-auto text-xs text-destructive hover:bg-destructive/10"
-                    onClick={() => cancel.mutate(inv.invitationId)}
+                    onClick={() => cancel.mutate(inv.ids)}
                     disabled={cancel.isPending}
                   >
                     Cancel

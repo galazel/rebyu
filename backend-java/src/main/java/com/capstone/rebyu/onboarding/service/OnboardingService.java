@@ -61,9 +61,10 @@ public class OnboardingService {
     private final EmailService emailService;
     private final ApplicationEventPublisher events;
     private final com.capstone.rebyu.institution.service.SchoolMembershipGuard schoolMembership;
+    private final com.capstone.rebyu.auth.service.AccountRoleGuard accountRoles;
 
     @Transactional
-    public ClaimResult registerInstitution(CurrentUserDto caller, String referenceNumber) {
+    public ClaimResult registerInstitution(CurrentUserDto caller, String declaredAccountType, String referenceNumber) {
         PartnershipRequest request = partnershipRequestRepository.findByReferenceNumber(normalize(referenceNumber))
                 .filter(row -> row.getInstitutionEmail() != null
                         && row.getInstitutionEmail().equalsIgnoreCase(caller.email()))
@@ -73,6 +74,7 @@ public class OnboardingService {
             throw new IllegalArgumentException("This partnership request was cancelled. Submit a new request.");
         }
         User user = loadUser(caller);
+        accountRoles.requireCanClaim(user, declaredAccountType, CognitoAuthService.INSTITUTION_USER_TYPE);
 
         Institution institution = request.getInstitution() != null
                 ? request.getInstitution()
@@ -101,6 +103,7 @@ public class OnboardingService {
         if (!owners.isEmpty() && !ownedByCaller) {
             throw new IllegalArgumentException("This institution already has an account. Sign in instead.");
         }
+        schoolMembership.requireNoOtherSchool(caller.email(), institution.getInstitutionId());
 
         setUserType(user, CognitoAuthService.INSTITUTION_USER_TYPE);
         if (!ownedByCaller) {
@@ -133,6 +136,7 @@ public class OnboardingService {
         Department department = ownedDepartment(caller, departmentId);
         String cleanEmail = email.trim().toLowerCase(Locale.ROOT);
         schoolMembership.requireNoOtherSchool(cleanEmail, department.getInstitution().getInstitutionId());
+        accountRoles.requireFreeFor(cleanEmail, CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE);
         if (assignmentRepository.existsByUser_EmailIgnoreCaseAndStatusAndDepartment_DepartmentIdNot(
                 cleanEmail, DepartmentHeadAssignment.Status.active, departmentId)) {
             throw new IllegalArgumentException(
@@ -197,7 +201,7 @@ public class OnboardingService {
     }
 
     @Transactional
-    public ClaimResult redeemDepartmentHeadCode(CurrentUserDto caller, String rawCode) {
+    public ClaimResult redeemDepartmentHeadCode(CurrentUserDto caller, String declaredAccountType, String rawCode) {
         DepartmentHeadInvitation invitation = invitationRepository.findByCode(normalize(rawCode))
                 .orElseThrow(() -> new IllegalArgumentException("That code is not valid."));
         if (!invitation.getEmail().equalsIgnoreCase(caller.email())) {
@@ -218,6 +222,7 @@ public class OnboardingService {
         Institution institution = department.getInstitution();
         schoolMembership.requireNoOtherSchool(caller.email(), institution.getInstitutionId());
         User user = loadUser(caller);
+        accountRoles.requireCanClaim(user, declaredAccountType, CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE);
         if (assignmentRepository.existsByUser_UserIdAndStatusAndDepartment_DepartmentIdNot(
                 user.getUserId(), DepartmentHeadAssignment.Status.active, department.getDepartmentId())) {
             throw new IllegalArgumentException(

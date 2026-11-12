@@ -38,30 +38,70 @@ public class EmailService {
             String certificationTitle,
             String invitationToken
     ) {
+        sendInstitutionInvitation(recipientEmail, institutionName, java.util.List.of(certificationTitle), invitationToken);
+    }
+
+    /** One invitation email; with several certifications it lists them all and says one link covers them. */
+    public void sendInstitutionInvitation(
+            String recipientEmail,
+            String institutionName,
+            java.util.List<String> certificationTitles,
+            String invitationToken
+    ) {
         String invitationLink = buildInvitationLink(invitationToken);
-        String subject = "You're invited to join " + certificationTitle + " on REBYU";
-        String text = """
-                Hello,
+        boolean several = certificationTitles.size() > 1;
+        String subject;
+        String text;
+        String intro;
+        if (several) {
+            subject = "You're invited to " + certificationTitles.size() + " certification reviews on REBYU";
+            StringBuilder list = new StringBuilder();
+            StringBuilder items = new StringBuilder();
+            for (String title : certificationTitles) {
+                list.append("  - ").append(title).append("\n");
+                items.append("<li><b>").append(escape(title)).append("</b></li>");
+            }
+            text = """
+                    Hello,
 
-                %s invited you to join the %s certification review on REBYU.
+                    %s invited you to join %d certification reviews on REBYU:
+                    %s
+                    One link accepts all of them:
+                    %s
 
-                Accept your invitation here:
-                %s
+                    This invitation link will expire in 14 days.
+                    Please do not share this link with anyone else.
 
-                This invitation link will expire in 7 days.
-                Please do not share this link with anyone else.
+                    REBYU Team
+                    """.formatted(institutionName, certificationTitles.size(), list, invitationLink);
+            intro = "<p><b>" + escape(institutionName) + "</b> invited you to join "
+                    + certificationTitles.size() + " certification reviews on REBYU:</p>"
+                    + "<ul>" + items + "</ul>"
+                    + "<p>One click accepts all of them.</p>";
+        } else {
+            String title = certificationTitles.get(0);
+            subject = "You're invited to join " + title + " on REBYU";
+            text = """
+                    Hello,
 
-                REBYU Team
-                """.formatted(
-                institutionName,
-                certificationTitle,
-                invitationLink
-        );
+                    %s invited you to join the %s certification review on REBYU.
+
+                    Accept your invitation here:
+                    %s
+
+                    This invitation link will expire in 14 days.
+                    Please do not share this link with anyone else.
+
+                    REBYU Team
+                    """.formatted(institutionName, title, invitationLink);
+            intro = "<p><b>" + escape(institutionName) + "</b> invited you to join the <b>" + escape(title)
+                    + "</b> certification review on REBYU.</p>";
+        }
         String html = frame("<p>Hello,</p>"
-                + "<p><b>" + escape(institutionName) + "</b> invited you to join the <b>" + escape(certificationTitle)
-                + "</b> certification review on REBYU.</p>"
-                + "<p><a href=\"" + invitationLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">Accept invitation</a></p>"
-                + "<p style=\"font-size:12px;color:#6b706c\">This link expires in 7 days. Please do not share it.</p>");
+                + intro
+                + "<p><a href=\"" + invitationLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">"
+                + (several ? "Accept all invitations" : "Accept invitation") + "</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">This link expires in 14 days. Please do not share it.</p>");
         sendHtml(recipientEmail, subject, text, html);
     }
 

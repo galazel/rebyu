@@ -39,7 +39,7 @@ export default function VerifyEmailPage() {
     setPending(true)
     try {
       await confirmRegistration(email.trim(), value)
-      toast.success("Email verified. You can sign in now.")
+      toast.success("Account created. Your email is verified, so you can sign in now.")
       navigate("/login", { replace: true })
     } catch (err) {
       setError(toSafeAuthMessage(err))

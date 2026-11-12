@@ -75,11 +75,11 @@ public class InstitutionSectionController {
         // Two grouped counts for every section, not two queries per section.
         List<Long> ids = active.stream().map(InstitutionSection::getSectionId).toList();
         java.util.Map<Long, Long> learners = countsBySection(
-                "select a.section.sectionId, count(a) from DepartmentLearner a "
+                "select a.section.sectionId, count(distinct a.institutionCertLearner.learner.learnerId) from DepartmentLearner a "
                         + "where a.section.sectionId in :ids and a.status = :st group by a.section.sectionId",
                 ids, DepartmentLearner.Status.active);
         java.util.Map<Long, Long> pending = countsBySection(
-                "select i.section.sectionId, count(i) from LearnerInvitation i "
+                "select i.section.sectionId, count(distinct lower(i.email)) from LearnerInvitation i "
                         + "where i.section.sectionId in :ids and i.status = :st group by i.section.sectionId",
                 ids, LearnerInvitation.Status.PENDING);
 
@@ -227,12 +227,12 @@ public class InstitutionSectionController {
 
     private SectionDto toDto(InstitutionSection s) {
         long learners = entityManager.createQuery(
-                        "select count(a) from DepartmentLearner a where a.section.sectionId = :id and a.status = :st", Long.class)
+                        "select count(distinct a.institutionCertLearner.learner.learnerId) from DepartmentLearner a where a.section.sectionId = :id and a.status = :st", Long.class)
                 .setParameter("id", s.getSectionId())
                 .setParameter("st", DepartmentLearner.Status.active)
                 .getSingleResult();
         long pending = entityManager.createQuery(
-                        "select count(i) from LearnerInvitation i where i.section.sectionId = :id and i.status = :st", Long.class)
+                        "select count(distinct lower(i.email)) from LearnerInvitation i where i.section.sectionId = :id and i.status = :st", Long.class)
                 .setParameter("id", s.getSectionId())
                 .setParameter("st", LearnerInvitation.Status.PENDING)
                 .getSingleResult();

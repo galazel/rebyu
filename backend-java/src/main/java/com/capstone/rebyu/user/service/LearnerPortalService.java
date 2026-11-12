@@ -167,6 +167,13 @@ public class LearnerPortalService {
 
     private record CachedPortal(LearnerPortalDto value, long expiresAt) {}
 
+    /** Drops a learner's cached portal so a change they just made (an accepted invitation) shows at once. */
+    public static void evict(Long learnerId) {
+        if (learnerId == null) return;
+        String prefix = learnerId + ":";
+        HOT_CACHE.keySet().removeIf(key -> key.startsWith(prefix));
+    }
+
     static void clearHotCacheForTests() {
         HOT_CACHE.clear();
     }

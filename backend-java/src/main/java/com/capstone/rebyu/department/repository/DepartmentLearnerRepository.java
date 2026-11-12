@@ -26,6 +26,9 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
     List<DepartmentLearner> findWithLinksByDepartmentId(
             @org.springframework.data.repository.query.Param("departmentId") Long departmentId);
 
+    List<DepartmentLearner> findByInstitutionCertLearner_Learner_User_EmailIgnoreCaseAndStatus(
+            String email, DepartmentLearner.Status status);
+
     List<DepartmentLearner> findByInstitutionCertLearner_Learner_LearnerIdAndStatus(
             Long learnerId, DepartmentLearner.Status status);
 

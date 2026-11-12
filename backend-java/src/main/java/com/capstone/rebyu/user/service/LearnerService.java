@@ -231,14 +231,111 @@ public class LearnerService {
                     "You already belong to " + otherSchool.get() + ". A learner can only belong to one school.");
         }
 
-        var previous = institutionCertificationLearnerRepository
-                .findFirstByInstitutionCertAndLearner(institutionCert, learner);
-        if (previous.isPresent() && previous.get().getStatus() != InstitutionCertificationLearner.Status.revoked) {
+        Department target = invitation.getDepartment();
+        if (target != null) {
+            Long targetSection = invitation.getSection() == null ? null : invitation.getSection().getSectionId();
+            for (DepartmentLearner membership : departmentLearnerRepository
+                    .findByInstitutionCertLearner_Learner_LearnerIdAndStatus(learner.getLearnerId(), DepartmentLearner.Status.active)) {
+                Department current = membership.getDepartment();
+                Long currentSection = membership.getSection() == null ? null : membership.getSection().getSectionId();
+                if (current != null && (!current.getDepartmentId().equals(target.getDepartmentId())
+                        || !java.util.Objects.equals(currentSection, targetSection))) {
+                    String where = current.getDepartmentName()
+                            + (membership.getSection() == null ? "" : ", " + membership.getSection().getSectionName());
+                    throw new InvitationAcceptanceException(
+                            InvitationAcceptanceException.Code.ALREADY_ENROLLED,
+                            "You are already in " + where + ". A learner belongs to one department and section; "
+                                    + "ask your school to move you instead.");
+                }
+            }
+        }
+
+        if (alreadyEnrolled(institutionCert, learner)) {
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.ALREADY_ENROLLED,
                     "You already have access to this certification.");
         }
 
+        InstitutionCertificationLearner enrollment = enroll(invitation, learner);
+
+        // A program's section covers several certifications: one email, one link, and the
+        // learner's other pending invitations to the same section are accepted with it.
+        for (LearnerInvitation sibling : siblingsOf(invitation)) {
+            if (alreadyEnrolled(sibling.getInstitutionCert(), learner)) {
+                markAccepted(sibling, learner);
+                continue;
+            }
+            enroll(sibling, learner);
+        }
+
+        Department group = invitation.getDepartment();
+        if (group != null && invitation.getInvitedBy() != null) {
+            notificationService.notify(
+                    invitation.getInvitedBy(),
+                    "Invitation accepted",
+                    displayNameFor(learner, invitation)
+                            + " accepted your invitation to " + group.getDepartmentName() + ".",
+                    "/institution/departments/" + group.getDepartmentId() + "?tab=learners");
+        }
+
+        boolean learnerChanged = false;
+        if (isBlank(learner.getFirstName()) && !isBlank(invitation.getFirstName())) {
+            learner.setFirstName(invitation.getFirstName().trim());
+            learnerChanged = true;
+        }
+        if (isBlank(learner.getLastName()) && !isBlank(invitation.getLastName())) {
+            learner.setLastName(invitation.getLastName().trim());
+            learnerChanged = true;
+        }
+        if (learnerChanged) {
+            learnerRepository.save(learner);
+        }
+
+        LearnerPortalService.evict(learner.getLearnerId());
+
+        log.info("Learner {} accepted invitation {} for certification {}",
+                learner.getLearnerId(), invitation.getInvitationId(),
+                institutionCert.getCertification().getCertificationId());
+
+        return new AcceptInvitationResponse(
+                "Invitation accepted successfully.",
+                institutionCert.getCertification().getCertificationId(),
+                institutionCert.getCertification().getTitle(),
+                enrollment.getInstitutionCertLearnerId());
+    }
+
+    /** The learner's other live invitations sent together with this one: same department and section. */
+    private List<LearnerInvitation> siblingsOf(LearnerInvitation invitation) {
+        if (invitation.getDepartment() == null) {
+            return List.of();
+        }
+        Long departmentId = invitation.getDepartment().getDepartmentId();
+        Long sectionId = invitation.getSection() == null ? null : invitation.getSection().getSectionId();
+        LocalDateTime now = LocalDateTime.now();
+        return learnerInvitationRepository
+                .findByEmailIgnoreCaseAndStatusOrderBySentAtDesc(invitation.getEmail(), LearnerInvitation.Status.PENDING)
+                .stream()
+                .filter(other -> !other.getInvitationId().equals(invitation.getInvitationId()))
+                .filter(other -> other.getInstitutionCert() != null && other.getDepartment() != null
+                        && departmentId.equals(other.getDepartment().getDepartmentId()))
+                .filter(other -> java.util.Objects.equals(sectionId,
+                        other.getSection() == null ? null : other.getSection().getSectionId()))
+                .filter(other -> other.getExpiresAt() == null || !other.getExpiresAt().isBefore(now))
+                .toList();
+    }
+
+    private boolean alreadyEnrolled(InstitutionCertificate institutionCert, Learner learner) {
+        return institutionCertificationLearnerRepository
+                .findFirstByInstitutionCertAndLearner(institutionCert, learner)
+                .filter(row -> row.getStatus() != InstitutionCertificationLearner.Status.revoked)
+                .isPresent();
+    }
+
+    /** Enrols the learner in the invitation's certification, places them in its department, marks it accepted. */
+    private InstitutionCertificationLearner enroll(LearnerInvitation invitation, Learner learner) {
+        InstitutionCertificate institutionCert = invitation.getInstitutionCert();
+        var previous = institutionCertificationLearnerRepository
+                .findFirstByInstitutionCertAndLearner(institutionCert, learner);
         // A learner the institution removed earlier is re-admitted on their old enrolment row.
         InstitutionCertificationLearner enrollment = previous
                 .map(row -> {
@@ -281,43 +378,17 @@ public class LearnerService {
             departmentLearnerRepository.save(assignee);
             log.info("Learner {} placed into group {} via invitation {}",
                     learner.getLearnerId(), group.getDepartmentId(), invitation.getInvitationId());
-
-            notificationService.notify(
-                    invitation.getInvitedBy(),
-                    "Invitation accepted",
-                    displayNameFor(learner, invitation)
-                            + " accepted your invitation to " + group.getDepartmentName() + ".",
-                    "/institution/departments/" + group.getDepartmentId() + "?tab=learners");
         }
 
-        boolean learnerChanged = false;
-        if (isBlank(learner.getFirstName()) && !isBlank(invitation.getFirstName())) {
-            learner.setFirstName(invitation.getFirstName().trim());
-            learnerChanged = true;
-        }
-        if (isBlank(learner.getLastName()) && !isBlank(invitation.getLastName())) {
-            learner.setLastName(invitation.getLastName().trim());
-            learnerChanged = true;
-        }
-        if (learnerChanged) {
-            learnerRepository.save(learner);
-        }
+        markAccepted(invitation, learner);
+        return enrollment;
+    }
 
+    private void markAccepted(LearnerInvitation invitation, Learner learner) {
         invitation.setLearner(learner);
         invitation.setAcceptedAt(LocalDateTime.now());
         invitation.setStatus(LearnerInvitation.Status.ACCEPTED);
         learnerInvitationRepository.save(invitation);
-
-
-        log.info("Learner {} accepted invitation {} for certification {}",
-                learner.getLearnerId(), invitation.getInvitationId(),
-                institutionCert.getCertification().getCertificationId());
-
-        return new AcceptInvitationResponse(
-                "Invitation accepted successfully.",
-                institutionCert.getCertification().getCertificationId(),
-                institutionCert.getCertification().getTitle(),
-                enrollment.getInstitutionCertLearnerId());
     }
 
     /**

@@ -49,10 +49,16 @@ export function getInstitutionCertificationAccess(institutionId) {
   return base(`institution/certification-access?institutionId=${institutionId}`)
 }
 
-export function sendInstitutionInvitations({ departmentId, learners, sectionId = null, institutionCertId = null }) {
+export function sendInstitutionInvitations({
+  departmentId,
+  learners,
+  sectionId = null,
+  institutionCertId = null,
+  institutionCertIds = null,
+}) {
   return base("institution/invitations", {
     method: "POST",
-    data: { departmentId, learners, sectionId, institutionCertId },
+    data: { departmentId, learners, sectionId, institutionCertId, institutionCertIds },
   })
 }
 

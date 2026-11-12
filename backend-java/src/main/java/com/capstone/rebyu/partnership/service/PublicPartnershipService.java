@@ -43,6 +43,7 @@ public class PublicPartnershipService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
+    private final com.capstone.rebyu.auth.service.AccountRoleGuard accountRoles;
 
     @Transactional
     public PublicPartnershipRequestResponse submit(SubmitPublicPartnershipRequest request) {
@@ -54,6 +55,8 @@ public class PublicPartnershipService {
         String email = request.institutionEmail().trim().toLowerCase(Locale.ROOT);
         String institutionName = request.institutionName().trim();
         LocalDateTime now = LocalDateTime.now();
+
+        accountRoles.requireFreeFor(email, com.capstone.rebyu.auth.service.CognitoAuthService.INSTITUTION_USER_TYPE);
 
         String idempotencyKey = computeIdempotencyKey(email, institutionName, now);
         Optional<PartnershipRequest> existingByKey = requestRepository.findByIdempotencyKey(idempotencyKey);
