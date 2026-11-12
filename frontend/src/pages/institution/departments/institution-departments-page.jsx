@@ -45,6 +45,7 @@ import {
   DepartmentsSidebar,
 } from "@/components/institution/departments-sidebar.jsx"
 import { DepartmentProgramsPanel } from "@/components/institution/department-programs-panel.jsx"
+import { DepartmentProgramsEditor } from "@/components/institution/department-programs-editor.jsx"
 import { useMyDepartments } from "@/hooks/use-my-department.js"
 import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
@@ -300,6 +301,8 @@ export function ManageGroupDialog({
               </p>
             </div>
           ) : null}
+
+          {isOwner ? <DepartmentProgramsEditor department={group} /> : null}
 
           <div className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-card">
             <div>
