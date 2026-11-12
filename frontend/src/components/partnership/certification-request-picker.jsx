@@ -4,7 +4,7 @@ import { Check, ChevronDown, GraduationCap } from "@/components/icons"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { CATALOG_CERTIFICATIONS } from "@/constants/certifications-catalog.js"
-import { getAllCertifications } from "@/services/certificationService.js"
+import { getPublicCertificationCatalog } from "@/services/certificationService.js"
 import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 
 const OTHER_PROGRAM = "other"
@@ -19,8 +19,8 @@ function normalizeTitle(title) {
  */
 export function useRequestCatalog() {
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "request-access"],
-    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true, summary: true }),
+    queryKey: ["certifications", "public-catalog"],
+    queryFn: getPublicCertificationCatalog,
     staleTime: 5 * 60 * 1000,
   })
   const programsQuery = useReferenceDetails(REFERENCE_PROGRAM)

@@ -3,7 +3,6 @@ package com.capstone.rebyu.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -41,28 +40,88 @@ public class SecurityConfig {
                         .addHeaderWriter(new HstsHeaderWriter())
                 )
                 .authorizeHttpRequests(authorize -> authorize
-                        // ---- Public: the only endpoints an anonymous caller may reach ----
-                        // CORS preflight carries no token.
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Health check (Railway) and Spring's error dispatch, so a failing
-                        // public request reports its real status rather than 401.
-                        .requestMatchers(HttpMethod.GET, "/").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
-                        // Pre-login flows: sign-in state, partnership request/pricing/status/
-                        // registration lookup, department-head code lookup, reference options.
-                        .requestMatchers("/api/public/**").permitAll()
-                        // PayMongo calls this server-to-server; the controller verifies the signature.
-                        .requestMatchers(HttpMethod.POST, "/api/webhooks/paymongo").permitAll()
-                        // Badge images are loaded by plain <img src> and embedded in emails,
-                        // neither of which can send a bearer token.
-                        .requestMatchers(HttpMethod.GET, "/api/certifications/*/badge").permitAll()
-
-                        // ---- Everything else needs a signed-in user ----
-                        // Role checks happen in RoleGuard inside each controller/service
-                        // (@PreAuthorize is inert: method security is off).
+                        .requestMatchers("/api/auth/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,
+                                "/api/learners/accept-invitation").authenticated()
+                        .requestMatchers("/api/learners/me/**").authenticated()
+                        .requestMatchers("/api/admin/partnership-requests/**").authenticated()
+                        .requestMatchers("/api/departments/**").authenticated()
+                        .requestMatchers("/api/onboarding/**").authenticated()
+                        .requestMatchers("/api/department-head-assignments/**").authenticated()
+                        .requestMatchers("/api/department-learners/**").authenticated()
+                        .requestMatchers("/api/institution/invitations/**").authenticated()
+                        .requestMatchers("/api/institution/certification-access").authenticated()
+                        .requestMatchers("/api/institution/partnership-requests/**").authenticated()
+                        .requestMatchers("/api/institution/me/**").authenticated()
+                        .requestMatchers("/api/institution/license", "/api/institution/license/**",
+                                "/api/institution/entitlements").authenticated()
+                        .requestMatchers("/api/learners/me/portal").authenticated()
+                        .requestMatchers("/api/institution-certificates/**").authenticated()
+                        .requestMatchers("/api/institution-certification-learners/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/exam-results/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users", "/api/users/*").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,
+                                "/api/learner-certifications", "/api/learner-certifications/*").authenticated()
+                        .requestMatchers("/api/learners", "/api/learners/*").authenticated()
+                        .requestMatchers("/api/institutions/**").authenticated()
+                        .requestMatchers("/api/department-heads/**").authenticated()
+                        .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/api/learner-achievements/**").authenticated()
+                        .requestMatchers("/api/study-plans/**").authenticated()
+                        .requestMatchers("/api/recall-sessions/**").authenticated()
+                        .requestMatchers("/api/review-sessions/**").authenticated()
+                        .requestMatchers("/api/study-desk/**").authenticated()
+                        .requestMatchers("/api/learner/analytics/**").authenticated()
+                        .requestMatchers("/api/learner/**").authenticated()
+                        .requestMatchers("/api/partnership-requests/**").authenticated()
+                        .requestMatchers("/api/partnership-request-items/**").authenticated()
                         .requestMatchers("/api/admin/**").authenticated()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/user-types", "/api/user-types/**").authenticated()
+                        .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
+                        .requestMatchers("/api/admin/reference/**").authenticated()
+                        .requestMatchers("/api/admin/community/reports/**").authenticated()
+                        .requestMatchers("/api/community/**").authenticated()
+                        .requestMatchers("/api/ai/tutor", "/api/ai/tutor/**").authenticated()
+                        .requestMatchers("/api/ai/past-papers/**").authenticated()
+                        .requestMatchers("/api/ai/workflows/**").authenticated()
+                        .requestMatchers("/api/bkt/**").authenticated()
+                        .requestMatchers("/api/streaks/**").authenticated()
+                        .requestMatchers("/api/notification-preferences/**").authenticated()
+                        .requestMatchers("/api/ai/**").authenticated()
+                        .requestMatchers("/api/learner-orders/**", "/api/learner-order-details/**").authenticated()
+                        .requestMatchers("/api/learner-completed-lessons/**").authenticated()
+                        .requestMatchers("/api/learner-invitations/**").authenticated()
+                        .requestMatchers("/api/exam-questions/**", "/api/exam-types/**").authenticated()
+                        .requestMatchers("/api/achievements/**", "/api/leaderboards/**").authenticated()
+                        .requestMatchers("/api/learner-practice/**", "/api/learner-tools/**").authenticated()
+                        .requestMatchers("/api/dashboard-layout/**", "/api/gamification/**").authenticated()
+                        .requestMatchers("/api/subscription/**").authenticated()
+                        .requestMatchers("/api/institution/files/**").authenticated()
+                        .requestMatchers("/api/admin/subscriptions/**", "/api/admin/subscriptions").authenticated()
+                        .requestMatchers("/api/questions/**").authenticated()
+                        .requestMatchers("/api/choices/**").authenticated()
+                        .requestMatchers("/api/text-question-configs/**").authenticated()
+                        .requestMatchers("/api/programming-question-configs/**").authenticated()
+                        .requestMatchers("/api/diagram-question-configs/**").authenticated()
+                        .requestMatchers("/api/exams", "/api/exams/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,
+                                "/api/certifications", "/api/certifications/generate",
+                                "/api/major-categories", "/api/middle-categories", "/api/lessons").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT,
+                                "/api/certifications/**", "/api/major-categories/**",
+                                "/api/middle-categories/**", "/api/lessons/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE,
+                                "/api/certifications/**", "/api/major-categories/**",
+                                "/api/middle-categories/**", "/api/lessons/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE,
+                                "/api/files").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST,
+                                "/api/files/upload", "/api/files/upload/certification",
+                                "/api/files/upload/question-image").authenticated()
+                        .requestMatchers("/api/challenges/**").authenticated()
+                        .requestMatchers("/api/challenge-arenas/**").authenticated()
+                        .requestMatchers("/api/worldcup/**").authenticated()
+                        .anyRequest().permitAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();

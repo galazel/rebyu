@@ -19,6 +19,11 @@ export async function getAllCertifications(
     return await base(query ? `certifications?${query}` : "certifications")
 }
 
+/** Published and coming-soon certifications, readable without signing in (request-access form). */
+export async function getPublicCertificationCatalog() {
+    return await base("public/certifications")
+}
+
 export async function addCertification(data) {
     return await base("certifications", {
         data,
