@@ -88,7 +88,7 @@ def apply(session, path: Path) -> None:
         if set(given) != {r.choice_id for r in rows}:
             refused.append((qid, "choice ids do not match the question"))
             continue
-        marked = {cid for cid, c in given.items() if c["why"].strip().lower().startswith("correct")}
+        marked = {cid for cid, c in given.items() if c["why"].strip().lower().startswith("correct:")}
         if marked != {r.choice_id for r in rows if r.is_correct}:
             refused.append((qid, "the explanation marked 'Correct' is not on the correct option"))
             continue
