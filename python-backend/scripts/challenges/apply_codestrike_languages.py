@@ -25,11 +25,6 @@ NOTES = {
         "of days, the second one row with the path. SQLite prints each result row on its own line, "
         "so those two rows are your two output lines."
     ),
-    "PSEUDOCODE": (
-        "Language: Pseudocode. Write the algorithm in the pseudocode style of the starter (arrays "
-        "indexed from 1). Pseudocode cannot be executed, so your answer is marked by AI: it must be "
-        "a complete algorithm that, followed step by step, prints exactly the expected output."
-    ),
 }
 
 RENAMES = {1: [("`plan_rooms(meetings)`", "`planRooms(meetings)`")]}

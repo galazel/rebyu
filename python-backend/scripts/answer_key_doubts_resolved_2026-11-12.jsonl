@@ -5,3 +5,7 @@
 {"question_id": 23485, "doubt": "Arithmetic right shift by 3 of 0101 1100 (92) is 0000 1011 (11); marked answer 0001 0111 (23) is a shift by 2, and no option is correct. Not explained until fixed."}
 {"question_id": [23434, 23435, 23436], "doubt": "Keyboard-mash test questions (fsda/fasd). Should be deleted, not explained."}
 {"resolved": "23496, 23485, 381, 387 keys/wording fixed; 23434-23436 replaced with real lesson-1 questions; 68 judged correct (variants already accepted)"}
+{"question_id": 23392, "fixed": "break-even key 3000 -> 2000"}
+{"question_id": 23360, "fixed": "Lq option 1.25 -> 3.2"}
+{"question_id": 23358, "fixed": "option 0.0495 -> 0.0490"}
+{"question_id": 23398, "fixed": "stem reworded; patent also needs registration"}

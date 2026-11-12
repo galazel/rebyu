@@ -33,7 +33,6 @@ export const PROGRAMMING_LANGUAGES = [
   "C++",
   "C#",
   "SQL",
-  "Pseudocode",
 ]
 
 function getLanguageExtension(language) {

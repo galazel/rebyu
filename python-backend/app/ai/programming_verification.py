@@ -52,10 +52,6 @@ async def verify_programming_questions(questions: list) -> list:
             else:
                 _append_rules(question)
             continue
-        # Pseudocode cannot run: its reference_solution is the same algorithm in Python,
-        # and what that prints is the answer a learner's pseudocode is marked against.
-        if language.upper() == "PSEUDOCODE":
-            language = "PYTHON"
         try:
             results = await run_tests(question.reference_solution or "", [""], language)
         except CodeRunnerUnavailable:

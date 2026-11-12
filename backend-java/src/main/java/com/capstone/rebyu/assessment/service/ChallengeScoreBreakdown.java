@@ -159,7 +159,7 @@ final class ChallengeScoreBreakdown {
         }
         if (anyAi) {
             parts.add(new ScoreComponentDto("ai", "AI-marked code", null, null, round(aiPts),
-                    "Code that could not be run (for example pseudocode) was marked by AI against the "
+                    "Code that could not be run was marked by AI against the "
                             + "expected output; speed and efficiency do not apply to it."));
         }
         return parts;

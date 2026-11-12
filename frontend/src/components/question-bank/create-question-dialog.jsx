@@ -74,7 +74,6 @@ const PROGRAMMING_LANGUAGES = [
     "C++",
     "C#",
     "SQL",
-    "Pseudocode",
 ]
 
 export default function CreateQuestionDialog({

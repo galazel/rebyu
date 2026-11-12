@@ -37,9 +37,9 @@ MIN_EXPLANATION_CHARS = 20
 
 # Every language the learner's editor offers. SQL is never run for the learner: the
 # question gives tables (starter_code) and the learner's statement is compared with the
-# correct statement (reference_solution, stored as expected_output). PSEUDOCODE cannot
-# run, so its reference_solution is Python and learners are marked by AI.
-PROGRAMMING_LANGUAGES = ("PYTHON", "JAVA", "JAVASCRIPT", "C", "C++", "C#", "SQL", "PSEUDOCODE")
+# correct statement (reference_solution, stored as expected_output). Pseudocode is not
+# offered: it can be neither run nor compared.
+PROGRAMMING_LANGUAGES = ("PYTHON", "JAVA", "JAVASCRIPT", "C", "C++", "C#", "SQL")
 
 DIAGRAM_TYPES: tuple[str, ...] = (
     "ACTIVITY_DIAGRAM",
@@ -105,6 +105,30 @@ def normalize_diagram_type(value: str | None) -> str | None:
 
 
 MIN_CHOICE_EXPLANATION_CHARS = 15
+
+# The correct option must not give itself away by being the longest. Measured on the
+# stored bank (2026-11-12): the right answer was the longest option in 69% of TOPCIT
+# MCQs, so "pick the longest" passed the paper. Allowed slack: 30% and 15 characters.
+LENGTH_GIVEAWAY_RATIO = 1.3
+LENGTH_GIVEAWAY_CHARS = 15
+
+
+def length_giveaway(choices: list[str], correct: set[int]) -> str | None:
+    """Why the correct option(s) stand out by length, or None when they do not."""
+    right = [len(c.strip()) for i, c in enumerate(choices) if i in correct]
+    wrong = [len(c.strip()) for i, c in enumerate(choices) if i not in correct]
+    if not right or not wrong:
+        return None
+    if len(right) == 1:
+        top, rival = right[0], max(wrong)
+    else:
+        top, rival = sum(right) / len(right), sum(wrong) / len(wrong)
+    if top > LENGTH_GIVEAWAY_RATIO * rival and top - rival >= LENGTH_GIVEAWAY_CHARS:
+        return (f"the correct option is much longer than the others ({int(top)} vs {int(rival)} "
+                "characters), so a learner can pick it without knowing the answer. Make every option "
+                "a similar length and level of detail: lengthen the distractors with plausible, "
+                "specific misconceptions, or tighten the correct option")
+    return None
 
 _OPEN_ENDED_PHRASES = (
     "importance of",
@@ -330,6 +354,9 @@ class QuestionDraft(BaseModel):
                 )
             if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
                 raise ValueError("MCQ choices must be distinct")
+            giveaway = length_giveaway(self.choices, {self.correct_choice_index})
+            if giveaway:
+                raise ValueError(f"MCQ: {giveaway}")
 
         elif self.question_type == "MULTIPLE_ANSWER":
             if not MULTI_MIN_CHOICES <= len(self.choices) <= MULTI_MAX_CHOICES:
@@ -352,6 +379,9 @@ class QuestionDraft(BaseModel):
                 )
             if len({choice.strip().lower() for choice in self.choices}) != len(self.choices):
                 raise ValueError("MULTIPLE_ANSWER choices must be distinct")
+            giveaway = length_giveaway(self.choices, set(indices))
+            if giveaway:
+                raise ValueError(f"MULTIPLE_ANSWER: {giveaway}")
             self.correct_choice_indices = indices
             self.correct_choice_index = None
 
@@ -397,8 +427,7 @@ class QuestionDraft(BaseModel):
                 # The answer to a SQL item is the statement itself; verification checks it
                 # against the tables and drops the item when either is unusable.
                 self.expected_output = solution
-            if lang in ("PYTHON", "PSEUDOCODE"):
-                # Pseudocode is checked through its Python reference solution.
+            if lang == "PYTHON":
                 try:
                     ast.parse(solution)
                 except SyntaxError as error:
@@ -492,8 +521,8 @@ class QuestionBatch(BaseModel):
         """Three or more coding items in one batch must not all be in one language.
 
         Left to itself the model writes nearly every coding task in Python, while
-        the learner's editor -- and the real papers -- cover Java, C, SQL,
-        pseudocode and more. Rejecting a single-language batch resamples it.
+        the learner's editor -- and the real papers -- cover Java, C, SQL
+        and more. Rejecting a single-language batch resamples it.
         """
         languages = [q.programming_language for q in self.questions if q.question_type == "PROGRAMMING"]
         if len(languages) >= 3 and len(set(languages)) < 2:

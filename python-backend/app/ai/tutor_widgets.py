@@ -29,7 +29,7 @@ MAX_QUIZ_QUESTIONS = 20
 
 class QuizQuestion(BaseModel):
     question: str = Field(description="The question stem.")
-    options: list[str] = Field(description="2-6 answer choices.")
+    options: list[str] = Field(description="2-6 answer choices of similar length and detail; the correct one must never be the longest or most detailed, and every wrong one is a real misconception.")
     correct_index: int = Field(description="0-based index of the correct option.")
     explanation: str = Field(default="", description="One sentence on why the answer is right.")
     option_explanations: list[str] = Field(

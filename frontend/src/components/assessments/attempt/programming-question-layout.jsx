@@ -14,7 +14,7 @@ import ExecutionHistoryPanel from "./execution-history-panel.jsx"
 import SqlTables from "./sql-tables.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 
-/** The stored language (PYTHON, SQL, PSEUDOCODE...) as the editor's dropdown label. */
+/** The stored language (PYTHON, SQL...) as the editor's dropdown label. */
 function editorLanguage(stored) {
   const key = String(stored ?? "").trim().toUpperCase()
   return PROGRAMMING_LANGUAGES.find((label) => label.toUpperCase() === key) ?? "Java"
@@ -44,6 +44,7 @@ export default function ProgrammingQuestionLayout({
   const language = isSql ? "SQL" : answer?.programmingLanguage ?? editorLanguage(question.programmingLanguage)
   // Until the learner types, the editor holds the starter code -- which carries the problem's data.
   const code = isSql ? answer?.submittedCode ?? "" : answer?.submittedCode ?? question.starterCode ?? ""
+  const canRun = !isSql
   const subQuestions = question.subQuestions ?? []
 
   useEffect(() => {
@@ -147,11 +148,11 @@ export default function ProgrammingQuestionLayout({
           placeholder={isSql ? "-- Write your SQL statement here" : undefined}
           onChange={(next) => onAnswer({ submittedCode: next, programmingLanguage: language })}
           onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
-          actions={isSql ? null : runKey}
+          actions={canRun ? runKey : null}
         />
       </div>
 
-      {output && !isSql ? (
+      {output && canRun ? (
         <div className="shrink-0 overflow-hidden rounded-2xl bg-[#22302a] text-[#e6eee8] shadow-inner">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
             <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white/70">
@@ -213,7 +214,7 @@ export default function ProgrammingQuestionLayout({
       tabs={[
         { id: "problem", label: "Problem", icon: FileText },
         { id: "workspace", label: "Code", icon: Code2 },
-        { id: "side", label: isSql ? "Marking" : "Runs", icon: isSql ? InfoIcon : HistoryIcon },
+        { id: "side", label: canRun ? "Runs" : "Marking", icon: canRun ? HistoryIcon : InfoIcon },
       ]}
       problem={problem}
       workspace={workspace}

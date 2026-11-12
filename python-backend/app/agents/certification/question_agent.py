@@ -46,6 +46,20 @@ can have seen the answer without understanding anything.
 
 Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
 
+NO GIVEAWAYS. A learner who knows nothing must have nothing to go on:
+- All options are the same kind of thing at the same level of detail and roughly the
+  same length. The correct option is NEVER noticeably the longest, the most qualified
+  or the most carefully worded -- a batch where it is will be rejected. Give every
+  distractor the same specificity (numbers, conditions, a "because" clause) instead of
+  stripping the correct option bare.
+- Every distractor is a real misconception that a partly-informed learner would pick:
+  a neighbouring concept, a reversed relationship, a classic calculation slip, a
+  correct statement that does not answer THIS question. Never filler such as
+  "None of the above", "Random targets" or an obviously silly option.
+- No grammatical or wording clues: options must all fit the stem, and must not repeat
+  the stem's keywords only in the correct one.
+- Prefer stems that make the learner apply, compare or calculate over pure definition.
+
 EVERY QUESTION EXPLAINS BOTH SIDES. A learner reads this after answering, right or
 wrong, so it must teach:
 - `explanation`: STATE the correct answer and the reason or fact behind it. Never
@@ -237,20 +251,21 @@ smaller artifacts, not easier thinking.
   prints is compared with expected_output (trailing whitespace ignored).
   SQL is the exception -- see "SQL items" below: nothing is run, the learner's
   statement is compared with the correct statement.
-  Supported languages: Python, Java, JavaScript, C, C++, C#, SQL and
-  Pseudocode -- the same list the learner's editor offers. SPREAD THEM: across
+  Supported languages: Python, Java, JavaScript, C, C++, C# and SQL -- the
+  same list the learner's editor offers. Never Pseudocode: it cannot be run
+  or compared, so an algorithm question is set in a real language. SPREAD THEM: across
   a batch use several different languages, never only Python, and pick the one
   the problem and the certification call for:
     - SQL whenever the lesson covers databases, queries, joins, grouping,
       transactions or normalisation;
-    - Pseudocode whenever the certification examines algorithms in pseudocode
-      (FE exam, TOPCIT, IT Passport) -- traces, searching, sorting, recursion;
+    - for algorithms (searching, sorting, recursion, traces), a real language
+      such as Python, Java or C -- never pseudocode;
     - C or C++ for memory, pointers, bit operations and low-level structures;
     - Java or C# for object-oriented design and collections;
     - JavaScript for web, JSON and event handling; Python for data processing.
 
     * programming_language -- one of: Python, Java, JavaScript, C, C++, C#,
-      SQL, Pseudocode.
+      SQL.
     * SQL items are answered by ONE SQL statement that the learner writes and
       CANNOT run. The learner is shown the tables and asked for the statement;
       on submit their statement is compared with the correct one (same result
@@ -292,12 +307,6 @@ smaller artifacts, not easier thinking.
           tables and is stored as the answer key; it is never shown before
           submission.
         - expected_output: the same statement as reference_solution.
-    * Pseudocode items: write the problem in the certification's pseudocode
-      style (declarations, if/else/endif, while/endwhile, for/endfor, arrays
-      from 1 unless stated). starter_code is a pseudocode skeleton with the
-      data. reference_solution MUST be a Python program implementing exactly the
-      same algorithm on the same data -- it is run to obtain the expected output,
-      and the learner's pseudocode is marked by AI against that output.
     * rules -- one paragraph stating EXACTLY what the program prints: line
       layout, labels and wording, separators, number formats and rounding,
       ordering and tie-breaking, what to print for an invalid record. The

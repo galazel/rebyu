@@ -65,3 +65,14 @@ def test_persisted_explanation_carries_the_common_mistake():
     from app.services.assessment_persistence import _full_explanation
     text = _full_explanation({"explanation": "Right because X.", "common_mistake": "Y is wrong because Z."})
     assert text == "Right because X.\n\nCommon mistake: Y is wrong because Z."
+
+
+def test_correct_option_that_gives_itself_away_by_length_is_rejected():
+    from app.schemas.certification.question_schema import length_giveaway
+    long_right = ["Primary key", "Index", "View",
+                  "A column or set of columns that uniquely identifies every row in a table"]
+    assert length_giveaway(long_right, {3})
+    parallel = ["A key that uniquely identifies each row", "A key that points at another table's row",
+                "A structure that speeds up row lookups", "A stored query presented as a table"]
+    assert length_giveaway(parallel, {0}) is None
+    assert length_giveaway(["4", "16", "256", "8"], {2}) is None   # short numbers are never giveaways

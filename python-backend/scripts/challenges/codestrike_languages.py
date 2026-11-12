@@ -1,7 +1,10 @@
 """CodeStrike in eight languages: each live problem keeps its data and its answer,
 but is posed in a different language from the learner editor.
 
-    1 JavaScript  2 Java  3 C  4 C++  5 SQL  6 Pseudocode  7 C#  8 Python  9 Java
+    1 JavaScript  2 Java  3 C  4 C++  5 SQL  6 Python  7 C#  8 Python  9 Java
+
+Problem 6 was Pseudocode until 2026-11-12; pseudocode is no longer a question language
+(remove_pseudocode.py), so it stays Python like problem 8.
 
 `build(problem_number, live_starter)` returns (language, starter_code, reference) with
 the data lifted out of the live Python starter, so data and expected output stay
@@ -12,7 +15,7 @@ from __future__ import annotations
 
 import json
 
-LANGUAGE = {1: "JAVASCRIPT", 2: "JAVA", 3: "C", 4: "C++", 5: "SQL", 6: "PSEUDOCODE", 7: "C#", 8: "PYTHON", 9: "JAVA"}
+LANGUAGE = {1: "JAVASCRIPT", 2: "JAVA", 3: "C", 4: "C++", 5: "SQL", 6: "PYTHON", 7: "C#", 8: "PYTHON", 9: "JAVA"}
 LABEL = {"JAVASCRIPT": "JavaScript", "JAVA": "Java", "C": "C", "C++": "C++", "SQL": "SQL",
          "PSEUDOCODE": "Pseudocode", "C#": "C#", "PYTHON": "Python"}
 
@@ -518,7 +521,7 @@ BUILDERS = {1: p1, 2: p2, 3: p3, 4: p4, 5: p5, 6: p6, 7: p7, 9: p9}
 
 def build(number: int, live_starter: str):
     """(language, starter, reference). Problem 8 stays Python and is returned unchanged."""
-    if number == 8:
+    if number in (6, 8):
         return "PYTHON", None, None
     starter, ref = BUILDERS[number](data_of(live_starter))
     return LANGUAGE[number], starter, ref
