@@ -275,12 +275,7 @@ export default function InstitutionCertificationsPage() {
         group={manageGroup}
         open={manageGroup != null}
         onOpenChange={(open) => !open && setManageGroup(null)}
-        members={members}
         userById={userById}
-        assignments={data.assignments}
-        learnerById={data.learnerById}
-        invitations={data.invitations}
-        institutionCertById={data.institutionCertById}
       />
     </div>
   )

@@ -249,6 +249,21 @@ export default function InstitutionDashboardPage() {
     [departments]
   )
 
+  const recentInvitations = useMemo(() => {
+    const byEmail = new Map()
+    for (const invitation of invitations.recent ?? []) {
+      const email = invitation.email?.trim().toLowerCase()
+      const key = email || `invitation:${invitation.invitationId}`
+      const existing = byEmail.get(key)
+      if (existing) {
+        existing.certificationCount += 1
+      } else {
+        byEmail.set(key, { ...invitation, certificationCount: 1 })
+      }
+    }
+    return [...byEmail.values()]
+  }, [invitations.recent])
+
   const tiles = useMemo(() => {
     const seatsTotal = summary.seatsTotal ?? 0
     const seatsUsed = summary.seatsUsed ?? 0
@@ -734,7 +749,7 @@ export default function InstitutionDashboardPage() {
                 }
               />
 
-              {invitations.recent.length === 0 ? (
+              {recentInvitations.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No invitations sent yet.
                   <div className="mt-3">
@@ -745,7 +760,7 @@ export default function InstitutionDashboardPage() {
                 </div>
               ) : (
                 <ul className="-mr-2 min-h-0 flex-1 divide-y-2 divide-border overflow-y-auto pr-2">
-                  {invitations.recent.map((invitation) => (
+                  {recentInvitations.map((invitation) => (
                     <li
                       key={invitation.invitationId}
                       className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0"
@@ -754,6 +769,9 @@ export default function InstitutionDashboardPage() {
                         <p className="truncate font-bold">{invitation.email}</p>
                         <p className="text-xs text-muted-foreground">
                           Sent {formatDateTime(invitation.sentAt)}
+                          {invitation.certificationCount > 1
+                            ? ` · ${invitation.certificationCount} certifications`
+                            : ""}
                         </p>
                       </div>
                       <InstitutionStatusBadge status={invitation.status} />
@@ -833,6 +851,7 @@ export default function InstitutionDashboardPage() {
     trendData,
     trendTotals,
     invitations,
+    recentInvitations,
   ])
 
   if (institutionLoading || (institution && dashboardQuery.isLoading)) {

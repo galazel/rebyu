@@ -1,21 +1,18 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Loader2,
   Mail,
-  Plus,
   ShieldCheck,
   Trash2,
   UserCog,
-  Users2,
   UsersRound,
 } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -26,18 +23,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
-  InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import { CurriculumOverview } from "@/components/institution/curriculum-overview.jsx"
 import {
@@ -55,23 +44,13 @@ import { useMyDepartments } from "@/hooks/use-my-department.js"
 import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
 import { CoAuthoritiesDialog } from "@/components/institution/co-authorities-dialog.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
-import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import {
   cancelDepartmentHeadCode,
   getDepartmentHeadCodeInvitations,
   sendDepartmentHeadCode,
-  addDepartmentLearner,
-  assignDepartmentHeadAssignment,
-  changeDepartmentLearnerRole,
-  getDepartmentLearners,
   getDepartmentHeadAssignments,
-  removeDepartmentLearner,
   removeDepartmentHeadAssignment,
 } from "@/services/institutionService.js"
-import {
-  cancelInstitutionInvitation,
-  sendInstitutionInvitations,
-} from "@/services/partnershipService.js"
 
 function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
@@ -82,25 +61,14 @@ export function ManageGroupDialog({
   group,
   open,
   onOpenChange,
-  members,
   userById,
-  assignments,
-  learnerById,
-  invitations,
-  institutionCertById,
 }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const departmentId = group?.departmentId
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
-  const [authorityUserId, setAuthorityUserId] = useState("")
-  const [institutionCertLearnerId, setInstitutionCertLearnerId] = useState("")
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
-  const [learnerInviteEmail, setLearnerInviteEmail] = useState("")
-  const [learnerInviteCertId, setLearnerInviteCertId] = useState("")
-  const [learnerInviteFirst, setLearnerInviteFirst] = useState("")
-  const [learnerInviteLast, setLearnerInviteLast] = useState("")
   const authoritiesQuery = useQuery({
     queryKey: ["department-head-assignments", departmentId],
     queryFn: () => getDepartmentHeadAssignments({ departmentId }),
@@ -108,68 +76,11 @@ export function ManageGroupDialog({
     retry: 1,
   })
 
-  const assigneesQuery = useQuery({
-    queryKey: ["department-learners", departmentId],
-    queryFn: () => getDepartmentLearners({ departmentId }),
-    enabled: open && departmentId != null,
-    retry: 1,
-  })
-
   const authorities = Array.isArray(authoritiesQuery.data) ? authoritiesQuery.data : []
-  const assignees = Array.isArray(assigneesQuery.data) ? assigneesQuery.data : []
 
   const activeAuthorities = authorities.filter((a) => a.status === "active")
-  const activeAssignees = assignees.filter((a) => a.status === "active")
 
-  const isLeader = activeAuthorities.some((a) => a.userId === user?.userId)
-  // Only managers who are not already this department's head. The owner already
-  // manages every department, so they are never offered.
-  const assignableMembers = members.filter(
-    (member) =>
-      member.headRole !== "owner" && !activeAuthorities.some((a) => a.userId === member.userId)
-  )
   const isOwner = isInstitutionOwner(user)
-
-  const departmentInvitations = (Array.isArray(invitations) ? invitations : []).filter(
-    (inv) => inv.departmentId === departmentId
-  )
-  const pendingGroupInvitations = departmentInvitations.filter((inv) => inv.status === "PENDING")
-
-  // A department covers every certification the institution holds from its college.
-  const groupCertifications = Array.isArray(group?.certifications) ? group.certifications : []
-  const groupCertIds = groupCertifications.map((cert) => cert.institutionCertId)
-  const groupTotalSlots = group?.totalSlots ?? 0
-  const groupUsedSlots = group?.usedSlots ?? 0
-  const remainingSlots = Math.max(0, groupTotalSlots - groupUsedSlots)
-
-  const assignedInstitutionCertLearnerIds = new Set(
-    activeAssignees.map((a) => a.institutionCertLearnerId)
-  )
-
-  const availableLearners = useMemo(
-    () =>
-      assignments.filter(
-        (assignment) =>
-          groupCertIds.includes(assignment.institutionCertId) &&
-          !assignedInstitutionCertLearnerIds.has(assignment.institutionCertLearnerId)
-      ),
-    [assignments, groupCertIds.join(","), assignedInstitutionCertLearnerIds]
-  )
-
-  const assignAuthorityMutation = useMutation({
-    mutationFn: () =>
-      assignDepartmentHeadAssignment({
-        departmentId: departmentId,
-        userId: Number(authorityUserId),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["department-head-assignments", departmentId] })
-      toast.success("Department head assigned.")
-      setAuthorityUserId("")
-    },
-    onError: (err) =>
-      toast.error(backendMessage(err, "Unable to assign this department head.")),
-  })
 
   const headCodesQuery = useQuery({
     queryKey: ["department-head-codes", departmentId],
@@ -201,42 +112,6 @@ export function ManageGroupDialog({
     onError: (err) => toast.error(backendMessage(err, "Unable to cancel this code.")),
   })
 
-  const inviteLearnerMutation = useMutation({
-    mutationFn: () =>
-      sendInstitutionInvitations({
-        departmentId: departmentId,
-        institutionCertId: Number(learnerInviteCertId || groupCertIds[0]) || null,
-        learners: [
-          {
-            firstName: learnerInviteFirst.trim(),
-            lastName: learnerInviteLast.trim(),
-            email: learnerInviteEmail.trim(),
-          },
-        ],
-      }),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["institution-overview"] })
-      toast.success(
-        `${response.created} invitation(s) sent.` +
-          (response.skipped?.length ? ` ${response.skipped.length} skipped.` : "")
-      )
-      setLearnerInviteEmail("")
-      setLearnerInviteFirst("")
-      setLearnerInviteLast("")
-    },
-    onError: (err) =>
-      toast.error(backendMessage(err, "Unable to send this invitation.")),
-  })
-
-  const cancelInvitationMutation = useMutation({
-    mutationFn: (invitationId) => cancelInstitutionInvitation(invitationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["institution-overview"] })
-      toast.success("Invitation cancelled. Slot restored.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to cancel this invitation.")),
-  })
-
   const removeAuthorityMutation = useMutation({
     mutationFn: (authorityId) => removeDepartmentHeadAssignment(authorityId),
     onSuccess: () => {
@@ -244,38 +119,6 @@ export function ManageGroupDialog({
       toast.success("Department head removed.")
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to remove department head.")),
-  })
-
-  const addLearnerMutation = useMutation({
-    mutationFn: () =>
-      addDepartmentLearner({
-        departmentId: departmentId,
-        institutionCertLearnerId: Number(institutionCertLearnerId),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["department-learners", departmentId] })
-      toast.success("Learner added to department.")
-      setInstitutionCertLearnerId("")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to add this learner.")),
-  })
-
-  const removeLearnerMutation = useMutation({
-    mutationFn: (assigneeId) => removeDepartmentLearner(assigneeId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["department-learners", departmentId] })
-      toast.success("Learner removed from department.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to remove learner.")),
-  })
-
-  const changeRoleMutation = useMutation({
-    mutationFn: ({ assigneeId, role }) =>
-      changeDepartmentLearnerRole(assigneeId, role),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["department-learners", departmentId] })
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to update this learner's role.")),
   })
 
   const memberLabel = (memberUserId) => {
@@ -294,7 +137,7 @@ export function ManageGroupDialog({
         <DialogHeader>
           <DialogTitle>{group.departmentName}</DialogTitle>
           <DialogDescription>
-            Assign a department head and manage the learners in this department.
+            Assign and manage this department's co-authorities.
           </DialogDescription>
         </DialogHeader>
 
@@ -309,233 +152,7 @@ export function ManageGroupDialog({
 
           {isOwner ? <DepartmentProgramsEditor department={group} /> : null}
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border p-3 bg-card">
-            <div>
-              <p className="text-sm font-medium">
-                {groupUsedSlots} / {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} used
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Matches the learner slots your institution holds for this certification.
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs tabular-nums">
-              {remainingSlots} left
-            </Badge>
-          </div>
-
-          <Tabs defaultValue="members" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="members" className="text-xs sm:text-sm">
-                Members ({activeAssignees.length + departmentInvitations.length})
-              </TabsTrigger>
-              <TabsTrigger value="authorities" className="text-xs sm:text-sm">
-                Co-Authorities ({activeAuthorities.length})
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="members" className="space-y-6 pt-3">
-              <section className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <h3 className="text-sm font-medium">
-                    Learner invitations ({remainingSlots} slot{remainingSlots === 1 ? "" : "s"} left)
-                  </h3>
-                </div>
-
-                {isLeader ? (
-                  <div className="space-y-2">
-                    {groupCertifications.length > 1 ? (
-                      <Select
-                        value={String(learnerInviteCertId || groupCertIds[0] || "")}
-                        onValueChange={setLearnerInviteCertId}
-                      >
-                        <SelectTrigger className="w-full" aria-label="Certification to invite to">
-                          <SelectValue placeholder="Choose a certification" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {groupCertifications.map((cert) => (
-                            <SelectItem key={cert.institutionCertId} value={String(cert.institutionCertId)}>
-                              {cert.title} · {Math.max(0, (cert.totalSlots ?? 0) - (cert.usedSlots ?? 0))} slot(s) left
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-                      <Input
-                        value={learnerInviteFirst}
-                        onChange={(e) => setLearnerInviteFirst(e.target.value)}
-                        placeholder="First name"
-                        disabled={remainingSlots <= 0}
-                      />
-                      <Input
-                        value={learnerInviteLast}
-                        onChange={(e) => setLearnerInviteLast(e.target.value)}
-                        placeholder="Last name"
-                        disabled={remainingSlots <= 0}
-                      />
-                      <Input
-                        type="email"
-                        value={learnerInviteEmail}
-                        onChange={(e) => setLearnerInviteEmail(e.target.value)}
-                        placeholder="learner@example.com"
-                        disabled={remainingSlots <= 0}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => inviteLearnerMutation.mutate()}
-                        disabled={
-                          !learnerInviteEmail.trim() ||
-                          remainingSlots <= 0 ||
-                          inviteLearnerMutation.isPending
-                        }
-                      >
-                        <Plus className="size-4" aria-hidden="true" />
-                        Invite
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Only this department's head can invite learners.
-                  </p>
-                )}
-
-                {departmentInvitations.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No invitations sent yet.</p>
-                ) : (
-                  <ul className="divide-y rounded-lg border">
-                    {departmentInvitations.map((inv) => (
-                      <li
-                        key={inv.invitationId}
-                        className="flex items-center justify-between gap-2 px-3 py-2"
-                      >
-                        <span className="flex items-center gap-2 text-sm">
-                          {inv.email}
-                          <InstitutionStatusBadge status={inv.status} />
-                        </span>
-                        {isLeader && inv.status === "PENDING" ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => cancelInvitationMutation.mutate(inv.invitationId)}
-                            disabled={cancelInvitationMutation.isPending}
-                          >
-                            <Trash2 className="size-4" aria-hidden="true" />
-                            Cancel
-                          </Button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Users2 className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <h3 className="text-sm font-medium">
-                    Learners ({activeAssignees.length})
-                  </h3>
-                </div>
-
-                {isLeader ? (
-                  <div className="flex gap-2">
-                    <Select value={institutionCertLearnerId} onValueChange={setInstitutionCertLearnerId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Add a learner with access to this certification" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableLearners.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No eligible learners
-                          </SelectItem>
-                        ) : (
-                          availableLearners.map((assignment) => (
-                            <SelectItem
-                              key={assignment.institutionCertLearnerId}
-                              value={String(assignment.institutionCertLearnerId)}
-                            >
-                              {getLearnerDisplayName(learnerById.get(assignment.learnerId))}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => addLearnerMutation.mutate()}
-                      disabled={!institutionCertLearnerId || addLearnerMutation.isPending}
-                    >
-                      <Plus className="size-4" aria-hidden="true" />
-                      Add
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Only this department's head manages its learner roster.
-                  </p>
-                )}
-
-                {assigneesQuery.isLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading learners...</p>
-                ) : activeAssignees.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No learners in this department yet.
-                  </p>
-                ) : (
-                  <ul className="divide-y rounded-lg border">
-                    {activeAssignees.map((assignee) => {
-                      const isLead = assignee.role === "lead"
-                      return (
-                        <li
-                          key={assignee.departmentLearnerId}
-                          className="flex items-center justify-between gap-2 px-3 py-2"
-                        >
-                          <span className="flex items-center gap-2 text-sm">
-                            {getLearnerDisplayName(learnerById.get(assignee.learnerId))}
-                            {isLead ? <Badge variant="secondary">Lead</Badge> : null}
-                          </span>
-                          {isLeader ? (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  changeRoleMutation.mutate({
-                                    assigneeId: assignee.departmentLearnerId,
-                                    role: isLead ? "member" : "lead",
-                                  })
-                                }
-                                disabled={changeRoleMutation.isPending}
-                              >
-                                {isLead ? "Make member" : "Make lead"}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  removeLearnerMutation.mutate(assignee.departmentLearnerId)
-                                }
-                                disabled={removeLearnerMutation.isPending}
-                              >
-                                <Trash2 className="size-4" aria-hidden="true" />
-                                Remove
-                              </Button>
-                            </div>
-                          ) : null}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </section>
-            </TabsContent>
-
-            <TabsContent value="authorities" className="space-y-4 pt-3">
-              <section className="space-y-3">
+          <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -637,8 +254,8 @@ export function ManageGroupDialog({
                   <p className="text-sm text-muted-foreground">Loading department heads...</p>
                 ) : activeAuthorities.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No department head assigned yet. The institution assigns a department head who then
-                    manages this department's learners.
+                    No department head assigned yet. The institution assigns a department head to oversee
+                    this department.
                   </p>
                 ) : (
                   <ul className="divide-y rounded-lg border">
@@ -665,9 +282,7 @@ export function ManageGroupDialog({
                     ))}
                   </ul>
                 )}
-              </section>
-            </TabsContent>
-          </Tabs>
+          </section>
         </div>
       </DialogContent>
 
