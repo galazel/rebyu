@@ -14,8 +14,8 @@ def _draft(**overrides):
         question_type="MULTIPLE_ANSWER",
         question="Which two statements about TCP are true? (Choose two.)",
         explanation="TCP is connection-oriented and retransmits lost segments.",
-        choices=["It is connection-oriented", "It is connectionless",
-                 "It retransmits lost segments", "It has no headers", "It is a layer 2 protocol"],
+        choices=["It is connection-oriented", "It is a connectionless service",
+                 "It retransmits lost segments", "It carries no header at all", "It is a layer 2 protocol"],
         correct_choice_indices=[2, 0],
         choice_explanations=[EXPLAIN] * 5,
     )
@@ -76,3 +76,11 @@ def test_correct_option_that_gives_itself_away_by_length_is_rejected():
                 "A structure that speeds up row lookups", "A stored query presented as a table"]
     assert length_giveaway(parallel, {0}) is None
     assert length_giveaway(["4", "16", "256", "8"], {2}) is None   # short numbers are never giveaways
+    # The bar the whole bank was rewritten to: correct within 5 chars of the longest distractor...
+    slightly_long = ["Encrypting all data held at rest", "Enforcing strong password rules",
+                     "Reviewing logs for suspicious events and alerts", "Installing a perimeter firewall"]
+    assert length_giveaway(slightly_long, {2})
+    # ...and no phrase option under 75% of the longest, wherever the correct one is.
+    stubby = ["Logs", "Encrypting all data held at rest", "Enforcing strong password rules",
+              "Installing a perimeter firewall"]
+    assert length_giveaway(stubby, {1})

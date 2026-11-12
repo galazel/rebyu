@@ -1,4 +1,4 @@
-"""Finds and repairs MCQs whose correct option gives itself away by being much longer.
+"""Finds and repairs MCQs whose options give the answer away by their length.
 
 Export the worst offenders, rewrite them (parallel-length, plausible distractors, a
 trickier stem where it helps, explanations for every option), then apply. Apply
@@ -27,42 +27,33 @@ from app.schemas.certification.question_schema import length_giveaway
 
 PAST_PAPER = r"\nSource: \("
 
-GIVEAWAYS = f"""
-with c as (
-  select q.question_id, ch.is_correct ok, length(trim(ch.choice_text)) n
-  from questions q join choices ch on ch.question_id = q.question_id
-  where q.question_type in ('MCQ', 'MULTIPLE_CHOICE') and q.parent_question_id is null
-    and q.question_text !~ '{PAST_PAPER}'
-), agg as (
-  select question_id, max(n) filter (where ok) cn, max(n) filter (where not ok) wn,
-         count(*) filter (where ok) k
-  from c group by question_id
-)
-select a.question_id from agg a
-join questions q on q.question_id = a.question_id
+CHOICES = f"""
+select q.question_id, ch.choice_text, ch.is_correct
+from questions q
+join choices ch on ch.question_id = q.question_id
 join lessons l on l.lesson_id = q.lesson_id
 join middle_categories m on m.middle_category_id = l.middle_category_id
 join major_categories ma on ma.major_category_id = m.major_category_id
-where a.k = 1 and a.cn >= 1.1 * a.wn and a.cn - a.wn >= 8
+where q.question_type in ('MCQ', 'MULTIPLE_ANSWER') and q.parent_question_id is null
+  and q.question_text !~ '{PAST_PAPER}'
   and (cast(:cert as bigint) is null or ma.certification_id = :cert)
-order by ma.certification_id = 13 desc, a.question_id desc
+order by q.question_id, ch.choice_id
 """
 
 
-def even_lengths(texts: list[str], correct: set[int]) -> str | None:
-    """The stricter bar for hand rewrites: options as close in length as possible."""
-    lengths = [len(t) for t in texts]
-    right = max(lengths[i] for i in correct)
-    wrong = max(n for i, n in enumerate(lengths) if i not in correct)
-    if right > wrong + 5:
-        return f"correct option is {right - wrong} characters longer than the longest distractor"
-    if min(lengths) < 0.75 * max(lengths):
-        return f"options range from {min(lengths)} to {max(lengths)} characters; keep them within 25%"
-    return None
+def giveaways(session, cert: int | None, descending: bool = False) -> list[int]:
+    """Questions failing the SAME length rule generation enforces (both directions:
+    a correct option that is longest, and options so uneven that one stands out)."""
+    grouped: dict[int, list] = {}
+    for qid, choice_text, ok in session.execute(text(CHOICES), {"cert": cert}):
+        grouped.setdefault(qid, []).append((choice_text, ok))
+    ids = [qid for qid, choices in grouped.items()
+           if length_giveaway([t for t, _ in choices], {i for i, (_, ok) in enumerate(choices) if ok})]
+    return sorted(ids, reverse=descending)
 
 
-def export(session, path: Path, limit: int, cert: int | None) -> None:
-    ids = session.execute(text(GIVEAWAYS + " limit :n"), {"n": limit, "cert": cert}).scalars().all()
+def export(session, path: Path, limit: int, cert: int | None, descending: bool = False) -> None:
+    ids = giveaways(session, cert, descending)[:limit]
     blocks = []
     for qid in ids:
         stem = session.execute(text("select question_text from questions where question_id = :q"),
@@ -94,7 +85,7 @@ def apply(session, path: Path) -> None:
             continue
         texts = [given[r.choice_id]["text"].strip() for r in rows]
         correct = {i for i, r in enumerate(rows) if r.is_correct}
-        why = length_giveaway(texts, correct) or even_lengths(texts, correct)
+        why = length_giveaway(texts, correct)
         if why or len({t.lower() for t in texts}) != len(texts):
             refused.append((qid, why or "duplicate options"))
             continue
@@ -123,15 +114,15 @@ def main() -> None:
     parser.add_argument("--apply", type=Path)
     parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--certification", type=int)
+    parser.add_argument("--descending", action="store_true", help="work from the highest question id down")
     args = parser.parse_args()
     session = SessionLocal()
     try:
         if args.count:
             for cert in (13, 4, 14):
-                n = len(session.execute(text(GIVEAWAYS), {"cert": cert}).scalars().all())
-                print(f"certification {cert}: {n} giveaway question(s)")
+                print(f"certification {cert}: {len(giveaways(session, cert))} giveaway question(s)")
         elif args.export:
-            export(session, args.export, args.limit, args.certification)
+            export(session, args.export, args.limit, args.certification, args.descending)
         elif args.apply:
             apply(session, args.apply)
     finally:

@@ -108,26 +108,34 @@ MIN_CHOICE_EXPLANATION_CHARS = 15
 
 # The correct option must not give itself away by being the longest. Measured on the
 # stored bank (2026-11-12): the right answer was the longest option in 69% of TOPCIT
-# MCQs, so "pick the longest" passed the paper. Allowed slack: 20% and 10 characters.
-LENGTH_GIVEAWAY_RATIO = 1.2
-LENGTH_GIVEAWAY_CHARS = 10
+# MCQs, so "pick the longest" passed the paper. The whole bank was then rewritten to
+# the bar below, and generation is held to the SAME bar so new questions match it
+# (scripts/rewrite_giveaway_questions.py imports this function too).
+LENGTH_GIVEAWAY_SLACK_CHARS = 5   # correct may exceed the longest distractor by this much
+LENGTH_SPREAD_MIN_RATIO = 0.75    # shortest option >= 75% of the longest...
+LENGTH_SPREAD_APPLIES_FROM = 20   # ...once the options are phrases, not short terms
 
 
 def length_giveaway(choices: list[str], correct: set[int]) -> str | None:
-    """Why the correct option(s) stand out by length, or None when they do not."""
-    right = [len(c.strip()) for i, c in enumerate(choices) if i in correct]
-    wrong = [len(c.strip()) for i, c in enumerate(choices) if i not in correct]
+    """Why the options give the answer away by length, or None when they do not."""
+    lengths = [len(c.strip()) for c in choices]
+    right = [n for i, n in enumerate(lengths) if i in correct]
+    wrong = [n for i, n in enumerate(lengths) if i not in correct]
     if not right or not wrong:
         return None
     if len(right) == 1:
         top, rival = right[0], max(wrong)
     else:
         top, rival = sum(right) / len(right), sum(wrong) / len(wrong)
-    if top > LENGTH_GIVEAWAY_RATIO * rival and top - rival >= LENGTH_GIVEAWAY_CHARS:
-        return (f"the correct option is much longer than the others ({int(top)} vs {int(rival)} "
-                "characters), so a learner can pick it without knowing the answer. Make every option "
-                "a similar length and level of detail: lengthen the distractors with plausible, "
-                "specific misconceptions, or tighten the correct option")
+    if top > rival + LENGTH_GIVEAWAY_SLACK_CHARS:
+        return (f"the correct option is longer than the others ({int(top)} vs {int(rival)} "
+                "characters), so a learner can pick it without knowing the answer. Keep it within "
+                f"{LENGTH_GIVEAWAY_SLACK_CHARS} characters of the longest distractor: lengthen the "
+                "distractors with plausible, specific misconceptions, or tighten the correct option")
+    # Short answers (numbers, single terms) legitimately differ in length: "8" vs "256".
+    if max(lengths) >= LENGTH_SPREAD_APPLIES_FROM and min(lengths) < LENGTH_SPREAD_MIN_RATIO * max(lengths):
+        return (f"options range from {min(lengths)} to {max(lengths)} characters; keep every option "
+                f"at least {int(LENGTH_SPREAD_MIN_RATIO * 100)}% of the longest so none stands out")
     return None
 
 _OPEN_ENDED_PHRASES = (

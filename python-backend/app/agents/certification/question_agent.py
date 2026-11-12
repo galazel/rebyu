@@ -49,7 +49,10 @@ Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE, PROGR
 NO GIVEAWAYS. A learner who knows nothing must have nothing to go on:
 - All options are the same kind of thing at the same level of detail and roughly the
   same length. The correct option is NEVER noticeably the longest, the most qualified
-  or the most carefully worded -- a batch where it is will be rejected. Give every
+  or the most carefully worded -- a batch where it is will be rejected. Hard limits,
+  counted in characters: the correct option is at most 5 characters longer than the
+  longest wrong option, and (for options of 20+ characters) the shortest option is at
+  least 75% as long as the longest. Count before you answer. Give every
   distractor the same specificity (numbers, conditions, a "because" clause) instead of
   stripping the correct option bare.
 - Every distractor is a real misconception that a partly-informed learner would pick:
