@@ -932,7 +932,7 @@ function AboutSection() {
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {[
             [Layers, "Structured curriculum", "Ten units per certification, unlocked in order."],
-            [Code2, "Real assessments", "Write code against test cases, build diagrams on a canvas."],
+            [Code2, "Real assessments", "Write code judged on its exact output, build diagrams on a canvas."],
             [BarChart3, "Mastery tracking", "Every answer updates a per-topic estimate."],
             [Users, "Built for both", "Study on your own, or through your institution."],
           ].map(([Icon, title, body], index) => (

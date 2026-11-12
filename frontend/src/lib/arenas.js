@@ -8,7 +8,7 @@ export const ARENAS = [
     tone: "bg-rb-macaw-wash text-rb-macaw-lip",
     format: "Solo",
     blurb:
-      "Ten coding problems back to back, judged against real unit tests and scored on time complexity as well as correctness.",
+      "Nine coding problems back to back, each judged on exactly what your program prints and scored on speed and run time as well as correctness.",
     questionTypes: ["PROGRAMMING"],
     tracked: false,
     questionsPerNode: 10,

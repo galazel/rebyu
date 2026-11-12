@@ -22,7 +22,7 @@ const INITIAL_CHALLENGES = [
     arenaId: "codestrike",
     title: "CodeStrike",
     description:
-        "Ten coding problems back to back, judged against real unit tests and scored on time complexity as well as correctness.",
+        "Nine coding problems back to back, each judged on exactly what your program prints and scored on speed and run time as well as correctness.",
     icon: Code2,
     tone: "feather",
     role: "Coding Skills",

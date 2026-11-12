@@ -84,7 +84,7 @@ const QUESTION_TYPES = [
     { id: "MCQ", label: "Multiple choice" },
     { id: "SHORT_ANSWER", label: "Short answer" },
     { id: "DESCRIPTIVE", label: "Descriptive" },
-    { id: "PROGRAMMING", label: "Programming", disabled: "needs test cases" },
+    { id: "PROGRAMMING", label: "Programming", disabled: "needs an expected output" },
     { id: "DIAGRAM", label: "Diagram", disabled: "needs a reference diagram" },
 ]
 

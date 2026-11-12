@@ -163,7 +163,7 @@ export const GRADING_MESSAGES = lines([
 ])
 
 const WRITTEN_GRADING = lines([["written", "Marking your written responses..."]])
-const CODE_GRADING = lines([["code", "Running your code against the tests..."]])
+const CODE_GRADING = lines([["code", "Checking your code against the expected answer..."]])
 const DIAGRAM_GRADING = lines([["diagram", "Checking your diagrams..."]])
 
 /** Only mention written, code or diagram marking when the paper has them. */

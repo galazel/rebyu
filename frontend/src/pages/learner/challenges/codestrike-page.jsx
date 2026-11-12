@@ -9,7 +9,7 @@ export default function CodeStrikePage() {
       name="CodeStrike"
       icon={Code2}
       tone={{ face: "bg-rb-feather" }}
-      blurb="Coding problems back to back, judged against real unit tests."
+      blurb="Coding problems back to back, judged on exactly what your program prints."
     />
   )
 }

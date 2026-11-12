@@ -34,9 +34,9 @@ const CHALLENGES = [
     id: "codestrike",
     title: "CodeStrike",
     role: "Coding skills",
-    format: "Coding problems · unit tests",
+    format: "Coding problems · exact output",
     description:
-      "Ten stages of coding problems, judged against real unit tests and scored on time complexity.",
+      "Nine stages of coding problems, judged on exactly what your program prints and scored on speed and run time.",
     icon: Code2,
     route: "/learner/challenges/codestrike",
   },
