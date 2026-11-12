@@ -6,7 +6,7 @@ import { CheckIcon, ShieldAlert } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { SAFETY_KIND } from "@/components/institution/safety-alerts-section.jsx"
+import { SAFETY_KIND } from "@/components/institution/safety-alert-kinds.js"
 import { cn } from "@/lib/utils"
 import { base } from "@/services/base"
 

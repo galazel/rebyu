@@ -178,20 +178,9 @@ export function getGroupLearnerIntegrity(departmentId, learnerId) {
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}/integrity`)
 }
 
-/** AI tutor safety alerts for one learner (self-harm, abuse, threats, data probes), newest first. */
-export function getGroupLearnerSafetyAlerts(departmentId, learnerId) {
-  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/safety-alerts`)
-}
-
-export function reviewGroupLearnerSafetyAlert(departmentId, learnerId, alertId, note) {
-  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/safety-alerts/${alertId}/review`, {
-    method: "POST",
-    data: { note: note ?? "" },
-  })
-}
-
-export function getGroupLearnerAnalytics(departmentId, learnerId) {
-  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics`)
+export function getGroupLearnerAnalytics(departmentId, learnerId, certificationId = null) {
+  const query = certificationId != null ? `?certificationId=${certificationId}` : ""
+  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics${query}`)
 }
 
 export function getDepartmentAssessmentResults(departmentId, examId) {

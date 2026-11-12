@@ -18,6 +18,7 @@ import {
   UploadIcon,
   UserPlusIcon,
   UsersIcon,
+  MoreVertical,
 } from "@/components/icons"
 import {
   AlertDialog,
@@ -43,8 +44,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import {
   formatDate,
@@ -795,19 +803,6 @@ export function SectionDialog({
 }
 
 
-function LessonProgressCell({ completed, total, percentage }) {
-  if (!total) return <span className="text-sm text-muted-foreground">No lessons yet</span>
-  const shown = Number.isFinite(Number(percentage)) ? Number(percentage) : 0
-  return (
-    <div className="flex items-center gap-2">
-      <Progress value={Math.min(100, Math.max(0, shown))} className="h-1.5 w-16" />
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-        {completed}/{total}
-      </span>
-    </div>
-  )
-}
-
 function rosterInitials(name) {
   const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "?"
@@ -935,6 +930,29 @@ function SectionPanel({
   }, [invitations])
   const pendingCount = pending.length
 
+  // The roster has one row per enrolment; a learner with several certifications is one person here.
+  const people = useMemo(() => {
+    const byLearner = new Map()
+    for (const row of learners) {
+      const person = byLearner.get(row.learnerId)
+      if (person) person.rows.push(row)
+      else byLearner.set(row.learnerId, { ...row, rows: [row] })
+    }
+    return [...byLearner.values()].map((person) => {
+      const joined = person.rows.map((row) => row.assignedAt).filter(Boolean).sort()[0] ?? null
+      const sectionIds = [...new Set(person.rows.map((row) => row.sectionId ?? null))]
+      return { ...person, joined, sectionId: sectionIds.length === 1 ? sectionIds[0] : undefined }
+    })
+  }, [learners])
+
+  // Moving a person moves every certification they study in this department.
+  const movePerson = async (person, sectionId) => {
+    for (const row of person.rows) {
+      if ((row.sectionId ?? null) === sectionId) continue
+      await move.mutateAsync({ assigneeId: row.departmentLearnerId, sectionId })
+    }
+  }
+
   return (
     <Card ref={panelRef} className={`scroll-mt-24 overflow-hidden ${focused ? "ring-2 ring-primary/40" : ""}`}>
       <button
@@ -967,7 +985,7 @@ function SectionPanel({
             <p className="text-xs text-muted-foreground">
               {section?.certificationTitle && section?.programId == null ? `${section.certificationTitle} · ` : ""}
               {section?.programName ? `${section.programName} · ` : ""}
-              {learners.length} {learners.length === 1 ? "learner" : "learners"}
+              {people.length} {people.length === 1 ? "learner" : "learners"}
               {section?.description ? ` · ${section.description}` : ""}
             </p>
           </div>
@@ -1041,192 +1059,109 @@ function SectionPanel({
               {pending.length ? "No one has accepted yet." : "No learners here yet."}
             </p>
           ) : (
-            <div className="rounded-lg border bg-background overflow-hidden">
-              {/* Desktop / Tablet view (sm+) */}
-              <div className="hidden sm:block overflow-x-auto">
-                <Table className="min-w-[620px] whitespace-nowrap">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[180px]">Learner</TableHead>
-                      <TableHead className="w-36">Certification</TableHead>
-                      <TableHead className="w-28">Joined</TableHead>
-                      <TableHead className="w-40">Lessons completed</TableHead>
-                      <TableHead className="w-40">Section</TableHead>
-                      <TableHead className="w-12" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {learners.map((row) => (
-                      <TableRow key={row.departmentLearnerId}>
-                        <TableCell
-                          className="cursor-pointer"
-                          onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
-                              {rosterInitials(row.name)}
-                              {rosterAvatars[row.avatarKey] ? (
-                                <img
-                                  src={rosterAvatars[row.avatarKey]}
-                                  alt=""
-                                  loading="lazy"
-                                  className="absolute inset-0 size-full object-cover"
-                                />
-                              ) : null}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-foreground hover:underline">{row.name}</p>
-                                <EarnedBadges learnerId={row.learnerId} />
-                              </div>
-                              <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {certTitles.get(row.certificationId) ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(row.assignedAt)}
-                        </TableCell>
-                        <TableCell>
-                          <LessonProgressCell
-                            completed={row.completedLessonCount}
-                            total={row.totalLessonCount}
-                            percentage={row.completionPercentage}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
-                            onValueChange={(value) =>
-                              move.mutate({
-                                assigneeId: row.departmentLearnerId,
-                                sectionId: value === NO_SECTION ? null : Number(value),
-                              })
-                            }
-                            disabled={move.isPending}
-                          >
-                            <SelectTrigger className="h-8 text-xs" aria-label="Move to section">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={NO_SECTION}>No section</SelectItem>
-                              {sections.map((s) => (
-                                <SelectItem key={s.sectionId} value={String(s.sectionId)}>
-                                  {s.sectionName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Remove ${row.name} from this department`}
-                            className="size-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => setRemoveTarget(row)}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            <ul className="divide-y rounded-lg border bg-background">
+              <li className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_2rem] gap-4 bg-muted/40 px-4 py-2 text-xs font-semibold text-muted-foreground md:grid">
+                <span>Learner</span>
+                <span>Certifications · lessons completed</span>
+                <span />
+              </li>
+              {people.map((person) => (
+                <li
+                  key={person.learnerId}
+                  className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_2rem] md:items-center md:gap-4"
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/institution/departments/${departmentId}/learners/${person.learnerId}`)}
+                    className="flex min-w-0 items-center gap-3 text-left"
+                  >
+                    <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
+                      {rosterInitials(person.name)}
+                      {rosterAvatars[person.avatarKey] ? (
+                        <img
+                          src={rosterAvatars[person.avatarKey]}
+                          alt=""
+                          loading="lazy"
+                          className="absolute inset-0 size-full object-cover"
+                        />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium text-foreground hover:underline">{person.name}</span>
+                        <EarnedBadges learnerId={person.learnerId} />
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {person.email ?? (person.username ? `@${person.username}` : "")}
+                        {person.joined ? ` · joined ${formatDate(person.joined)}` : ""}
+                      </span>
+                    </span>
+                  </button>
 
-              {/* Mobile Card-per-learner Layout (< sm) */}
-              <div className="sm:hidden divide-y divide-border/60">
-                {learners.map((row) => (
-                  <div key={row.departmentLearnerId} className="p-3.5 space-y-3">
-                    <div className="flex items-start justify-between gap-2.5">
-                      <div
-                        className="flex items-center gap-2.5 min-w-0 cursor-pointer"
-                        onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
-                      >
-                        <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
-                          {rosterInitials(row.name)}
-                          {rosterAvatars[row.avatarKey] ? (
-                            <img
-                              src={rosterAvatars[row.avatarKey]}
-                              alt=""
-                              loading="lazy"
-                              className="absolute inset-0 size-full object-cover"
-                            />
-                          ) : null}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-foreground hover:underline truncate">{row.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
+                  <div className="space-y-1.5">
+                    {person.rows.map((row) => {
+                      const total = Number(row.totalLessonCount ?? 0)
+                      const done = Number(row.completedLessonCount ?? 0)
+                      const pct = total ? Math.round((done / total) * 100) : 0
+                      return (
+                        <div key={row.departmentLearnerId} className="flex items-center gap-2 text-xs">
+                          <span className="w-28 shrink-0 truncate font-medium text-foreground" title={certTitles.get(row.certificationId)}>
+                            {certTitles.get(row.certificationId) ?? "Certification"}
+                          </span>
+                          {total ? (
+                            <>
+                              <Progress value={pct} className="h-1.5 flex-1" aria-label={`${certTitles.get(row.certificationId)} lessons`} />
+                              <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">
+                                {done}/{total}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">No lessons yet</span>
+                          )}
                         </div>
-                      </div>
+                      )
+                    })}
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label={`Remove ${row.name} from this department`}
-                        className="size-10 min-h-[40px] min-w-[40px] text-muted-foreground hover:text-destructive shrink-0 inline-flex items-center justify-center rounded-lg hover:bg-destructive/10"
-                        onClick={() => setRemoveTarget(row)}
+                        aria-label={`${person.name} actions`}
+                        className="size-8 justify-self-end text-muted-foreground"
+                        disabled={move.isPending}
                       >
-                        <Trash2 className="size-4" />
+                        <MoreVertical className="size-4" />
                       </Button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <EarnedBadges learnerId={row.learnerId} />
-                      {certTitles.get(row.certificationId) ? (
-                        <Badge variant="secondary" className="text-[11px] font-normal truncate max-w-full">
-                          {certTitles.get(row.certificationId)}
-                        </Badge>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      <DropdownMenuLabel className="text-[11px] text-muted-foreground">Move to</DropdownMenuLabel>
+                      {sections
+                        .filter((s) => s.sectionId !== person.sectionId)
+                        .map((s) => (
+                          <DropdownMenuItem key={s.sectionId} className="text-xs" onClick={() => movePerson(person, s.sectionId)}>
+                            {s.sectionName}
+                          </DropdownMenuItem>
+                        ))}
+                      {person.sectionId !== null ? (
+                        <DropdownMenuItem className="text-xs" onClick={() => movePerson(person, null)}>
+                          No section
+                        </DropdownMenuItem>
                       ) : null}
-                      {row.assignedAt ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          Joined {formatDate(row.assignedAt)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="rounded-lg bg-muted/40 p-2.5 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-muted-foreground">Lessons completed</span>
-                        <LessonProgressCell
-                          completed={row.completedLessonCount}
-                          total={row.totalLessonCount}
-                          percentage={row.completionPercentage}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-xs">
-                        <span className="font-medium text-muted-foreground shrink-0">Section</span>
-                        <Select
-                          value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
-                          onValueChange={(value) =>
-                            move.mutate({
-                              assigneeId: row.departmentLearnerId,
-                              sectionId: value === NO_SECTION ? null : Number(value),
-                            })
-                          }
-                          disabled={move.isPending}
-                        >
-                          <SelectTrigger className="h-8 text-xs max-w-[180px]" aria-label="Move to section">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={NO_SECTION}>No section</SelectItem>
-                            {sections.map((s) => (
-                              <SelectItem key={s.sectionId} value={String(s.sectionId)}>
-                                {s.sectionName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="gap-2 text-xs text-destructive focus:text-destructive"
+                        onClick={() => setRemoveTarget(person)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Remove from department
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       ) : null}
@@ -1247,8 +1182,9 @@ function SectionPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this learner from the department?</AlertDialogTitle>
             <AlertDialogDescription>
-              {removeTarget?.name} will be unassigned from this department and the slot returned. Their account,
-              enrolment, and progress are kept, so they can be added back later.
+              {removeTarget?.name} will be unassigned from this department
+              {removeTarget?.rows?.length > 1 ? ` in all ${removeTarget.rows.length} certifications` : ""} and the
+              slots returned. Their account, enrolment, and progress are kept, so they can be added back later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

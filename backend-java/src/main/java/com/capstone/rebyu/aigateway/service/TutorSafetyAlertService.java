@@ -2,12 +2,6 @@ package com.capstone.rebyu.aigateway.service;
 
 import com.capstone.rebyu.aigateway.entity.TutorSafetyAlert;
 import com.capstone.rebyu.aigateway.repository.TutorSafetyAlertRepository;
-import com.capstone.rebyu.department.entity.DepartmentLearner;
-import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
-import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
-import com.capstone.rebyu.institution.entity.DepartmentHead;
-import com.capstone.rebyu.institution.repository.DepartmentHeadRepository;
 import com.capstone.rebyu.notification.service.NotificationService;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
@@ -26,11 +20,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Records safety alerts from the AI tutor and tells the institution admin -- the owner account
- * of each institution the learner is enrolled through. Department heads are NOT notified (an
- * alert is the institution's to handle); they still see it on the learner's page. A learner
- * with no institution has no institution admin, so the platform admins are told instead,
- * rather than the alert reaching nobody.
+ * Records safety alerts from the AI tutor and notifies the platform admins only. Institution
+ * admins and department heads neither get a notification nor see the alert: it is handled on
+ * the admin's Safety alerts page.
  *
  * A learner typing several alarming messages in a row is one situation, not ten: staff are
  * notified at most once per learner and kind per {@link #RENOTIFY_AFTER}, while every message
@@ -48,9 +40,6 @@ public class TutorSafetyAlertService {
     private final TutorSafetyAlertRepository alerts;
     private final LearnerRepository learners;
     private final UserRepository users;
-    private final DepartmentLearnerRepository departmentLearners;
-    private final InstitutionCertificationLearnerRepository enrollments;
-    private final DepartmentHeadRepository institutionAccounts;
     private final NotificationService notifications;
 
     /** Maps the Python screen's alert name (self_harm, abuse, threat, data_probe). */
@@ -89,41 +78,9 @@ public class TutorSafetyAlertService {
         String title = titleOf(kind) + ": " + name;
         String body = bodyOf(kind);
 
-        // The learner's department per institution, so the link opens the learner's page there.
-        Map<Long, Long> departmentByInstitution = new LinkedHashMap<>();
-        for (DepartmentLearner membership : departmentLearners
-                .findByInstitutionCertLearner_Learner_LearnerIdAndStatus(learnerId, DepartmentLearner.Status.active)) {
-            if (membership.getDepartment() == null || membership.getDepartment().getInstitution() == null) continue;
-            departmentByInstitution.putIfAbsent(
-                    membership.getDepartment().getInstitution().getInstitutionId(),
-                    membership.getDepartment().getDepartmentId());
-        }
-
-        Set<Long> institutionIds = new LinkedHashSet<>();
-        for (InstitutionCertificationLearner enrollment : enrollments
-                .findByLearner_LearnerIdAndStatus(learnerId, InstitutionCertificationLearner.Status.active)) {
-            if (enrollment.getInstitutionCert() != null && enrollment.getInstitutionCert().getInstitution() != null) {
-                institutionIds.add(enrollment.getInstitutionCert().getInstitution().getInstitutionId());
-            }
-        }
-        institutionIds.addAll(departmentByInstitution.keySet());
-
-        Map<Long, User> notified = new LinkedHashMap<>();
-        for (Long institutionId : institutionIds) {
-            Long departmentId = departmentByInstitution.get(institutionId);
-            String link = departmentId == null ? "/institution"
-                    : "/institution/departments/" + departmentId + "/learners/" + learnerId + "#safety-alerts";
-            for (DepartmentHead account : institutionAccounts.findByInstitution_InstitutionId(institutionId)) {
-                if (account.getHeadRole() != DepartmentHead.HeadRole.owner || account.getUser() == null) continue;
-                if (notified.putIfAbsent(account.getUser().getUserId(), account.getUser()) == null) {
-                    notifications.notify(account.getUser(), title, body, link);
-                }
-            }
-        }
-        if (!notified.isEmpty()) return;
-
+        Set<Long> notified = new LinkedHashSet<>();
         for (User admin : users.findByUserType_UserTypeText(ADMIN_USER_TYPE)) {
-            if (notified.putIfAbsent(admin.getUserId(), admin) == null) {
+            if (notified.add(admin.getUserId())) {
                 notifications.notify(admin, title, body, "/admin/safety-alerts");
             }
         }

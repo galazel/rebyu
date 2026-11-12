@@ -67,7 +67,6 @@ public class InstitutionLearnerInsightsService {
     private final ExamRepository examRepository;
     private final AssessmentAttemptService assessmentAttemptService;
     private final com.capstone.rebyu.assessment.repository.AssessmentIntegrityEventRepository integrityEventRepository;
-    private final com.capstone.rebyu.aigateway.repository.TutorSafetyAlertRepository safetyAlertRepository;
     private final InstitutionMembershipService membershipService;
 
     /** One attempt at a department assessment, as the department head sees it in a list. */
@@ -164,12 +163,35 @@ public class InstitutionLearnerInsightsService {
     @Transactional(readOnly = true)
     public ProgressAnalyticsResponse learnerAnalytics(
             Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        return learnerAnalytics(departmentId, learnerId, null, institutionId, callerUserId, callerIsOwner);
+    }
+
+    /**
+     * A learner's progress in one certification they study in this department. A learner can
+     * hold several there; {@code requestedCertificationId} picks one, else the first is used.
+     */
+    @Transactional(readOnly = true)
+    public ProgressAnalyticsResponse learnerAnalytics(
+            Long departmentId, Long learnerId, Long requestedCertificationId,
+            Long institutionId, Long callerUserId, boolean callerIsOwner) {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
         requireAssignedToGroup(departmentId, learnerId);
 
-        Long certificationId = activeAssignee(departmentId, learnerId)
+        java.util.List<Long> studied = departmentLearnerRepository
+                .findByDepartment_DepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
+                .filter(assignee -> {
+                    Learner learner = learnerOf(assignee);
+                    return learner != null && learner.getLearnerId().equals(learnerId);
+                })
                 .map(this::certificationIdOf)
-                .orElse(null);
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (requestedCertificationId != null && !studied.contains(requestedCertificationId)) {
+            throw new EntityNotFoundException("This learner does not study that certification in this department.");
+        }
+        Long certificationId = requestedCertificationId != null ? requestedCertificationId
+                : studied.isEmpty() ? null : studied.get(0);
         if (certificationId == null) {
             throw new EntityNotFoundException(
                     "This learner has no certification in this department: " + departmentId);
@@ -277,43 +299,6 @@ public class InstitutionLearnerInsightsService {
                 && exam.getCertification() != null
                 && group.allocationFor(exam.getCertification().getCertificationId()).isPresent();
         return ownPaper || groupCertification;
-    }
-
-    public record SafetyAlertRow(
-            Long alertId, String kind, String surface, String message, String status,
-            java.time.Instant createdAt, java.time.Instant reviewedAt, String reviewNote) {
-        static SafetyAlertRow of(com.capstone.rebyu.aigateway.entity.TutorSafetyAlert alert) {
-            return new SafetyAlertRow(alert.getSafetyAlertId(), alert.getKind().name(), alert.getSurface(),
-                    alert.getMessageExcerpt(), alert.getStatus().name(), alert.getCreatedAt(),
-                    alert.getReviewedAt(), alert.getReviewNote());
-        }
-    }
-
-    @Transactional(readOnly = true)
-    public List<SafetyAlertRow> learnerSafetyAlerts(
-            Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
-        requireAssignedToGroup(departmentId, learnerId);
-        return safetyAlertRepository.findByLearnerIdOrderByCreatedAtDesc(learnerId).stream()
-                .map(SafetyAlertRow::of).toList();
-    }
-
-    @Transactional
-    public SafetyAlertRow reviewSafetyAlert(
-            Long departmentId, Long learnerId, Long alertId, String note,
-            Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
-        requireAssignedToGroup(departmentId, learnerId);
-        var alert = safetyAlertRepository.findById(alertId)
-                .filter(a -> learnerId.equals(a.getLearnerId()))
-                .orElseThrow(() -> new EntityNotFoundException("Safety alert not found: " + alertId));
-        alert.setStatus(com.capstone.rebyu.aigateway.entity.TutorSafetyAlert.Status.REVIEWED);
-        alert.setReviewedAt(java.time.Instant.now());
-        alert.setReviewedByUserId(callerUserId);
-        if (note != null && !note.isBlank()) {
-            alert.setReviewNote(note.length() > 500 ? note.substring(0, 500) : note.trim());
-        }
-        return SafetyAlertRow.of(safetyAlertRepository.save(alert));
     }
 
     public record IntegrityEventRow(

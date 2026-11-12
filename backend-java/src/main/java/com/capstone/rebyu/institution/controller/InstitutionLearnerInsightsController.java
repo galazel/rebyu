@@ -47,10 +47,11 @@ public class InstitutionLearnerInsightsController {
     public ProgressAnalyticsResponse analytics(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long departmentId,
-            @PathVariable Long learnerId) {
+            @PathVariable Long learnerId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long certificationId) {
         CurrentUserDto user = requireInstitution(jwt);
         return insightsService.learnerAnalytics(
-                departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
+                departmentId, learnerId, certificationId, user.institutionId(), user.userId(), isOwner(user));
     }
 
     /** Cheating signals on the learner's assessments: tab exits, blocked copy/paste, forfeits. */
@@ -62,31 +63,6 @@ public class InstitutionLearnerInsightsController {
         CurrentUserDto user = requireInstitution(jwt);
         return insightsService.learnerIntegrity(
                 departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
-    }
-
-    /** AI tutor safety alerts for this learner: self-harm, abuse, threats, data probes. */
-    @GetMapping("/{departmentId}/learners/{learnerId}/safety-alerts")
-    public List<InstitutionLearnerInsightsService.SafetyAlertRow> safetyAlerts(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long departmentId,
-            @PathVariable Long learnerId) {
-        CurrentUserDto user = requireInstitution(jwt);
-        return insightsService.learnerSafetyAlerts(
-                departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
-    }
-
-    /** Marks a safety alert as reviewed (the head has followed up), with an optional note. */
-    @org.springframework.web.bind.annotation.PostMapping("/{departmentId}/learners/{learnerId}/safety-alerts/{alertId}/review")
-    public InstitutionLearnerInsightsService.SafetyAlertRow reviewSafetyAlert(
-            @AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long departmentId,
-            @PathVariable Long learnerId,
-            @PathVariable Long alertId,
-            @org.springframework.web.bind.annotation.RequestBody(required = false) java.util.Map<String, String> body) {
-        CurrentUserDto user = requireInstitution(jwt);
-        return insightsService.reviewSafetyAlert(departmentId, learnerId, alertId,
-                body == null ? null : body.get("note"),
-                user.institutionId(), user.userId(), isOwner(user));
     }
 
     @GetMapping("/{departmentId}/assessments/{examId}/results")

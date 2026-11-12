@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
-import { Link, useLocation, useParams } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
   AwardIcon,
@@ -14,7 +14,6 @@ import {
   SparklesIcon,
   TrendingDownIcon,
   TrendingUpIcon,
-  ArrowLeft,
 } from "@/components/icons"
 
 import { cn } from "@/lib/utils"
@@ -31,7 +30,6 @@ import {
 import {
   getGroupLearnerAnalytics,
   getGroupLearnerIntegrity,
-  getGroupLearnerSafetyAlerts,
   getGroupLearnerAwards,
   getGroupLearnerRoster,
 } from "@/services/institutionService.js"
@@ -42,7 +40,6 @@ import { ExportButton } from "@/components/commons/export-button.jsx"
 import { learnerReportBlocks } from "@/lib/learner-export.js"
 import { LEARNER_STATUS, relativeDays, useDepartmentOverview } from "@/hooks/use-my-department.js"
 import { AssessmentIntegritySection, INTEGRITY_RISK } from "@/components/institution/assessment-integrity-section.jsx"
-import { SafetyAlertsSection } from "@/components/institution/safety-alerts-section.jsx"
 import { ShieldAlert } from "@/components/icons"
 
 function toPercent(value) {
@@ -563,6 +560,49 @@ function CredentialsCard({ query }) {
   )
 }
 
+/** One tab per certification the learner studies here; the chosen one shows its lesson progress. */
+function CertificationTabs({ enrolments, fallbackTitle, activeCertificationId, onSelect }) {
+  const found = enrolments.findIndex((r) => r.certificationId === activeCertificationId)
+  const active = found >= 0 ? found : 0
+  const setActive = (index) => onSelect(enrolments[index]?.certificationId ?? null)
+  const row = enrolments[active]
+  const total = Number(row?.totalLessonCount ?? 0)
+  const done = Number(row?.completedLessonCount ?? 0)
+  const titleOf = (r) => r.certificationTitle ?? fallbackTitle ?? "Certification"
+  return (
+    <div className="space-y-2">
+      {enrolments.length > 1 ? (
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Certifications">
+          {enrolments.map((r, index) => (
+            <button
+              key={r.departmentLearnerId ?? r.certificationId}
+              type="button"
+              role="tab"
+              aria-selected={index === active}
+              onClick={() => setActive(index)}
+              className={cn(
+                "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors",
+                index === active
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              )}
+            >
+              {titleOf(r)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="truncate font-medium text-foreground">{titleOf(row)}</span>
+          <span className="shrink-0 tabular-nums">{total ? `${done}/${total} lessons` : "No lessons yet"}</span>
+        </div>
+        <Progress value={total ? (done / total) * 100 : 0} className="h-1" />
+      </div>
+    </div>
+  )
+}
+
 export default function InstitutionDepartmentLearnerPage() {
   const { departmentId, learnerId } = useParams()
   const departmentIdNumber = Number(departmentId)
@@ -577,28 +617,16 @@ export default function InstitutionDepartmentLearnerPage() {
   // Status and the reason for it, exactly as the dashboard and roster show them.
   const overviewQuery = useDepartmentOverview(Number.isFinite(departmentIdNumber) ? departmentIdNumber : null)
 
+  const [activeCertificationId, setActiveCertificationId] = useState(null)
   const analyticsQuery = useQuery({
-    queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber],
-    queryFn: () => getGroupLearnerAnalytics(departmentIdNumber, learnerIdNumber),
+    queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber, activeCertificationId],
+    // The chosen certification tab decides which certification's results and stats load.
+    queryFn: () => getGroupLearnerAnalytics(departmentIdNumber, learnerIdNumber, activeCertificationId),
+    placeholderData: (previous) => previous,
     enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
     retry: 1,
   })
 
-  const safetyQuery = useQuery({
-    queryKey: ["group-learner-safety-alerts", departmentIdNumber, learnerIdNumber],
-    queryFn: () => getGroupLearnerSafetyAlerts(departmentIdNumber, learnerIdNumber),
-    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
-    retry: 1,
-  })
-  const location = useLocation()
-  // A safety notification links to #safety-alerts; the section renders after its data loads.
-  useEffect(() => {
-    if (location.hash === "#safety-alerts" && safetyQuery.isSuccess) {
-      document.getElementById("safety-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }
-  }, [location.hash, safetyQuery.isSuccess])
-  const openSafetyAlerts = (Array.isArray(safetyQuery.data) ? safetyQuery.data : [])
-    .filter((alert) => alert.status === "OPEN").length
 
   const integrityQuery = useQuery({
     queryKey: ["group-learner-integrity", departmentIdNumber, learnerIdNumber],
@@ -615,9 +643,11 @@ export default function InstitutionDepartmentLearnerPage() {
     retry: 1,
   })
 
-  const learner = (Array.isArray(rosterQuery.data) ? rosterQuery.data : []).find(
-    (row) => row.learnerId === learnerIdNumber
+  // One roster row per certification the learner studies in this department.
+  const enrolments = (Array.isArray(rosterQuery.data) ? rosterQuery.data : []).filter(
+    (row) => row.learnerId === learnerIdNumber && row.status !== "removed"
   )
+  const learner = enrolments[0]
   const status = (overviewQuery.data?.learners ?? []).find((row) => row.learnerId === learnerIdNumber)
   const initials = initialsOf(learner?.name)
   const avatarUrl = useAvatarUrl(learner?.avatarKey ?? null)
@@ -732,14 +762,6 @@ export default function InstitutionDepartmentLearnerPage() {
                 {statusStyle.label}
               </Badge>
             ) : null}
-            {openSafetyAlerts > 0 ? (
-              <a href="#safety-alerts">
-                <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-[11px] text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
-                  <ShieldAlert className="size-3" aria-hidden="true" />
-                  {openSafetyAlerts} safety alert{openSafetyAlerts === 1 ? "" : "s"}
-                </Badge>
-              </a>
-            ) : null}
             {integrityRisk ? (
               <Badge variant="outline" className={cn("gap-1 text-[11px]", integrityRisk.className)}>
                 <ShieldAlert className="size-3" aria-hidden="true" />
@@ -761,7 +783,20 @@ export default function InstitutionDepartmentLearnerPage() {
           ) : null}
 
           <ul className="space-y-1 text-sm text-muted-foreground">
-            {analytics?.certificationTitle ? (
+            {enrolments.length ? (
+              <li className="space-y-1.5 rounded-lg border border-border/60 bg-muted/20 p-2.5">
+                <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
+                  <AwardIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                  Certification{enrolments.length === 1 ? "" : "s"}
+                </span>
+                <CertificationTabs
+                  enrolments={enrolments}
+                  fallbackTitle={analytics?.certificationTitle}
+                  activeCertificationId={activeCertificationId}
+                  onSelect={setActiveCertificationId}
+                />
+              </li>
+            ) : analytics?.certificationTitle ? (
               <li className="flex items-center gap-2">
                 <AwardIcon className="size-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{analytics.certificationTitle}</span>
@@ -779,13 +814,7 @@ export default function InstitutionDepartmentLearnerPage() {
             ) : null}
           </ul>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
-              <Link to="/institution/departments?view=roster">
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Roster
-              </Link>
-            </Button>
+          <div className="grid gap-2">
             <ExportButton
               filename="rebyu-learner-report"
               report="Learner report"
@@ -837,7 +866,6 @@ export default function InstitutionDepartmentLearnerPage() {
 
       {/* Main column */}
       <div className="min-w-0 space-y-6">
-        <SafetyAlertsSection query={safetyQuery} departmentId={departmentIdNumber} learnerId={learnerIdNumber} />
 
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">
