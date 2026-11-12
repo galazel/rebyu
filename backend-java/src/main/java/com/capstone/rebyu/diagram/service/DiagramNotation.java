@@ -80,7 +80,7 @@ final class DiagramNotation {
     String relationKind(String drawnKind) {
         String kind = drawnKind == null ? "LINE" : drawnKind;
         return switch (family) {
-            case ERD -> "RELATIONSHIP";
+            case ERD -> kind.equals("INHERITANCE") || kind.equals("REALIZATION") ? "SUBTYPE" : "RELATIONSHIP";
             case FLOW -> "FLOW";
             case GENERIC -> "CONNECTOR";
             case CLASS -> switch (kind) {
@@ -122,7 +122,7 @@ final class DiagramNotation {
 
     boolean directed(String relationKind) {
         return switch (family) {
-            case ERD -> false;
+            case ERD -> relationKind.equals("SUBTYPE");
             case CLASS -> !relationKind.equals("ASSOCIATION");
             case USE_CASE -> !relationKind.equals("ASSOCIATION");
             case COMPONENT -> relationKind.equals("DEPENDENCY") || relationKind.equals("REALIZATION")
@@ -148,6 +148,7 @@ final class DiagramNotation {
             Map.entry("CONTAINMENT", "a containment (diamond)"),
             Map.entry("CONNECTOR", "a connector"),
             Map.entry("RELATIONSHIP", "a relationship"),
+            Map.entry("SUBTYPE", "a supertype/subtype link (hollow triangle at the supertype)"),
             Map.entry("FLOW", "a flow"));
 
     String relationName(String relationKind) {
@@ -158,7 +159,7 @@ final class DiagramNotation {
     String relationNote(String relationKind) {
         return switch (relationKind) {
             case "INHERITANCE", "REALIZATION", "COMPOSITION", "AGGREGATION", "DEPENDENCY", "INCLUDE_EXTEND",
-                 "GENERALIZATION", "RETURN", "ASYNC", "CONTAINMENT", "INCLUDE", "EXTEND" ->
+                 "GENERALIZATION", "RETURN", "ASYNC", "CONTAINMENT", "INCLUDE", "EXTEND", "SUBTYPE" ->
                     relationName(relationKind).replaceFirst("^an? ", "").replaceFirst(" \\(.*\\)$", "");
             default -> null;
         };
@@ -264,6 +265,11 @@ final class DiagramNotation {
         return family == Family.ERD || family == Family.CLASS ? 0.9 : 0.7;
     }
 
+    /** Whether each interface must be provided by the right component (a lollipop on it). */
+    boolean usesInterfaceProviders() {
+        return family == Family.COMPONENT;
+    }
+
     /** Whether use cases must sit inside a system boundary and actors outside it. */
     boolean usesSystemBoundary() {
         return family == Family.USE_CASE;
@@ -329,6 +335,7 @@ final class DiagramNotation {
             case "RETURN" -> "Returns";
             case "CONTAINMENT" -> "Containment";
             case "RELATIONSHIP" -> "Relationships";
+            case "SUBTYPE" -> "Supertypes / subtypes";
             case "FLOW" -> guarded ? "Decision branches" : "Flows";
             default -> "Connections";
         };

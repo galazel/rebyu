@@ -75,6 +75,7 @@ public class DiagramGradingService {
     public static final String CHECK_MULTIPLICITY = "multiplicity";
     public static final String CHECK_ORDER = "order";
     public static final String CHECK_PLACEMENT = "placement";
+    public static final String CHECK_PROVIDER = "provider";
     public static final String CHECK_KEY = "key";
 
     private static final Pattern KEY_MARKER = Pattern.compile(
@@ -147,6 +148,9 @@ public class DiagramGradingService {
         Map<Integer, Boolean> placement = notation.usesSystemBoundary()
                 ? checkSystemBoundary(reference, learner, matchedNode, nodeScores, notation)
                 : Map.of();
+        Map<Integer, Boolean> providers = notation.usesInterfaceProviders()
+                ? checkInterfaceProviders(reference, learner, matchedNode, nodeScores)
+                : Map.of();
 
         Set<String> usedLearnerEdgeIds = new HashSet<>();
         List<EdgeScore> edgeScores = new ArrayList<>();
@@ -205,6 +209,9 @@ public class DiagramGradingService {
                 }
                 if (placement.containsKey(i)) {
                     nodeChecks.put(CHECK_PLACEMENT, placement.get(i));
+                }
+                if (providers.containsKey(i)) {
+                    nodeChecks.put(CHECK_PROVIDER, providers.get(i));
                 }
             }
             elementResults.add(new ElementResultDto(
@@ -972,6 +979,75 @@ public class DiagramGradingService {
                     score.factor() * WRONG_PLACE, drawn, reason + kept, score.notationRight()));
         }
         return placed;
+    }
+
+    /**
+     * A component diagram's provided interface is a lollipop on the component that provides
+     * it, so which component it sits on is part of the answer. The provider is the component
+     * the interface is connected to by a plain line or realization, else the component it
+     * touches (within 30px; the nearest wins). An interface on the wrong component, or on
+     * none, keeps 80% of its credit and says which component should provide it. Returns,
+     * per reference interface index, whether its provider is right.
+     */
+    private Map<Integer, Boolean> checkInterfaceProviders(
+            DiagramGraphDto reference, DiagramGraphDto learner, DiagramGraphDto.Node[] matchedNode,
+            List<NodeScore> nodeScores) {
+        List<DiagramGraphDto.Node> refNodes = reference.nodes();
+        Map<String, Integer> refIndexById = new HashMap<>();
+        for (int i = 0; i < refNodes.size(); i++) refIndexById.put(refNodes.get(i).id(), i);
+
+        Map<Integer, Boolean> right = new LinkedHashMap<>();
+        for (int i = 0; i < refNodes.size(); i++) {
+            DiagramGraphDto.Node refInterface = refNodes.get(i);
+            NodeScore score = nodeScores.get(i);
+            if (!"interface".equals(refInterface.nodeType()) || !score.matched()) continue;
+            DiagramGraphDto.Node refProvider = providerOf(refInterface, reference);
+            if (refProvider == null) continue;
+            DiagramGraphDto.Node expected = matchedNode[refIndexById.get(refProvider.id())];
+            DiagramGraphDto.Node drawnProvider = providerOf(score.matchedNode(), learner);
+            boolean ok = expected != null && drawnProvider != null && expected.id().equals(drawnProvider.id());
+            right.put(i, ok);
+            if (ok) continue;
+            String reason = drawnProvider == null
+                    ? "It is not attached to any component; it should be provided by " + plainLabel(refProvider) + "."
+                    : "It sits on " + plainLabel(drawnProvider) + " but should be provided by "
+                            + plainLabel(refProvider) + ".";
+            String kept = score.reason().startsWith("Matched") ? "" : " " + score.reason();
+            nodeScores.set(i, new NodeScore(true, "STRONG".equals(score.quality()) ? "PARTIAL" : score.quality(),
+                    score.factor() * WRONG_PLACE, score.matchedNode(), reason + kept, score.notationRight()));
+        }
+        return right;
+    }
+
+    private static final double ATTACHED_GAP = 30;
+
+    private DiagramGraphDto.Node providerOf(DiagramGraphDto.Node face, DiagramGraphDto graph) {
+        Map<String, DiagramGraphDto.Node> byId = new HashMap<>();
+        for (DiagramGraphDto.Node node : graph.nodes()) byId.put(node.id(), node);
+        for (DiagramGraphDto.Edge edge : graph.edges()) {
+            if ("DEPENDENCY".equals(edge.kind())) continue;
+            String other = edge.sourceId().equals(face.id()) ? edge.targetId()
+                    : edge.targetId().equals(face.id()) ? edge.sourceId() : null;
+            DiagramGraphDto.Node node = other == null ? null : byId.get(other);
+            if (node != null && "component".equals(node.nodeType())) return node;
+        }
+        if (face.bounds() == null) return null;
+        double cx = face.bounds().x() + face.bounds().width() / 2;
+        double cy = face.bounds().y() + face.bounds().height() / 2;
+        DiagramGraphDto.Node best = null;
+        double bestGap = Double.MAX_VALUE;
+        for (DiagramGraphDto.Node node : graph.nodes()) {
+            if (!"component".equals(node.nodeType()) || node.bounds() == null) continue;
+            DiagramGraphDto.Box b = node.bounds();
+            double dx = Math.max(Math.max(b.x() - cx, 0), cx - (b.x() + b.width()));
+            double dy = Math.max(Math.max(b.y() - cy, 0), cy - (b.y() + b.height()));
+            double gap = Math.hypot(dx, dy);
+            if (gap <= ATTACHED_GAP && gap < bestGap) {
+                best = node;
+                bestGap = gap;
+            }
+        }
+        return best;
     }
 
     private int countUseCasesInside(

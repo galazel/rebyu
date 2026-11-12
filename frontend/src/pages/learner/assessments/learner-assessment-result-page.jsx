@@ -20,8 +20,8 @@ import { toast } from "sonner"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { diagramPartLabel, failedChecks, summarizeDiagramChecks } from "@/lib/diagram-checks.js"
-import { DiagramChecks } from "@/components/challenges/score-breakdown.jsx"
+import { diagramPartLabel, failedChecks } from "@/lib/diagram-checks.js"
+import { DiagramAnswerBreakdown, ProgrammingAnswerBreakdown } from "@/components/assessments/attempt/answer-breakdown.jsx"
 import {
   Chip,
   RebyuCard,
@@ -1027,6 +1027,8 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
 
 
+                    {answer.submittedCode ? <ProgrammingAnswerBreakdown answer={answer} /> : null}
+
                     {answer.expectedOutput != null ? (
                       <div className="text-sm">
                         <p className="mb-2 text-muted-foreground">
@@ -1045,12 +1047,7 @@ export default function LearnerAssessmentResultPage() {
                         <p className="text-muted-foreground">
                           Diagram comparison — required elements vs. what you drew:
                         </p>
-                        {summarizeDiagramChecks(answer.diagramElements).length ? (
-                          <DiagramChecks
-                            checks={summarizeDiagramChecks(answer.diagramElements)}
-                            className="mt-0 rounded-rb-tile border-2 border-[var(--tg-line)] bg-card p-3"
-                          />
-                        ) : null}
+                        <DiagramAnswerBreakdown elements={answer.diagramElements} />
                         <ul className="space-y-1.5">
                           {answer.diagramElements.map((element, index) => (
                             <li

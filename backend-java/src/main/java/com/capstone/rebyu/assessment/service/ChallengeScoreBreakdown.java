@@ -286,6 +286,7 @@ final class ChallengeScoreBreakdown {
         CHECK_LABELS.put("multiplicity", "Multiplicities");
         CHECK_LABELS.put("order", "Message order");
         CHECK_LABELS.put("placement", "Inside / outside the system boundary");
+        CHECK_LABELS.put("provider", "Interfaces on the right component");
         CHECK_LABELS.put("key", "Keys (PK / FK)");
     }
 

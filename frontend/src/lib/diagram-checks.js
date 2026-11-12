@@ -12,6 +12,7 @@ export const DIAGRAM_CHECK_LABELS = {
   multiplicity: "Multiplicities",
   order: "Message order",
   placement: "Inside / outside the system boundary",
+  provider: "Interfaces on the right component",
   key: "Keys (PK / FK)",
 }
 
@@ -24,6 +25,7 @@ export const DIAGRAM_CHECK_MISSES = {
   multiplicity: "multiplicity",
   order: "order",
   placement: "boundary placement",
+  provider: "providing component",
   key: "key marker",
 }
 
