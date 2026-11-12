@@ -43,10 +43,22 @@ join questions q on q.question_id = a.question_id
 join lessons l on l.lesson_id = q.lesson_id
 join middle_categories m on m.middle_category_id = l.middle_category_id
 join major_categories ma on ma.major_category_id = m.major_category_id
-where a.k = 1 and a.cn > 1.3 * a.wn and a.cn - a.wn >= 15
+where a.k = 1 and a.cn >= 1.1 * a.wn and a.cn - a.wn >= 8
   and (cast(:cert as bigint) is null or ma.certification_id = :cert)
 order by ma.certification_id = 13 desc, a.question_id desc
 """
+
+
+def even_lengths(texts: list[str], correct: set[int]) -> str | None:
+    """The stricter bar for hand rewrites: options as close in length as possible."""
+    lengths = [len(t) for t in texts]
+    right = max(lengths[i] for i in correct)
+    wrong = max(n for i, n in enumerate(lengths) if i not in correct)
+    if right > wrong + 5:
+        return f"correct option is {right - wrong} characters longer than the longest distractor"
+    if min(lengths) < 0.75 * max(lengths):
+        return f"options range from {min(lengths)} to {max(lengths)} characters; keep them within 25%"
+    return None
 
 
 def export(session, path: Path, limit: int, cert: int | None) -> None:
@@ -82,7 +94,7 @@ def apply(session, path: Path) -> None:
             continue
         texts = [given[r.choice_id]["text"].strip() for r in rows]
         correct = {i for i, r in enumerate(rows) if r.is_correct}
-        why = length_giveaway(texts, correct)
+        why = length_giveaway(texts, correct) or even_lengths(texts, correct)
         if why or len({t.lower() for t in texts}) != len(texts):
             refused.append((qid, why or "duplicate options"))
             continue

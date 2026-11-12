@@ -108,9 +108,9 @@ MIN_CHOICE_EXPLANATION_CHARS = 15
 
 # The correct option must not give itself away by being the longest. Measured on the
 # stored bank (2026-11-12): the right answer was the longest option in 69% of TOPCIT
-# MCQs, so "pick the longest" passed the paper. Allowed slack: 30% and 15 characters.
-LENGTH_GIVEAWAY_RATIO = 1.3
-LENGTH_GIVEAWAY_CHARS = 15
+# MCQs, so "pick the longest" passed the paper. Allowed slack: 20% and 10 characters.
+LENGTH_GIVEAWAY_RATIO = 1.2
+LENGTH_GIVEAWAY_CHARS = 10
 
 
 def length_giveaway(choices: list[str], correct: set[int]) -> str | None:
