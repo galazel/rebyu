@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import {
   Link,
-  Navigate,
   useLocation,
   useNavigate,
   useOutletContext,
@@ -1085,12 +1084,8 @@ export default function LearnerCertificationCurriculumPage() {
   const masteryReady =
     !diagnosticDone || skippedMasteryWait || masteryQuery.data?.bktAvailable === true
 
-  const {
-    plan: activePlan,
-    isLoading: planLoading,
-    isError: planLookupFailed,
-    hasAnyPlan,
-  } = useCertificationStudyPlan(certificationId)
+  // A study plan is optional: it only adds the calendar strip when one exists.
+  const { plan: activePlan } = useCertificationStudyPlan(certificationId)
   const hasPlan = Boolean(activePlan?.planId)
 
   if (!certification) {
@@ -1143,17 +1138,6 @@ export default function LearnerCertificationCurriculumPage() {
           </button>
         </div>
       </div>
-    )
-  }
-
-  if (diagnosticDone && !planLoading && !planLookupFailed && !hasAnyPlan) {
-    const returnTo = `/learner/learning/${certificationId}`
-    return (
-      <Navigate
-        to={`/learner/analytics?certification=${certificationId}`
-          + `&plan=1&returnTo=${encodeURIComponent(returnTo)}`}
-        replace
-      />
     )
   }
 

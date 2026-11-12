@@ -86,25 +86,9 @@ export function useStudyPlanGate() {
     const certificationId = certificationIdOf(certification)
     const path = options.to ?? `/learner/learning/${certificationId}`
 
-    if (!options.diagnosticCompleted) {
-      navigate(path)
-      return
-    }
-
-
-    const cachedScoped = queryClient.getQueryData([STUDY_PLAN_QUERY_KEY, String(certificationId ?? "")])
-    const cachedOverall = queryClient.getQueryData([STUDY_PLAN_QUERY_KEY, "overall"])
-    const knownNoPlan =
-      cachedScoped !== undefined && cachedOverall !== undefined
-      && !cachedScoped?.planId && !cachedOverall?.planId
-
-    if (!knownNoPlan) {
-      navigate(path)
-      existingPlan(certificationId).catch(() => {})
-      return
-    }
-
-    openOverallStudyPlan(path)
+    // A study plan is optional — never block opening a certification on one.
+    navigate(path)
+    if (options.diagnosticCompleted) existingPlan(certificationId).catch(() => {})
   }
 
   async function openOverallStudyPlan(next = null) {
