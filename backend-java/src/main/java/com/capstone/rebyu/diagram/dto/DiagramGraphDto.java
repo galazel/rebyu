@@ -8,9 +8,24 @@ public record DiagramGraphDto(List<Node> nodes, List<Edge> edges) {
      * A shape. {@code nodeType} is its kind -- box, actor, usecase, initial, final,
      * decision, bar, terminator, component, interface, lifeline, fragment, datastore.
      */
-    public record Node(String id, String label, String labelKey, String nodeType, List<Attribute> attributes) {
+    public record Node(
+            String id, String label, String labelKey, String nodeType, List<Attribute> attributes, Box bounds) {
+        public Node(String id, String label, String labelKey, String nodeType, List<Attribute> attributes) {
+            this(id, label, labelKey, nodeType, attributes, null);
+        }
+
         public Node(String id, String label, String labelKey, String nodeType) {
             this(id, label, labelKey, nodeType, List.of());
+        }
+    }
+
+    /** Where a shape sits on the page -- used to tell what is inside a use case's system boundary. */
+    public record Box(double x, double y, double width, double height) {
+        public boolean containsCentreOf(Box other) {
+            if (other == null) return false;
+            double cx = other.x + other.width / 2;
+            double cy = other.y + other.height / 2;
+            return cx >= x && cx <= x + width && cy >= y && cy <= y + height;
         }
     }
 

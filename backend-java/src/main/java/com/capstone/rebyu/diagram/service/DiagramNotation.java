@@ -1,5 +1,6 @@
 package com.capstone.rebyu.diagram.service;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,7 +17,9 @@ import java.util.Set;
  *       the parent and a diamond sits at the whole, so those are directed; a plain
  *       association is not.</li>
  *   <li>Use case -- actors are stick figures and use cases ovals; actor-to-use-case
- *       associations have no direction, include/extend and generalization do.</li>
+ *       associations have no direction, include/extend and generalization do.
+ *       «include» and «extend» are different relationships, told apart by their
+ *       stereotype; use cases sit inside the system boundary and actors outside it.</li>
  *   <li>Sequence -- every message is directed, its kind (call, asynchronous,
  *       return) matters, and so does its order down the page.</li>
  *   <li>Activity / flowchart -- every flow is directed; start, end, decision and
@@ -103,6 +106,20 @@ final class DiagramNotation {
         };
     }
 
+    /**
+     * The relationship a connector draws, reading its stereotype where the notation gives
+     * one meaning: in a use case diagram a dashed arrow is «include» or «extend» -- two
+     * different relationships -- and the label is what says which.
+     */
+    String relationKind(String drawnKind, String labelKey) {
+        if (family == Family.USE_CASE && labelKey != null) {
+            String label = labelKey.toLowerCase(Locale.ROOT);
+            if (label.contains("include")) return "INCLUDE";
+            if (label.contains("extend")) return "EXTEND";
+        }
+        return relationKind(drawnKind);
+    }
+
     boolean directed(String relationKind) {
         return switch (family) {
             case ERD -> false;
@@ -122,6 +139,8 @@ final class DiagramNotation {
             Map.entry("DEPENDENCY", "a dependency (dashed arrow)"),
             Map.entry("ASSOCIATION", "an association (plain line)"),
             Map.entry("INCLUDE_EXTEND", "an include/extend (dashed arrow)"),
+            Map.entry("INCLUDE", "an «include» (dashed arrow to the included use case)"),
+            Map.entry("EXTEND", "an «extend» (dashed arrow from the extension to the base use case)"),
             Map.entry("GENERALIZATION", "a generalization (hollow triangle)"),
             Map.entry("SYNC", "a call (solid line, filled arrowhead)"),
             Map.entry("ASYNC", "an asynchronous message (solid line, open arrowhead)"),
@@ -139,7 +158,7 @@ final class DiagramNotation {
     String relationNote(String relationKind) {
         return switch (relationKind) {
             case "INHERITANCE", "REALIZATION", "COMPOSITION", "AGGREGATION", "DEPENDENCY", "INCLUDE_EXTEND",
-                 "GENERALIZATION", "RETURN", "ASYNC", "CONTAINMENT" ->
+                 "GENERALIZATION", "RETURN", "ASYNC", "CONTAINMENT", "INCLUDE", "EXTEND" ->
                     relationName(relationKind).replaceFirst("^an? ", "").replaceFirst(" \\(.*\\)$", "");
             default -> null;
         };
@@ -151,8 +170,19 @@ final class DiagramNotation {
      * carry meaning.
      */
     boolean sameShape(String expected, String drawn) {
-        return group(expected).equals(group(drawn));
+        String want = group(expected);
+        String got = group(drawn);
+        if (want.equals(got)) return true;
+        // Strict only where the model answer is specific. A plain process box in the model
+        // answer accepts any process-family symbol (a learner may rightly draw "Read card"
+        // as input/output), and an activity final accepts a flow final; but where the model
+        // answer draws a parallelogram, a document or a flow final, that symbol is required.
+        if (want.equals("box") && PROCESS_FAMILY.contains(got)) return true;
+        return want.equals("final") && got.equals("flowfinal");
     }
+
+    private static final Set<String> PROCESS_FAMILY =
+            Set.of("io", "document", "predefined", "preparation", "manualop");
 
     private static final Set<String> BOXES = Set.of("box", "datastore");
 
@@ -179,6 +209,7 @@ final class DiagramNotation {
                     yield switch (k) {
                         case "initial" -> "initial";
                         case "final" -> "final";
+                        case "flowfinal" -> "flowfinal";
                         case "decision" -> "decision";
                         case "bar" -> "bar";
                         case "fragment" -> "box";
@@ -186,9 +217,10 @@ final class DiagramNotation {
                     };
                 }
                 yield switch (k) {
-                    case "terminator", "initial", "final", "ellipse" -> "terminal";
+                    case "terminator", "initial", "final", "flowfinal", "ellipse" -> "terminal";
                     case "decision" -> "decision";
                     case "datastore" -> "datastore";
+                    case "io", "document", "predefined", "preparation", "manualop", "connector" -> k;
                     default -> "box";
                 };
             }
@@ -201,6 +233,13 @@ final class DiagramNotation {
             Map.entry("box", "a box"),
             Map.entry("initial", "a start node (filled dot)"),
             Map.entry("final", "an end node (ringed dot)"),
+            Map.entry("flowfinal", "a flow final (circle with a cross)"),
+            Map.entry("io", "an input/output (parallelogram)"),
+            Map.entry("document", "a document symbol"),
+            Map.entry("predefined", "a predefined process (box with double sides)"),
+            Map.entry("preparation", "a preparation (hexagon)"),
+            Map.entry("manualop", "a manual operation (trapezoid)"),
+            Map.entry("connector", "a connector"),
             Map.entry("decision", "a decision (diamond)"),
             Map.entry("bar", "a fork/join bar"),
             Map.entry("terminal", "a start/end terminator"),
@@ -223,6 +262,76 @@ final class DiagramNotation {
      */
     double labelPenalty() {
         return family == Family.ERD || family == Family.CLASS ? 0.9 : 0.7;
+    }
+
+    /** Whether use cases must sit inside a system boundary and actors outside it. */
+    boolean usesSystemBoundary() {
+        return family == Family.USE_CASE;
+    }
+
+    /** The diagram type's own name for a kind of element, as the result page groups them. */
+    String nodeCategory(String nodeType) {
+        String shape = group(nodeType);
+        return switch (family) {
+            case ERD -> "Entities";
+            case CLASS -> "Classes";
+            case USE_CASE -> switch (shape) {
+                case "actor" -> "Actors";
+                case "usecase" -> "Use cases";
+                default -> "System boundary";
+            };
+            case SEQUENCE -> shape.equals("fragment") ? "Combined fragments" : "Participants";
+            case COMPONENT -> switch (shape) {
+                case "interface" -> "Interfaces";
+                case "actor" -> "Actors";
+                default -> "Components";
+            };
+            case FLOW -> switch (shape) {
+                case "initial", "final", "flowfinal", "terminal" -> "Start and end";
+                case "io" -> "Input / output";
+                case "document" -> "Documents";
+                case "predefined" -> "Predefined processes";
+                case "preparation" -> "Preparations";
+                case "manualop" -> "Manual operations";
+                case "connector" -> "Connectors";
+                case "decision" -> "Decisions";
+                case "bar" -> "Fork and join bars";
+                case "datastore" -> "Data stores";
+                default -> activity ? "Actions" : "Process steps";
+            };
+            case GENERIC -> "Elements";
+        };
+    }
+
+    /** The name for a node's rows: a class's attributes and operations, an entity's attributes. */
+    String attributeCategory(String labelKey) {
+        if (family == Family.CLASS) {
+            return labelKey != null && labelKey.contains("(") ? "Operations" : "Attributes";
+        }
+        return "Attributes";
+    }
+
+    /** The name for a kind of relationship; {@code guarded} is a flow leaving a decision. */
+    String edgeCategory(String relationKind, boolean guarded) {
+        return switch (relationKind) {
+            case "INHERITANCE" -> "Inheritance";
+            case "REALIZATION" -> "Realizations";
+            case "COMPOSITION" -> "Compositions";
+            case "AGGREGATION" -> "Aggregations";
+            case "DEPENDENCY" -> "Dependencies";
+            case "ASSOCIATION" -> family == Family.USE_CASE ? "Actor associations" : "Associations";
+            case "INCLUDE" -> "«include»";
+            case "EXTEND" -> "«extend»";
+            case "INCLUDE_EXTEND" -> "«include» / «extend»";
+            case "GENERALIZATION" -> "Generalizations";
+            case "SYNC" -> "Calls";
+            case "ASYNC" -> "Asynchronous messages";
+            case "RETURN" -> "Returns";
+            case "CONTAINMENT" -> "Containment";
+            case "RELATIONSHIP" -> "Relationships";
+            case "FLOW" -> guarded ? "Decision branches" : "Flows";
+            default -> "Connections";
+        };
     }
 
     /** Whether a connector's cardinality is part of this notation. */

@@ -91,13 +91,21 @@ public class DiagramGraphExtractor {
             String id = cell.getAttribute("id");
             List<String> lines = labelLines(cell.getAttribute("value"));
             String label = lines.isEmpty() ? getCellLabel(cell) : lines.get(0);
+            // UML writes an abstract class's name in italics; keep that as a stereotype so it
+            // is not lost with the formatting. Names are compared without stereotypes, so this
+            // only matters where the notation reads stereotypes (class diagrams).
+            if (isItalicName(cell) && !label.isBlank() && !label.contains("«")) {
+                label = "«abstract» " + label;
+            }
             List<DiagramGraphDto.Attribute> attributes =
                     new ArrayList<>(attributesByNode.getOrDefault(id, List.of()));
             for (String line : lines.subList(Math.min(1, lines.size()), lines.size())) {
                 attributes.add(new DiagramGraphDto.Attribute(line, normalizeLabel(line)));
             }
+            double[] box = absoluteBounds(cell, cellsById);
             nodes.add(new DiagramGraphDto.Node(
-                    id, label, normalizeLabel(label), nodeKind(cell), List.copyOf(attributes)));
+                    id, label, normalizeLabel(label), nodeKind(cell), List.copyOf(attributes),
+                    box == null ? null : new DiagramGraphDto.Box(box[0], box[1], box[2], box[3])));
         }
 
         Map<String, DiagramGraphDto.Node> nodesById = new LinkedHashMap<>();
@@ -200,6 +208,21 @@ public class DiagramGraphExtractor {
             }
         }
         return lines;
+    }
+
+    /** The name is set in italics: an {@code <i>}/{@code <em>} name, or fontStyle's italic bit. */
+    private boolean isItalicName(Element cell) {
+        String raw = cell.getAttribute("value").toLowerCase(Locale.ROOT);
+        String head = raw.split("<hr|<br|\\n", 2)[0];
+        if (head.contains("<i>") || head.contains("<em>")) {
+            return true;
+        }
+        String fontStyle = parseStyle(cell.getAttribute("style")).get("fontStyle");
+        try {
+            return fontStyle != null && (Integer.parseInt(fontStyle.trim()) & 2) != 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private String styleShape(Element cell) {
@@ -356,6 +379,7 @@ public class DiagramGraphExtractor {
         if (shape.contains("component") || shape.equals("module")) return "component";
         if (shape.contains("interface") || shape.equals("lollipop")) return "interface";
         if (shape.equals("endstate") || shape.equals("doubleellipse")) return "final";
+        if (shape.equals("sumellipse") || shape.equals("mxgraph.flowchart.or")) return "flowfinal";
         if (shape.equals("startstate")) return "initial";
         if (shape.equals("rhombus") || shape.equals("diamond") || style.containsKey("rhombus")) return "decision";
         if (shape.equals("line") || shape.equals("fork") || shape.equals("join")) return "bar";
@@ -366,11 +390,27 @@ public class DiagramGraphExtractor {
             String symbol = shape.substring("mxgraph.flowchart.".length());
             if (symbol.equals("decision")) return "decision";
             if (symbol.equals("terminator") || symbol.startsWith("start")) return "terminator";
-            if (symbol.contains("data") || symbol.equals("database")) return "datastore";
+            // "data" is the flowchart's input/output parallelogram; stored, direct and
+            // internal storage and databases are data stores.
+            if (symbol.equals("data") || symbol.contains("manual_input") || symbol.equals("card")
+                    || symbol.equals("paper_tape")) return "io";
+            if (symbol.contains("document")) return "document";
+            if (symbol.contains("predefined")) return "predefined";
+            if (symbol.equals("preparation")) return "preparation";
+            if (symbol.contains("manual_operation")) return "manualop";
+            if (symbol.contains("reference") || symbol.equals("off-page_reference")) return "connector";
+            if (symbol.contains("data") || symbol.contains("storage") || symbol.equals("database")) return "datastore";
             return "box";
         }
         if (shape.equals("terminator")) return "terminator";
-        if (shape.startsWith("cylinder") || shape.equals("datastore")) return "datastore";
+        if (shape.equals("parallelogram") || shape.equals("manualinput") || shape.equals("card")) return "io";
+        if (shape.equals("document") || shape.equals("tape")) return "document";
+        if (shape.equals("process")) return "predefined";
+        if (shape.equals("hexagon")) return "preparation";
+        if (shape.equals("trapezoid")) return "manualop";
+        if (shape.equals("offpageconnector")) return "connector";
+        if (shape.startsWith("cylinder") || shape.equals("datastore") || shape.equals("internalstorage")
+                || shape.equals("datastorage")) return "datastore";
         if (shape.equals("ellipse") || style.containsKey("ellipse")) return dark ? "initial" : "ellipse";
         return "box";
     }

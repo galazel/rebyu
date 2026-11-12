@@ -58,6 +58,24 @@ public class DiagramGradingService {
     private static final double WRONG_LABEL = 0.7;
     private static final double OUT_OF_ORDER = 0.7;
     private static final double WRONG_SHAPE = 0.7;
+    private static final double WRONG_PLACE = 0.8;
+
+    /**
+     * The rules a required part is held to, recorded per element so the result page can
+     * show which were met: drawn at all; its name or label; the right shape; for a
+     * relationship its kind, direction, label and multiplicity; message order; inside or
+     * outside a use case's system boundary; a key marker.
+     */
+    public static final String CHECK_DRAWN = "drawn";
+    public static final String CHECK_NAME = "name";
+    public static final String CHECK_SHAPE = "shape";
+    public static final String CHECK_KIND = "kind";
+    public static final String CHECK_DIRECTION = "direction";
+    public static final String CHECK_LABEL = "label";
+    public static final String CHECK_MULTIPLICITY = "multiplicity";
+    public static final String CHECK_ORDER = "order";
+    public static final String CHECK_PLACEMENT = "placement";
+    public static final String CHECK_KEY = "key";
 
     private static final Pattern KEY_MARKER = Pattern.compile(
             "\\b(pk|fk)\\d*\\b|primary key|foreign key|\\(pk\\)|\\(fk\\)");
@@ -126,6 +144,10 @@ public class DiagramGradingService {
             }
         }
 
+        Map<Integer, Boolean> placement = notation.usesSystemBoundary()
+                ? checkSystemBoundary(reference, learner, matchedNode, nodeScores, notation)
+                : Map.of();
+
         Set<String> usedLearnerEdgeIds = new HashSet<>();
         List<EdgeScore> edgeScores = new ArrayList<>();
         for (DiagramGraphDto.Edge refEdge : reference.edges()) {
@@ -171,6 +193,20 @@ public class DiagramGradingService {
             BigDecimal raw = perElement.multiply(BigDecimal.valueOf(score.factor()));
             earnedRaw = earnedRaw.add(raw);
             if (score.matched()) matchedNodes++;
+            Map<String, Boolean> nodeChecks = new LinkedHashMap<>();
+            nodeChecks.put(CHECK_DRAWN, score.matched());
+            if (score.matched()) {
+                if (!isBlank(refNode.labelKey())) {
+                    nodeChecks.put(CHECK_NAME, matchedSimilarity[i] >= SIM_STRONG && !byPosition[i]);
+                }
+                nodeChecks.put(CHECK_SHAPE, score.notationRight());
+                if (hasKeyMarker(refNode.labelKey())) {
+                    nodeChecks.put(CHECK_KEY, hasKeyMarker(score.matchedNode().labelKey()));
+                }
+                if (placement.containsKey(i)) {
+                    nodeChecks.put(CHECK_PLACEMENT, placement.get(i));
+                }
+            }
             elementResults.add(new ElementResultDto(
                     "NODE",
                     describeNode(refNode, notation),
@@ -179,7 +215,9 @@ public class DiagramGradingService {
                     score.matchedNode() == null ? null : describeNode(score.matchedNode(), notation),
                     score.reason(),
                     raw.setScale(2, RoundingMode.HALF_UP),
-                    perElement.setScale(2, RoundingMode.HALF_UP)));
+                    perElement.setScale(2, RoundingMode.HALF_UP),
+                    notation.nodeCategory(refNode.nodeType()),
+                    nodeChecks));
 
             List<DiagramGraphDto.Attribute> expected = refNode.attributes();
             List<NodeScore> scores = attributeScores.get(i);
@@ -193,6 +231,17 @@ public class DiagramGradingService {
                     attributesTotal++;
                     if (attribute.matched()) attributesMatched++;
                 }
+                Map<String, Boolean> attributeChecks = new LinkedHashMap<>();
+                if (!optional) {
+                    attributeChecks.put(CHECK_DRAWN, attribute.matched());
+                    if (attribute.matched()) {
+                        attributeChecks.put(CHECK_NAME, "STRONG".equals(attribute.quality())
+                                || attribute.reason().startsWith("It should be marked"));
+                        if (hasKeyMarker(expected.get(k).labelKey())) {
+                            attributeChecks.put(CHECK_KEY, hasKeyMarker(attribute.matchedNode().labelKey()));
+                        }
+                    }
+                }
                 elementResults.add(new ElementResultDto(
                         "ATTRIBUTE",
                         plainLabel(refNode) + " . " + expected.get(k).label(),
@@ -201,7 +250,9 @@ public class DiagramGradingService {
                         attribute.matchedNode() == null ? null : attribute.matchedNode().label(),
                         attribute.reason(),
                         attributeRaw.setScale(2, RoundingMode.HALF_UP),
-                        (optional ? BigDecimal.ZERO : perAttribute).setScale(2, RoundingMode.HALF_UP)));
+                        (optional ? BigDecimal.ZERO : perAttribute).setScale(2, RoundingMode.HALF_UP),
+                        notation.attributeCategory(expected.get(k).labelKey()),
+                        attributeChecks));
             }
         }
         int matchedEdges = 0;
@@ -211,6 +262,9 @@ public class DiagramGradingService {
             BigDecimal raw = perElement.multiply(BigDecimal.valueOf(score.factor()));
             earnedRaw = earnedRaw.add(raw);
             if (score.matched()) matchedEdges++;
+            String expectedKind = notation.relationKind(refEdge.kind(), refEdge.labelKey());
+            DiagramGraphDto.Node edgeSource = referenceNodesById.get(refEdge.sourceId());
+            boolean guarded = edgeSource != null && "decision".equals(edgeSource.nodeType());
             elementResults.add(new ElementResultDto(
                     "EDGE",
                     describeEdge(refEdge, referenceNodesById, notation),
@@ -220,7 +274,9 @@ public class DiagramGradingService {
                             : describeEdge(score.matchedEdge(), learnerNodesById, notation),
                     score.reason(),
                     raw.setScale(2, RoundingMode.HALF_UP),
-                    perElement.setScale(2, RoundingMode.HALF_UP)));
+                    perElement.setScale(2, RoundingMode.HALF_UP),
+                    notation.edgeCategory(expectedKind, guarded),
+                    edgeChecks(refEdge, score, refToLearnerNodeId, expectedKind, notation)));
         }
 
         BigDecimal earned = earnedRaw.min(maxPoints).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
@@ -468,6 +524,17 @@ public class DiagramGradingService {
                     + notation.shapeName(refNode.nodeType()) + " was expected.");
         }
 
+        // In a class diagram a stereotype changes what the box is: an «interface» or an
+        // «enumeration» is not a class, and «abstract» cannot be instantiated.
+        Optional<String> expectedStereotype = notation.family() == DiagramNotation.Family.CLASS
+                ? stereotypeOf(refNode.label()) : Optional.empty();
+        if (expectedStereotype.isPresent() && !expectedStereotype.equals(stereotypeOf(matched.label()))) {
+            base *= WRONG_SHAPE;
+            rightShape = false;
+            if (quality.equals("STRONG")) quality = "PARTIAL";
+            reasons.add("It should be marked «" + expectedStereotype.get() + "».");
+        }
+
         return new NodeScore(true, quality, base, matched,
                 reasons.isEmpty() ? "Matched what was expected." : String.join(" ", reasons), rightShape);
     }
@@ -492,7 +559,7 @@ public class DiagramGradingService {
                             + "is missing from your diagram.");
         }
 
-        String expectedKind = notation.relationKind(refEdge.kind());
+        String expectedKind = notation.relationKind(refEdge.kind(), refEdge.labelKey());
         boolean directed = notation.directed(expectedKind);
 
         DiagramGraphDto.Edge best = null;
@@ -505,7 +572,7 @@ public class DiagramGradingService {
             if (!forward && !backward) continue;
             double factor = 1.0;
             if (directed && !forward) factor *= WRONG_DIRECTION;
-            if (!expectedKind.equals(notation.relationKind(edge.kind()))) factor *= WRONG_KIND;
+            if (!expectedKind.equals(notation.relationKind(edge.kind(), edge.labelKey()))) factor *= WRONG_KIND;
             if (!edgeLabelMatches(refEdge, edge, forward, notation)) {
                 factor *= cardinalityMatches(refEdge, edge, forward, notation)
                         ? notation.labelPenalty() : WRONG_LABEL;
@@ -526,7 +593,7 @@ public class DiagramGradingService {
         if (directed && !bestForward) {
             reasons.add("It points the opposite way to the expected relationship.");
         }
-        String drawnKind = notation.relationKind(best.kind());
+        String drawnKind = notation.relationKind(best.kind(), best.labelKey());
         if (!expectedKind.equals(drawnKind)) {
             reasons.add("It is drawn as " + notation.relationName(drawnKind) + " where "
                     + notation.relationName(expectedKind) + " was expected.");
@@ -813,6 +880,121 @@ public class DiagramGradingService {
         return name.replaceAll("\\s+", " ").trim();
     }
 
+    /** Which rules a required relationship met; only the ones that apply to it are listed. */
+    private Map<String, Boolean> edgeChecks(
+            DiagramGraphDto.Edge refEdge, EdgeScore score, Map<String, String> refToLearnerNodeId,
+            String expectedKind, DiagramNotation notation) {
+        Map<String, Boolean> checks = new LinkedHashMap<>();
+        checks.put(CHECK_DRAWN, score.matched());
+        DiagramGraphDto.Edge drawn = score.matchedEdge();
+        if (!score.matched() || drawn == null) {
+            return checks;
+        }
+        boolean forward = drawn.sourceId().equals(refToLearnerNodeId.get(refEdge.sourceId()));
+        checks.put(CHECK_KIND, expectedKind.equals(notation.relationKind(drawn.kind(), drawn.labelKey())));
+        if (notation.directed(expectedKind)) {
+            checks.put(CHECK_DIRECTION, forward);
+        }
+        if (!edgeText(refEdge.labelKey(), notation.usesCardinality()).isEmpty()) {
+            checks.put(CHECK_LABEL, edgeLabelMatches(refEdge, drawn, forward, notation));
+        }
+        if (notation.usesCardinality() && cardinalityOf(refEdge).isPresent()) {
+            checks.put(CHECK_MULTIPLICITY, cardinalityMatches(refEdge, drawn, forward, notation));
+        }
+        if (notation.ordered() && !Double.isNaN(refEdge.order())) {
+            checks.put(CHECK_ORDER, !score.reason().startsWith("It comes out of order"));
+        }
+        return checks;
+    }
+
+    /**
+     * A use case diagram's system boundary: every use case belongs inside it and every actor
+     * outside -- a rule of the notation, so it is not read from where the model answer happens
+     * to place things (reference layouts are often a plain grid). It applies when the model
+     * answer has a boundary box. The learner's boundary is the box their drawing paired with
+     * it, or else the box holding most of their use cases. Each actor or use case on the
+     * wrong side keeps 80% of its credit and says why. Returns, per reference node index
+     * checked, whether it was placed right.
+     */
+    private Map<Integer, Boolean> checkSystemBoundary(
+            DiagramGraphDto reference, DiagramGraphDto learner, DiagramGraphDto.Node[] matchedNode,
+            List<NodeScore> nodeScores, DiagramNotation notation) {
+        List<DiagramGraphDto.Node> refNodes = reference.nodes();
+        int boundaryIndex = -1;
+        for (int i = 0; i < refNodes.size() && boundaryIndex < 0; i++) {
+            DiagramGraphDto.Node node = refNodes.get(i);
+            if ("System boundary".equals(notation.nodeCategory(node.nodeType())) && !isBlank(node.labelKey())) {
+                boundaryIndex = i;
+            }
+        }
+        if (boundaryIndex < 0) {
+            return Map.of();
+        }
+
+        DiagramGraphDto.Node learnerBoundary = matchedNode[boundaryIndex];
+        if (learnerBoundary == null || learnerBoundary.bounds() == null
+                || !"System boundary".equals(notation.nodeCategory(learnerBoundary.nodeType()))) {
+            learnerBoundary = null;
+            int best = 0;
+            for (DiagramGraphDto.Node node : learner.nodes()) {
+                if (!"System boundary".equals(notation.nodeCategory(node.nodeType())) || node.bounds() == null) continue;
+                int inside = countUseCasesInside(node, learner.nodes(), notation);
+                if (inside > best) {
+                    best = inside;
+                    learnerBoundary = node;
+                }
+            }
+        }
+
+        Map<Integer, Boolean> placed = new LinkedHashMap<>();
+        for (int i = 0; i < refNodes.size(); i++) {
+            DiagramGraphDto.Node refNode = refNodes.get(i);
+            String category = notation.nodeCategory(refNode.nodeType());
+            NodeScore score = nodeScores.get(i);
+            if (i == boundaryIndex || !score.matched()
+                    || !("Actors".equals(category) || "Use cases".equals(category))) {
+                continue;
+            }
+            DiagramGraphDto.Node drawn = score.matchedNode();
+            boolean shouldBeInside = "Use cases".equals(category);
+            boolean isInside = learnerBoundary != null && drawn.bounds() != null
+                    && learnerBoundary.bounds().containsCentreOf(drawn.bounds());
+            boolean right = shouldBeInside == isInside;
+            placed.put(i, right);
+            if (right) continue;
+            String reason = shouldBeInside
+                    ? (learnerBoundary == null
+                            ? "There is no system boundary around it; use cases belong inside the system's boundary."
+                            : "It should be inside the system boundary.")
+                    : "It should be outside the system boundary -- actors are outside the system.";
+            String kept = score.reason().startsWith("Matched") ? "" : " " + score.reason();
+            nodeScores.set(i, new NodeScore(true, "STRONG".equals(score.quality()) ? "PARTIAL" : score.quality(),
+                    score.factor() * WRONG_PLACE, drawn, reason + kept, score.notationRight()));
+        }
+        return placed;
+    }
+
+    private int countUseCasesInside(
+            DiagramGraphDto.Node boundary, List<DiagramGraphDto.Node> nodes, DiagramNotation notation) {
+        int inside = 0;
+        for (DiagramGraphDto.Node node : nodes) {
+            if (node != boundary && "Use cases".equals(notation.nodeCategory(node.nodeType()))
+                    && boundary.bounds().containsCentreOf(node.bounds())) {
+                inside++;
+            }
+        }
+        return inside;
+    }
+
+    private static final Pattern STEREOTYPE = Pattern.compile("«\\s*([a-z]+)\\s*»|<<\\s*([a-z]+)\\s*>>");
+
+    private static Optional<String> stereotypeOf(String label) {
+        if (label == null) return Optional.empty();
+        java.util.regex.Matcher m = STEREOTYPE.matcher(label.toLowerCase(Locale.ROOT));
+        if (!m.find()) return Optional.empty();
+        return Optional.of(m.group(1) != null ? m.group(1) : m.group(2));
+    }
+
     private static boolean partCovered(int matched, int total) {
         return total == 0 || (double) matched / total >= PART_MINIMUM;
     }
@@ -837,7 +1019,7 @@ public class DiagramGradingService {
         String targetLabel = target == null ? "?" : describeNode(target, notation);
         String base = sourceLabel + " → " + targetLabel;
         List<String> detail = new ArrayList<>();
-        String kindNote = notation.relationNote(notation.relationKind(edge.kind()));
+        String kindNote = notation.relationNote(notation.relationKind(edge.kind(), edge.labelKey()));
         if (kindNote != null) detail.add(kindNote);
         if (edge.label() != null && !edge.label().isBlank()) detail.add(edge.label());
         else if (edge.cardinality() != null) detail.add(edge.cardinality());

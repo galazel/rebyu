@@ -253,8 +253,19 @@ public final class LearnerAttemptDtos {
             String learnerDescription,
             String reason,
             BigDecimal earnedPoints,
-            BigDecimal maxPoints
+            BigDecimal maxPoints,
+            // The diagram type's own name for this part ("Actors", "«include»", "Decisions");
+            // null for answers graded before categories existed.
+            String category,
+            // Rule -> met, for the rules this part was held to (name, shape, kind, direction...).
+            Map<String, Boolean> checks
     ) {
+        public DiagramElementReviewDto(
+                String kind, String expectedDescription, boolean matched, String matchQuality,
+                String learnerDescription, String reason, BigDecimal earnedPoints, BigDecimal maxPoints) {
+            this(kind, expectedDescription, matched, matchQuality, learnerDescription, reason,
+                    earnedPoints, maxPoints, null, null);
+        }
     }
 
     public record AttemptAnswerReviewDto(
@@ -348,8 +359,18 @@ public final class LearnerAttemptDtos {
             String formula,
             BigDecimal percentage,
             List<ScoreComponentDto> components,
-            List<ChallengeItemScoreDto> items
+            List<ChallengeItemScoreDto> items,
+            // Diagram arenas: each notation rule and how many of the parts it applies to met it.
+            List<ScoreCheckDto> checks
     ) {
+        public ChallengeScoreDto(String arenaId, String formula, BigDecimal percentage,
+                                 List<ScoreComponentDto> components, List<ChallengeItemScoreDto> items) {
+            this(arenaId, formula, percentage, components, items, List.of());
+        }
+    }
+
+    /** One rule a diagram is held to -- names, shapes, relationship types -- and how many parts met it. */
+    public record ScoreCheckDto(String key, String label, int met, int total) {
     }
 
     /** One part of a challenge score: its weight, what was achieved on it, and what it added. */

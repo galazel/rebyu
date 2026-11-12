@@ -21,6 +21,37 @@ function mark(value) {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
 }
 
+/**
+ * Every rule the diagram was held to -- names, shapes, relationship types, directions,
+ * multiplicities, boundary placement -- with how many of the parts it applies to met it.
+ */
+export function DiagramChecks({ checks, arena = null, className }) {
+  return (
+    <div className={cn("mt-4 border-t-2 border-rb-swan pt-3", className)}>
+      <p className="text-sm font-extrabold text-rb-eel">What was checked</p>
+      <ul className="mt-2 space-y-1.5">
+        {checks.map((check) => {
+          const share = check.total > 0 ? Math.round((check.met / check.total) * 100) : 0
+          return (
+            <li key={check.key} className="flex items-center gap-3 text-sm">
+              <span className="w-56 shrink-0 text-rb-eel max-sm:w-40">{check.label}</span>
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-rb-polar" aria-hidden="true">
+                <div
+                  className={cn("h-full rounded-full", share === 100 ? (arena?.line ?? "bg-rb-feather") : "bg-rb-fox")}
+                  style={{ width: `${share}%` }}
+                />
+              </div>
+              <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-rb-wolf">
+                {check.met} / {check.total}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export function ScoreBreakdown({ score, arena }) {
   const [open, setOpen] = useState(false)
   if (!score || !(score.components ?? []).length) return null
@@ -78,6 +109,8 @@ export function ScoreBreakdown({ score, arena }) {
           <p className="font-rb-display text-2xl font-extrabold tabular-nums text-rb-eel">{total}%</p>
         </li>
       </ul>
+
+      {(score.checks ?? []).length ? <DiagramChecks checks={score.checks} arena={arena} /> : null}
 
       {items.length ? (
         <div className="mt-4 border-t-2 border-rb-swan pt-3">

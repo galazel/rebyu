@@ -613,4 +613,85 @@ class DiagramGradingServiceTest {
         assertTrue(result.elementResults().stream()
                 .noneMatch(e -> e.expectedDescription().contains("model answer")));
     }
+
+    // ---- notation rules from the TOPCIT UML palettes ------------------------------------
+
+    @Test
+    void includeAndExtendAreDifferentRelationshipsNotJustDifferentLabels() {
+        String reference = pair("Write prescription", "ellipse;", "Check interactions", "ellipse;", "«include»",
+                "endArrow=open;dashed=1;", "a", "b");
+        String extend = pair("Write prescription", "ellipse;", "Check interactions", "ellipse;", "«extend»",
+                "endArrow=open;dashed=1;", "a", "b");
+
+        DiagramGradingResultDto.ElementResultDto edge = onlyEdge(gradeAs("USE_CASE", reference, extend));
+
+        assertEquals("«include»", edge.category());
+        assertFalse(edge.checks().get(DiagramGradingService.CHECK_KIND), edge.reason());
+        assertTrue(edge.reason().contains("«extend»"), edge.reason());
+    }
+
+    private static String useCaseWithBoundary(boolean actorInside, boolean useCaseInside) {
+        return """
+                <mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>
+                  <mxCell id="sys" value="Clinic System" style="rounded=0;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="0" width="300" height="300" as="geometry"/></mxCell>
+                  <mxCell id="act" value="Doctor" style="shape=umlActor;" vertex="1" parent="1">
+                    <mxGeometry x="%s" y="100" width="30" height="60" as="geometry"/></mxCell>
+                  <mxCell id="uc" value="Write prescription" style="ellipse;" vertex="1" parent="1">
+                    <mxGeometry x="%s" y="100" width="160" height="60" as="geometry"/></mxCell>
+                  <mxCell id="e" value="" style="endArrow=none;" edge="1" parent="1" source="act" target="uc">
+                    <mxGeometry relative="1" as="geometry"/></mxCell>
+                </root></mxGraphModel>
+                """.formatted(actorInside ? "300" : "40", useCaseInside ? "260" : "600");
+    }
+
+    @Test
+    void useCasesBelongInsideTheSystemBoundaryAndActorsOutside() {
+        String right = useCaseWithBoundary(false, true);
+
+        assertEquals(0, new BigDecimal("10.00").compareTo(gradeAs("USE_CASE", right, right).earnedPoints()));
+        DiagramGradingResultDto wrong = gradeAs("USE_CASE", right, useCaseWithBoundary(true, false));
+        assertTrue(wrong.earnedPoints().compareTo(new BigDecimal("10.00")) < 0);
+        assertTrue(wrong.elementResults().stream().anyMatch(e -> "Actors".equals(e.category())
+                && Boolean.FALSE.equals(e.checks().get(DiagramGradingService.CHECK_PLACEMENT))));
+        assertTrue(wrong.elementResults().stream().anyMatch(e -> "Use cases".equals(e.category())
+                && e.reason().contains("inside the system boundary")));
+    }
+
+    @Test
+    void aFlowchartInputOutputMustBeAParallelogramButAPlainStepAcceptsOne() {
+        String plainStep = pair("Read card", "rounded=1;", "Approve", "rounded=1;", "", "endArrow=block;", "a", "b");
+        String ioStep = pair("Read card", "shape=parallelogram;", "Approve", "rounded=1;", "", "endArrow=block;", "a", "b");
+
+        assertEquals(0, new BigDecimal("10.00").compareTo(gradeAs("FLOWCHART", plainStep, ioStep).earnedPoints()));
+        DiagramGradingResultDto boxed = gradeAs("FLOWCHART", ioStep, plainStep);
+        assertTrue(boxed.elementResults().stream().anyMatch(e -> "Input / output".equals(e.category())
+                && Boolean.FALSE.equals(e.checks().get(DiagramGradingService.CHECK_SHAPE))));
+    }
+
+    @Test
+    void anAbstractClassInItalicsOrAnInterfaceMustKeepItsStereotype() {
+        String abstractRef = pair("&lt;i&gt;Policy&lt;/i&gt;", "swimlane;", "MotorPolicy", "swimlane;", "",
+                "endArrow=block;endFill=0;", "b", "a");
+        String concrete = pair("Policy", "swimlane;", "MotorPolicy", "swimlane;", "",
+                "endArrow=block;endFill=0;", "b", "a");
+        String writtenOut = pair("&lt;&lt;abstract&gt;&gt;&lt;br&gt;Policy", "swimlane;", "MotorPolicy", "swimlane;", "",
+                "endArrow=block;endFill=0;", "b", "a");
+
+        assertTrue(gradeAs("UML_CLASS", abstractRef, concrete).elementResults().stream()
+                .anyMatch(e -> e.reason().contains("«abstract»")));
+        assertEquals(0, new BigDecimal("10.00").compareTo(gradeAs("UML_CLASS", abstractRef, writtenOut).earnedPoints()));
+    }
+
+    @Test
+    void everyRequiredPartIsGroupedByItsDiagramTypeAndListsTheRulesItWasHeldTo() {
+        DiagramGradingResultDto result = gradeAs("UML_CLASS", INHERITS, INHERITS);
+
+        DiagramGradingResultDto.ElementResultDto edge = onlyEdge(result);
+        assertEquals("Inheritance", edge.category());
+        assertEquals(java.util.Set.of(DiagramGradingService.CHECK_DRAWN, DiagramGradingService.CHECK_KIND,
+                DiagramGradingService.CHECK_DIRECTION), edge.checks().keySet());
+        assertTrue(result.elementResults().stream().filter(e -> "NODE".equals(e.kind()))
+                .allMatch(e -> "Classes".equals(e.category()) && e.checks().get(DiagramGradingService.CHECK_NAME)));
+    }
 }

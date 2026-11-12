@@ -20,6 +20,8 @@ import { toast } from "sonner"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { diagramPartLabel, failedChecks, summarizeDiagramChecks } from "@/lib/diagram-checks.js"
+import { DiagramChecks } from "@/components/challenges/score-breakdown.jsx"
 import {
   Chip,
   RebyuCard,
@@ -1043,6 +1045,12 @@ export default function LearnerAssessmentResultPage() {
                         <p className="text-muted-foreground">
                           Diagram comparison — required elements vs. what you drew:
                         </p>
+                        {summarizeDiagramChecks(answer.diagramElements).length ? (
+                          <DiagramChecks
+                            checks={summarizeDiagramChecks(answer.diagramElements)}
+                            className="mt-0 rounded-rb-tile border-2 border-[var(--tg-line)] bg-card p-3"
+                          />
+                        ) : null}
                         <ul className="space-y-1.5">
                           {answer.diagramElements.map((element, index) => (
                             <li
@@ -1075,11 +1083,7 @@ export default function LearnerAssessmentResultPage() {
                               <div className="min-w-0 flex-1">
                                 <p className="flex flex-wrap items-center gap-1.5 font-bold text-foreground">
                                   <span className="rounded-rb-control border border-[var(--tg-line)] bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                    {element.kind === "EDGE"
-                                      ? "Relationship"
-                                      : element.kind === "ATTRIBUTE"
-                                        ? "Attribute"
-                                        : "Node"}
+                                    {diagramPartLabel(element)}
                                   </span>
                                   {element.expectedDescription}
                                   {element.matchQuality === "OPTIONAL" ? (
@@ -1099,6 +1103,18 @@ export default function LearnerAssessmentResultPage() {
                                     : ""}
                                 </p>
 
+                                {failedChecks(element).length ? (
+                                  <p className="mt-1 flex flex-wrap gap-1">
+                                    {failedChecks(element).map((note) => (
+                                      <span
+                                        key={note}
+                                        className="rounded-rb-control bg-rb-cardinal-wash px-1.5 py-0.5 text-[10px] font-bold text-rb-cardinal"
+                                      >
+                                        Wrong {note}
+                                      </span>
+                                    ))}
+                                  </p>
+                                ) : null}
                                 {element.reason &&
                                 !(element.matched && element.matchQuality === "STRONG") ? (
                                   <p className="mt-1 text-xs font-semibold text-foreground">

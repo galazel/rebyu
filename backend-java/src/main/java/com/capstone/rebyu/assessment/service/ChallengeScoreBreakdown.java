@@ -4,6 +4,7 @@ import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AttemptAnswe
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.ChallengeItemScoreDto;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.ChallengeScoreDto;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.DiagramElementReviewDto;
+import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.ScoreCheckDto;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.ScoreComponentDto;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.SubQuestionAnswerReviewDto;
 import com.capstone.rebyu.challenge.service.ArenaScoring;
@@ -58,9 +59,10 @@ final class ChallengeScoreBreakdown {
             }
             case "blueprint" -> {
                 components = blueprint(items, totalPoints);
-                formula = "Your diagram is compared with the model answer element by element; each element "
-                        + "is worth its share of the problem. Written follow-up parts, when the problem "
-                        + "has them, are marked separately and added.";
+                formula = "Your diagram is compared with the model answer part by part -- each part is worth "
+                        + "its share of the problem -- and every part is held to its diagram type's rules: its "
+                        + "name, its shape, and for a relationship its type, direction, label and multiplicity. "
+                        + "Written follow-up parts, when the problem has them, are marked separately and added.";
             }
             default -> {
                 components = champions(items);
@@ -99,7 +101,8 @@ final class ChallengeScoreBreakdown {
                     review.displayOrder(), title(review.question()), nz(review.credit()), nz(review.points()),
                     review.isCorrect(), truncate(review.feedback(), 600)));
         }
-        return new ChallengeScoreDto(arenaId, formula, actual, components, lines);
+        return new ChallengeScoreDto(arenaId, formula, actual, components, lines,
+                "blueprint".equals(arenaId) ? diagramChecks(items) : List.of());
     }
 
     // ------------------------------------------------------------------ CodeStrike
@@ -204,7 +207,8 @@ final class ChallengeScoreBreakdown {
             }
             for (DiagramElementReviewDto element : nonNull(review.diagramElements())) {
                 if (elementMax <= 0) break;
-                String kind = label(element.kind());
+                String kind = element.category() != null && !element.category().isBlank()
+                        ? element.category() : label(element.kind());
                 double[] acc = byKind.computeIfAbsent(kind, k -> new double[3]);
                 double earned = nz(element.earnedPoints()).doubleValue();
                 double max = nz(element.maxPoints()).doubleValue();
@@ -224,8 +228,8 @@ final class ChallengeScoreBreakdown {
         byKind.forEach((kind, acc) -> parts.add(new ScoreComponentDto(
                 kind.toLowerCase(), kind, allMax > 0 ? pct(acc[2] / allMax) : null,
                 acc[2] > 0 ? pct(acc[1] / acc[2]) : null, round(acc[0]),
-                trim(acc[1]) + " of " + trim(acc[2]) + " points for " + kind.toLowerCase()
-                        + " matched against the model answer.")));
+                trim(acc[1]) + " of " + trim(acc[2]) + " points for " + lowerFirst(kind)
+                        + ", compared with the model answer.")));
         if (writtenMax > 0) {
             parts.add(new ScoreComponentDto("written", "Written parts", null, pct(writtenEarned / writtenMax),
                     round(writtenPts), trim(writtenEarned) + " of " + trim(writtenMax)
@@ -269,6 +273,51 @@ final class ChallengeScoreBreakdown {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** The rules a diagram is held to, in the order the result page lists them. */
+    private static final Map<String, String> CHECK_LABELS = new LinkedHashMap<>();
+    static {
+        CHECK_LABELS.put("drawn", "Parts drawn");
+        CHECK_LABELS.put("name", "Names and labels");
+        CHECK_LABELS.put("shape", "Shapes and notation");
+        CHECK_LABELS.put("kind", "Relationship types");
+        CHECK_LABELS.put("direction", "Arrow directions");
+        CHECK_LABELS.put("multiplicity", "Multiplicities");
+        CHECK_LABELS.put("order", "Message order");
+        CHECK_LABELS.put("placement", "Inside / outside the system boundary");
+        CHECK_LABELS.put("key", "Keys (PK / FK)");
+    }
+
+    /**
+     * Each rule's tally over every required part of every diagram: how many of the parts
+     * it applies to met it. A connector's label counts with names. Optional parts and
+     * answers graded before checks were recorded are left out.
+     */
+    static List<ScoreCheckDto> diagramChecks(List<Item> items) {
+        Map<String, int[]> tally = new LinkedHashMap<>();
+        CHECK_LABELS.keySet().forEach(key -> tally.put(key, new int[2]));
+        for (Item item : items) {
+            for (DiagramElementReviewDto element : nonNull(item.review().diagramElements())) {
+                if (element.checks() == null || nz(element.maxPoints()).signum() == 0) continue;
+                element.checks().forEach((key, met) -> {
+                    int[] counts = tally.get("label".equals(key) ? "name" : key);
+                    if (counts == null) return;
+                    counts[1]++;
+                    if (Boolean.TRUE.equals(met)) counts[0]++;
+                });
+            }
+        }
+        List<ScoreCheckDto> checks = new ArrayList<>();
+        tally.forEach((key, counts) -> {
+            if (counts[1] > 0) checks.add(new ScoreCheckDto(key, CHECK_LABELS.get(key), counts[0], counts[1]));
+        });
+        return checks;
+    }
+
+    private static String lowerFirst(String text) {
+        if (text.isEmpty() || text.startsWith("«")) return text;
+        return Character.toLowerCase(text.charAt(0)) + text.substring(1);
     }
 
     private static String label(String kind) {

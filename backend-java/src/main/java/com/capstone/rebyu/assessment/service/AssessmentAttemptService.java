@@ -2747,7 +2747,9 @@ public class AssessmentAttemptService {
                         node.hasNonNull("learnerDescription") ? node.get("learnerDescription").asText() : null,
                         node.hasNonNull("reason") ? node.get("reason").asText() : null,
                         node.hasNonNull("earnedPoints") ? node.get("earnedPoints").decimalValue() : null,
-                        node.hasNonNull("maxPoints") ? node.get("maxPoints").decimalValue() : null
+                        node.hasNonNull("maxPoints") ? node.get("maxPoints").decimalValue() : null,
+                        node.hasNonNull("category") ? node.get("category").asText() : null,
+                        checksOf(node.path("checks"))
                 ));
             }
             return reviews;
@@ -2755,6 +2757,15 @@ public class AssessmentAttemptService {
             log.warn("Could not parse persisted diagram grading result");
             return List.of();
         }
+    }
+
+    private static Map<String, Boolean> checksOf(JsonNode checks) {
+        if (!checks.isObject()) {
+            return null;
+        }
+        Map<String, Boolean> out = new LinkedHashMap<>();
+        checks.fields().forEachRemaining(entry -> out.put(entry.getKey(), entry.getValue().asBoolean()));
+        return out;
     }
 
     private String programOutputFor(AssessmentAttemptAnswer answer) {
