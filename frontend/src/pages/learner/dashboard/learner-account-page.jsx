@@ -45,6 +45,7 @@ import {
   updateMyNotificationPreferences,
 } from "@/services/notificationPreferenceService.js"
 import { changePassword, signOutEverywhere } from "@/services/authService.js"
+import DeleteAccountCard from "@/components/account/delete-account-card.jsx"
 import { cancelSubscription, getCertificationReviewLevels, getLearnerSubscription } from "@/services/subscriptionService.js"
 
 const ACCOUNT_TABS = [
@@ -824,6 +825,8 @@ export default function LearnerAccountPage() {
             </div>
           </div>
         </section>
+
+        <DeleteAccountCard kind="learner" />
       </div>
     )
   }

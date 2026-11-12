@@ -25,11 +25,15 @@ import {
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { updateInstitution } from "@/services/institutionService.js"
+import DeleteAccountCard from "@/components/account/delete-account-card.jsx"
+import { isDepartmentHeadUser, useAuth } from "@/context/auth-context.jsx"
 
 export default function InstitutionProfilePage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const isDepartmentHead = isDepartmentHeadUser(user)
 
   const [form, setForm] = useState({
     primaryContactName: "",
@@ -171,6 +175,8 @@ export default function InstitutionProfilePage() {
             </Button>
           </CardFooter>
         </Card>
+
+        <DeleteAccountCard kind={isDepartmentHead ? "department-head" : "institution"} />
       </div>
     </div>
   )

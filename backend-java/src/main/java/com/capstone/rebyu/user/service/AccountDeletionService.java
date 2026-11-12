@@ -21,6 +21,7 @@ public class AccountDeletionService {
     private final S3StorageService s3StorageService;
     private final CognitoAdminService cognitoAdminService;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     @Transactional
     public void deleteLearner(Long learnerId) {
@@ -74,6 +75,8 @@ public class AccountDeletionService {
         }
         if (cognitoSub != null && !cognitoSub.isBlank()) {
             cognitoAdminService.deleteAccount(cognitoSub);
+            // Drop the cached identity, or the deleted user keeps working for up to 30 s.
+            events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(cognitoSub));
         }
         log.info("Deleted user {} (learner ids {}, {} stored files, cognito sub {})",
                 userId, learnerIds, fileKeys.size(), cognitoSub == null ? "none" : "removed");

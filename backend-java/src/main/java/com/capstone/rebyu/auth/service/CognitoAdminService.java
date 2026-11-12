@@ -211,6 +211,26 @@ public class CognitoAdminService {
         return out.toString();
     }
 
+    /**
+     * False only when Supabase says this sign-in does not exist (404) -- i.e. it was deleted
+     * while a still-valid access token was in use. Any other outcome (no secret key, network
+     * error, 5xx) answers true, so an auth outage never blocks a genuine new sign-up.
+     */
+    public boolean signInExists(String subject) {
+        if (subject == null || subject.isBlank() || secretKey == null || secretKey.isBlank()) {
+            return true;
+        }
+        try {
+            HttpResponse<String> response = http.send(
+                    admin("/admin/users/" + URLEncoder.encode(subject, StandardCharsets.UTF_8)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() != 404;
+        } catch (Exception ex) {
+            log.warn("Could not confirm sign-in {} exists ({}); allowing it", subject, ex.getMessage());
+            return true;
+        }
+    }
+
     private HttpRequest.Builder admin(String path) {
         if (secretKey == null || secretKey.isBlank()) {
             throw new IllegalStateException("SUPABASE_SECRET_KEY is not set");

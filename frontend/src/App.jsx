@@ -19,6 +19,7 @@ const Certifications = lazyRoute(() => import("./pages/admin/certifications-page
 const Challenges = lazyRoute(() => import("./pages/admin/challenges-page.jsx"))
 const Learners = lazyRoute(() => import("./pages/admin/learners-page.jsx"))
 const AdminSafetyAlerts = lazyRoute(() => import("./pages/admin/safety-alerts-page.jsx"))
+const AdminDeletionRequests = lazyRoute(() => import("./pages/admin/account-deletion-requests-page.jsx"))
 const Institutions = lazyRoute(() => import("./pages/admin/institutions-page.jsx"))
 const AdminInstitutionDetail = lazyRoute(() => import("./pages/admin/admin-institution-detail-page.jsx"))
 const ViewCertificationAdmin = lazyRoute(() => import("./pages/admin/view-certification-admin-page.jsx"))
@@ -286,6 +287,7 @@ export function App() {
                     <Route path="seed-challenges" element={<SeedChallenges />} />
                     <Route path="learners" element={<Learners />} />
                     <Route path="safety-alerts" element={<AdminSafetyAlerts />} />
+                    <Route path="deletion-requests" element={<AdminDeletionRequests />} />
                     <Route
                         path="certification/:id"
                         element={<ViewCertificationAdmin />}

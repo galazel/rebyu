@@ -32,6 +32,7 @@ class CognitoAuthServiceTest {
     private com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
     private com.capstone.rebyu.institution.repository.InstitutionRepository institutionRepository;
     private com.capstone.rebyu.bkt.client.BktClient bktClient;
+    private CognitoAdminService cognitoAdminService;
     private CognitoAuthService service;
 
     private static final String SUB = "11111111-2222-3333-4444-555555555555";
@@ -49,6 +50,8 @@ class CognitoAuthServiceTest {
         when(institutionRepository.findByPrimaryContactEmailIgnoreCase(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(Optional.empty());
         bktClient = mock(com.capstone.rebyu.bkt.client.BktClient.class);
+        cognitoAdminService = mock(CognitoAdminService.class);
+        when(cognitoAdminService.signInExists(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
 
         @SuppressWarnings("unchecked")
         org.springframework.beans.factory.ObjectProvider<CognitoAuthService> self =
@@ -58,7 +61,21 @@ class CognitoAuthServiceTest {
         service = new CognitoAuthService(
                 userRepository, userTypeRepository, learnerRepository,
                 departmentHeadRepository, institutionRepository,
-                bktClient, self);
+                bktClient, cognitoAdminService, self);
+    }
+
+    @Test
+    void deletedSignInIsNotReprovisioned() {
+        when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
+        when(cognitoAdminService.signInExists(SUB)).thenReturn(false);
+
+        org.springframework.web.server.ResponseStatusException refused = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> service.syncCurrentUser(jwt(), "access-token"));
+
+        assertEquals(401, refused.getStatusCode().value());
+        verify(userRepository, never()).save(any());
+        verify(learnerRepository, never()).save(any(Learner.class));
     }
 
     @org.junit.jupiter.api.AfterEach

@@ -48,6 +48,7 @@ public class CognitoAuthService {
     private final com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
     private final InstitutionRepository institutionRepository;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
+    private final CognitoAdminService cognitoAdminService;
 
     private final org.springframework.beans.factory.ObjectProvider<CognitoAuthService> self;
 
@@ -136,6 +137,15 @@ public class CognitoAuthService {
         if (email == null || email.isBlank()) {
             throw new IllegalStateException(
                     "This sign-in has no email; cannot link a REBYU user.");
+        }
+
+        // Deleting a sign-in does not revoke access tokens already issued for it. Without this
+        // check, a browser still holding one re-creates the account the moment it calls the API.
+        // Runs only on this first-sight path, so ordinary requests never pay for it.
+        if (!cognitoAdminService.signInExists(cognitoSub)) {
+            log.info("Refused to provision deleted sign-in {}", cognitoSub);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "This account has been deleted.");
         }
 
         try {
