@@ -354,11 +354,14 @@ export default function DepartmentHeadOverviewPage() {
               const tone = SEVERITY[alert.severity] ?? SEVERITY.info
               const Icon = tone.icon
               const href = alertHref(alert)
+              const Card = href ? Link : "div"
               return (
-                <div
+                <Card
                   key={alert.id}
+                  {...(href ? { to: href } : {})}
                   className={cn(
                     "flex flex-col justify-between gap-3 rounded-2xl border p-4 shadow-xs sm:flex-row sm:items-center sm:p-5",
+                    href && "transition-colors hover:border-primary/40 hover:shadow-sm",
                     tone.card
                   )}
                 >
@@ -374,20 +377,8 @@ export default function DepartmentHeadOverviewPage() {
                       <p className="text-xs text-muted-foreground">{alert.message}</p>
                     </div>
                   </div>
-                  {href ? (
-                    <Button
-                      asChild
-                      size="sm"
-                      variant={alert.severity === "critical" ? "default" : "outline"}
-                      className="h-8 shrink-0 text-xs"
-                    >
-                      <Link to={href}>
-                        {alert.action === "roster" ? "Open roster" : "Open"}
-                        <ChevronRight className="ml-1 size-3.5" aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  ) : null}
-                </div>
+                  {href ? <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
+                </Card>
               )
             })}
           </div>
@@ -399,7 +390,6 @@ export default function DepartmentHeadOverviewPage() {
           icon={ShieldAlert}
           iconClass="text-rose-600 dark:text-rose-400"
           title="Learners to check in with"
-          action={<PanelLink to="/institution/departments?view=roster">Full roster</PanelLink>}
         >
           {watchlist.length === 0 ? (
             <QuietState title="Every learner is on track">No one is at risk, quiet or yet to start.</QuietState>
@@ -437,7 +427,7 @@ export default function DepartmentHeadOverviewPage() {
               })}
               {watchlist.length > 6 ? (
                 <li className="pt-1 text-center text-[11px] text-muted-foreground">
-                  +{watchlist.length - 6} more in the roster
+                  +{watchlist.length - 6} more
                 </li>
               ) : null}
             </ul>
@@ -449,7 +439,6 @@ export default function DepartmentHeadOverviewPage() {
           icon={Layers}
           iconClass="text-primary"
           title="Sections"
-          action={<PanelLink to="/institution/departments?view=programs">Programs & sections</PanelLink>}
         >
           {sections.length === 0 ? (
             <QuietState icon={Layers} title="No sections yet">
@@ -461,8 +450,20 @@ export default function DepartmentHeadOverviewPage() {
                 const sectionProgress =
                   section.averageProgress == null ? 0 : Math.round(Number(section.averageProgress))
                 const flagged = section.atRisk + section.dormant
+                const sectionHref =
+                  section.programId != null
+                    ? `/institution/departments/${departmentId}?programId=${section.programId}&tab=learners&section=${section.sectionId}`
+                    : null
+                const Row = sectionHref ? Link : "div"
                 return (
-                  <li key={section.sectionId} className="space-y-1.5 rounded-xl border border-border/60 bg-muted/20 p-3">
+                  <li key={section.sectionId}>
+                  <Row
+                    {...(sectionHref ? { to: sectionHref } : {})}
+                    className={cn(
+                      "block space-y-1.5 rounded-xl border border-border/60 bg-muted/20 p-3",
+                      sectionHref && "transition-colors hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
                     <div className="flex items-start justify-between gap-2 text-xs">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-foreground">{section.sectionName}</p>
@@ -493,6 +494,7 @@ export default function DepartmentHeadOverviewPage() {
                           : null}
                       </p>
                     ) : null}
+                  </Row>
                   </li>
                 )
               })}
