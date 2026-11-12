@@ -145,16 +145,29 @@ function LessonPicker({ id, value, onChange, groups, invalid, disabled, label })
         id={id}
         aria-label={label}
         aria-invalid={invalid || undefined}
-        className={cn("h-8 w-full min-w-0 bg-background text-sm sm:max-w-md", invalid && "border-destructive")}
+        className={cn(
+          "h-10 w-full min-w-0 rounded-lg border-border/80 bg-background px-3 text-sm shadow-xs hover:border-primary/40 focus-visible:border-primary sm:max-w-xl",
+          invalid && "border-destructive"
+        )}
       >
         <SelectValue placeholder="Choose the lesson this question belongs to" />
       </SelectTrigger>
-      <SelectContent className="max-h-80">
+      <SelectContent
+        position="popper"
+        align="start"
+        className="w-[min(34rem,calc(100vw-2rem))] max-h-[min(26rem,var(--radix-select-content-available-height))] overflow-hidden rounded-xl border border-border/80 bg-popover p-1.5 shadow-xl"
+      >
         {groups.map((group) => (
-          <SelectGroup key={group.key}>
-            <SelectLabel className="text-xs">{group.label}</SelectLabel>
+          <SelectGroup key={group.key} className="mb-1 last:mb-0">
+            <SelectLabel className="sticky top-0 z-10 rounded-md bg-popover/95 px-2.5 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+              {group.label}
+            </SelectLabel>
             {group.lessons.map((lesson) => (
-              <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
+              <SelectItem
+                key={lesson.lessonId}
+                value={String(lesson.lessonId)}
+                className="min-h-9 rounded-lg px-2.5 py-1.5 text-sm font-medium text-foreground focus:bg-primary/10 focus:text-primary data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary"
+              >
                 {lesson.name}
               </SelectItem>
             ))}
@@ -583,8 +596,8 @@ export default function InstitutionAssessmentBuilderPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-3">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"
@@ -663,10 +676,10 @@ export default function InstitutionAssessmentBuilderPage() {
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)_268px] xl:grid-cols-[360px_minmax(0,1fr)_288px]">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[300px_minmax(0,1fr)_264px] xl:grid-cols-[320px_minmax(0,1fr)_280px]">
         <aside
           className={cn(
-            "min-h-0 space-y-5 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r",
+            "min-h-0 space-y-5 overflow-y-auto overscroll-contain border-b border-border p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:border-b-0 md:border-r md:p-5",
             mobileTab !== "settings" && "hidden md:block"
           )}
         >
@@ -855,7 +868,7 @@ export default function InstitutionAssessmentBuilderPage() {
 
         <main
           className={cn(
-            "min-h-0 overflow-y-auto bg-muted/20 p-4",
+            "min-h-0 overflow-y-auto overscroll-contain bg-muted/20 p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-4 md:p-5",
             mobileTab !== "questions" && "hidden md:block"
           )}
         >
@@ -879,7 +892,7 @@ export default function InstitutionAssessmentBuilderPage() {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="mx-auto max-w-5xl space-y-4">
               {questions.map((question, index) => {
                 const questionType = QUESTION_TYPES.find((t) => t.id === question.typeId)
                 const Editor = questionType?.component
@@ -989,7 +1002,7 @@ export default function InstitutionAssessmentBuilderPage() {
 
         <aside
           className={cn(
-            "min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0",
+            "min-h-0 space-y-5 overflow-y-auto overscroll-contain border-t border-border p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:border-l md:border-t-0 md:p-5",
             mobileTab !== "add" && "hidden md:block"
           )}
         >
