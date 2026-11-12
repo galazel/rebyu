@@ -81,7 +81,7 @@ export default function InstitutionAssessmentResultsPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6">
       <div>
         <Link
-          to={`/institution/departments/${departmentId}?tab=assessments`}
+          to={`/institution/departments?view=assessments&department=${departmentId}`}
           className="text-sm text-muted-foreground hover:text-foreground"
         >
           ← Back to assessments

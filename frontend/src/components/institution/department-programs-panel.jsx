@@ -13,10 +13,11 @@ import {
   Trash2,
   Trash2Icon,
   UsersRound,
+  UserPlusIcon,
   Download,
+  Settings,
 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ import {
   InstitutionLoadingSkeleton,
 } from "@/components/institution/institution-ui.jsx"
 import { ProgramDialog } from "@/components/institution/program-dialog.jsx"
+import { ProgramCertificationsDialog } from "@/components/institution/program-certifications-dialog.jsx"
 import { useDepartmentOverview } from "@/hooks/use-my-department.js"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { cn } from "@/lib/utils"
@@ -71,60 +73,64 @@ function rollUp(sectionRows) {
   return { learners, progress, checkIns }
 }
 
-function SectionRow({ section, stats, onRename, onArchive, onExport }) {
-  const progress = stats?.averageProgress == null ? null : Math.round(Number(stats.averageProgress))
+/** A program's section opens in its program, where its learners are managed. */
+function SectionRow({ departmentId, section, stats, onRename, onArchive, onExport }) {
+  const href =
+    section.programId != null
+      ? `/institution/departments/${departmentId}?programId=${section.programId}&tab=learners&section=${section.sectionId}`
+      : null
   const checkIns = Number(stats?.atRisk ?? 0) + Number(stats?.dormant ?? 0)
   const pending = Number(section.pendingInvitationCount ?? 0)
   const learners = Number(section.learnerCount ?? stats?.learners ?? 0)
   const tone = learners === 0 ? "bg-muted-foreground/40" : checkIns > 0 ? "bg-rose-500" : "bg-emerald-500"
   return (
-    <li className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40">
+    <li className="group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40">
       <span className={cn("size-2 shrink-0 rounded-full", tone)} aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/institution/departments?view=roster&section=${section.sectionId}`}
-            className="truncate text-sm font-semibold text-foreground hover:underline"
-            title="Open this section's roster"
-          >
-            {section.sectionName}
-          </Link>
-          {checkIns > 0 ? (
-            <span className="shrink-0 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
-              {checkIns} check-in{checkIns === 1 ? "" : "s"}
-            </span>
-          ) : null}
-          {pending > 0 ? (
-            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
-              {pending} invited
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-1 flex items-center gap-2">
-          <Progress value={progress ?? 0} className="h-1 flex-1" aria-label={`${section.sectionName} completion`} />
-          <span className="w-24 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
-            {learners === 0 ? "No learners yet" : `${learners} · ${progress ?? 0}% done`}
-          </span>
-        </div>
-      </div>
+      {href ? (
+        <Link
+          to={href}
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground after:absolute after:inset-0 group-hover:underline"
+          title="Open this section"
+        >
+          {section.sectionName}
+        </Link>
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{section.sectionName}</span>
+      )}
+      {checkIns > 0 ? (
+        <span className="shrink-0 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+          {checkIns} check-in{checkIns === 1 ? "" : "s"}
+        </span>
+      ) : null}
+      {pending > 0 ? (
+        <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+          {pending} invited
+        </span>
+      ) : null}
+      <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground" title="Learners">
+        <UsersRound className="size-3.5" aria-hidden="true" />
+        {learners}
+      </span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0 text-muted-foreground"
+            className="relative z-10 size-7 shrink-0 text-muted-foreground"
             aria-label={`${section.sectionName} actions`}
           >
             <MoreVertical className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem asChild className="gap-2 text-xs">
-            <Link to={`/institution/departments?view=roster&section=${section.sectionId}`}>
-              <UsersRound className="size-3.5" />
-              View roster
-            </Link>
-          </DropdownMenuItem>
+        <DropdownMenuContent align="end" className="w-48">
+          {href ? (
+            <DropdownMenuItem asChild className="gap-2 text-xs">
+              <Link to={href}>
+                <UserPlusIcon className="size-3.5" />
+                Add learners
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={() => onExport(section)} className="gap-2 text-xs">
             <Download className="size-3.5" />
             Export section data
@@ -147,7 +153,20 @@ function SectionRow({ section, stats, onRename, onArchive, onExport }) {
   )
 }
 
-function ProgramCard({ code, title, subtitle, certifications = [], totals, sectionCount, menu, children, footer, muted = false }) {
+function ProgramCard({
+  code,
+  title,
+  href,
+  subtitle,
+  certifications = null,
+  onEditCertifications,
+  totals,
+  sectionCount,
+  menu,
+  children,
+  footer,
+  muted = false,
+}) {
   return (
     <article
       className={cn(
@@ -166,43 +185,65 @@ function ProgramCard({ code, title, subtitle, certifications = [], totals, secti
           {code}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-bold leading-snug text-foreground">{title}</h3>
+          <h3 className="text-[15px] font-bold leading-snug text-foreground">
+            {href ? (
+              <Link to={href} className="hover:underline">
+                {title}
+              </Link>
+            ) : (
+              title
+            )}
+          </h3>
           {subtitle ? <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p> : null}
-          {certifications.length ? (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {certifications.map((cert) => (
-                <span
-                  key={cert.institutionCertId ?? cert.title}
-                  className="rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+          {certifications ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {certifications.length ? (
+                certifications.map((cert) => (
+                  <span
+                    key={cert.institutionCertId ?? cert.title}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                  >
+                    <GraduationCapIcon className="size-3" aria-hidden="true" />
+                    {cert.title}
+                  </span>
+                ))
+              ) : (
+                <span className="text-[11px] text-amber-700 dark:text-amber-300">No certification chosen</span>
+              )}
+              {onEditCertifications ? (
+                <button
+                  type="button"
+                  onClick={onEditCertifications}
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
                 >
-                  {cert.title}
-                </span>
-              ))}
+                  <PencilIcon className="size-3" aria-hidden="true" />
+                  Certifications
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
         {menu}
       </header>
 
-      <div className="space-y-2 px-4 pb-3">
-        <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-          <span>
-            <strong className="text-foreground tabular-nums">{sectionCount}</strong> section{sectionCount === 1 ? "" : "s"}
-            {" · "}
-            <strong className="text-foreground tabular-nums">{totals.learners}</strong> learner
-            {totals.learners === 1 ? "" : "s"}
-            {totals.checkIns > 0 ? (
-              <>
-                {" · "}
-                <span className="font-semibold text-rose-600 dark:text-rose-400">{totals.checkIns} need a check-in</span>
-              </>
-            ) : null}
-          </span>
-          <span className="text-lg font-extrabold tabular-nums text-foreground">
-            {totals.progress == null ? "—" : `${totals.progress}%`}
-          </span>
-        </div>
-        <Progress value={totals.progress ?? 0} className="h-1.5" aria-label={`${title} completion`} />
+      <div className="px-4 pb-4">
+        <dl className="grid grid-cols-3 divide-x divide-border/60 rounded-xl border border-border/60 bg-muted/20 text-center">
+          {[
+            ["Sections", sectionCount],
+            ["Learners", totals.learners],
+            ["Completion", totals.progress == null ? "—" : `${totals.progress}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="px-2 py-2">
+              <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
+              <dd className="text-base font-extrabold tabular-nums text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {totals.checkIns > 0 ? (
+          <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
+            {totals.checkIns} learner{totals.checkIns === 1 ? "" : "s"} need a check-in
+          </p>
+        ) : null}
       </div>
 
       <div className="flex-1 border-t border-border/60">{children}</div>
@@ -223,8 +264,8 @@ export function DepartmentProgramsPanel({ department }) {
   const { user } = useAuth()
   const canAddProgram = isInstitutionOwner(user)
   const [programTarget, setProgramTarget] = useState(null)
+  const [certsFor, setCertsFor] = useState(null)
   const [deletingProgram, setDeletingProgram] = useState(null)
-  const [newSectionFor, setNewSectionFor] = useState(undefined) // undefined = closed; null = no program
   const [renamingSection, setRenamingSection] = useState(null)
   const [archivingSection, setArchivingSection] = useState(null)
 
@@ -314,7 +355,7 @@ export function DepartmentProgramsPanel({ department }) {
 
   const sectionsOf = (programId) => sections.filter((section) => section.programId === programId)
   const openNewProgram = () =>
-    setProgramTarget({ deptId: departmentId, deptName: department?.departmentName, certifications, existingCodes })
+    setProgramTarget({ deptId: departmentId, deptName: department?.departmentName, existingCodes })
 
   const csv = () => [
     {
@@ -344,13 +385,14 @@ export function DepartmentProgramsPanel({ department }) {
   const renderSections = (list) =>
     list.length === 0 ? (
       <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-        No sections yet — add the first class below.
+        No sections yet — add one from Manage.
       </p>
     ) : (
       <ul className="divide-y divide-border/50">
         {list.map((section) => (
           <SectionRow
             key={section.sectionId}
+            departmentId={departmentId}
             section={section}
             stats={statsById.get(section.sectionId)}
             onRename={setRenamingSection}
@@ -365,11 +407,7 @@ export function DepartmentProgramsPanel({ department }) {
 
   return (
     <section className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Programs & sections</h2>
-          <p className="text-xs text-muted-foreground">Each program holds its classes. Click a section to see its learners.</p>
-        </div>
+      <div className="flex justify-end gap-3">
         <div className="flex items-center gap-2">
           <ExportButton
             filename="rebyu-department-programs"
@@ -417,16 +455,21 @@ export function DepartmentProgramsPanel({ department }) {
             const list = sectionsOf(program.programId)
             const totals = rollUp(list.map((s) => statsById.get(s.sectionId) ?? {}))
             const edit = () =>
-              setProgramTarget({ deptId: departmentId, deptName: department?.departmentName, certifications, existingCodes, program })
+              setProgramTarget({ deptId: departmentId, deptName: department?.departmentName, existingCodes, program })
+            const workspace = `/institution/departments/${departmentId}?programId=${program.programId}`
             return (
               <ProgramCard
                 key={program.programId}
                 code={(program.programCode || program.programName || "?").slice(0, 4).toUpperCase()}
                 title={program.programName}
+                href={workspace}
                 certifications={program.certifications ?? []}
+                onEditCertifications={() => setCertsFor(program)}
                 totals={totals}
                 sectionCount={list.length}
                 menu={
+                  // Only the institution edits or removes a program.
+                  !canAddProgram ? null : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label={`${program.programName} actions`}>
@@ -448,20 +491,15 @@ export function DepartmentProgramsPanel({ department }) {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  )
                 }
                 footer={
-                  <>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => setNewSectionFor(program.programId)}>
-                      <Plus className="size-3.5" aria-hidden="true" />
-                      Add section
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="ml-auto h-8 gap-1.5 text-xs">
-                      <Link to={`/institution/departments/${departmentId}?programId=${program.programId}`}>
-                        <BookOpenIcon className="size-3.5" aria-hidden="true" />
-                        Open workspace
-                      </Link>
-                    </Button>
-                  </>
+                  <Button asChild size="sm" className="h-9 w-full gap-1.5 text-xs">
+                    <Link to={workspace}>
+                      <Settings className="size-3.5" aria-hidden="true" />
+                      Manage {program.programCode || "program"}
+                    </Link>
+                  </Button>
                 }
               >
                 {renderSections(list)}
@@ -477,12 +515,6 @@ export function DepartmentProgramsPanel({ department }) {
               subtitle="Sections made before programs existed. Rename or archive them, or recreate them in a program."
               totals={rollUp(unassigned.map((s) => statsById.get(s.sectionId) ?? {}))}
               sectionCount={unassigned.length}
-              footer={
-                <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={() => setNewSectionFor(null)}>
-                  <Plus className="size-3.5" aria-hidden="true" />
-                  Add section
-                </Button>
-              }
             >
               {renderSections(unassigned)}
             </ProgramCard>
@@ -501,21 +533,13 @@ export function DepartmentProgramsPanel({ department }) {
         />
       ) : null}
 
-      {newSectionFor !== undefined && departmentId ? (
-        <SectionDialog
-          key={`new-section-${newSectionFor ?? "none"}`}
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setNewSectionFor(undefined)
-              refresh()
-            }
-          }}
+      {certsFor ? (
+        <ProgramCertificationsDialog
+          key={certsFor.programId}
           departmentId={departmentId}
-          programId={newSectionFor}
-          institutionCertId={department?.institutionCertId ?? null}
+          program={certsFor}
           certifications={certifications}
-          programs={programs}
+          onClose={() => setCertsFor(null)}
         />
       ) : null}
 

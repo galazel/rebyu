@@ -35,7 +35,9 @@ public class DepartmentAnnouncementController {
     public record AnnouncementRequest(
             @NotBlank @Size(max = 200) String title,
             @NotBlank @Size(max = 10000) String body,
-            Boolean pinned) {
+            Boolean pinned,
+            // Certification ids whose learners see it; empty or missing = the whole department.
+            List<Long> certificationIds) {
     }
 
     public record AnnouncementDto(
@@ -44,6 +46,7 @@ public class DepartmentAnnouncementController {
             String title,
             String body,
             boolean pinned,
+            List<Long> certificationIds,
             String createdByEmail,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
@@ -67,8 +70,10 @@ public class DepartmentAnnouncementController {
             @PathVariable Long departmentId,
             @Valid @RequestBody AnnouncementRequest request) {
         CurrentUserDto user = requireDepartmentAccess(jwt, departmentId);
+        Department department = entityManager.find(Department.class, departmentId);
         DepartmentAnnouncement saved = announcements.save(DepartmentAnnouncement.builder()
-                .department(entityManager.getReference(Department.class, departmentId))
+                .department(department)
+                .certificationIds(audience(department, request.certificationIds()))
                 .createdBy(user.userId() == null ? null : entityManager.getReference(User.class, user.userId()))
                 .title(request.title().trim())
                 .body(request.body().trim())
@@ -76,7 +81,7 @@ public class DepartmentAnnouncementController {
                 .createdAt(LocalDateTime.now())
                 .build());
         return new AnnouncementDto(saved.getDepartmentAnnouncementId(), departmentId, saved.getTitle(), saved.getBody(),
-                saved.isPinned(), user.email(), saved.getCreatedAt(), null);
+                saved.isPinned(), List.copyOf(saved.getCertificationIds()), user.email(), saved.getCreatedAt(), null);
     }
 
     @PutMapping("/{announcementId}")
@@ -91,6 +96,11 @@ public class DepartmentAnnouncementController {
         announcement.setTitle(request.title().trim());
         announcement.setBody(request.body().trim());
         announcement.setPinned(Boolean.TRUE.equals(request.pinned()));
+        // Missing keeps the audience (a pin toggle); a list, even empty, replaces it.
+        if (request.certificationIds() != null) {
+            announcement.getCertificationIds().clear();
+            announcement.getCertificationIds().addAll(audience(announcement.getDepartment(), request.certificationIds()));
+        }
         announcement.setUpdatedAt(LocalDateTime.now());
         return toDto(announcements.save(announcement));
     }
@@ -107,6 +117,24 @@ public class DepartmentAnnouncementController {
         announcement.setStatus(DepartmentAnnouncement.Status.archived);
         announcement.setUpdatedAt(LocalDateTime.now());
         announcements.save(announcement);
+    }
+
+    /** The chosen certifications, each one the department must cover. */
+    private static java.util.Set<Long> audience(Department department, List<Long> certificationIds) {
+        java.util.Set<Long> chosen = new java.util.LinkedHashSet<>();
+        if (certificationIds == null) return chosen;
+        java.util.Set<Long> covered = new java.util.HashSet<>();
+        department.getInstitutionCerts().forEach(cert -> {
+            if (cert.getCertification() != null) covered.add(cert.getCertification().getCertificationId());
+        });
+        for (Long id : certificationIds) {
+            if (id == null) continue;
+            if (!covered.contains(id)) {
+                throw new IllegalArgumentException("This department does not cover that certification.");
+            }
+            chosen.add(id);
+        }
+        return chosen;
     }
 
     private DepartmentAnnouncement find(Long departmentId, Long announcementId) {
@@ -139,6 +167,7 @@ public class DepartmentAnnouncementController {
                 a.getTitle(),
                 a.getBody(),
                 a.isPinned(),
+                List.copyOf(a.getCertificationIds()),
                 a.getCreatedBy() == null ? null : a.getCreatedBy().getEmail(),
                 a.getCreatedAt(),
                 a.getUpdatedAt());

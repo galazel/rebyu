@@ -48,17 +48,17 @@ export function getDepartmentAnnouncements(departmentId) {
   return base(`departments/${departmentId}/announcements`)
 }
 
-export function createDepartmentAnnouncement(departmentId, { title, body, pinned }) {
+export function createDepartmentAnnouncement(departmentId, { title, body, pinned, certificationIds }) {
   return base(`departments/${departmentId}/announcements`, {
     method: "POST",
-    data: { title, body, pinned },
+    data: { title, body, pinned, certificationIds },
   })
 }
 
-export function updateDepartmentAnnouncement(departmentId, announcementId, { title, body, pinned }) {
+export function updateDepartmentAnnouncement(departmentId, announcementId, { title, body, pinned, certificationIds }) {
   return base(`departments/${departmentId}/announcements/${announcementId}`, {
     method: "PUT",
-    data: { title, body, pinned },
+    data: { title, body, pinned, certificationIds },
   })
 }
 
@@ -308,6 +308,14 @@ export function createDepartmentProgram(departmentId, { programName, programCode
   return base(`departments/${departmentId}/programs`, {
     method: "POST",
     data: { programName, programCode, description, institutionCertIds },
+  })
+}
+
+/** Which certifications a program's learners can be given (department head or institution). */
+export function setDepartmentProgramCertifications(departmentId, programId, institutionCertIds) {
+  return base(`departments/${departmentId}/programs/${programId}/certifications`, {
+    method: "PUT",
+    data: { institutionCertIds },
   })
 }
 

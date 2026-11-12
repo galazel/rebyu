@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -42,9 +42,13 @@ import {
 import {
   DEPARTMENT_VIEW_ALIASES,
   DEPARTMENT_VIEW_IDS,
-  DepartmentsSidebar,
+  DepartmentTabs,
 } from "@/components/institution/departments-sidebar.jsx"
 import { DepartmentProgramsPanel } from "@/components/institution/department-programs-panel.jsx"
+import {
+  DepartmentAssessmentsPanel,
+  DepartmentQuestionBankPanel,
+} from "@/components/institution/department-teaching-panels.jsx"
 import { DepartmentProgramsEditor } from "@/components/institution/department-programs-editor.jsx"
 import { useMyDepartments } from "@/hooks/use-my-department.js"
 import { DepartmentManagementBoard } from "@/components/institution/department-management-board.jsx"
@@ -552,36 +556,6 @@ export function ManageGroupDialog({
 
                 {isOwner ? (
                   <>
-                    <div className="flex gap-2">
-                      <Select value={authorityUserId} onValueChange={setAuthorityUserId}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a department head" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assignableMembers.length === 0 ? (
-                            <SelectItem value="none" disabled>
-                              No one else to assign. Email a department head code instead.
-                            </SelectItem>
-                          ) : (
-                            assignableMembers.map((member) => (
-                              <SelectItem key={member.userId} value={String(member.userId)}>
-                                {memberLabel(member.userId)}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => assignAuthorityMutation.mutate()}
-                        disabled={!authorityUserId || assignAuthorityMutation.isPending}
-                      >
-                        <Plus className="size-4" aria-hidden="true" />
-                        Assign
-                      </Button>
-                    </div>
-
                     <Button
                       type="button"
                       variant="ghost"
@@ -728,9 +702,20 @@ export default function DepartmentsPage() {
   const rosterFilter = searchParams.get("filter") ?? "all"
   const sectionFilter = searchParams.get("section") ?? "all"
 
+  // ?department= (from a program page or the assessment builder) picks which department shows.
+  const departmentParam = searchParams.get("department")
+  useEffect(() => {
+    if (departmentParam && String(departmentParam) !== String(activeDepartmentId)
+        && groups.some((dept) => String(dept.departmentId) === departmentParam)) {
+      selectDepartment(Number(departmentParam))
+    }
+  }, [departmentParam, activeDepartmentId, groups, selectDepartment])
+
   const selectFeature = (featureId) => {
     const view = Object.keys(DEPARTMENT_VIEW_IDS).find((key) => DEPARTMENT_VIEW_IDS[key] === featureId)
-    setSearchParams(view ? { view } : {}, { replace: false })
+    // Assessments and the question bank share the chosen certification.
+    const certificationId = searchParams.get("certificationId")
+    setSearchParams(view ? { view, ...(certificationId ? { certificationId } : {}) } : {}, { replace: false })
   }
 
   if (institutionLoading || departmentsQuery.isLoading) {
@@ -764,20 +749,21 @@ export default function DepartmentsPage() {
           description="A department appears here once your institution's certification access is active and you are assigned to it."
         />
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
-
-          <div className="order-first lg:order-last lg:sticky lg:top-20 lg:self-start">
-          <DepartmentsSidebar
-              departments={groups}
-              selectedDepartmentId={activeDepartmentId}
-              onSelectDepartment={selectDepartment}
-              activeFeature={activeFeature}
-              onSelectFeature={selectFeature}
-            />
-          </div>
-          <div className="min-w-0 space-y-6">
+        <div className="space-y-6">
+          <DepartmentTabs
+            departments={groups}
+            selectedDepartmentId={activeDepartmentId}
+            onSelectDepartment={selectDepartment}
+            activeFeature={activeFeature}
+            onSelectFeature={selectFeature}
+          />
+          <div className="min-w-0">
             {activeFeature === DEPARTMENT_VIEW_IDS.programs ? (
               <DepartmentProgramsPanel key={activeDepartmentId} department={activeDepartment} />
+            ) : activeFeature === DEPARTMENT_VIEW_IDS.assessments ? (
+              <DepartmentAssessmentsPanel key={activeDepartmentId} department={activeDepartment} />
+            ) : activeFeature === DEPARTMENT_VIEW_IDS["question-bank"] ? (
+              <DepartmentQuestionBankPanel key={activeDepartmentId} department={activeDepartment} />
             ) : (
               <DepartmentManagementBoard
                 key={`${activeDepartmentId}-${activeFeature}-${rosterFilter}-${sectionFilter}`}

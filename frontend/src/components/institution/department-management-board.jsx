@@ -103,20 +103,11 @@ function DashboardCardHeader({
               <Icon className="size-4.5" aria-hidden="true" />
             </span>
           ) : null}
+          {/* The tab names the view, so no kicker or intro hint here. */}
           <div className="min-w-0">
-            {kicker ? (
-              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-primary dark:text-emerald-400">
-                {kicker}
-              </h3>
-            ) : null}
             <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
               {title}
             </p>
-            {hint ? (
-              <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground font-sans">
-                {hint}
-              </p>
-            ) : null}
           </div>
         </div>
         {(chip || action) && (
@@ -187,6 +178,14 @@ export function DepartmentManagementBoard({
   const [announcementTitle, setAnnouncementTitle] = useState("")
   const [announcementBody, setAnnouncementBody] = useState("")
   const [announcementPinned, setAnnouncementPinned] = useState(false)
+  // Certification ids whose learners see the announcement; empty = everyone in the department.
+  const [announcementCertIds, setAnnouncementCertIds] = useState([])
+  const announcementCerts = (department?.certifications ?? []).filter(
+    (cert) => cert?.certificationId != null && String(cert?.status ?? "active").toLowerCase() === "active"
+  )
+  const certTitleById = new Map(announcementCerts.map((cert) => [cert.certificationId, cert.title]))
+  const toggleAnnouncementCert = (id) =>
+    setAnnouncementCertIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
   const [editingAnnouncement, setEditingAnnouncement] = useState(null)
   const [deletingAnnouncement, setDeletingAnnouncement] = useState(null)
 
@@ -298,6 +297,7 @@ export function DepartmentManagementBoard({
         title: announcementTitle.trim(),
         body: announcementBody.trim(),
         pinned: announcementPinned,
+        certificationIds: announcementCertIds,
       }
       return editingAnnouncement
         ? updateDepartmentAnnouncement(primaryDeptId, editingAnnouncement.departmentAnnouncementId, payload)
@@ -310,6 +310,7 @@ export function DepartmentManagementBoard({
       setAnnouncementTitle("")
       setAnnouncementBody("")
       setAnnouncementPinned(false)
+      setAnnouncementCertIds([])
       setEditingAnnouncement(null)
     },
     onError: (err) => {
@@ -834,6 +835,48 @@ export function DepartmentManagementBoard({
                       rows={3}
                       className="text-xs min-h-[64px] bg-background resize-none py-1.5"
                     />
+                    {announcementCerts.length > 1 ? (
+                      <div className="space-y-1.5" role="group" aria-label="Who sees this announcement">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Who sees it</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            aria-pressed={announcementCertIds.length === 0}
+                            onClick={() => setAnnouncementCertIds([])}
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                              announcementCertIds.length === 0
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-background text-foreground hover:bg-muted"
+                            }`}
+                          >
+                            All certifications
+                          </button>
+                          {announcementCerts.map((cert) => {
+                            const on = announcementCertIds.includes(cert.certificationId)
+                            return (
+                              <button
+                                key={cert.certificationId}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => toggleAnnouncementCert(cert.certificationId)}
+                                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                  on
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-border bg-background text-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {cert.title}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {announcementCertIds.length === 0
+                            ? "Every learner in this department sees it."
+                            : "Only learners enrolled in the selected certifications see it."}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
                       <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
                         <Switch checked={announcementPinned} onCheckedChange={setAnnouncementPinned} className="scale-75" />
@@ -885,6 +928,11 @@ export function DepartmentManagementBoard({
                                 <p className="font-bold text-foreground truncate">{item.title}</p>
                               </div>
                               <p className="line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
+                              <p className="text-[10px] font-semibold text-primary">
+                                {(item.certificationIds ?? []).length === 0
+                                  ? "All certifications"
+                                  : item.certificationIds.map((cid) => certTitleById.get(cid) ?? "Certification").join(" · ")}
+                              </p>
                             </div>
 
                             <DropdownMenu>
@@ -900,6 +948,7 @@ export function DepartmentManagementBoard({
                                     setAnnouncementTitle(item.title)
                                     setAnnouncementBody(item.body)
                                     setAnnouncementPinned(Boolean(item.pinned))
+                                    setAnnouncementCertIds(item.certificationIds ?? [])
                                   }}
                                 >
                                   <Pencil className="mr-2 size-3.5" />

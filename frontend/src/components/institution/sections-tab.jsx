@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -110,69 +110,117 @@ function splitLine(line, delimiter) {
   return cells.map((cell) => cell.trim())
 }
 
+const HEADER_NAMES = {
+  email: ["email", "e mail", "email address", "e mail address", "emails", "school email", "student email"],
+  first: ["first name", "firstname", "given name", "first"],
+  last: ["last name", "lastname", "surname", "family name", "last"],
+  name: ["name", "full name", "fullname", "complete name", "learner", "learner name", "student", "student name"],
+}
+
+function headerKey(cell) {
+  return cell.toLowerCase().replace(/[^a-z\s_-]/g, "").replace(/[\s_-]+/g, " ").trim()
+}
+
+/** "Dela Cruz, Juan" (class lists) or "Juan Dela Cruz" → first and last name. */
+function splitFullName(value) {
+  const full = (value ?? "").trim()
+  if (!full) return { firstName: "", lastName: "" }
+  if (full.includes(",")) {
+    const [last, ...rest] = full.split(",")
+    return { firstName: rest.join(",").trim(), lastName: last.trim() }
+  }
+  const parts = full.split(/\s+/)
+  return parts.length === 1
+    ? { firstName: parts[0], lastName: "" }
+    : { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] }
+}
+
+/** Row numbers, student numbers and other ids are not part of a name. */
+function looksLikeId(cell) {
+  return /^[\d\s\-./#]+$/.test(cell)
+}
+
+/**
+ * Reads a class list (CSV, TSV or an Excel sheet turned into tab-separated text).
+ * Title rows above the header, blank rows, a "Last, First" name column and extra
+ * columns (student number, course) are all fine. Problems name the spreadsheet row.
+ */
 export function parseLearnerFile(text) {
-  const lines = text.replace(/^﻿/, "").split(/\r?\n/).filter((line) => line.trim() !== "")
-  if (lines.length === 0) return { learners: [], problems: ["The file is empty."] }
+  const all = text.replace(/^﻿/, "").split(/\r?\n/)
+  const rows = all.map((line, index) => ({ line, rowNo: index + 1 })).filter((row) => row.line.trim() !== "")
+  if (rows.length === 0) return { learners: [], problems: ["The file is empty."] }
 
-  const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes(";") && !lines[0].includes(",") ? ";" : ","
-  const firstCells = splitLine(lines[0], delimiter).map((cell) => cell.toLowerCase())
-  const hasHeader = !firstCells.some((cell) => EMAIL_PATTERN.test(cell))
+  // Any tab means a spreadsheet; otherwise the most common of ; and , on the lines.
+  const sample = rows.map((row) => row.line).join("\n")
+  const delimiter = sample.includes("\t")
+    ? "\t"
+    : (sample.match(/;/g)?.length ?? 0) > (sample.match(/,/g)?.length ?? 0)
+      ? ";"
+      : ","
+  const cellsOf = rows.map((row) => splitLine(row.line, delimiter))
 
-  const findColumn = (...names) => firstCells.findIndex((cell) => names.includes(cell.replace(/[\s_-]+/g, " ")))
-  const columns = hasHeader
-    ? {
-        email: findColumn("email", "e mail", "email address", "e mail address"),
-        first: findColumn("first name", "firstname", "given name", "first"),
-        last: findColumn("last name", "lastname", "surname", "family name", "last"),
-        name: findColumn("name", "full name", "learner", "student", "student name"),
-      }
-    : null
+  // The header is the last row before the first email that names an email column.
+  const firstEmailRow = cellsOf.findIndex((cells) => cells.some((cell) => EMAIL_PATTERN.test(cell.trim())))
+  let headerIndex = -1
+  for (let i = (firstEmailRow < 0 ? cellsOf.length : firstEmailRow) - 1; i >= 0; i -= 1) {
+    if (cellsOf[i].some((cell) => HEADER_NAMES.email.includes(headerKey(cell)))) {
+      headerIndex = i
+      break
+    }
+  }
+  const header = headerIndex >= 0 ? cellsOf[headerIndex].map(headerKey) : null
+  const findColumn = (names) => (header ? header.findIndex((cell) => names.includes(cell)) : -1)
+  const columns = {
+    email: findColumn(HEADER_NAMES.email),
+    first: findColumn(HEADER_NAMES.first),
+    last: findColumn(HEADER_NAMES.last),
+    name: findColumn(HEADER_NAMES.name),
+  }
+  // Without a header, rows before the first email are titles and are skipped.
+  const start = headerIndex >= 0 ? headerIndex + 1 : Math.max(firstEmailRow, 0)
 
   const learners = []
   const problems = []
   const seen = new Set()
-  lines.slice(hasHeader ? 1 : 0).forEach((line, index) => {
-    const lineNo = index + (hasHeader ? 2 : 1)
-    const cells = splitLine(line, delimiter)
+  for (let i = start; i < rows.length; i += 1) {
+    const { rowNo } = rows[i]
+    const cells = cellsOf[i]
     let email = ""
     let firstName = ""
     let lastName = ""
 
-    if (columns && columns.email >= 0) {
+    if (columns.email >= 0) {
       email = cells[columns.email] ?? ""
       firstName = columns.first >= 0 ? cells[columns.first] ?? "" : ""
       lastName = columns.last >= 0 ? cells[columns.last] ?? "" : ""
       if (!firstName && !lastName && columns.name >= 0) {
-        const parts = (cells[columns.name] ?? "").split(/\s+/).filter(Boolean)
-        firstName = parts.slice(0, -1).join(" ")
-        lastName = parts.length > 1 ? parts[parts.length - 1] : parts[0] ?? ""
+        ;({ firstName, lastName } = splitFullName(cells[columns.name]))
       }
     } else {
-      const emailIndex = cells.findIndex((cell) => EMAIL_PATTERN.test(cell))
+      const emailIndex = cells.findIndex((cell) => EMAIL_PATTERN.test(cell.trim()))
       if (emailIndex >= 0) {
         email = cells[emailIndex]
-        const rest = cells.filter((_, i) => i !== emailIndex).filter(Boolean)
-        firstName = rest[0] ?? ""
-        lastName = rest.slice(1).join(" ")
+        const rest = cells.filter((cell, index) => index !== emailIndex && cell && !looksLikeId(cell))
+        ;({ firstName, lastName } = rest.length === 1 ? splitFullName(rest[0]) : { firstName: rest[0] ?? "", lastName: rest[1] ?? "" })
       }
     }
 
     email = email.trim().toLowerCase()
     if (!email) {
-      problems.push(`Line ${lineNo}: no email address.`)
-      return
+      problems.push(`Row ${rowNo}: no email address.`)
+      continue
     }
     if (!EMAIL_PATTERN.test(email)) {
-      problems.push(`Line ${lineNo}: "${email}" is not a valid email.`)
-      return
+      problems.push(`Row ${rowNo}: "${email}" is not a valid email.`)
+      continue
     }
     if (seen.has(email)) {
-      problems.push(`Line ${lineNo}: ${email} is listed more than once.`)
-      return
+      problems.push(`Row ${rowNo}: ${email} is listed more than once.`)
+      continue
     }
     seen.add(email)
     learners.push({ email, firstName: firstName.trim(), lastName: lastName.trim() })
-  })
+  }
 
   return { learners, problems }
 }
@@ -218,7 +266,11 @@ export async function xlsxToText(file) {
   return lines.join("\n")
 }
 
-function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, programCertifications = null }) {
+function certSlotsLeft(cert) {
+  return Math.max(0, Number(cert?.totalSlots ?? 0) - Number(cert?.usedSlots ?? 0))
+}
+
+function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, certificationOptions = null }) {
   const queryClient = useQueryClient()
   const fileRef = useRef(null)
   const [mode, setMode] = useState("manual")
@@ -228,10 +280,38 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
   const [fileName, setFileName] = useState("")
   const [error, setError] = useState("")
 
-  const remainingSlots = Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
+  // A section made for one certification (before programs) keeps it. Any other section
+  // lets the inviter pick which of the department's certifications these learners get:
+  // one invitation per certification, one email.
+  const fixedCertId = section?.programId == null ? section?.institutionCertId ?? null : null
+  const options =
+    fixedCertId == null
+      ? asArray(certificationOptions ?? group?.certifications).filter(
+          (c) => c?.institutionCertId != null && String(c?.status ?? "active").toLowerCase() === "active"
+        )
+      : []
+  const defaultChoice = () => {
+    // A program's section starts with every certification the program offers.
+    if (options.length === 1 || certificationOptions != null) return options.map((c) => c.institutionCertId)
+    const active = group?.activeCertification?.institutionCertId
+    return active != null && options.some((c) => c.institutionCertId === active) ? [active] : []
+  }
+  const [chosenCertIds, setChosenCertIds] = useState(defaultChoice)
+  const chosen = options.filter((c) => chosenCertIds.includes(c.institutionCertId))
+  const needsCertChoice = options.length > 0 && chosen.length === 0
+  const toggleChosen = (id) =>
+    setChosenCertIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
+
+  // Every chosen certification takes a seat per learner, so the tightest one decides.
+  const fixedCert = asArray(group?.certifications).find((c) => c.institutionCertId === fixedCertId)
+  const remainingSlots = chosen.length
+    ? Math.min(...chosen.map(certSlotsLeft))
+    : fixedCert
+      ? certSlotsLeft(fixedCert)
+      : Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
 
   const reset = () => {
-    setChosenCertIds(programOptions.length === 1 ? [programOptions[0].institutionCertId] : [])
+    setChosenCertIds(defaultChoice())
     setMode("manual")
     setDraft({ firstName: "", lastName: "", email: "" })
     setStaged([])
@@ -253,11 +333,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
       if (next.some((row) => row.email === learner.email)) dupes.push(learner.email)
       else next.push(learner)
     }
-    if (next.length > remainingSlots) {
-      setError(`Only ${remainingSlots} slot(s) remain in this department; ${next.length} learner(s) staged.`)
-    } else {
-      setError("")
-    }
+    setError("")
     setStaged(next)
     return dupes
   }
@@ -294,33 +370,15 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
     }
   }
 
-  // A program's section offers its program's certifications; the inviter picks which of them
-  // these learners are enrolled in (one invitation per certification, one email).
-  const programOptions =
-    section && section.institutionCertId == null
-      ? asArray(programCertifications).filter((c) => c?.institutionCertId != null)
-      : []
-  const [chosenCertIds, setChosenCertIds] = useState(() =>
-    programOptions.length === 1 ? [programOptions[0].institutionCertId] : []
-  )
-  const programCertIds = programOptions.length
-    ? programOptions.map((c) => c.institutionCertId).filter((id) => chosenCertIds.includes(id))
-    : []
-  const needsCertChoice = programOptions.length > 0 && programCertIds.length === 0
-  const toggleChosen = (id) =>
-    setChosenCertIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]))
   const send = useMutation({
     mutationFn: async () => {
-      // One request for every certification: the backend sends each learner a single email
-      // listing them all, and one link accepts the lot.
+      const ids = chosen.map((c) => c.institutionCertId)
       const response = await sendInstitutionInvitations({
         departmentId: departmentId,
         learners: staged,
         sectionId: section?.sectionId ?? null,
-        institutionCertId: programCertIds.length
-          ? null
-          : (section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null),
-        institutionCertIds: programCertIds.length ? programCertIds : null,
+        institutionCertId: ids.length ? null : (fixedCertId ?? group.activeCertification?.institutionCertId ?? null),
+        institutionCertIds: ids.length ? ids : null,
       })
       return { created: response?.created ?? 0, skipped: asArray(response?.skipped) }
     },
@@ -328,6 +386,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
       queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department-overview", departmentId] })
       toast.success(
         `${response.created} learner(s) invited${section ? ` to ${section.sectionName}` : ""}.`,
         response.skipped?.length ? { description: `Skipped: ${response.skipped.join("; ")}` } : undefined
@@ -337,7 +396,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
     onError: (err) => setError(backendMessage(err, "Unable to add these learners.")),
   })
 
-  const overCap = staged.length * Math.max(1, programCertIds.length) > remainingSlots
+  const overCap = staged.length > remainingSlots
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -345,23 +404,31 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
         <DialogHeader>
           <DialogTitle>Add learners{section ? ` to ${section.sectionName}` : ""}</DialogTitle>
           <DialogDescription>
-            Each learner gets an email invitation and joins {section ? "this section" : "the department"} when they
-            accept. {remainingSlots} of {group.totalSlots ?? 0} slot(s) remain in this department.
+            Each learner gets one email invitation and joins {section ? "this section" : "the department"} when they
+            accept.
           </DialogDescription>
         </DialogHeader>
 
-        {programOptions.length > 0 ? (
-          <div className="space-y-2">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Certification</p>
-              <p className="text-xs text-muted-foreground">
-                What these learners are enrolled in. A learner already studying it on their own keeps their progress
-                and moves under {section.sectionName}.
-              </p>
+        {options.length > 0 ? (
+          <fieldset className="space-y-2.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <legend className="text-sm font-semibold text-foreground">1. Certifications they can access</legend>
+              {options.length > 1 ? (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-primary hover:underline"
+                  onClick={() =>
+                    setChosenCertIds(chosen.length === options.length ? [] : options.map((c) => c.institutionCertId))
+                  }
+                >
+                  {chosen.length === options.length ? "Clear" : "Select all"}
+                </button>
+              ) : null}
             </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Certifications to enroll in">
-              {programOptions.map((cert) => {
+            <div className="grid gap-2 sm:grid-cols-2" role="group" aria-label="Certifications to enroll in">
+              {options.map((cert) => {
                 const checked = chosenCertIds.includes(cert.institutionCertId)
+                const left = certSlotsLeft(cert)
                 return (
                   <button
                     key={cert.institutionCertId}
@@ -369,25 +436,41 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
                     role="checkbox"
                     aria-checked={checked}
                     onClick={() => toggleChosen(cert.institutionCertId)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
-                      checked ? "border-primary/60 bg-primary/10 text-primary" : "border-border bg-background hover:bg-muted"
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${
+                      checked ? "border-primary/60 bg-primary/10" : "border-border bg-background hover:bg-muted"
                     }`}
                   >
                     <span
-                      className={`grid size-4 place-items-center rounded border text-[10px] ${
-                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                      className={`grid size-5 shrink-0 place-items-center rounded-md border text-[11px] font-bold ${
+                        checked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"
                       }`}
                       aria-hidden="true"
                     >
                       {checked ? "✓" : ""}
                     </span>
-                    {cert.title}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">{cert.title}</span>
+                      <span className={`block text-[11px] ${left === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {left} slot{left === 1 ? "" : "s"} left
+                      </span>
+                    </span>
                   </button>
                 )
               })}
             </div>
-          </div>
+            <p className="text-xs text-muted-foreground">
+              A learner already studying one on their own keeps their progress
+              {section ? ` and moves under ${section.sectionName}` : ""}.
+            </p>
+          </fieldset>
+        ) : fixedCert ? (
+          <p className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            This section is for <span className="font-semibold text-foreground">{fixedCert.title}</span> ·{" "}
+            {remainingSlots} slot{remainingSlots === 1 ? "" : "s"} left
+          </p>
         ) : null}
+
+        {options.length > 0 ? <p className="-mb-1 text-sm font-semibold text-foreground">2. Who to invite</p> : null}
 
         <div className="flex gap-2" role="tablist">
           {[
@@ -518,6 +601,12 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, p
 
         {needsCertChoice && staged.length > 0 ? (
           <p className="text-xs text-muted-foreground">Pick at least one certification to send the invitations.</p>
+        ) : null}
+        {overCap && !needsCertChoice ? (
+          <p className="text-xs text-destructive" role="alert">
+            {staged.length} learner(s) listed but only {remainingSlots} slot(s) remain
+            {chosen.length > 1 ? " in the fullest certification you picked" : ""}.
+          </p>
         ) : null}
 
         {error ? (
@@ -763,7 +852,8 @@ function EarnedBadges({ learnerId }) {
 }
 
 function SectionPanel({
-  programCertifications = null,
+  focused = false,
+  certificationOptions = null,
   departmentId,
   group,
   section,
@@ -776,8 +866,13 @@ function SectionPanel({
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const [isOpen, setIsOpen] = useState(defaultOpen || focused)
   const [addOpen, setAddOpen] = useState(false)
+  const panelRef = useRef(null)
+  // Opened from a section link (?section=): bring it into view.
+  useEffect(() => {
+    if (focused) panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [focused])
   const [removeTarget, setRemoveTarget] = useState(null)
   const rosterAvatars = useAvatarUrls(learners.map((row) => row.avatarKey))
   const certTitles = new Map(asArray(group?.certifications).map((cert) => [cert.certificationId, cert.title]))
@@ -841,7 +936,7 @@ function SectionPanel({
   const pendingCount = pending.length
 
   return (
-    <Card className="overflow-hidden">
+    <Card ref={panelRef} className={`scroll-mt-24 overflow-hidden ${focused ? "ring-2 ring-primary/40" : ""}`}>
       <button
         type="button"
         onClick={() => setIsOpen((o) => !o)}
@@ -870,11 +965,7 @@ function SectionPanel({
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              {section?.certificationTitle
-                ? `${section.certificationTitle} · `
-                : section && programCertifications?.length
-                  ? `${programCertifications.map((cert) => cert.title).join(", ")} · `
-                  : ""}
+              {section?.certificationTitle && section?.programId == null ? `${section.certificationTitle} · ` : ""}
               {section?.programName ? `${section.programName} · ` : ""}
               {learners.length} {learners.length === 1 ? "learner" : "learners"}
               {section?.description ? ` · ${section.description}` : ""}
@@ -1147,7 +1238,7 @@ function SectionPanel({
           departmentId={departmentId}
           group={group}
           section={section}
-          programCertifications={programCertifications}
+          certificationOptions={certificationOptions}
         />
       ) : null}
 
@@ -1173,7 +1264,7 @@ function SectionPanel({
 }
 
 
-export function SectionsTab({ departmentId, group: department, certificationId, programId = null, certifications = null }) {
+export function SectionsTab({ departmentId, group: department, certificationId, programId = null, certifications = null, focusSectionId = null }) {
   // A department covers several certifications; this tab works on the one the
   // workspace has selected, and its slots are that certification's. A program
   // passes its certifications instead and sees all of them at once.
@@ -1336,7 +1427,8 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
         <div className="space-y-3">
           {sections.map((section, index) => (
             <SectionPanel
-              programCertifications={programCerts}
+              certificationOptions={programCerts}
+              focused={focusSectionId != null && section.sectionId === focusSectionId}
               key={section.sectionId}
               departmentId={departmentId}
               group={group}
@@ -1344,14 +1436,14 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
               sections={sections}
               learners={bySection.get(section.sectionId) ?? []}
               invitations={invitationsBySection.get(section.sectionId) ?? []}
-              defaultOpen={index === 0}
+              defaultOpen={focusSectionId == null && index === 0}
               onEdit={(s) => setDialog({ section: s })}
               onDelete={(s) => setDeleteTarget(s)}
             />
           ))}
           {unsectioned.length > 0 || unsectionedInvites.length > 0 ? (
             <SectionPanel
-              programCertifications={programCerts}
+              certificationOptions={programCerts}
               departmentId={departmentId}
               group={group}
               section={null}

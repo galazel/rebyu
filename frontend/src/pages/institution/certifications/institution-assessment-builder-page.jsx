@@ -158,7 +158,7 @@ export default function InstitutionAssessmentBuilderPage() {
   const isEdit = Number.isFinite(editingExamId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [title, setTitle] = useState("")
   const [examTypeText, setExamTypeText] = useState(searchParams.get("type") ?? "QUIZ")
@@ -188,7 +188,10 @@ export default function InstitutionAssessmentBuilderPage() {
     enabled: Number.isFinite(id),
   })
 
-  const coveredCertificationIds = (departmentQuery.data?.certifications ?? []).map((cert) => cert.certificationId)
+  const coveredCertifications = (departmentQuery.data?.certifications ?? []).filter(
+    (cert) => String(cert?.status ?? "active").toLowerCase() === "active"
+  )
+  const coveredCertificationIds = coveredCertifications.map((cert) => cert.certificationId)
   const requestedCertificationId = Number(searchParams.get("certificationId"))
   const groupCertificationId = coveredCertificationIds.includes(requestedCertificationId)
     ? requestedCertificationId
@@ -515,7 +518,7 @@ export default function InstitutionAssessmentBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ["exams"] })
       queryClient.invalidateQueries({ queryKey: ["exam-questions"] })
       toast.success(isEdit ? "Assessment updated." : "Assessment created.")
-      navigate(`/institution/departments/${id}?tab=assessments`)
+      navigate(`/institution/departments?view=assessments&department=${id}&certificationId=${groupCertificationId ?? ""}`)
     },
     onError: (err) => {
       const message = backendMessage(err, "Unable to save this assessment.")
@@ -560,7 +563,7 @@ export default function InstitutionAssessmentBuilderPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/institution/departments/${id}?tab=assessments`)}
+            onClick={() => navigate(`/institution/departments?view=assessments&department=${id}&certificationId=${groupCertificationId ?? ""}`)}
           >
             Cancel
           </Button>
@@ -642,6 +645,45 @@ export default function InstitutionAssessmentBuilderPage() {
           )}
         >
           <SectionLabel>Basics</SectionLabel>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="a-certification">Certification</Label>
+            {isEdit || coveredCertifications.length <= 1 ? (
+              <p id="a-certification" className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground">
+                {coveredCertifications.find((cert) => cert.certificationId === groupCertificationId)?.title ?? "—"}
+              </p>
+            ) : (
+              <Select
+                value={groupCertificationId != null ? String(groupCertificationId) : undefined}
+                onValueChange={(value) => {
+                  // Lessons and questions belong to one certification, so a new choice starts them over.
+                  setQuestions([])
+                  setScopeMajorId("")
+                  setScopeMiddleId("")
+                  setScopeLessonId("")
+                  setSearchParams((prev) => {
+                    const params = new URLSearchParams(prev)
+                    params.set("certificationId", value)
+                    return params
+                  }, { replace: true })
+                }}
+              >
+                <SelectTrigger id="a-certification">
+                  <SelectValue placeholder="Choose a certification" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coveredCertifications.map((cert) => (
+                    <SelectItem key={cert.certificationId} value={String(cert.certificationId)}>
+                      {cert.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Once published, every learner in this department enrolled in it can take it.
+            </p>
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="a-title">Name</Label>

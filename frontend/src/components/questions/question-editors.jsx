@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react"
 import {
   AlertCircle,
+  CheckCheck,
   Code2,
   FileQuestion,
   FileText,
   ListChecks,
   Maximize,
   Plus,
+  SquarePen,
   Trash2,
   Workflow,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -117,6 +120,21 @@ export const QUESTION_TYPES = [
     },
   },
   {
+    id: "MULTIPLE_ANSWER",
+    title: "Multiple Answer",
+    description: "Several right options; the learner ticks all of them",
+    icon: CheckCheck,
+    component: null,
+    data: {
+      questionType: "MULTIPLE_ANSWER",
+      question: "",
+      image: null,
+      choices: Array.from({ length: 5 }, () => ({ choiceText: "", image: null, explanation: "", isCorrect: false })),
+      correctChoiceIndex: null,
+      difficulty: "average",
+    },
+  },
+  {
     id: "SHORT_ANSWER",
     title: "Short Answer",
     description: "Brief text response",
@@ -128,6 +146,25 @@ export const QUESTION_TYPES = [
       image: null,
       correctAnswer: "",
       checkingMethod: "EXACT_MATCH",
+      difficulty: "average",
+    },
+  },
+  {
+    id: "FILL_IN_BLANK",
+    title: "Fill in the Blanks",
+    description: "A passage with key terms blanked, answered from a candidate list",
+    icon: SquarePen,
+    component: null,
+    data: {
+      questionType: "SHORT_ANSWER",
+      question: "",
+      image: null,
+      blanks: [
+        { term: "", variations: "" },
+        { term: "", variations: "" },
+      ],
+      distractors: "",
+      showCandidates: true,
       difficulty: "average",
     },
   },
@@ -307,6 +344,38 @@ export function validateQuestionData(typeId, data) {
     })
     if (data.correctChoiceIndex === null || data.correctChoiceIndex === undefined) {
       errors.correctChoiceIndex = "Select which answer choice is correct."
+    }
+  }
+
+  if (typeId === "MULTIPLE_ANSWER") {
+    const choices = data.choices ?? []
+    if (choices.length < 3) errors.choices = "Add at least three answer choices."
+    choices.forEach((choice, index) => {
+      if (isBlank(choice.choiceText)) {
+        errors[`choices.${index}.choiceText`] = `Choice ${String.fromCharCode(65 + index)} is required.`
+      }
+    })
+    const correctCount = choices.filter((choice) => choice.isCorrect).length
+    if (correctCount < 2) {
+      errors.correctChoiceIndex = "Tick at least two correct choices. With only one, use Multiple Choice."
+    } else if (correctCount === choices.length) {
+      errors.correctChoiceIndex = "Leave at least one choice unticked as a wrong answer."
+    }
+  }
+
+  if (typeId === "FILL_IN_BLANK") {
+    const blanks = data.blanks ?? []
+    if (blanks.length === 0) errors.blanks = "Add at least one blank."
+    blanks.forEach((blank, index) => {
+      const label = blankLabel(index)
+      if (isBlank(blank.term)) errors[`blanks.${index}.term`] = `Blank ${label} needs its correct term.`
+      if (!isBlank(data.question) && !data.question.includes(label)) {
+        errors[`blanks.${index}.marker`] = `Put ${label} in the passage where this term goes.`
+      }
+    })
+    const terms = blanks.map((blank) => (blank.term ?? "").trim().toLowerCase()).filter(Boolean)
+    if (new Set(terms).size !== terms.length) {
+      errors.blanks = "Each blank needs a different term, or learners cannot tell them apart."
     }
   }
 
@@ -1076,11 +1145,336 @@ export function Diagram({ questionKey, questionNumber, onRemove, data, onDataCha
   )
 }
 
-QUESTION_TYPES[0].component = MultipleChoices
-QUESTION_TYPES[1].component = ShortAnswer
-QUESTION_TYPES[2].component = Descriptive
-QUESTION_TYPES[3].component = Programming
-QUESTION_TYPES[4].component = Diagram
+/** Several right options; the learner ticks every one, and only an exact match earns the mark. */
+export function MultipleAnswers({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
+  const choices = data.choices ?? []
+  const correctCount = choices.filter((choice) => choice.isCorrect).length
+
+  function onFieldChange(path, value) {
+    onDataChange((currentData) => updateDataAtPath(currentData, path, value))
+  }
+
+  function toggleCorrect(toggledIndex) {
+    onDataChange((currentData) => ({
+      ...currentData,
+      correctChoiceIndex: null,
+      choices: currentData.choices.map((choice, index) =>
+        index === toggledIndex ? { ...choice, isCorrect: !choice.isCorrect } : choice
+      ),
+    }))
+  }
+
+  function addChoice() {
+    onDataChange((currentData) => ({
+      ...currentData,
+      choices: [...(currentData.choices ?? []), { choiceText: "", image: null, explanation: "", isCorrect: false }],
+    }))
+  }
+
+  function removeChoice(indexToRemove) {
+    onDataChange((currentData) => ({
+      ...currentData,
+      choices: (currentData.choices ?? []).filter((_, index) => index !== indexToRemove),
+    }))
+  }
+
+  return (
+    <CompactQuestionCard type="Multi" title="Multiple Answer Question" questionNumber={questionNumber} onRemove={onRemove} errors={errors} headerExtra={headerExtra}>
+      <QuestionPromptFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} errors={errors} />
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Answer Choices
+              <span className="ml-1 text-destructive">*</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Tick every correct choice. Learners are told how many to select, and only an exact match earns the mark.
+            </p>
+          </div>
+          {errors.correctChoiceIndex ? (
+            <span className="text-xs font-medium text-destructive">Correct answers required</span>
+          ) : (
+            <span className="text-xs font-medium text-muted-foreground">
+              Learners see &ldquo;Select {correctCount || "…"}&rdquo;
+            </span>
+          )}
+        </div>
+
+        {choicesCanShuffle(choices) ? null : (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            A choice here names another choice (such as &ldquo;A and B&rdquo;), so this question&apos;s choices will
+            keep this order on retakes.
+          </p>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {choices.map((choice, index) => {
+            const letter = String.fromCharCode(65 + index)
+            const choiceError = errors[`choices.${index}.choiceText`]
+            const isCorrect = Boolean(choice.isCorrect)
+            return (
+              <div
+                key={`${questionKey}-choice-${index}`}
+                className={`rounded-md border p-3 transition ${
+                  isCorrect
+                    ? "border-primary bg-primary/5"
+                    : choiceError
+                      ? "border-destructive/70 bg-destructive/5"
+                      : "border-border bg-muted/20"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${questionKey}-correct-${index}`}
+                    checked={isCorrect}
+                    onCheckedChange={() => toggleCorrect(index)}
+                    aria-label={`Choice ${letter} is correct`}
+                  />
+                  <Label
+                    htmlFor={`${questionKey}-correct-${index}`}
+                    className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded border text-xs font-semibold ${
+                      isCorrect ? "border-primary bg-primary text-primary-foreground" : "bg-background"
+                    }`}
+                  >
+                    {letter}
+                  </Label>
+                  <Input
+                    value={choice.choiceText ?? ""}
+                    aria-invalid={Boolean(choiceError)}
+                    onChange={(event) => onFieldChange(`choices.${index}.choiceText`, event.target.value)}
+                    placeholder={`Choice ${letter}`}
+                    className={`h-8 min-w-0 ${choiceError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                  />
+                  {choices.length > 3 ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove choice ${letter}`}
+                      onClick={() => removeChoice(index)}
+                      className="shrink-0 rounded p-1 text-muted-foreground/70 transition hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                <div className="ml-9 mt-2">
+                  <FieldError message={choiceError} />
+                </div>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-muted-foreground">
+                    Add explanation <span className="ml-1">(Optional)</span>
+                  </summary>
+                  <Textarea
+                    value={choice.explanation ?? ""}
+                    onChange={(event) => onFieldChange(`choices.${index}.explanation`, event.target.value)}
+                    placeholder="Optional explanation shown after answering..."
+                    className="mt-2 min-h-16 resize-y text-xs"
+                  />
+                </details>
+              </div>
+            )
+          })}
+        </div>
+
+        <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" onClick={addChoice} disabled={choices.length >= 8}>
+          <Plus className="size-3.5" />
+          Add Choice
+        </Button>
+        <FieldError message={errors.correctChoiceIndex} />
+        <FieldError message={errors.choices} />
+      </div>
+
+      <QuestionMetaFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} />
+    </CompactQuestionCard>
+  )
+}
+
+const BLANK_CANDIDATES_HEADING = "Candidates:"
+
+export function blankLabel(index) {
+  return `(${String.fromCharCode(65 + index)})`
+}
+
+function splitTerms(text) {
+  return String(text ?? "")
+    .split(/[,\n]/)
+    .map((term) => term.trim())
+    .filter(Boolean)
+}
+
+/**
+ * The learner-facing stem: the passage, then (when asked) the candidate list holding
+ * every right term plus the distractors in a shuffled order. Same shape the admin writes.
+ */
+function composeBlankPassage(data) {
+  const passage = (data.question ?? "").trim()
+  if (!data.showCandidates) return passage
+  const seen = new Set()
+  const candidates = [
+    ...(data.blanks ?? []).map((blank) => (blank.term ?? "").trim()),
+    ...splitTerms(data.distractors),
+  ].filter((term) => {
+    const key = term.toLowerCase()
+    if (!term || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  for (let i = candidates.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[candidates[i], candidates[j]] = [candidates[j], candidates[i]]
+  }
+  return `${passage}\n\n${BLANK_CANDIDATES_HEADING} ${candidates.join(", ")}`
+}
+
+/** A passage with its key terms blanked as (A), (B)…, each marked by exact match. */
+export function FillInTheBlanks({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
+  const blanks = data.blanks ?? []
+
+  function onFieldChange(path, value) {
+    onDataChange((currentData) => updateDataAtPath(currentData, path, value))
+  }
+
+  function addBlank() {
+    onDataChange((currentData) => ({
+      ...currentData,
+      blanks: [...(currentData.blanks ?? []), { term: "", variations: "" }],
+    }))
+  }
+
+  function removeBlank(indexToRemove) {
+    onDataChange((currentData) => ({
+      ...currentData,
+      blanks: (currentData.blanks ?? []).filter((_, index) => index !== indexToRemove),
+    }))
+  }
+
+  function insertMarker(index) {
+    onDataChange((currentData) => {
+      const passage = currentData.question ?? ""
+      const spacer = passage && !passage.endsWith(" ") ? " " : ""
+      return { ...currentData, question: `${passage}${spacer}${blankLabel(index)}` }
+    })
+  }
+
+  return (
+    <CompactQuestionCard type="Blanks" title="Fill in the Blanks Question" questionNumber={questionNumber} onRemove={onRemove} errors={errors} headerExtra={headerExtra}>
+      <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+        Write a short passage and put <span className="font-semibold text-foreground">(A)</span>,{" "}
+        <span className="font-semibold text-foreground">(B)</span>, … where each term belongs. Learners type one term
+        per blank, and each blank is marked by exact match.
+      </p>
+
+      <QuestionPromptFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} errors={errors} />
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <div>
+          <p className="text-sm font-medium text-foreground">
+            Blanks
+            <span className="ml-1 text-destructive">*</span>
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            The exact term for each blank. Add other accepted spellings, separated by commas.
+          </p>
+        </div>
+
+        {blanks.map((blank, index) => {
+          const label = blankLabel(index)
+          const termError = errors[`blanks.${index}.term`]
+          const markerError = errors[`blanks.${index}.marker`]
+          return (
+            <div
+              key={`${questionKey}-blank-${index}`}
+              className={`rounded-md border p-3 ${
+                termError || markerError ? "border-destructive/70 bg-destructive/5" : "border-border bg-muted/20"
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded border bg-background text-xs font-semibold">
+                  {label}
+                </span>
+                <Input
+                  value={blank.term ?? ""}
+                  aria-invalid={Boolean(termError)}
+                  onChange={(event) => onFieldChange(`blanks.${index}.term`, event.target.value)}
+                  placeholder="Correct term"
+                  className="h-8 min-w-0 flex-1"
+                />
+                <Input
+                  value={blank.variations ?? ""}
+                  onChange={(event) => onFieldChange(`blanks.${index}.variations`, event.target.value)}
+                  placeholder="Also accept (optional)"
+                  className="h-8 min-w-0 flex-1"
+                />
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => insertMarker(index)}>
+                  Insert {label}
+                </Button>
+                {blanks.length > 1 ? (
+                  <button
+                    type="button"
+                    aria-label={`Remove blank ${label}`}
+                    onClick={() => removeBlank(index)}
+                    className="rounded p-1 text-muted-foreground/70 transition hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+              <div className="mt-1 space-y-1 pl-12">
+                <FieldError message={termError} />
+                <FieldError message={markerError} />
+              </div>
+            </div>
+          )
+        })}
+
+        <Button type="button" variant="outline" size="sm" className="w-full gap-1.5" onClick={addBlank} disabled={blanks.length >= 26}>
+          <Plus className="size-3.5" />
+          Add Blank
+        </Button>
+        <FieldError message={errors.blanks} />
+      </div>
+
+      <div className="space-y-2 border-t border-border pt-4">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <Checkbox
+            checked={Boolean(data.showCandidates)}
+            onCheckedChange={(checked) => onFieldChange("showCandidates", Boolean(checked))}
+          />
+          Show a candidate list under the passage
+        </label>
+        {data.showCandidates ? (
+          <>
+            <Textarea
+              value={data.distractors ?? ""}
+              onChange={(event) => onFieldChange("distractors", event.target.value)}
+              placeholder="Distractors: related terms that are wrong here, separated by commas"
+              className="min-h-16 resize-y text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              The list mixes your correct terms with these distractors in a random order.
+            </p>
+          </>
+        ) : null}
+      </div>
+
+      <QuestionMetaFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} />
+    </CompactQuestionCard>
+  )
+}
+
+const QUESTION_EDITORS = {
+  MCQ: MultipleChoices,
+  MULTIPLE_ANSWER: MultipleAnswers,
+  SHORT_ANSWER: ShortAnswer,
+  FILL_IN_BLANK: FillInTheBlanks,
+  DESCRIPTIVE: Descriptive,
+  PROGRAMMING: Programming,
+  DIAGRAM: Diagram,
+}
+QUESTION_TYPES.forEach((type) => {
+  type.component = QUESTION_EDITORS[type.id] ?? null
+})
 
 export function QuestionTypeButton({ questionType, onAdd, disabled }) {
   const Icon = questionType.icon
@@ -1111,6 +1505,70 @@ export async function saveAuthoredQuestion(
   const { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion } = api
 
   switch (question.typeId) {
+    case "MULTIPLE_ANSWER": {
+      const savedMultiple = await saveQuestion(
+        {
+          questionType: "MULTIPLE_ANSWER",
+          difficultyLevel: question.data.difficulty,
+          questionText: question.data.question,
+          imageKey: question.data.imageKey ?? null,
+          lessonId: Number(lessonId),
+          certificationId,
+        },
+        ownerDepartmentId
+      )
+      for (const choice of question.data.choices) {
+        await saveChoices({
+          questionId: savedMultiple.questionId,
+          choiceText: choice.choiceText,
+          imageKey: choice.imageKey ?? null,
+          correct: Boolean(choice.isCorrect),
+          explanation: choice.explanation,
+        })
+      }
+      return savedMultiple
+    }
+    case "FILL_IN_BLANK": {
+      const blanks = question.data.blanks ?? []
+      const savedPassage = await saveQuestion(
+        {
+          questionType: "SHORT_ANSWER",
+          difficultyLevel: question.data.difficulty,
+          questionText: composeBlankPassage(question.data),
+          imageKey: question.data.imageKey ?? null,
+          lessonId: Number(lessonId),
+          certificationId,
+        },
+        ownerDepartmentId
+      )
+      // The parent's key is shown on the result page as the full answer.
+      await saveTextQuestion({
+        questionId: savedPassage.questionId,
+        correctAnswer: blanks.map((blank, index) => `${blankLabel(index)} ${blank.term.trim()}`).join("; "),
+        checkingMethod: "EXACT_MATCH",
+      })
+      for (const [index, blank] of blanks.entries()) {
+        const savedBlank = await saveQuestion(
+          {
+            parentQuestionId: savedPassage.questionId,
+            questionType: "SHORT_ANSWER",
+            difficultyLevel: question.data.difficulty,
+            questionText: blankLabel(index),
+            lessonId: Number(lessonId),
+            certificationId,
+          },
+          ownerDepartmentId
+        )
+        const variations = splitTerms(blank.variations)
+        await saveTextQuestion({
+          questionId: savedBlank.questionId,
+          correctAnswer: blank.term.trim(),
+          checkingMethod: "EXACT_MATCH",
+          acceptedVariations: variations.length ? variations : null,
+        })
+      }
+      return savedPassage
+    }
     case "MCQ": {
       const savedMCQ = await saveQuestion(
         {

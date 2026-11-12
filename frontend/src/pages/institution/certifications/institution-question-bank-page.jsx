@@ -60,6 +60,7 @@ import {
 
 const QUESTION_TYPES = [
   { value: "MCQ", label: "Multiple Choice" },
+  { value: "MULTIPLE_ANSWER", label: "Multiple Answer" },
   { value: "SHORT_ANSWER", label: "Short Answer" },
   { value: "DESCRIPTIVE", label: "Descriptive" },
   { value: "CRITICAL_THINKING", label: "Critical Thinking" },
@@ -246,7 +247,8 @@ function QuestionFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {QUESTION_TYPES.map((t) => (
+                  {/* Multiple Answer and Fill in the Blanks are written in the assessment builder. */}
+                  {QUESTION_TYPES.filter((t) => t.value !== "MULTIPLE_ANSWER").map((t) => (
                     <SelectItem key={t.value} value={t.value}>
                       {t.label}
                     </SelectItem>

@@ -107,12 +107,13 @@ public class DepartmentProgramController {
             throw new IllegalArgumentException("A program with code \"" + code + "\" already exists in this department.");
         }
         Department department = entityManager.find(Department.class, departmentId);
-        if (request.institutionCertIds() == null || request.institutionCertIds().isEmpty()) {
-            throw new IllegalArgumentException("Choose at least one certification for this program.");
-        }
+        // A new program offers every certification its department covers until its
+        // department head narrows it (PUT .../certifications).
         DepartmentProgram saved = programs.save(DepartmentProgram.builder()
                 .department(department)
-                .institutionCerts(coveredCertifications(department, request.institutionCertIds()))
+                .institutionCerts(request.institutionCertIds() == null || request.institutionCertIds().isEmpty()
+                        ? new java.util.LinkedHashSet<>(department.getInstitutionCerts())
+                        : coveredCertifications(department, request.institutionCertIds()))
                 .programName(name)
                 .programCode(blankToNull(request.programCode()))
                 .description(blankToNull(request.description()))
@@ -129,22 +130,9 @@ public class DepartmentProgramController {
             @PathVariable Long departmentId,
             @PathVariable Long programId,
             @Valid @RequestBody ProgramRequest request) {
-        CurrentUserDto user = requireDepartmentAccess(jwt, departmentId);
+        roleGuard.requireInstitutionOwner(jwt, "Only your institution's administrator can edit a program.");
+        requireDepartmentAccess(jwt, departmentId);
         DepartmentProgram program = find(departmentId, programId);
-        if (!RoleGuard.isInstitutionOwner(user)) {
-            // A department head may only change which certifications the program studies.
-            if (!request.programName().trim().equalsIgnoreCase(program.getProgramName())
-                    || !java.util.Objects.equals(upper(blankToNull(request.programCode())), upper(program.getProgramCode()))
-                    || !java.util.Objects.equals(blankToNull(request.description()), blankToNull(program.getDescription()))) {
-                throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "A department head can only change a program's certifications.");
-            }
-            if (request.institutionCertIds() == null || request.institutionCertIds().isEmpty()) {
-                throw new IllegalArgumentException("Choose at least one certification for this program.");
-            }
-            program.setInstitutionCerts(coveredCertifications(program.getDepartment(), request.institutionCertIds()));
-            return toDto(programs.save(program), countSections(programId));
-        }
         String name = request.programName().trim();
         if (!name.equalsIgnoreCase(program.getProgramName())
                 && programs.existsByDepartment_DepartmentIdAndProgramNameIgnoreCaseAndStatus(
@@ -166,11 +154,35 @@ public class DepartmentProgramController {
         return toDto(programs.save(program), countSections(programId));
     }
 
+    public record CertificationsRequest(List<Long> institutionCertIds) {
+    }
+
+    /**
+     * Which certifications a program's learners can be given. A department head sets this
+     * for the programs its institution gave it; the rest of the program is the institution's.
+     */
+    @PutMapping("/{programId}/certifications")
+    @Transactional
+    public ProgramDto setCertifications(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long departmentId,
+            @PathVariable Long programId,
+            @RequestBody CertificationsRequest request) {
+        requireDepartmentAccess(jwt, departmentId);
+        DepartmentProgram program = find(departmentId, programId);
+        if (request == null || request.institutionCertIds() == null || request.institutionCertIds().isEmpty()) {
+            throw new IllegalArgumentException("Choose at least one certification for this program.");
+        }
+        program.setInstitutionCerts(coveredCertifications(program.getDepartment(), request.institutionCertIds()));
+        return toDto(programs.save(program), countSections(programId));
+    }
+
     /** Archives the program; its sections stay, unlinked from it. */
     @DeleteMapping("/{programId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId, @PathVariable Long programId) {
+        roleGuard.requireInstitutionOwner(jwt, "Only your institution's administrator can delete a program.");
         requireDepartmentAccess(jwt, departmentId);
         DepartmentProgram program = find(departmentId, programId);
         entityManager.createQuery("update InstitutionSection s set s.program = null where s.program.programId = :id")
@@ -226,10 +238,6 @@ public class DepartmentProgramController {
         boolean owner = "owner".equalsIgnoreCase(user.departmentHeadRole());
         departmentService.getAccessibleById(departmentId, user.institutionId(), user.userId(), owner);
         return user;
-    }
-
-    private static String upper(String value) {
-        return value == null ? null : value.toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String blankToNull(String value) {

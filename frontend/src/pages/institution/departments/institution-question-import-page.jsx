@@ -43,7 +43,7 @@ export default function InstitutionQuestionImportPage() {
         <QuestionImportWorkspace
             certificationId={String(certificationId)}
             ownerDepartmentId={id}
-            exitPath={`/institution/departments/${id}?tab=question-bank`}
+            exitPath={`/institution/departments?view=question-bank&department=${id}`}
         />
     )
 }

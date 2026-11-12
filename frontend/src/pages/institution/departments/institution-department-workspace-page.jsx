@@ -1,79 +1,20 @@
-import { useRef, useState } from "react"
-import { Link, useParams, useSearchParams } from "react-router-dom"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  ChevronDown,
-  ChevronRight,
-  ClipboardCheckIcon,
-  Loader2,
-  MegaphoneIcon,
-  Pencil,
-  PinIcon,
-  Plus,
-  Trash2,
-  ArrowLeftIcon,
-  BookOpen,
-  CircleHelp,
-  Layers,
-  MailIcon,
-  ShieldCheck,
-} from "@/components/icons"
-import { toast } from "sonner"
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { ArrowLeftIcon, BookOpen, Layers } from "@/components/icons"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TABLE_SURFACE } from "@/components/commons/data-table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
-import {
-} from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionStatusBadge,
-  formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
-import {
-  deleteExam,
-  getExamQuestions,
-  getExamTypes,
-  getExams,
-  archiveExam,
-  publishExam,
-} from "@/services/assessmentService.js"
-import { getQuestions } from "@/services/questionService.js"
 import { CurriculumOverview } from "@/components/institution/curriculum-overview.jsx"
 import { cn } from "@/lib/utils"
-import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications/institution-question-bank-page.jsx"
-import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
-import { getCertificationSummary } from "@/services/certificationService.js"
 import { SectionsTab } from "@/components/institution/sections-tab.jsx"
-import { CoAuthoritiesPanel } from "@/components/institution/co-authorities-dialog.jsx"
 import {
-  archiveDepartmentAnnouncement,
-  updateDepartmentAnnouncement,
-  createDepartmentAnnouncement,
   getDepartmentLearners,
   getDepartmentById,
   getDepartmentProgram,
-  getDepartmentAnnouncements,
 } from "@/services/institutionService.js"
 
 function asArray(value) {
@@ -84,351 +25,32 @@ function asArray(value) {
   return []
 }
 
-function backendMessage(error, fallback) {
-  return error?.response?.data?.message ?? fallback
-}
-
-function AnnouncementsTab({ departmentId }) {
-  const queryClient = useQueryClient()
-  const formRef = useRef(null)
-  const [title, setTitle] = useState("")
-  const [body, setBody] = useState("")
-  const [pinned, setPinned] = useState(false)
-  const [editing, setEditing] = useState(null)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-
-  const announcementsQuery = useQuery({
-    queryKey: ["department-announcements", departmentId],
-    queryFn: () => getDepartmentAnnouncements(departmentId),
-    enabled: Number.isFinite(departmentId),
-    retry: 1,
-  })
-
-  const key = ["department-announcements", departmentId]
-  const announcements = Array.isArray(announcementsQuery.data) ? announcementsQuery.data : []
-
-  const resetForm = () => {
-    setEditing(null)
-    setTitle("")
-    setBody("")
-    setPinned(false)
-  }
-
-  const startEdit = (item) => {
-    setEditing(item)
-    setTitle(item.title ?? "")
-    setBody(item.body ?? "")
-    setPinned(Boolean(item.pinned))
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-  }
-
-  const saveMutation = useMutation({
-    mutationFn: () => {
-      const payload = { title: title.trim(), body: body.trim(), pinned }
-      return editing
-        ? updateDepartmentAnnouncement(departmentId, editing.departmentAnnouncementId, payload)
-        : createDepartmentAnnouncement(departmentId, payload)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: key })
-      toast.success(editing ? "Announcement updated." : "Announcement posted.")
-      resetForm()
-    },
-    onError: (err) =>
-      toast.error(backendMessage(err, editing ? "Unable to save this announcement." : "Unable to post this announcement.")),
-  })
-
-  const pinMutation = useMutation({
-    mutationFn: (item) =>
-      updateDepartmentAnnouncement(departmentId, item.departmentAnnouncementId, {
-        title: item.title,
-        body: item.body,
-        pinned: !item.pinned,
-      }),
-    onSuccess: (_, item) => {
-      queryClient.invalidateQueries({ queryKey: key })
-      toast.success(item.pinned ? "Unpinned." : "Pinned to the top.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to change the pin.")),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (announcementId) => archiveDepartmentAnnouncement(departmentId, announcementId),
-    onSuccess: (_, announcementId) => {
-      queryClient.invalidateQueries({ queryKey: key })
-      if (editing?.departmentAnnouncementId === announcementId) resetForm()
-      toast.success("Announcement deleted.")
-      setDeleteTarget(null)
-    },
-    onError: (err) => {
-      toast.error(backendMessage(err, "Unable to delete this announcement."))
-      setDeleteTarget(null)
-    },
-  })
-
-  const unchanged =
-    editing &&
-    title.trim() === (editing.title ?? "").trim() &&
-    body.trim() === (editing.body ?? "").trim() &&
-    pinned === Boolean(editing.pinned)
-
-  return (
-    <div className="space-y-5">
-      <div ref={formRef} className="scroll-mt-24">
-      <Card className={editing ? "border-l-4 border-l-primary border-primary/40 ring-1 ring-primary/20" : undefined}>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{editing ? "Edit announcement" : "Post an announcement"}</CardTitle>
-          <CardDescription>
-            {editing
-              ? "Learners see the updated version straight away."
-              : "Share updates, deadlines, or reminders with this department."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="announcement-title">Title</Label>
-            <Input
-              id="announcement-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Midterm assessment on Friday"
-              maxLength={200}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="announcement-body">Message</Label>
-            <Textarea
-              id="announcement-body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={4}
-              placeholder="What do your learners need to know?"
-            />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Checkbox checked={pinned} onCheckedChange={(v) => setPinned(Boolean(v))} />
-              Pin to top
-            </label>
-            <div className="flex items-center gap-2">
-              {editing ? (
-                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending} className="min-h-[44px] sm:min-h-0 sm:h-9">
-                  Cancel
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                onClick={() => saveMutation.mutate()}
-                disabled={!title.trim() || !body.trim() || saveMutation.isPending || unchanged}
-                className="min-h-[44px] sm:min-h-0 sm:h-9"
-              >
-                {saveMutation.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    {editing ? "Saving..." : "Posting..."}
-                  </>
-                ) : editing ? (
-                  "Save changes"
-                ) : (
-                  "Post announcement"
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      </div>
-
-      {announcementsQuery.isLoading ? (
-        <InstitutionLoadingSkeleton rows={2} />
-      ) : announcementsQuery.isError ? (
-        <InstitutionErrorState
-          title="Couldn't load announcements"
-          description="Try again in a moment."
-          onRetry={() => announcementsQuery.refetch()}
-        />
-      ) : announcements.length === 0 ? (
-        <InstitutionEmptyState
-          icon={MegaphoneIcon}
-          title="No announcements yet"
-          description="Your first announcement to this department will appear here."
-        />
-      ) : (
-        <div className="space-y-3">
-          {announcements.map((item) => {
-            const isEditing = editing?.departmentAnnouncementId === item.departmentAnnouncementId
-            const edited =
-              item.updatedAt && item.createdAt && new Date(item.updatedAt) - new Date(item.createdAt) > 60_000
-            return (
-              <Card
-                key={item.departmentAnnouncementId}
-                className={isEditing ? "border-primary/40 bg-primary/5" : undefined}
-              >
-                <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 space-y-0 pb-2">
-                  <div className="min-w-0">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      {item.pinned ? <PinIcon className="size-3.5 text-primary" aria-hidden="true" /> : null}
-                      <span className="break-words">{item.title}</span>
-                    </CardTitle>
-                    <CardDescription>
-                      {item.createdByEmail ?? "You"} · {formatDateTime(item.createdAt)}
-                      {edited ? ` · edited ${formatDateTime(item.updatedAt)}` : ""}
-                    </CardDescription>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1 self-end sm:self-auto">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => pinMutation.mutate(item)}
-                      disabled={pinMutation.isPending}
-                      aria-label={item.pinned ? `Unpin ${item.title}` : `Pin ${item.title}`}
-                      className={item.pinned ? "text-primary" : "text-muted-foreground"}
-                    >
-                      <PinIcon className="size-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">{item.pinned ? "Unpin" : "Pin"}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => startEdit(item)}
-                      aria-label={`Edit ${item.title}`}
-                    >
-                      <Pencil className="size-4" aria-hidden="true" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setDeleteTarget(item)}
-                      aria-label={`Delete ${item.title}`}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                  {item.body}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this announcement?</AlertDialogTitle>
-            <AlertDialogDescription>
-              &quot;{deleteTarget?.title}&quot; will no longer be shown to your learners.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Keep it</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                deleteMutation.mutate(deleteTarget.departmentAnnouncementId)
-              }}
-              disabled={deleteMutation.isPending}
-              variant="destructive"
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
-
-function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className }) {
-  const [value, setValue] = useState("")
-  const doneRef = useRef(false)
-
-  const commit = () => {
-    if (doneRef.current) return
-    const trimmed = value.trim()
-    if (!trimmed) {
-      onCancel()
-      return
-    }
-    doneRef.current = true
-    onSubmit(trimmed)
-  }
-
-  return (
-    <input
-      autoFocus
-      value={value}
-      disabled={isPending}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault()
-          commit()
-        } else if (e.key === "Escape") {
-          doneRef.current = true
-          onCancel()
-        }
-      }}
-      onBlur={commit}
-      placeholder={placeholder}
-      className={
-        className ??
-        "w-full rounded-xl border border-input bg-card px-4 py-3 text-sm text-foreground outline-none transition focus:border-foreground/40 disabled:opacity-60"
-      }
-    />
-  )
-}
-
-const VALID_TABS = [
-  "curriculum",
-  "question-bank",
-  "assessments",
-  "learners",
-  "authorities",
-  "announcements",
+/**
+ * A program's own pages. Assessments, the question bank, co-authorities and
+ * announcements are the whole department's, on its page.
+ */
+const WORKSPACE_TABS = [
+  { tab: "learners", label: "Sections & learners", icon: Layers },
+  { tab: "curriculum", label: "Curriculum", icon: BookOpen },
 ]
+const VALID_TABS = WORKSPACE_TABS.map((item) => item.tab)
+/** Old workspace tabs that now live on the department page. */
+const DEPARTMENT_TAB_VIEWS = {
+  authorities: "heads",
+  announcements: "announcements",
+  assessments: "assessments",
+  "question-bank": "question-bank",
+}
 
 export default function InstitutionDepartmentWorkspacePage() {
   const { departmentId } = useParams()
   const id = Number(departmentId)
-  const queryClient = useQueryClient()
-  const [deleteExamTarget, setDeleteExamTarget] = useState(null)
-  const [previewExam, setPreviewExam] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
-  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : VALID_TABS[0]
-
-  const deleteExamMutation = useMutation({
-    mutationFn: (id) => deleteExam(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exams"] })
-      toast.success("Assessment deleted.")
-      setDeleteExamTarget(null)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to delete this assessment.")),
-  })
-
-  const publishExamMutation = useMutation({
-    mutationFn: (examId) => publishExam(examId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exams"] })
-      toast.success("Assessment published. Learners can now access it.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to publish this assessment.")),
-  })
-
-  const unpublishExamMutation = useMutation({
-    mutationFn: (examId) => archiveExam(examId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exams"] })
-      toast.success("Assessment unpublished. Learners can no longer open it.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to unpublish this assessment.")),
-  })
+  const programId = Number(searchParams.get("programId")) || null
+  // A program opens on its classes; the department-wide workspace on its curriculum.
+  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : programId != null ? "learners" : "curriculum"
+  const focusSectionId = Number(searchParams.get("section")) || null
 
   const departmentQuery = useQuery({
     queryKey: ["department", id],
@@ -440,84 +62,40 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: () => getDepartmentLearners({ departmentId: id }),
     enabled: Number.isFinite(id),
   })
-  // Opened from a program (?programId=), the workspace is that program's: only its
-  // certifications, and only its sections.
-  const programId = Number(searchParams.get("programId")) || null
   const programQuery = useQuery({
     queryKey: ["department-program", id, programId],
     queryFn: () => getDepartmentProgram(id, programId),
     enabled: Number.isFinite(id) && programId != null,
   })
   const program = programId != null ? programQuery.data ?? null : null
+  // A department covers every certification its institution holds from the college; a
+  // program offers the ones its department head picked. One shows at a time (?certificationId=).
   const programCertIds = new Set(asArray(program?.certifications).map((cert) => cert.institutionCertId))
-  // A department covers every certification its institution holds from the college;
-  // the workspace shows one at a time, chosen with ?certificationId=.
   const coveredCertifications = asArray(departmentQuery.data?.certifications).filter(
-    (cert) => programCertIds.size === 0 || programCertIds.has(cert.institutionCertId)
+    (cert) =>
+      String(cert?.status ?? "active").toLowerCase() === "active" &&
+      (program == null || programCertIds.has(cert.institutionCertId))
   )
   const requestedCertificationId = Number(searchParams.get("certificationId"))
   const groupCertificationId = coveredCertifications.some((cert) => cert.certificationId === requestedCertificationId)
     ? requestedCertificationId
     : coveredCertifications[0]?.certificationId ?? departmentQuery.data?.certificationId ?? null
-  // The selected certification's outline only (no lesson content). Loading every
-  // certification here took up to 15 s on a cold cache.
-  const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", id, "summary", groupCertificationId],
-    queryFn: () => getCertificationSummary(groupCertificationId, id),
-    enabled: Number.isFinite(id) && groupCertificationId != null,
-    staleTime: 5 * 60_000,
-    placeholderData: (previous) => previous,
-  })
-  const examsQuery = useQuery({
-    queryKey: ["exams", "group", id, groupCertificationId],
-    // Keep showing the page while another certification's exams load.
-    placeholderData: (previous) => previous,
-    // This department's certification only -- the page filters to it anyway, and
-    // the unscoped list was every exam on the platform with its question ids.
-    queryFn: () => getExams(id, groupCertificationId ?? undefined),
-    enabled: Number.isFinite(id) && departmentQuery.isSuccess,
-    staleTime: 60_000,
-  })
-  const examTypesQuery = useQuery({
-    queryKey: ["exam-types"],
-    queryFn: getExamTypes,
-    staleTime: 5 * 60_000,
-  })
-  // Both feed only the assessment preview, so they load when one is opened rather
-  // than on every visit, where they held database connections the page needed.
-  const examQuestionsQuery = useQuery({
-    queryKey: ["exam-questions"],
-    queryFn: getExamQuestions,
-    enabled: previewExam != null,
-    staleTime: 60_000,
-  })
-  // This department's certification only. Every question on the platform, with
-  // its choices, took long enough that the request was regularly dropped.
-  const questionsQuery = useQuery({
-    queryKey: ["questions", "group", id, groupCertificationId],
-    placeholderData: (previous) => previous,
-    queryFn: () => getQuestions(id, groupCertificationId ?? undefined),
-    enabled: Number.isFinite(id) && departmentQuery.isSuccess && previewExam != null,
-    staleTime: 60_000,
-  })
 
-  if (
-    departmentQuery.isLoading ||
-    (programId != null && programQuery.isLoading) ||
-    assigneesQuery.isLoading ||
-    (certificationsQuery.isLoading && groupCertificationId != null) ||
-    examsQuery.isLoading ||
-    examTypesQuery.isLoading
-  ) {
+  if (DEPARTMENT_TAB_VIEWS[requestedTab]) {
+    const cert = searchParams.get("certificationId")
+    return (
+      <Navigate
+        to={`/institution/departments?view=${DEPARTMENT_TAB_VIEWS[requestedTab]}&department=${id}${cert ? `&certificationId=${cert}` : ""}`}
+        replace
+      />
+    )
+  }
+
+  if (departmentQuery.isLoading || (programId != null && programQuery.isLoading) || assigneesQuery.isLoading) {
     return <InstitutionLoadingSkeleton />
   }
   if (departmentQuery.isError) {
-    return (
-      <InstitutionErrorState
-        title="Unable to load this department"
-        onRetry={departmentQuery.refetch}
-      />
-    )
+    return <InstitutionErrorState title="Unable to load this department" onRetry={departmentQuery.refetch} />
   }
 
   const group = departmentQuery.data
@@ -530,41 +108,29 @@ export default function InstitutionDepartmentWorkspacePage() {
     )
   }
 
-  const certification = asArray(certificationsQuery.data).find(
-    (item) => item?.certificationId === groupCertificationId
-  )
-  const currentInstitutionCertId = coveredCertifications.find(
-    (cert) => cert.certificationId === groupCertificationId
-  )?.institutionCertId
-  // Only the selected certification's learners when the department covers several.
+  const certIds = new Set(coveredCertifications.map((cert) => cert.institutionCertId))
   const learners = asArray(assigneesQuery.data).filter(
-    (item) =>
-      item?.status === "active" &&
-      (coveredCertifications.length <= 1 || item?.institutionCertId === currentInstitutionCertId)
-  )
-
-  const examTypeById = new Map(
-    asArray(examTypesQuery.data).map((type) => [type?.examTypeId, type?.examTypeText])
-  )
-  const questionById = new Map(
-    asArray(questionsQuery.data).map((question) => [question?.questionId, question])
-  )
-  const examQuestions = asArray(examQuestionsQuery.data)
-  const ownGroupExams = asArray(examsQuery.data).filter(
-    (exam) => exam && exam.ownerDepartmentId === id && exam.certificationId === groupCertificationId
+    (item) => item?.status === "active" && (program == null || certIds.has(item?.institutionCertId))
   )
 
   return (
     <div className="space-y-6">
-      <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 gap-1.5 px-2 text-xs font-medium">
-        <Link to="/institution/departments?view=programs">
-          <ArrowLeftIcon className="size-4" />
-          All programs
+      <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Link
+          to="/institution/departments?view=programs"
+          className="inline-flex items-center gap-1.5 font-medium hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-3.5" aria-hidden="true" />
+          {group?.departmentName || "Department"}
         </Link>
-      </Button>
+        <span aria-hidden="true">/</span>
+        <span className="truncate font-semibold text-foreground">
+          {program ? program.programCode || program.programName : "Workspace"}
+        </span>
+      </nav>
 
       <header className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:flex-row sm:items-center">
-        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary text-sm font-extrabold tracking-wide text-primary-foreground">
+        <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary text-sm font-extrabold tracking-wide text-primary-foreground">
           {(program?.programCode || group?.departmentName || "?").slice(0, 4).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
@@ -574,22 +140,14 @@ export default function InstitutionDepartmentWorkspacePage() {
           <h1 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">
             {program ? program.programName : group?.departmentName || "Department workspace"}
           </h1>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {coveredCertifications.map((cert) => (
-              <span
-                key={cert.institutionCertId}
-                className="rounded-md border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
-              >
-                {cert.title}
-              </span>
-            ))}
-          </div>
+          {program?.description ? (
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{program.description}</p>
+          ) : null}
         </div>
-        <dl className="grid shrink-0 grid-cols-3 gap-2 text-center">
+        <dl className="grid shrink-0 grid-cols-2 gap-2 text-center">
           {[
             ["Learners", learners.length],
-            ["Assessments", ownGroupExams.length],
-            ["Published", ownGroupExams.filter((exam) => exam.status === "PUBLISHED").length],
+            ["Certifications", coveredCertifications.length],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">
               <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</dt>
@@ -599,9 +157,8 @@ export default function InstitutionDepartmentWorkspacePage() {
         </dl>
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_240px]">
-      <div className="order-first lg:order-last lg:sticky lg:top-20 lg:self-start">
-      <WorkspaceSidebar
+      <WorkspaceNav
+        tabs={program ? WORKSPACE_TABS : [...WORKSPACE_TABS].reverse()}
         certifications={coveredCertifications}
         activeTab={activeTab}
         activeCertificationId={groupCertificationId}
@@ -609,120 +166,22 @@ export default function InstitutionDepartmentWorkspacePage() {
           setSearchParams((prev) => {
             const params = new URLSearchParams(prev)
             params.set("tab", tab)
+            if (tab !== "learners") params.delete("section")
             if (certificationId != null) params.set("certificationId", String(certificationId))
             return params
           })
         }
       />
-      </div>
+
       <Tabs value={activeTab} className="min-w-0">
         <TabsContent value="curriculum" className="mt-0 space-y-6">
           {groupCertificationId != null ? (
             <CurriculumOverview key={groupCertificationId} certificationId={groupCertificationId} departmentId={id} />
-          ) : null}
-
-        </TabsContent>
-
-        <TabsContent value="assessments" className="mt-0 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="font-heading text-lg font-bold text-foreground">Assessments</h2>
-              <p className="text-xs text-muted-foreground">
-                New assessments start as drafts — publish one before your learners can access it.
-              </p>
-            </div>
-            <Button asChild disabled={!certification} className="min-h-[44px] sm:min-h-0 sm:h-9 w-full sm:w-auto">
-              <Link to={`/institution/departments/${id}/assessments/new?certificationId=${groupCertificationId ?? ""}`}>
-                <Plus className="size-4" aria-hidden="true" />
-                Create Assessment
-              </Link>
-            </Button>
-          </div>
-
-          {ownGroupExams.length ? (
-            <ul className="divide-y rounded-xl border bg-card">
-              {ownGroupExams.map((exam) => (
-                <li key={exam.examId} className="space-y-3 p-3.5 sm:p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewExam(exam)}
-                      className="min-w-0 text-left"
-                    >
-                      <p className="font-semibold text-foreground hover:underline break-words text-sm sm:text-base">
-                        {exam.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {exam.totalQuestions ?? 0}{" "}
-                        {(exam.totalQuestions ?? 0) === 1 ? "question" : "questions"}
-                        {exam.durationMinutes ? ` · ${exam.durationMinutes} min` : ""}
-                        {exam.passingScore != null ? ` · ${exam.passingScore}% to pass` : ""}
-                      </p>
-                    </button>
-                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                      <Badge variant="outline" className="text-xs">
-                        {examTypeById.get(exam.examTypeId) ?? "Assessment"}
-                      </Badge>
-                      <InstitutionStatusBadge status={exam.status} />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40 sm:border-t-0 sm:pt-0 sm:justify-end">
-                    {exam.status === "PUBLISHED" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => unpublishExamMutation.mutate(exam.examId)}
-                        disabled={unpublishExamMutation.isPending}
-                        className="flex-1 sm:flex-none text-xs"
-                      >
-                        Unpublish
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => publishExamMutation.mutate(exam.examId)}
-                        disabled={publishExamMutation.isPending}
-                        className="flex-1 sm:flex-none text-xs"
-                      >
-                        {exam.status === "ARCHIVED" ? "Republish" : "Publish"}
-                      </Button>
-                    )}
-                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
-                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results?certificationId=${groupCertificationId ?? ""}`}>
-                        Results
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="flex-1 sm:flex-none text-xs">
-                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit?certificationId=${groupCertificationId ?? ""}`}>
-                        Edit
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${exam.title}`}
-                      onClick={() => setDeleteExamTarget(exam)}
-                      className="size-9 sm:size-8 text-muted-foreground hover:text-destructive shrink-0 min-h-[36px] min-w-[36px]"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
           ) : (
-            <div className="rounded-xl border border-dashed p-10 text-center">
-              <ClipboardCheckIcon
-                className="mx-auto size-8 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <p className="mt-3 text-sm font-medium text-foreground">No assessments yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create your department's first assessment to see it listed here.
-              </p>
-            </div>
+            <InstitutionEmptyState
+              title="No certification chosen"
+              description="Pick this program's certifications from its card on the Programs & sections tab."
+            />
           )}
         </TabsContent>
 
@@ -733,152 +192,69 @@ export default function InstitutionDepartmentWorkspacePage() {
             certificationId={program ? null : groupCertificationId}
             programId={programId}
             certifications={program ? coveredCertifications : null}
+            focusSectionId={focusSectionId}
           />
-        </TabsContent>
-
-        <TabsContent value="authorities" className="mt-0">
-          <CoAuthoritiesPanel
-            departmentId={id}
-            departmentName={group?.departmentName}
-          />
-        </TabsContent>
-
-        <TabsContent value="question-bank" className="mt-0 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Questions you add here belong to {group?.departmentName || "this department"}:
-            only its learners and assessments use them, and only its heads can edit or delete
-            them. Official questions are read-only.
-          </p>
-          {certification ? (
-            <InstitutionQuestionBankPanel
-              certificationId={String(certification.certificationId)}
-              departmentId={id}
-            />
-          ) : null}
-        </TabsContent>
-
-        <TabsContent value="announcements" className="mt-0">
-          <AnnouncementsTab departmentId={id} />
         </TabsContent>
       </Tabs>
-      </div>
-
-      <AlertDialog
-        open={deleteExamTarget != null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteExamTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this assessment?</AlertDialogTitle>
-            <AlertDialogDescription>
-              &quot;{deleteExamTarget?.title}&quot; will be permanently removed. This cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteExamMutation.mutate(deleteExamTarget.examId)}
-              disabled={deleteExamMutation.isPending}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AssessmentPreviewDialog
-        open={previewExam != null}
-        onOpenChange={(open) => {
-          if (!open) setPreviewExam(null)
-        }}
-        exam={previewExam}
-        examTypeByIdText={examTypeById}
-        examQuestions={examQuestions}
-        questionById={questionById}
-        isLoading={examQuestionsQuery.isLoading || questionsQuery.isLoading}
-      />
     </div>
   )
 }
 
-const WORKSPACE_GROUPS = [
-  {
-    label: "Teaching",
-    pages: [
-      { tab: "curriculum", label: "Curriculum", icon: BookOpen },
-      { tab: "question-bank", label: "Question bank", icon: CircleHelp },
-      { tab: "assessments", label: "Assessments", icon: ClipboardCheckIcon },
-    ],
-  },
-  {
-    label: "Class",
-    pages: [
-      { tab: "learners", label: "Sections & learners", icon: Layers },
-      { tab: "authorities", label: "Co-authorities", icon: ShieldCheck },
-      { tab: "announcements", label: "Announcements", icon: MailIcon },
-    ],
-  },
-]
-
-// One certification picker, then the same pages for whichever is chosen.
-function WorkspaceSidebar({ certifications, activeTab, activeCertificationId, onSelect }) {
+/**
+ * The program's pages as tabs, and, on the curriculum, which certification.
+ */
+function WorkspaceNav({ tabs, certifications, activeTab, activeCertificationId, onSelect }) {
+  const perCertification = activeTab !== "learners" && certifications.length > 1
   return (
-    <nav aria-label="Workspace" className="space-y-3 rounded-2xl border border-border/60 bg-card/80 p-2 shadow-xs">
-      {certifications.length > 1 ? (
-        <div className="space-y-1.5 px-1 pt-1">
-          <Label htmlFor="workspace-certification" className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Certification
-          </Label>
-          <Select
-            value={activeCertificationId != null ? String(activeCertificationId) : undefined}
-            onValueChange={(value) => onSelect(activeTab, Number(value))}
-          >
-            <SelectTrigger id="workspace-certification" className="h-9 w-full">
-              <SelectValue placeholder="Choose a certification" />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              {certifications.map((cert) => (
-                <SelectItem key={cert.certificationId} value={String(cert.certificationId)}>
-                  {cert.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+    <div className="space-y-3">
+      <nav aria-label="Program" className="-mb-px flex gap-1 overflow-x-auto border-b border-border/70 scrollbar-none">
+        {tabs.map((page) => {
+          const Icon = page.icon
+          const active = activeTab === page.tab
+          return (
+            <button
+              key={page.tab}
+              type="button"
+              aria-current={active ? "page" : undefined}
+              onClick={() => onSelect(page.tab)}
+              className={cn(
+                "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors",
+                active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+              )}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              {page.label}
+            </button>
+          )
+        })}
+      </nav>
+      {perCertification ? (
+        <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Certification">
+          <span className="text-xs font-medium text-muted-foreground">Certification</span>
+          {certifications.map((cert) => {
+            const active = cert.certificationId === activeCertificationId
+            return (
+              <button
+                key={cert.certificationId}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onSelect(activeTab, cert.certificationId)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:bg-muted"
+                )}
+              >
+                {cert.title}
+              </button>
+            )
+          })}
         </div>
       ) : null}
-      <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none lg:flex-col lg:space-y-3 lg:overflow-visible lg:pb-0">
-        {WORKSPACE_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-1">
-            <p className="hidden px-2.5 pt-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 lg:block">
-              {group.label}
-            </p>
-            <div className="flex gap-1.5 lg:flex-col lg:gap-0.5">
-              {group.pages.map((page) => {
-                const Icon = page.icon
-                const active = activeTab === page.tab
-                return (
-                  <button
-                    key={page.tab}
-                    type="button"
-                    aria-current={active ? "page" : undefined}
-                    onClick={() => onSelect(page.tab)}
-                    className={cn(
-                      "flex min-h-[38px] items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium transition-all lg:min-h-0",
-                      active ? "bg-primary font-semibold text-primary-foreground shadow-xs" : "text-foreground hover:bg-muted/70"
-                    )}
-                  >
-                    <Icon className={cn("size-3.5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground")} aria-hidden="true" />
-                    {page.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </nav>
+    </div>
   )
 }

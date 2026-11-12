@@ -41,13 +41,29 @@ public class EmailService {
         sendInstitutionInvitation(recipientEmail, institutionName, java.util.List.of(certificationTitle), invitationToken);
     }
 
-    /** One invitation email; with several certifications it lists them all and says one link covers them. */
     public void sendInstitutionInvitation(
             String recipientEmail,
             String institutionName,
             java.util.List<String> certificationTitles,
             String invitationToken
     ) {
+        sendInstitutionInvitation(recipientEmail, institutionName, certificationTitles, null, invitationToken);
+    }
+
+    /**
+     * One invitation email; with several certifications it lists them all and says one link
+     * covers them. {@code placement} (e.g. "BSCS, section BSCS-3A") names where they will study.
+     */
+    public void sendInstitutionInvitation(
+            String recipientEmail,
+            String institutionName,
+            java.util.List<String> certificationTitles,
+            String placement,
+            String invitationToken
+    ) {
+        String placementText = placement == null || placement.isBlank() ? "" : "You will study in " + placement + ".\n";
+        String placementHtml = placement == null || placement.isBlank() ? ""
+                : "<p>You will study in <b>" + escape(placement) + "</b>.</p>";
         String invitationLink = buildInvitationLink(invitationToken);
         boolean several = certificationTitles.size() > 1;
         String subject;
@@ -66,17 +82,18 @@ public class EmailService {
 
                     %s invited you to join %d certification reviews on REBYU:
                     %s
-                    One link accepts all of them:
+                    %sOne link accepts all of them:
                     %s
 
                     This invitation link will expire in 14 days.
                     Please do not share this link with anyone else.
 
                     REBYU Team
-                    """.formatted(institutionName, certificationTitles.size(), list, invitationLink);
+                    """.formatted(institutionName, certificationTitles.size(), list, placementText, invitationLink);
             intro = "<p><b>" + escape(institutionName) + "</b> invited you to join "
                     + certificationTitles.size() + " certification reviews on REBYU:</p>"
                     + "<ul>" + items + "</ul>"
+                    + placementHtml
                     + "<p>One click accepts all of them.</p>";
         } else {
             String title = certificationTitles.get(0);
@@ -85,7 +102,7 @@ public class EmailService {
                     Hello,
 
                     %s invited you to join the %s certification review on REBYU.
-
+                    %s
                     Accept your invitation here:
                     %s
 
@@ -93,9 +110,9 @@ public class EmailService {
                     Please do not share this link with anyone else.
 
                     REBYU Team
-                    """.formatted(institutionName, title, invitationLink);
+                    """.formatted(institutionName, title, placementText, invitationLink);
             intro = "<p><b>" + escape(institutionName) + "</b> invited you to join the <b>" + escape(title)
-                    + "</b> certification review on REBYU.</p>";
+                    + "</b> certification review on REBYU.</p>" + placementHtml;
         }
         String html = frame("<p>Hello,</p>"
                 + intro

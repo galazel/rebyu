@@ -16,7 +16,9 @@ import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -134,15 +136,30 @@ export default function AssessmentQuestionPickerDialog({
     )
   }, [examQuestionsQuery.data, currentExamId])
 
-  const middleCategories = useMemo(() => {
-    const seen = new Map()
-
-    lessonIndex.forEach(({ middleCategory }) => {
-      seen.set(middleCategory.middleCategoryId, middleCategory.title)
+  // Modules grouped under their category, each with how many pickable questions it holds,
+  // so the filter lists only modules that have something to add.
+  const moduleGroups = useMemo(() => {
+    const list = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
+    const counts = new Map()
+    list.forEach((question) => {
+      const entry = lessonIndex.get(question.lessonId)
+      if (!entry || question.parentQuestionId != null) return
+      if (alreadySelectedIds.has(question.questionId)) return
+      if (excludeUsedElsewhere && usedQuestionIds.has(String(question.questionId))) return
+      const id = entry.middleCategory.middleCategoryId
+      counts.set(id, (counts.get(id) ?? 0) + 1)
     })
-
-    return [...seen.entries()]
-  }, [lessonIndex])
+    const groups = new Map()
+    lessonIndex.forEach(({ majorCategory, middleCategory }) => {
+      const count = counts.get(middleCategory.middleCategoryId) ?? 0
+      if (count === 0) return
+      const key = majorCategory?.majorCategoryId ?? "other"
+      if (!groups.has(key)) groups.set(key, { title: majorCategory?.title ?? "Other", modules: new Map() })
+      groups.get(key).modules.set(middleCategory.middleCategoryId, { title: middleCategory.title, count })
+    })
+    const total = [...counts.values()].reduce((sum, n) => sum + n, 0)
+    return { total, groups: [...groups.values()] }
+  }, [questionsQuery.data, lessonIndex, alreadySelectedIds, excludeUsedElsewhere, usedQuestionIds])
 
   const rows = useMemo(() => {
     const list = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
@@ -342,17 +359,27 @@ export default function AssessmentQuestionPickerDialog({
               </label>
 
               <Select value={middleFilter} onValueChange={setMiddleFilter}>
-                <SelectTrigger className="w-[190px]" aria-label="Module filter">
+                <SelectTrigger className="w-[220px]" aria-label="Module filter">
                   <SelectValue placeholder="Module" />
                 </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value="all">All modules</SelectItem>
+                <SelectContent position="popper" align="start" className="max-h-72 w-[300px]">
+                  <SelectItem value="all">
+                    All modules <span className="ml-1 text-muted-foreground tabular-nums">({moduleGroups.total})</span>
+                  </SelectItem>
 
-                  {middleCategories.map(([id, title]) => (
-                      <SelectItem key={id} value={String(id)}>
-                        {title}
-                      </SelectItem>
+                  {moduleGroups.groups.map((group) => (
+                      <SelectGroup key={group.title}>
+                        <SelectLabel className="pt-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {group.title}
+                        </SelectLabel>
+                        {[...group.modules.entries()].map(([id, module]) => (
+                            <SelectItem key={id} value={String(id)} className="text-sm">
+                              {module.title}{" "}
+                              <span className="ml-1 text-muted-foreground tabular-nums">({module.count})</span>
+                            </SelectItem>
+                        ))}
+                      </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

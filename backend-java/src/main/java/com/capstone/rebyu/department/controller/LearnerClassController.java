@@ -79,10 +79,13 @@ public class LearnerClassController {
     public List<MyAnnouncement> myAnnouncements(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Long certificationId) {
+        // A learner on two of the department's certifications would otherwise see a shared one twice.
+        java.util.Set<Long> seen = new java.util.HashSet<>();
         return myClasses(jwt, certificationId).stream()
                 .flatMap(c -> c.announcements().stream()
                         .map(a -> new MyAnnouncement(a.departmentAnnouncementId(), a.title(), a.body(),
                                 a.pinned(), a.createdAt(), c.departmentName(), null)))
+                .filter(a -> seen.add(a.departmentAnnouncementId()))
                 .sorted(java.util.Comparator.comparing(MyAnnouncement::pinned).reversed()
                         .thenComparing(MyAnnouncement::createdAt,
                                 java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
@@ -139,6 +142,8 @@ public class LearnerClassController {
                 .findByDepartment_DepartmentIdAndStatusOrderByPinnedDescCreatedAtDesc(
                         departmentId, DepartmentAnnouncement.Status.active)
                 .stream()
+                // Only announcements aimed at this learner's certification (or the whole department).
+                .filter(a -> a.reaches(certificationId))
                 .map(a -> new ClassAnnouncement(a.getDepartmentAnnouncementId(), a.getTitle(), a.getBody(),
                         a.isPinned(), a.getCreatedAt()))
                 .toList();

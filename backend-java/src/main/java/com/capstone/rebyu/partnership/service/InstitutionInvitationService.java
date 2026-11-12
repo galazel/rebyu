@@ -242,7 +242,8 @@ public class InstitutionInvitationService {
 
             String titles = joinTitles(needed);
             emailService.sendInstitutionInvitation(email, institutionName,
-                    needed.stream().map(cert -> cert.getCertification().getTitle()).toList(), emailedToken);
+                    needed.stream().map(cert -> cert.getCertification().getTitle()).toList(),
+                    placementOf(group, section), emailedToken);
 
             userRepository.findByEmailIgnoreCase(email).ifPresent(existingUser ->
                     notificationService.notify(
@@ -337,6 +338,17 @@ public class InstitutionInvitationService {
                         section.getSectionName() + "'s program does not offer " + cert.getCertification().getTitle() + ".");
             }
         }
+    }
+
+    /** Where the learner will study, for the invitation email: "BSCS, section BSCS-3A". */
+    private static String placementOf(Department group,
+                                      com.capstone.rebyu.department.entity.InstitutionSection section) {
+        if (section == null) return group == null ? null : group.getDepartmentName();
+        var program = section.getProgram();
+        String programName = program == null ? null
+                : (program.getProgramCode() != null ? program.getProgramCode() : program.getProgramName());
+        return programName == null ? "section " + section.getSectionName()
+                : programName + ", section " + section.getSectionName();
     }
 
     private static String joinTitles(List<InstitutionCertificate> certs) {
