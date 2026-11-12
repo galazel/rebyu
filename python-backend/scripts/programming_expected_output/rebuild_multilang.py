@@ -208,9 +208,7 @@ async def main():
             if args.apply:
                 approach, mistake = EXPLANATIONS[qid]
                 session.execute(text("update questions set question_text = :t, explanation = :e where question_id = :q"),
-                                {"t": new_text, "e": approach + "
-
-Common mistake: " + mistake, "q": qid})
+                                {"t": new_text, "e": approach + "\n\nCommon mistake: " + mistake, "q": qid})
                 if entry["language"] == "SQL":
                     for sub_id, sub_text in session.execute(text(
                             "select question_id, question_text from questions where parent_question_id = :q"), {"q": qid}).all():
