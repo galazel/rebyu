@@ -115,12 +115,54 @@ const QUESTION_API = { saveQuestion, saveChoices, saveTextQuestion, saveProgramm
 /** The builder's names for exam types the database stores under another name. */
 const STORED_EXAM_TYPE = { QUIZ: "LESSON_QUIZ" }
 const BUILDER_EXAM_TYPE = { LESSON_QUIZ: "QUIZ", MIDDLE_EXAM: "MODULE_EXAM" }
-const EXAM_TYPE_SCOPES = {
-  QUIZ: "LESSON",
-  MODULE_EXAM: "MIDDLE_CATEGORY",
-  MOCK_EXAM: "CERTIFICATION",
-  PRACTICE_TEST: "LESSON",
-  ASSIGNMENT: "LESSON",
+/**
+ * Questions pick their own lessons, so the assessment's target follows them: one shared
+ * lesson (or module, for a module exam) narrows it; a mix of lessons covers the certification.
+ * The backend only checks question lessons against the exam when the exam has a lesson.
+ */
+function deriveTarget(examTypeText, questions, lessonIndex) {
+  const chains = questions.map((question) => lessonIndex.get(String(question.lessonId)))
+  const shared = (pick) => {
+    const values = new Set(chains.map((chain) => (chain ? pick(chain) : null)))
+    const [only] = values
+    return values.size === 1 && only != null ? Number(only) : null
+  }
+  const none = { targetScope: "CERTIFICATION", lessonId: null, middleCategoryId: null, majorCategoryId: null }
+  if (examTypeText === "MOCK_EXAM") return none
+  if (examTypeText === "MODULE_EXAM") {
+    const middleCategoryId = shared((chain) => chain.middleId)
+    return middleCategoryId != null ? { ...none, targetScope: "MIDDLE_CATEGORY", middleCategoryId } : none
+  }
+  const lessonId = shared((chain) => chain.lesson.lessonId)
+  return lessonId != null ? { ...none, targetScope: "LESSON", lessonId } : none
+}
+
+/** One dropdown of every lesson, grouped "Category › Module". */
+function LessonPicker({ id, value, onChange, groups, invalid, disabled, label }) {
+  return (
+    <Select value={value ?? ""} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger
+        id={id}
+        aria-label={label}
+        aria-invalid={invalid || undefined}
+        className={cn("h-8 w-full min-w-0 bg-background text-sm sm:max-w-md", invalid && "border-destructive")}
+      >
+        <SelectValue placeholder="Choose the lesson this question belongs to" />
+      </SelectTrigger>
+      <SelectContent className="max-h-80">
+        {groups.map((group) => (
+          <SelectGroup key={group.key}>
+            <SelectLabel className="text-xs">{group.label}</SelectLabel>
+            {group.lessons.map((lesson) => (
+              <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
+                {lesson.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  )
 }
 
 function backendMessage(error, fallback) {
@@ -167,10 +209,6 @@ export default function InstitutionAssessmentBuilderPage() {
   const [examTypeText, setExamTypeText] = useState("QUIZ")
   const [durationMinutes, setDurationMinutes] = useState("")
   const [passingScore, setPassingScore] = useState("70")
-
-  const [scopeMajorId, setScopeMajorId] = useState("")
-  const [scopeMiddleId, setScopeMiddleId] = useState("")
-  const [scopeLessonId, setScopeLessonId] = useState("")
 
   const [questions, setQuestions] = useState([])
   const [bankPickerOpen, setBankPickerOpen] = useState(false)
@@ -254,6 +292,7 @@ export default function InstitutionAssessmentBuilderPage() {
           data: item.data,
           points: row.points != null ? String(row.points) : "1",
           existingQuestionId: question.questionId,
+          lessonId: question.lessonId != null ? String(question.lessonId) : "",
         })
       }
       return reconstructed
@@ -273,19 +312,6 @@ export default function InstitutionAssessmentBuilderPage() {
   )
   const allMajors = useMemo(() => [...ownMajors, ...officialMajors], [ownMajors, officialMajors])
 
-  const majorById = useMemo(
-    () => new Map(allMajors.map((major) => [String(major.majorCategoryId), major])),
-    [allMajors]
-  )
-  const middleIndex = useMemo(() => {
-    const map = new Map()
-    for (const major of allMajors) {
-      for (const middle of major.middleCategories) {
-        map.set(String(middle.middleCategoryId), { middle, majorId: String(major.majorCategoryId) })
-      }
-    }
-    return map
-  }, [allMajors])
   const lessonIndex = useMemo(() => {
     const map = new Map()
     for (const major of allMajors) {
@@ -295,27 +321,27 @@ export default function InstitutionAssessmentBuilderPage() {
             lesson,
             middleId: String(middle.middleCategoryId),
             majorId: String(major.majorCategoryId),
+            middleTitle: middle.title,
+            majorTitle: major.title,
           })
         }
       }
     }
     return map
   }, [allMajors])
-
-  const middleOptions = scopeMajorId ? majorById.get(scopeMajorId)?.middleCategories ?? [] : []
-  const lessonOptions = scopeMiddleId ? middleIndex.get(scopeMiddleId)?.middle.lessons ?? [] : []
-
-  const handleMajorChange = (value) => {
-    setScopeMajorId(value)
-    setScopeMiddleId("")
-    setScopeLessonId("")
-  }
-  const handleMiddleChange = (value) => {
-    setScopeMiddleId(value)
-    setScopeLessonId("")
-  }
-
-  const scope = EXAM_TYPE_SCOPES[examTypeText] ?? "LESSON"
+  const lessonGroups = useMemo(
+    () =>
+      allMajors.flatMap((major) =>
+        major.middleCategories
+          .filter((middle) => middle.lessons.length)
+          .map((middle) => ({
+            key: middle.middleCategoryId,
+            label: `${major.title} › ${middle.title}`,
+            lessons: middle.lessons,
+          }))
+      ),
+    [allMajors]
+  )
 
   if (isEdit && !hydrated && examQuery.data && Array.isArray(examTypesQuery.data) && certification) {
     const exam = examQuery.data
@@ -325,29 +351,17 @@ export default function InstitutionAssessmentBuilderPage() {
     setExamTypeText(loadedType ? BUILDER_EXAM_TYPE[loadedType] ?? loadedType : examTypeText)
     setDurationMinutes(exam.durationMinutes != null ? String(exam.durationMinutes) : "")
     setPassingScore(exam.passingScore != null ? String(exam.passingScore) : "70")
-
-    if (exam.lessonId != null) {
-      const chain = lessonIndex.get(String(exam.lessonId))
-      setScopeLessonId(String(exam.lessonId))
-      setScopeMiddleId(chain?.middleId ?? "")
-      setScopeMajorId(chain?.majorId ?? "")
-    } else if (exam.middleCategoryId != null) {
-      const chain = middleIndex.get(String(exam.middleCategoryId))
-      setScopeMiddleId(String(exam.middleCategoryId))
-      setScopeMajorId(chain?.majorId ?? "")
-    } else if (exam.majorCategoryId != null) {
-      setScopeMajorId(String(exam.majorCategoryId))
-    }
     setHydrated(true)
   }
 
   if (isEdit && !questionsHydrated && questionContentQuery.data) {
     setQuestions(
-      questionContentQuery.data.map(({ key, typeId, data, existingQuestionId }) => ({
+      questionContentQuery.data.map(({ key, typeId, data, existingQuestionId, lessonId }) => ({
         key,
         typeId,
         data,
         existingQuestionId,
+        lessonId,
       }))
     )
     setPointsById(
@@ -368,11 +382,23 @@ export default function InstitutionAssessmentBuilderPage() {
     0
   )
 
+  // A new question starts on the lesson the previous one used — most quizzes stay on one lesson.
+  const lastLessonId = [...questions].reverse().find((question) => question.lessonId)?.lessonId ?? ""
+
+  const coveredLessons = useMemo(() => {
+    const counts = new Map()
+    for (const question of questions) {
+      if (!question.lessonId) continue
+      counts.set(question.lessonId, (counts.get(question.lessonId) ?? 0) + 1)
+    }
+    return [...counts].map(([lessonId, count]) => ({ lessonId, count, chain: lessonIndex.get(lessonId) }))
+  }, [questions, lessonIndex])
+
   const addQuestion = (questionType) => {
     const key = createLocalId()
     setQuestions((current) => [
       ...current,
-      { key, typeId: questionType.id, data: cloneQuestionData(questionType.data) },
+      { key, typeId: questionType.id, data: cloneQuestionData(questionType.data), lessonId: lastLessonId },
     ])
     setPointsById((current) => ({
       ...current,
@@ -392,6 +418,7 @@ export default function InstitutionAssessmentBuilderPage() {
           typeId: item.typeId,
           data: item.data,
           existingQuestionId: question.questionId,
+          lessonId: question.lessonId != null ? String(question.lessonId) : "",
         })
       }
       setQuestions((current) => [...current, ...added])
@@ -431,6 +458,11 @@ export default function InstitutionAssessmentBuilderPage() {
       )
     )
 
+  const setQuestionLesson = (key, lessonId) =>
+    setQuestions((current) =>
+      current.map((question) => (question.key === key ? { ...question, lessonId } : question))
+    )
+
   const setOnePoint = (key, value) =>
     setPointsById((current) => ({ ...current, [key]: value }))
 
@@ -454,12 +486,12 @@ export default function InstitutionAssessmentBuilderPage() {
 
   const validate = () => {
     if (!title.trim()) return "Give the assessment a name."
-    if (!scopeMajorId) return "Choose a category."
-    if (!scopeMiddleId) return "Choose a module."
-    if (!scopeLessonId) return "Choose a lesson to attach your questions to."
     if (questions.length === 0) return "Add at least one question."
 
     for (const [index, question] of questions.entries()) {
+      if (!question.lessonId || !lessonIndex.has(String(question.lessonId))) {
+        return `Choose the lesson question ${index + 1} belongs to.`
+      }
       const errors = validateQuestionData(question.typeId, question.data)
       if (Object.keys(errors).length > 0) {
         return `Question ${index + 1} has missing or invalid fields.`
@@ -489,7 +521,7 @@ export default function InstitutionAssessmentBuilderPage() {
         const saved = await saveAuthoredQuestion(
           question,
           {
-            lessonId: Number(scopeLessonId),
+            lessonId: Number(question.lessonId),
             certificationId: certification.certificationId,
             ownerDepartmentId: id,
           },
@@ -506,10 +538,7 @@ export default function InstitutionAssessmentBuilderPage() {
         durationMinutes: durationMinutes ? Number(durationMinutes) : null,
         passingScore: passingScore ? Number(passingScore) : null,
         releaseAnswersAfterSubmit: true,
-        targetScope: scope,
-        lessonId: scope === "LESSON" ? Number(scopeLessonId) : null,
-        middleCategoryId: scope === "MIDDLE_CATEGORY" ? Number(scopeMiddleId) : null,
-        majorCategoryId: scope === "MAJOR_CATEGORY" ? Number(scopeMajorId) : null,
+        ...deriveTarget(examTypeText, questions, lessonIndex),
         totalQuestions: finalQuestions.length,
         questions: finalQuestions,
       }
@@ -552,13 +581,6 @@ export default function InstitutionAssessmentBuilderPage() {
   if (departmentQuery.isError) {
     return <InstitutionErrorState title="Unable to load this department" onRetry={departmentQuery.refetch} />
   }
-
-  const scopeHint =
-    scope === "MIDDLE_CATEGORY"
-      ? "This assessment targets the whole module. The lesson below is only used to attach your questions."
-      : scope === "CERTIFICATION"
-        ? "This assessment covers the whole certification. The lesson below is only used to attach your questions."
-        : "This assessment and its questions attach to the lesson you pick."
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
@@ -662,9 +684,6 @@ export default function InstitutionAssessmentBuilderPage() {
                 onValueChange={(value) => {
                   // Lessons and questions belong to one certification, so a new choice starts them over.
                   setQuestions([])
-                  setScopeMajorId("")
-                  setScopeMiddleId("")
-                  setScopeLessonId("")
                   setSearchParams((prev) => {
                     const params = new URLSearchParams(prev)
                     params.set("certificationId", value)
@@ -699,9 +718,9 @@ export default function InstitutionAssessmentBuilderPage() {
             />
           </div>
 
-          <SectionLabel className="pt-1">Where it attaches</SectionLabel>
+          <SectionLabel className="pt-1">Lessons covered</SectionLabel>
 
-          {allMajors.length === 0 ? (
+          {lessonGroups.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               No categories available yet — add your own in the{" "}
               <Link
@@ -712,87 +731,37 @@ export default function InstitutionAssessmentBuilderPage() {
               </Link>
               .
             </p>
+          ) : coveredLessons.length === 0 ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Every question picks its own lesson on its card. The lessons you use will be listed here.
+            </p>
           ) : (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-major">Category</Label>
-                <Select value={scopeMajorId} onValueChange={handleMajorChange}>
-                  <SelectTrigger id="a-major">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {ownMajors.length ? (
-                      <SelectGroup>
-                        <SelectLabel>Your categories</SelectLabel>
-                        {ownMajors.map((major) => (
-                          <SelectItem key={major.majorCategoryId} value={String(major.majorCategoryId)}>
-                            {major.title}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ) : null}
-                    {officialMajors.length ? (
-                      <SelectGroup>
-                        <SelectLabel>Curriculum categories</SelectLabel>
-                        {officialMajors.map((major) => (
-                          <SelectItem key={major.majorCategoryId} value={String(major.majorCategoryId)}>
-                            {major.title}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ) : null}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="a-middle">Module</Label>
-                <Select
-                  value={scopeMiddleId}
-                  onValueChange={handleMiddleChange}
-                  disabled={!scopeMajorId || middleOptions.length === 0}
-                >
-                  <SelectTrigger id="a-middle">
-                    <SelectValue placeholder="Select a module" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {middleOptions.map((middle) => (
-                      <SelectItem key={middle.middleCategoryId} value={String(middle.middleCategoryId)}>
-                        {middle.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {scopeMajorId && middleOptions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">This category has no modules yet.</p>
-                ) : null}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="a-lesson">Lesson</Label>
-                <Select
-                  value={scopeLessonId}
-                  onValueChange={setScopeLessonId}
-                  disabled={!scopeMiddleId || lessonOptions.length === 0}
-                >
-                  <SelectTrigger id="a-lesson">
-                    <SelectValue placeholder="Select a lesson" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {lessonOptions.map((lesson) => (
-                      <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
-                        {lesson.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {scopeMiddleId && lessonOptions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">This module has no lessons yet.</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">{scopeHint}</p>
-                )}
-              </div>
-            </>
+            <div className="space-y-2">
+              <ul className="space-y-1.5">
+                {coveredLessons.map(({ lessonId, count, chain }) => (
+                  <li key={lessonId} className="flex items-start justify-between gap-2 rounded-lg border bg-background px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {chain?.lesson.name ?? "Lesson not in this certification"}
+                      </p>
+                      {chain ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {chain.majorTitle} › {chain.middleTitle}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                      {count} Q
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {coveredLessons.length === 1
+                  ? "All questions are from one lesson, so this assessment attaches to that lesson."
+                  : "Questions span several lessons, so this assessment covers the certification."}
+              </p>
+            </div>
           )}
 
           <SectionLabel className="pt-1">Marking</SectionLabel>
@@ -936,29 +905,82 @@ export default function InstitutionAssessmentBuilderPage() {
                   </div>
                 )
 
-                if (question.existingQuestionId) {
-                  return (
-                    <BankQuestionCard
-                      key={question.key}
-                      questionNumber={index + 1}
-                      question={question}
-                      headerExtra={pointsInput}
-                      onRemove={() => removeQuestion(question.key)}
-                    />
-                  )
-                }
+                const chain = question.lessonId ? lessonIndex.get(String(question.lessonId)) : null
+                const lessonMissing = submitted && !chain
+                // A bank question already lives in a lesson; it is shown, not changed, here.
+                const lessonBar = (
+                  <div
+                    className={cn(
+                      "flex flex-col gap-1.5 rounded-t-xl border border-b-0 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-3",
+                      lessonMissing ? "border-destructive/40 bg-destructive/5" : "border-border bg-primary/5"
+                    )}
+                  >
+                    <Label
+                      htmlFor={`lesson-${question.key}`}
+                      className="shrink-0 text-xs font-semibold uppercase tracking-wide text-primary"
+                    >
+                      Lesson
+                    </Label>
+                    {question.existingQuestionId ? (
+                      <p className="min-w-0 truncate text-sm text-foreground">
+                        {chain ? (
+                          <>
+                            <span className="font-medium">{chain.lesson.name}</span>
+                            <span className="text-muted-foreground"> · {chain.majorTitle} › {chain.middleTitle}</span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">Lesson not in this certification</span>
+                        )}
+                      </p>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                        <LessonPicker
+                          id={`lesson-${question.key}`}
+                          label={`Lesson for question ${index + 1}`}
+                          value={question.lessonId}
+                          onChange={(value) => setQuestionLesson(question.key, value)}
+                          groups={lessonGroups}
+                          invalid={lessonMissing}
+                          disabled={lessonGroups.length === 0}
+                        />
+                        {chain ? (
+                          <span className="min-w-0 truncate text-xs text-muted-foreground">
+                            {chain.majorTitle} › {chain.middleTitle}
+                          </span>
+                        ) : lessonMissing ? (
+                          <span className="text-xs text-destructive">Choose a lesson.</span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )
 
                 return (
-                  <Editor
+                  <section
                     key={question.key}
-                    questionKey={question.key}
-                    questionNumber={index + 1}
-                    onRemove={() => removeQuestion(question.key)}
-                    data={question.data}
-                    onDataChange={(updater) => updateQuestionData(question.key, updater)}
-                    errors={perQuestionErrors[question.key] ?? {}}
-                    headerExtra={pointsInput}
-                  />
+                    className="[&>*:last-child]:rounded-t-none"
+                    aria-label={`Question ${index + 1}`}
+                  >
+                    {lessonBar}
+                    {question.existingQuestionId ? (
+                      <BankQuestionCard
+                        questionNumber={index + 1}
+                        question={question}
+                        headerExtra={pointsInput}
+                        onRemove={() => removeQuestion(question.key)}
+                      />
+                    ) : (
+                      <Editor
+                        questionKey={question.key}
+                        questionNumber={index + 1}
+                        onRemove={() => removeQuestion(question.key)}
+                        data={question.data}
+                        onDataChange={(updater) => updateQuestionData(question.key, updater)}
+                        errors={perQuestionErrors[question.key] ?? {}}
+                        headerExtra={pointsInput}
+                      />
+                    )}
+                  </section>
                 )
               })}
             </div>
@@ -992,7 +1014,8 @@ export default function InstitutionAssessmentBuilderPage() {
           <div>
             <SectionLabel>Write a new question</SectionLabel>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Pick a type to write it here. It is saved to your question bank too.
+              Pick a type, then choose its lesson on the card. It is saved to your question bank
+              under that lesson too.
             </p>
           </div>
           <div className="space-y-2">
@@ -1013,8 +1036,8 @@ export default function InstitutionAssessmentBuilderPage() {
           departmentQuestionsOnly
           alreadySelectedIds={bankQuestionIds}
           currentExamId={editingExamId}
-          initialLessonId={scope === "LESSON" && scopeLessonId ? Number(scopeLessonId) : null}
-          initialMiddleCategoryId={scope === "MIDDLE_CATEGORY" && scopeMiddleId ? Number(scopeMiddleId) : null}
+          initialLessonId={lastLessonId ? Number(lastLessonId) : null}
+          initialMiddleCategoryId={null}
           onAddQuestions={addFromBank}
         />
       ) : null}
