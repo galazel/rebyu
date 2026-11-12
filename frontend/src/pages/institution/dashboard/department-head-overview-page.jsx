@@ -174,14 +174,14 @@ async function dashboardCsv(overview, metrics) {
 
   return [
     {
-      title: "Department totals (all time)",
+      title: "Department overview (all-time roster and activity)",
       columns: ["Metric", "Value"],
       rows: [
         ["Figures as of", overview.generatedAt],
         ["Former learners", (overview.formerLearners ?? []).length],
         ["Learners", totals.learners],
-        ["Active learners", totals.activeLearners],
-        ["Earned the review badge", totals.completed],
+        ["Learners with activity", totals.activeLearners],
+        ["Review badges earned", totals.completed],
         ["On track", totals.onTrack],
         ["At risk", totals.atRisk],
         ["Gone quiet (14+ days)", totals.dormant],
@@ -193,12 +193,12 @@ async function dashboardCsv(overview, metrics) {
         ["Average score (%)", summary.averageScore],
         ["Graded attempts", summary.gradedAttempts],
         ["Lessons finished", summary.lessonsCompleted],
-        ["Programs", totals.programs],
+        ["Department programs", totals.programs],
         ["Sections", totals.sections],
-        ["Department heads", totals.departmentHeads],
-        ["Pending learner invitations", totals.pendingInvitations],
-        ["Seats used", totals.seatsUsed],
-        ["Seats total", totals.seatsTotal],
+        ["Department co-authorities", totals.departmentHeads],
+        ["Pending certification invitations", totals.pendingInvitations],
+        ["Active seats used", totals.seatsUsed],
+        ["Active seats available", totals.seatsTotal],
       ],
     },
     {
@@ -278,7 +278,7 @@ export default function DepartmentHeadOverviewPage() {
           icon={UsersRound}
           iconClass="text-primary"
           value={totals.learners}
-          suffix={`${totals.activeLearners} active`}
+          suffix={`${totals.activeLearners} with activity`}
         >
           {totals.seatsTotal > 0 ? (
             <div className="space-y-1 pt-1">
@@ -302,7 +302,7 @@ export default function DepartmentHeadOverviewPage() {
           value={progress == null ? "—" : `${progress}%`}
         >
           <p className="pt-1 text-xs text-muted-foreground">
-            {summary.lessonsCompleted} lesson{summary.lessonsCompleted === 1 ? "" : "s"} finished ·{" "}
+            Across the roster · {summary.lessonsCompleted} lesson{summary.lessonsCompleted === 1 ? "" : "s"} finished ·{" "}
             {totals.completed} earned the badge
           </p>
         </KpiCard>
@@ -325,7 +325,7 @@ export default function DepartmentHeadOverviewPage() {
           icon={ShieldAlert}
           iconClass={needsHelp > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}
           value={needsHelp}
-          suffix={`of ${totals.learners}`}
+          suffix={`of ${totals.learners} learners`}
         >
           <p className="pt-1 text-xs text-muted-foreground">
             {totals.atRisk} at risk · {totals.dormant} quiet · {totals.notStarted} not started

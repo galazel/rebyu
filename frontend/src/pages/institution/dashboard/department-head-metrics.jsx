@@ -295,14 +295,14 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
         title: `Metrics summary (${periodLabel})`,
         columns: ["Metric", "Value"],
         rows: [
-          ["Learners", deptLearners.length],
-          ["Active learners", summary.activeMembers],
-          ["Average completion (%)", summary.averageProgress],
-          ["Graded pass rate (%)", summary.passRate],
-          ["Average score (%)", summary.averageScore],
-          ["Graded attempts", summary.gradedAttempts],
-          ["Lessons finished", summary.lessonsCompleted],
-          ["Need a check-in now (at risk, gone quiet, not started)", needingSupport],
+          ["Department learners", deptLearners.length],
+          ["Learners with activity in this period", summary.activeMembers],
+          ["Average completion across department learners (%)", summary.averageProgress],
+          ["Submitted-attempt pass rate (%)", summary.passRate],
+          ["Submitted-attempt average score (%)", summary.averageScore],
+          ["Submitted assessment attempts", summary.gradedAttempts],
+          ["Lessons completed", summary.lessonsCompleted],
+          ["Learners needing a check-in now (at risk, gone quiet, not started)", needingSupport],
         ],
       },
       {
@@ -312,11 +312,11 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
         columns: ["Metric", "This period", "Previous period", "Change"],
         rows: [
           deltaRow("Average completion (%)", "averageProgress"),
-          deltaRow("Graded pass rate (%)", "passRate"),
-          deltaRow("Average score (%)", "averageScore"),
-          deltaRow("Graded attempts", "gradedAttempts"),
-          deltaRow("Lessons finished", "lessonsCompleted"),
-          deltaRow("Active learners", "activeMembers"),
+          deltaRow("Submitted-attempt pass rate (%)", "passRate"),
+          deltaRow("Submitted-attempt average score (%)", "averageScore"),
+          deltaRow("Submitted assessment attempts", "gradedAttempts"),
+          deltaRow("Lessons completed", "lessonsCompleted"),
+          deltaRow("Learners with activity", "activeMembers"),
         ],
       },
       {
@@ -357,9 +357,9 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
         ),
       },
       {
-        title: "Hardest assessments",
+        title: "Assessments needing review",
         columns: [
-          "Certification", "Assessment", "Type", "Attempts", "Passed attempts", "Pass rate (%)", "Learners",
+          "Certification", "Assessment", "Type", "Submitted attempts", "Passed attempts", "Pass rate (%)", "Learners with attempts",
           "Average score (%)", "Pass mark (%)",
         ],
         rows: hardestAssessments.flatMap((cert) =>
@@ -411,7 +411,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
 
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
                   <StatBox
-                    label="Students"
+                    label="Learners"
                     value={count(deptLearners.length)}
                     icon={UsersRoundIcon}
                     iconClass="text-sky-600 dark:text-sky-400"
@@ -447,7 +447,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                     <strong>{totalEnrolled}</strong> enrolments
                   </span>
                   <span>·</span>
-                  <span>{programmes.length} programme{programmes.length === 1 ? "" : "s"}</span>
+                  <span>{programmes.length} certification{programmes.length === 1 ? "" : "s"}</span>
                   {seatsTotal > 0 ? (
                     <>
                       <span>·</span>
@@ -478,9 +478,9 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={GraduationCap}
-                kicker="Enrolment by Programme"
-                title="Who is on each certification"
-                hint="Your department's learners only — a programme nobody here is on is not listed."
+                kicker="Enrollment by Certification"
+                title="Learners on each certification"
+                hint="Your department's learners only — certifications without an assigned learner are not listed."
                 chip={
                   totalEnrolled > 0 ? (
                     <Badge
@@ -531,8 +531,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                   <span>{programmes.reduce((sum, r) => sum + (r.inProgress ?? 0), 0)} in progress</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
-                    {programmes.length} track{programmes.length === 1 ? "" : "s"}
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 text-foreground tabular-nums font-medium">
+                     {programmes.length} certification{programmes.length === 1 ? "" : "s"}
                   </span>
                 </div>
               </div>
@@ -547,9 +547,9 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
             <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
               <DashboardCardHeader
                 icon={Award}
-                kicker="Programme Scorecard"
+                kicker="Certification Scorecard"
                 title="Seats, completion and marks"
-                hint="Your department's learners on each programme, with their marks."
+                hint="Department learners and their results on each certification."
               />
               {programmes.length === 0 ? (
                 <p className="text-sm text-muted-foreground my-auto">
@@ -560,7 +560,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                   <table className="w-full text-xs" style={{ minWidth: 400 }}>
                     <thead className="sticky top-0 z-10 bg-background">
                       <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
-                        <th className="py-2 pr-3 text-left">Programme</th>
+                        <th className="py-2 pr-3 text-left">Certification</th>
                         <th className="px-2 py-2 text-center">Enrolled</th>
                         <th className="px-2 py-2 text-center">Seats</th>
                         <th className="px-2 py-2 text-center">Badge earned</th>
@@ -619,7 +619,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
                 <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
-                  {programmes.length} active programme{programmes.length === 1 ? "" : "s"}
+                  {programmes.length} active certification{programmes.length === 1 ? "" : "s"}
                 </span>
                 <span className="text-muted-foreground">
                   {totalEnrolled} total enrolled
@@ -647,7 +647,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
               ) : (
                 <div className="my-auto grid gap-6 py-1 md:grid-cols-2">
                   <div className="min-w-0">
-                    <p className="mb-1 text-xs font-semibold text-muted-foreground">Completion (students per band)</p>
+                    <p className="mb-1 text-xs font-semibold text-muted-foreground">Completion (learners per band)</p>
                     <BarBreakdownChart
                       data={spread}
                       categoryKey="tier"
@@ -673,7 +673,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground font-sans">
                 <span className="inline-flex items-center gap-1 rounded-md bg-muted/40 px-2 py-0.5 font-medium text-foreground tabular-nums">
-                  {deptLearners.length} total students
+                  {deptLearners.length} department learners
                 </span>
                 <span className={needingSupport > 0 ? "font-semibold text-amber-600 dark:text-amber-400" : "text-muted-foreground"}>
                   {needingSupport > 0 ? `${needingSupport} needing intervention` : "Cohort pacing healthy"}
@@ -732,7 +732,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                     series={[
                       { key: "gradedAttempts", name: "Graded attempts" },
                       { key: "lessonsCompleted", name: "Lessons done" },
-                      { key: "activeLearners", name: "Active students" },
+                      { key: "activeLearners", name: "Learners with activity" },
                     ]}
                   />
                 </div>
@@ -749,8 +749,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
-                title="Topics the department is failing"
-                hint="Lowest accuracy across everyone's marked answers."
+                title="Topics needing review"
+                hint="Lowest answer accuracy across marked responses in the department."
               />
               {hardestTopics.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center my-auto">
@@ -809,8 +809,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
-                title="Hardest assessments"
-                hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
+                title="Assessments needing review"
+                hint="Lowest pass rate first, grouped by certification."
               />
               {hardestAssessments.length === 0 ? (
                 <div className="flex flex-1 items-center justify-center my-auto">

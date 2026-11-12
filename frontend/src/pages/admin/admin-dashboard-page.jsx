@@ -211,15 +211,15 @@ export default function AdminDashboard() {
     const range = PERIODS.find((option) => option.key === (presence?.period ?? period))
     return toCsv([
       {
-        title: "REBYU platform dashboard",
+        title: "REBYU platform dashboard — data definitions",
         columns: ["Exported", new Date().toISOString()],
       },
       {
-        title: "Attendance (admins not counted)",
+        title: "Current platform presence (administrators excluded)",
         columns: ["Metric", "Value"],
         rows: [
           [`Online now (used REBYU in the last ${presence?.onlineWindowMinutes ?? 5} minutes)`, presence?.onlineUsers],
-          ["Total users", presence?.totalUsers],
+          ["Total non-admin users", presence?.totalUsers],
         ],
       },
       {
@@ -228,32 +228,32 @@ export default function AdminDashboard() {
         rows: activity.map((row) => [row.bucket, row.active, row.total]),
       },
       {
-        title: "Summary",
-        columns: ["Metric", "Value"],
+        title: "Platform summary",
+        columns: ["Measure", "Value", "Definition"],
         rows: [
-          ["Learners", people.learners],
-          ["Learners in a certification", people.learnersInCertification],
-          ["Active enrollments", people.activeEnrollments],
-          ["Certifications", catalog.certifications],
-          ["Published certifications", catalog.publishedCertifications],
-          ["Institutions onboarded", catalog.institutions],
-          ["Partnership requests pending", catalog.pendingPartnerships],
-          ["Paid orders", sales.paidOrders],
-          ["Pending orders", sales.pendingOrders],
-          ["Active subscriptions", sales.activeSubscriptions],
-          ["Active licences", sales.activeLicenses],
-          ["Graded attempts", assessments.gradedAttempts],
-          ["Pro revenue approved (PHP)", pro?.approvedRevenue],
-          ["Pro revenue last 30 days (PHP)", pro?.approvedRevenueLast30Days],
-          ["Learners on Pro", pro?.activePro],
-          ["Pro awaiting approval", pro?.awaitingApproval],
-          ["Pro awaiting revenue (PHP)", pro?.awaitingRevenue],
+          ["Learners", people.learners, "Learner accounts"],
+          ["Learners enrolled", people.learnersInCertification, "Distinct learners with at least one active certification enrollment"],
+          ["Active certification enrollments", people.activeEnrollments, "Each learner-certification relationship counts separately"],
+          ["Certifications", catalog.certifications, "All certifications in the catalog"],
+          ["Published certifications", catalog.publishedCertifications, "Catalog certifications currently published"],
+          ["Institutions onboarded", catalog.institutions, "Institution accounts on the platform"],
+          ["Partnership requests awaiting review", catalog.pendingPartnerships, "Requests in pending or under-review status"],
+          ["Paid certification orders", sales.paidOrders, "Completed learner certification purchases"],
+          ["Pending certification orders", sales.pendingOrders, "Learner orders awaiting payment or completion"],
+          ["Live subscriptions", sales.activeSubscriptions, "Subscriptions in an active or trial state"],
+          ["Live institution licences", sales.activeLicenses, "Institution licences in an active or trial state"],
+          ["Graded attempts", assessments.gradedAttempts, "All submitted assessment attempts"],
+          ["Recorded Pro subscription revenue (PHP)", pro?.approvedRevenue, "Subscription payments with an active billing period"],
+          ["Recorded Pro revenue, past 30 days (PHP)", pro?.approvedRevenueLast30Days, "Subscription payments whose billing period began in the past 30 days"],
+          ["Learners on Pro", pro?.activePro, "Distinct learners with an active or trial Pro subscription"],
+          ["Pro payments awaiting approval", pro?.awaitingApproval, "Paid Pro subscriptions still awaiting review"],
+          ["Pro revenue awaiting approval (PHP)", pro?.awaitingRevenue, "Value of paid Pro subscriptions still awaiting review"],
         ],
       },
       {
-        title: "Learners per certification",
-        columns: ["Certification", "Learners"],
-        rows: learnersPerCertification.map((row) => [row.title, row.learners]),
+        title: "Certification enrollment",
+        columns: ["Certification", "Distinct learners", "Active enrollments"],
+        rows: learnersPerCertification.map((row) => [row.title, row.learners, row.enrollments]),
       },
       {
         title: "Learner plans",
@@ -265,8 +265,8 @@ export default function AdminDashboard() {
         columns: [
           "Month",
           "Certification sales (PHP)",
-          "Pro revenue (PHP)",
-          "Pro approvals",
+          "Recorded Pro subscription payments (PHP)",
+          "Pro billing periods started",
           "New accounts",
           "Assessment attempts",
         ],
@@ -278,7 +278,7 @@ export default function AdminDashboard() {
         rows: catalogMix.map((slice) => [slice.name, slice.value]),
       },
       {
-        title: "Learners who paid",
+        title: "Recent paid orders and Pro subscription payments",
         columns: ["Learner", "Type", "Reference", "Amount (PHP)", "Paid at", "Status"],
         rows: recentPayments.map((payment) => [
           payment.name,
@@ -372,9 +372,9 @@ export default function AdminDashboard() {
             col={2}
             row={1}
             icon={GraduationCapIcon}
-            label="Taking a certification"
+            label="Learners enrolled"
             value={failed ? "—" : count(people.learnersInCertification)}
-            hint={failed ? "Could not be loaded" : `${count(people.activeEnrollments)} active enrollments`}
+            hint={failed ? "Could not be loaded" : `${count(people.activeEnrollments)} active certification enrollments`}
           />
         ),
       },
@@ -390,12 +390,12 @@ export default function AdminDashboard() {
             col={2}
             row={1}
             icon={CreditCard}
-            label="Pro revenue (test)"
+            label="Recorded Pro revenue"
             value={failed || !pro ? "—" : money(pro.approvedRevenue)}
             hint={
               failed || !pro
                 ? "Could not be loaded"
-                : `${money(pro.approvedRevenueLast30Days)} in 30 days · ${count(pro.activePro)} on Pro`
+                : `${money(pro.approvedRevenueLast30Days)} in 30 days · ${count(pro.activePro)} learners on Pro`
             }
           />
         ),
@@ -477,7 +477,7 @@ export default function AdminDashboard() {
           <BentoTile col={4} row={2}>
             <BentoHeading
               title="Revenue"
-              hint="Certification sales and approved Pro subscriptions (PayMongo test mode), in pesos"
+              hint="Completed certification sales and recorded Pro subscription payments, in pesos"
             />
             {failed ? (
               <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
@@ -590,8 +590,8 @@ export default function AdminDashboard() {
           <BentoTile col={4} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <BentoHeading
-                title="Learners who paid"
-                hint="Latest certification purchases and Pro subscriptions (PayMongo test mode)."
+                title="Recent payments"
+                hint="Latest completed certification orders and paid Pro subscriptions."
                 action={
                   <Link to="/admin/payments" className="text-xs font-bold text-rb-feather-lip underline">
                     {pro?.awaitingApproval ? `Review ${pro.awaitingApproval} waiting` : "View all"}

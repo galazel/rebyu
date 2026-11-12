@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import { ExportButton, tableFromObject, tableFromObjects } from "@/components/commons/export-button.jsx"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -264,6 +264,8 @@ export default function InstitutionDashboardPage() {
     return [...byEmail.values()]
   }, [invitations.recent])
 
+  const pendingCertificationInvitations = Number(invitations.pending ?? 0)
+
   const tiles = useMemo(() => {
     const seatsTotal = summary.seatsTotal ?? 0
     const seatsUsed = summary.seatsUsed ?? 0
@@ -357,6 +359,7 @@ export default function InstitutionDashboardPage() {
                 icon={TargetIcon}
                 kicker="Academic Performance"
                 title="Institutional Average Progress"
+                hint="Average completion across active certification enrollments."
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
@@ -370,7 +373,7 @@ export default function InstitutionDashboardPage() {
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
                   <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
                     <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Pass Rate</span>
+                    <span>Attempt Pass Rate</span>
                       <CheckCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
@@ -380,7 +383,7 @@ export default function InstitutionDashboardPage() {
 
                   <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
                     <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Avg Score</span>
+                    <span>Attempt Avg Score</span>
                       <TargetIcon className="size-3.5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
@@ -424,7 +427,7 @@ export default function InstitutionDashboardPage() {
                 {summary.needingSupport > 0 ? (
                   <span className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-slate-400" />
-                    <span>Needs Support: <strong className="text-foreground">{count(summary.needingSupport)}</strong></span>
+                    <span>Need check-in: <strong className="text-foreground">{count(summary.needingSupport)}</strong></span>
                   </span>
                 ) : null}
               </div>
@@ -473,7 +476,7 @@ export default function InstitutionDashboardPage() {
                 icon={BarChart3Icon}
                 label="Needing support"
                 value={count(summary.needingSupport)}
-                hint="Unfinished, below 30%"
+                hint="At risk, inactive, or not started"
                 alert={summary.needingSupport > 0}
               />
             </dl>
@@ -491,8 +494,8 @@ export default function InstitutionDashboardPage() {
             <DashboardCardHeader
               icon={CircleDotIcon}
               kicker="Progress Milestones"
-              title="Learner Completion Distribution"
-              hint="How progress is spread across the roster"
+              title="Certification Enrollment Progress"
+              hint="How completion is spread across active certification enrollments"
             />
             <DonutChart
               data={cohortBuckets}
@@ -514,8 +517,8 @@ export default function InstitutionDashboardPage() {
             <DashboardCardHeader
               icon={Building2}
               kicker="Department Benchmark"
-              title="Completion by Department"
-              hint="Average progress across each department's learners"
+              title="Enrollment Progress by Department"
+              hint="Average completion across each department's certification enrollments"
             />
             <BarBreakdownChart
               data={departmentRows.map((row) => ({
@@ -589,7 +592,7 @@ export default function InstitutionDashboardPage() {
                 icon={Building2}
                 kicker="Department Analytics"
                 title="Performance by Department"
-                hint="Aggregated learning metrics across all departments — ranked by avg progress."
+                hint="Certification enrollment metrics by department, ranked by average completion."
                 chip={
                   departmentRows.length > 0 ? (
                     <Badge
@@ -635,7 +638,7 @@ export default function InstitutionDashboardPage() {
                     <thead className="sticky top-0 bg-background z-10">
                       <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
                         <th className="py-2.5 pl-2 pr-3 text-left">Department</th>
-                        <th className="py-2.5 px-2 text-center">Learners</th>
+                        <th className="py-2.5 px-2 text-center">Enrollments</th>
                         <th className="py-2.5 px-3 text-left">Avg Progress</th>
                         <th className="py-2.5 px-2 text-center">Completed</th>
                         <th className="py-2.5 px-2 text-center">In Progress</th>
@@ -735,15 +738,15 @@ export default function InstitutionDashboardPage() {
                 icon={MailPlusIcon}
                 kicker="Onboarding & Access"
                 title="Recent Learner Invitations"
-                hint="The latest learner invitations sent."
+                hint="Latest certification invitations, grouped by learner."
                 chip={
-                  invitations.pending > 0 ? (
+                  pendingCertificationInvitations > 0 ? (
                     <Badge
                       variant="secondary"
                       className="gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
                       <MailPlusIcon className="size-3" aria-hidden="true" />
-                      {invitations.pending} pending
+                      {pendingCertificationInvitations} pending certification invitation{pendingCertificationInvitations === 1 ? "" : "s"}
                     </Badge>
                   ) : null
                 }
@@ -852,6 +855,7 @@ export default function InstitutionDashboardPage() {
     trendTotals,
     invitations,
     recentInvitations,
+    pendingCertificationInvitations,
   ])
 
   if (institutionLoading || (institution && dashboardQuery.isLoading)) {
@@ -890,13 +894,67 @@ export default function InstitutionDashboardPage() {
               details={[["Institution", institution.institutionName], ["Period", from || to ? `${from ?? "start"} to ${to ?? "today"}` : "All time"]]}
               disabled={dashboardQuery.isLoading || dashboardQuery.isError}
               sections={() => [
-                tableFromObject("Summary", summary),
-                tableFromObjects("Certifications", certifications),
-                tableFromObjects("Departments", departments),
-                tableFromObjects("Enrolments", enrollments),
-                tableFromObjects("Progress bands", progressBuckets),
-                tableFromObjects("Activity over time", dashboard.trend ?? []),
-                tableFromObjects("Recent invitations", invitations.recent ?? []),
+                {
+                  title: "Institution summary",
+                  columns: ["Measure", "Value", "Definition"],
+                  rows: [
+                    ["People with access", summary.learners, "Distinct learners with an active or completed certification enrollment"],
+                    ["Active learners in this period", summary.activeLearners, "Distinct learners who completed a lesson or graded assessment in the selected period"],
+                    ["Active certification enrollments", summary.enrollments, "A learner appears once for every active or completed certification enrollment"],
+                    ["Average completion (%)", summary.averageProgress, "Average progress across certification enrollments"],
+                    ["Completed enrollments", summary.completed, "Certification enrollments marked complete"],
+                    ["In-progress enrollments", summary.inProgress, "Active certification enrollments with progress"],
+                    ["Not-started enrollments", summary.notStarted, "Active certification enrollments with no progress"],
+                    ["Learners needing a check-in", summary.needingSupport, "Distinct learners at risk, inactive, or not started"],
+                    ["Graded attempts", summary.gradedAttempts, "Submitted assessments in the selected period"],
+                    ["Attempt pass rate (%)", summary.passRate, "Passed submitted assessments divided by all submitted assessments"],
+                    ["Attempt average score (%)", summary.averageScore, "Average score across submitted assessments"],
+                    ["Lessons completed", summary.lessonsCompleted, "Lessons completed in the selected period"],
+                    ["Licensed seats used", summary.seatsUsed, "Active certification seats currently in use"],
+                    ["Licensed seats available", summary.seatsTotal, "Active certification seats available to the institution"],
+                  ],
+                },
+                {
+                  title: "Certification capacity",
+                  columns: ["Certification", "Status", "Seats used", "Seats available", "Access starts", "Access ends", "Department seats assigned"],
+                  rows: certifications.map((cert) => [
+                    cert.title, cert.status, cert.seatsUsed, cert.totalSlots, cert.accessStartDate, cert.accessExpiryDate, cert.departmentSlots,
+                  ]),
+                },
+                {
+                  title: "Department performance",
+                  columns: ["Department", "Certification enrollments", "Average completion (%)", "Completed", "In progress", "Not started", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)"],
+                  rows: departmentRows.map((department) => [
+                    department.name, department.enrolled, department.averageProgress, department.completed, department.inProgress,
+                    department.notStarted, department.lessonsCompleted, department.gradedAttempts, department.passRate, department.averageScore,
+                  ]),
+                },
+                {
+                  title: "Learner certification enrollments",
+                  columns: ["Learner", "Certification", "Department", "Enrollment status", "Completion (%)", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)", "Last activity"],
+                  rows: enrollments.map((enrollment) => [
+                    enrollment.name, enrollment.certificationTitle, enrollment.departmentName ?? "Not in a department", enrollment.status,
+                    enrollment.progress, enrollment.lessonsCompleted, enrollment.gradedAttempts, enrollment.passRate, enrollment.averageScore,
+                    enrollment.lastActivityAt ?? "Never",
+                  ]),
+                },
+                {
+                  title: "Completion distribution",
+                  columns: ["Completion band", "Certification enrollments"],
+                  rows: progressBuckets.map((bucket) => [bucket.label, bucket.enrollments]),
+                },
+                {
+                  title: "Activity over time",
+                  columns: ["Period", "Active learners", "Graded attempts", "Lessons completed"],
+                  rows: (dashboard.trend ?? []).map((point) => [point.bucket, point.activeLearners, point.gradedAttempts, point.lessonsCompleted]),
+                },
+                {
+                  title: "Recent learner invitations (grouped by learner)",
+                  columns: ["Email", "Certification invitations", "Latest invitation status", "Latest invitation sent"],
+                  rows: recentInvitations.map((invitation) => [
+                    invitation.email, invitation.certificationCount, invitation.status, invitation.sentAt,
+                  ]),
+                },
               ]}
             />
           </div>
