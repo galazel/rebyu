@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
@@ -35,6 +35,48 @@ function memberStatus(member) {
     return { label: "In progress", className: "bg-amber-500 text-white" }
   }
   return { label: "Not taken", className: "bg-muted text-muted-foreground" }
+}
+
+/**
+ * A learner can occasionally be returned once for each matching membership record.
+ * Results should show a person once, preserving every distinct attempt they have made.
+ */
+function uniqueMembers(rawMembers) {
+  const byMember = new Map()
+
+  rawMembers.forEach((member, index) => {
+    const learnerKey = member.learnerId != null
+      ? `id:${member.learnerId}`
+      : member.email
+        ? `email:${String(member.email).trim().toLowerCase()}`
+        : `row:${index}`
+    const current = byMember.get(learnerKey)
+
+    if (!current) {
+      byMember.set(learnerKey, { ...member, attempts: member.attempts ?? [] })
+      return
+    }
+
+    const attempts = new Map()
+    for (const attempt of [...current.attempts, ...(member.attempts ?? [])]) {
+      const attemptKey = attempt.attemptId ?? `${attempt.attemptNumber}-${attempt.status}-${attempt.submittedAt ?? ""}`
+      attempts.set(attemptKey, attempt)
+    }
+    const currentBest = Number(current.bestPercentage)
+    const nextBest = Number(member.bestPercentage)
+    const bestPercentage = Number.isFinite(nextBest) && (!Number.isFinite(currentBest) || nextBest > currentBest)
+      ? member.bestPercentage
+      : current.bestPercentage
+
+    byMember.set(learnerKey, {
+      ...current,
+      attempts: [...attempts.values()],
+      passed: Boolean(current.passed || member.passed),
+      bestPercentage,
+    })
+  })
+
+  return [...byMember.values()]
 }
 
 function AttemptChip({ attempt, onOpen }) {
@@ -75,7 +117,29 @@ export default function InstitutionAssessmentResultsPage() {
     staleTime: 30_000,
   })
   const results = resultsQuery.data
-  const members = results?.members ?? []
+  const rawMembers = results?.members ?? []
+  const members = useMemo(() => uniqueMembers(rawMembers), [rawMembers])
+  const hasDuplicateMembers = members.length !== rawMembers.length
+  const metrics = useMemo(() => {
+    if (!hasDuplicateMembers) return results
+
+    const attemptedMembers = members.filter((member) =>
+      member.attempts.some((attempt) => attempt.status === "SUBMITTED")
+    )
+    const scores = members
+      .map((member) => Number(member.bestPercentage))
+      .filter(Number.isFinite)
+
+    return {
+      ...results,
+      memberCount: members.length,
+      attemptedCount: attemptedMembers.length,
+      passedCount: members.filter((member) => member.passed).length,
+      averageBestPercentage: scores.length
+        ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+        : null,
+    }
+  }, [hasDuplicateMembers, members, results])
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6">
@@ -117,18 +181,18 @@ export default function InstitutionAssessmentResultsPage() {
           Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-20 w-full" />)
         ) : results ? (
           <>
-            <StatTile label="Students" value={results.memberCount} />
+            <StatTile label="Students" value={metrics.memberCount} />
             <StatTile
               label="Took it"
-              value={results.attemptedCount}
-              hint={`${results.memberCount - results.attemptedCount} not yet`}
+              value={metrics.attemptedCount}
+              hint={`${metrics.memberCount - metrics.attemptedCount} not yet`}
             />
             <StatTile
               label="Passed"
-              value={results.passedCount}
-              hint={results.attemptedCount ? `${Math.round((results.passedCount / results.attemptedCount) * 100)}% of takers` : null}
+              value={metrics.passedCount}
+              hint={metrics.attemptedCount ? `${Math.round((metrics.passedCount / metrics.attemptedCount) * 100)}% of takers` : null}
             />
-            <StatTile label="Average best score" value={percent(results.averageBestPercentage)} />
+            <StatTile label="Average best score" value={percent(metrics.averageBestPercentage)} />
           </>
         ) : null}
       </div>
