@@ -60,6 +60,8 @@ public class CascadeDeleteService {
                     new SoftReference("learner_activity_progress", "learner_id"),
                     new SoftReference("learner_bank_cycles", "learner_id"),
                     new SoftReference("learner_reward_ledger", "learner_id"),
+                    new SoftReference("learner_reward_balances", "learner_id"),
+                    new SoftReference("bkt_event_outbox", "learner_id"),
                     new SoftReference("learner_skill_states", "learner_id"),
                     new SoftReference("lesson_dialogue_completions", "learner_id"),
                     new SoftReference("lesson_dialogue_sessions", "learner_id"),
@@ -78,6 +80,9 @@ public class CascadeDeleteService {
                     new SoftReference("live_teaching_sessions", "lesson_id")),
             "learner_library_items", List.of(
                     new SoftReference("learner_activity_progress", "library_item_id")),
+            "institutions", List.of(
+                    new SoftReference("institution_certificate_archives", "institution_id"),
+                    new SoftReference("institution_learner_records", "institution_id")),
             "users", List.of(
                     new SoftReference("user_activity_days", "user_id"),
                     new SoftReference("live_teaching_sessions", "user_id")),

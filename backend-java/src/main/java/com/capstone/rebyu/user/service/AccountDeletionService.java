@@ -53,7 +53,12 @@ public class AccountDeletionService {
         }
 
         if (userId != null) {
+            String email = jdbc.query("SELECT lower(email) FROM users WHERE user_id = ?",
+                    rs -> rs.next() ? rs.getString(1) : null, userId);
             cascade.delete("users", "user_id", userId);
+            if (email != null && !email.isBlank()) {
+                deleteRowsLinkedByEmail(email);
+            }
         }
 
         for (Long learnerId : learnerIds) {
@@ -80,6 +85,27 @@ public class AccountDeletionService {
         }
         log.info("Deleted user {} (learner ids {}, {} stored files, cognito sub {})",
                 userId, learnerIds, fileKeys.size(), cognitoSub == null ? "none" : "removed");
+    }
+
+    /**
+     * Rows tied to the person only by their email address, which no id walk can reach:
+     * department head invitations sent to it, and partnership requests it submitted that never
+     * became an institution (an approved one belongs to the institution and goes with it).
+     */
+    private void deleteRowsLinkedByEmail(String email) {
+        List<Long> invitations = jdbc.queryForList(
+                "SELECT department_head_invitation_id FROM department_head_invitations WHERE lower(email) = ?",
+                Long.class, email);
+        if (!invitations.isEmpty()) {
+            cascade.delete("department_head_invitations", "department_head_invitation_id", invitations);
+        }
+        List<Long> requests = jdbc.queryForList(
+                "SELECT request_id FROM partnership_requests "
+                        + "WHERE lower(institution_email) = ? AND institution_id IS NULL",
+                Long.class, email);
+        if (!requests.isEmpty()) {
+            cascade.delete("partnership_requests", "request_id", requests);
+        }
     }
 
     private List<String> attachmentKeysOf(Long learnerId) {
