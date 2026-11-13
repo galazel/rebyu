@@ -47,7 +47,7 @@ public class ChallengeStandingsService {
         for (int index = 0; index < standings.size() && index < size; index++) {
             Standing standing = standings.get(index);
             rows.add(new ChallengeLeaderboardRow(
-                    index + 1L,
+                    sharedRank(standings, index),
                     standing.name(),
                     standing.points(),
                     standing.completed(),
@@ -57,13 +57,25 @@ public class ChallengeStandingsService {
         return rows;
     }
 
+    /** Learners level on points and best score share a rank (1, 2, 2, 4), not an id-ordered one. */
+    private static long sharedRank(List<Standing> standings, int index) {
+        int first = index;
+        Standing standing = standings.get(index);
+        while (first > 0) {
+            Standing above = standings.get(first - 1);
+            if (above.points() != standing.points() || above.bestScore() != standing.bestScore()) break;
+            first--;
+        }
+        return first + 1L;
+    }
+
     public ChallengeRecord record(Long learnerId) {
         List<Standing> standings = standings(null);
         Long rank = null;
         Standing mine = null;
         for (int index = 0; index < standings.size(); index++) {
             if (standings.get(index).learnerId().equals(learnerId)) {
-                rank = index + 1L;
+                rank = sharedRank(standings, index);
                 mine = standings.get(index);
                 break;
             }

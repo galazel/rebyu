@@ -55,8 +55,9 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
     staleTime: 60_000,
   })
   const rows = Array.isArray(query.data) ? query.data : []
-  const top = [rows.find((r) => r.rank === 2), rows.find((r) => r.rank === 1), rows.find((r) => r.rank === 3)]
-  const rest = rows.filter((r) => r.rank > 3)
+  // Seats go by position (tied learners share a rank number, so two can both read "2").
+  const top = [rows[1], rows[0], rows[2]].map((row, i) => row && { ...row, place: [2, 1, 3][i] })
+  const rest = rows.slice(3)
 
   return (
     <section className="mt-12">
@@ -82,7 +83,7 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
           <div className="flex items-end justify-center gap-2 sm:gap-5" role="list" aria-label="Top three">
             {top.map((row, slot) =>
               row ? (
-                <PodiumSeat key={row.rank} row={row} index={slot} reduceMotion={reduceMotion} />
+                <PodiumSeat key={row.place} row={row} index={slot} reduceMotion={reduceMotion} />
               ) : (
                 <div key={`empty-${slot}`} style={{ width: BLOCK_W }} aria-hidden="true" />
               )
@@ -135,8 +136,8 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
 }
 
 function PodiumSeat({ row, index, reduceMotion }) {
-  const style = PODIUM[row.rank] ?? PODIUM[3]
-  const first = row.rank === 1
+  const style = PODIUM[row.place ?? row.rank] ?? PODIUM[3]
+  const first = (row.place ?? row.rank) === 1
   const height = BLOCK_H + style.depth
 
   return (
