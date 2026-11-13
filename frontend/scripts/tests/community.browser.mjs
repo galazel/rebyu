@@ -51,7 +51,7 @@ try {
   })
   await page.goto(server.resolvedUrls.local[0]+"__admin_mobile")
   await page.waitForSelector('#community-post-1')
-  for(const width of [320,390,768,1280]){
+  for(const width of [320,390,768,1280,1920]){
     await page.setViewport({width,height:900})
     for(const dark of [false,true]){
       await page.evaluate(dark=>document.documentElement.classList.toggle("dark",dark),dark)
@@ -61,12 +61,16 @@ try {
       assert.ok(Number(await page.$eval('.community-post h2',el=>getComputedStyle(el).fontWeight))<=500)
     }
   }
+  const railAligned = await page.evaluate(()=>Math.abs(document.querySelector('aside').getBoundingClientRect().right-document.querySelector('.community-layout').getBoundingClientRect().right)<2)
+  assert.equal(railAligned,true,"Community rail aligns with the right edge on wide screens")
   await page.setViewport({width:1280,height:1000})
   await page.evaluate(()=>{const spacer=document.createElement("div");spacer.id="scroll-test-content";spacer.style.height="1400px";document.querySelector('.community-feed').append(spacer)})
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))
   const beforeScroll=await page.evaluate(()=>({sidebar:document.querySelector('aside').getBoundingClientRect().top,window:scrollY}))
   const feedBounds=await page.$eval('.community-feed',el=>({x:el.getBoundingClientRect().x+100,y:el.getBoundingClientRect().y+180}))
   await page.mouse.move(feedBounds.x,feedBounds.y)
-  await page.mouse.wheel({deltaY:600})
+  await page.focus('.community-feed')
+  await page.keyboard.press('PageDown')
   await page.waitForFunction(()=>document.querySelector('.community-feed').scrollTop>100)
   const afterScroll=await page.evaluate(()=>({sidebar:document.querySelector('aside').getBoundingClientRect().top,window:scrollY}))
   assert.deepEqual(afterScroll,beforeScroll,"desktop feed scroll must leave side navigation and page in place")

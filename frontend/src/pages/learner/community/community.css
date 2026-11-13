@@ -23,8 +23,8 @@
 .community-page .community-composer-options .tg-btn { border-color: transparent; padding-inline: 10px !important; color: var(--muted-foreground); }
 .community-feed:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media(min-width:1280px) {
-  .community-layout { height: var(--community-pane-height, calc(100dvh - 8rem)); min-height: 0; overflow: hidden; }
-  .community-feed { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; -ms-overflow-style: none; }
+  .community-layout { max-width: none; grid-template-columns: minmax(0,1fr) 280px; height: var(--community-pane-height, calc(100dvh - 8rem)); min-height: 0; overflow: hidden; }
+  .community-feed { width: 100%; max-width: 800px; justify-self: center; height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; -ms-overflow-style: none; }
   .community-feed::-webkit-scrollbar { display: none; width: 0; height: 0; }
   .community-layout > aside { position: static; height: 100%; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
 }

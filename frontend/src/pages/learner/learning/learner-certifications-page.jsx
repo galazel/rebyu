@@ -49,8 +49,7 @@ function getCertificationDescription(certification) {
   )
 }
 
-// The original bubble card (a coloured cap with the certification's name as a
-// wordmark), kept in one green and with game-kit buttons.
+// Certification cards use a plain cap; the title appears once in the body.
 function CertificationCard({
                              certification,
                              enrolled,
@@ -69,7 +68,6 @@ function CertificationCard({
           cap="flat"
           body="card"
           icon={GraduationCap}
-          wordmark={getCertificationTitle(certification)}
           eyebrow={category}
           className="tg-cat-explain h-full"
           title={

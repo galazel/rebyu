@@ -41,11 +41,20 @@ public class LearnerToolsService {
             // The last finished round in this item, from the learner's saved progress.
             Integer scoreRight, Integer scoreTotal) {}
 
+    public record MistakeChoice(Long choiceId, String choiceText, String imageKey, boolean correct) {}
+
     public record Mistake(
             Long mistakeId, Long questionId, String question, String questionType, String difficulty,
             String certificationTitle, String lessonTitle, String attemptSource, String learnerAnswer,
             String correctAnswer, String explanation, long mistakeCount, String masteryStatus,
-            boolean reviewed, OffsetDateTime lastMistakeAt) {}
+            boolean reviewed, OffsetDateTime lastMistakeAt,
+            String questionImageKey, Long selectedChoiceId, List<MistakeChoice> choices) {
+        Mistake withChoices(List<MistakeChoice> options) {
+            return new Mistake(mistakeId, questionId, question, questionType, difficulty, certificationTitle,
+                    lessonTitle, attemptSource, learnerAnswer, correctAnswer, explanation, mistakeCount,
+                    masteryStatus, reviewed, lastMistakeAt, questionImageKey, selectedChoiceId, options);
+        }
+    }
 
     public List<LibraryItem> library(Long learnerId) {
         List<LibraryItem> items = new java.util.ArrayList<>(jdbc.query("""
@@ -156,10 +165,14 @@ public class LearnerToolsService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<Mistake> mistakes(Long learnerId) {
-        return jdbc.query("""
+        List<Mistake> mistakes = jdbc.query("""
                 SELECT aq.source_question_id question_id, min(aq.attempt_question_id) mistake_id,
                   aq.question_text_snapshot question, aq.question_type,
+                  (array_agg(coalesce(nullif(aq.question_data_snapshot, '')::jsonb ->> 'questionImageKey', q.image_key)
+                      ORDER BY a.submitted_at DESC, ans.attempt_answer_id DESC))[1] question_image_key,
+                  (array_agg(ans.selected_choice_id ORDER BY a.submitted_at DESC, ans.attempt_answer_id DESC))[1] selected_choice_id,
                   coalesce(q.difficulty_level, 'AVERAGE') difficulty,
                   cert.title certification_title, l.name lesson_title, e.title attempt_source,
                   (array_agg(coalesce(ans.learner_answer, ans.submitted_code, selected.choice_text, 'No answer submitted')
@@ -176,8 +189,10 @@ public class LearnerToolsService {
                 LEFT JOIN questions q ON q.question_id = aq.source_question_id
                 LEFT JOIN lessons l ON l.lesson_id = coalesce(aq.lesson_id, q.lesson_id)
                 LEFT JOIN choices selected ON selected.choice_id = ans.selected_choice_id
-                LEFT JOIN choices correct_choice
-                    ON correct_choice.question_id = aq.source_question_id AND correct_choice.is_correct = true
+                LEFT JOIN LATERAL (
+                    SELECT string_agg(c.choice_text, '; ' ORDER BY c.choice_id) choice_text
+                    FROM choices c WHERE c.question_id = aq.source_question_id AND c.is_correct = true
+                ) correct_choice ON true
                 LEFT JOIN text_question_configs tc ON tc.question_id = aq.source_question_id
                 LEFT JOIN learner_mistake_reviews mr
                     ON mr.learner_id = a.learner_id AND mr.source_question_id = aq.source_question_id
@@ -186,6 +201,16 @@ public class LearnerToolsService {
                          cert.title, l.name, e.title, tc.correct_answer, correct_choice.choice_text, mr.source_question_id
                 ORDER BY last_mistake_at DESC
                 """, this::mapMistake, learnerId);
+        if (mistakes.isEmpty()) return mistakes;
+        var choices = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc).query(
+                "SELECT question_id, choice_id, choice_text, image_key, is_correct FROM choices "
+                        + "WHERE question_id IN (:ids) ORDER BY choice_id",
+                java.util.Map.of("ids", mistakes.stream().map(Mistake::questionId).distinct().toList()),
+                (row, index) -> java.util.Map.entry(row.getLong("question_id"), new MistakeChoice(
+                        row.getLong("choice_id"), row.getString("choice_text"), row.getString("image_key"), row.getBoolean("is_correct"))));
+        var byQuestion = choices.stream().collect(java.util.stream.Collectors.groupingBy(java.util.Map.Entry::getKey,
+                java.util.stream.Collectors.mapping(java.util.Map.Entry::getValue, java.util.stream.Collectors.toList())));
+        return mistakes.stream().map(mistake -> mistake.withChoices(byQuestion.getOrDefault(mistake.questionId(), List.of()))).toList();
     }
 
     @Transactional
@@ -263,7 +288,9 @@ public class LearnerToolsService {
                 count,
                 count >= 2 ? "weak" : "developing",
                 row.getBoolean("reviewed"),
-                row.getObject("last_mistake_at", OffsetDateTime.class));
+                row.getObject("last_mistake_at", OffsetDateTime.class),
+                row.getString("question_image_key"),
+                (Long) row.getObject("selected_choice_id"), List.of());
     }
 
     private static String capitalize(String value) {

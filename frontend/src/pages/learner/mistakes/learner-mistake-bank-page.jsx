@@ -1,5 +1,5 @@
 import "./mistake-bank.css"
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -25,8 +25,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { LearnerEmptyState, LearnerErrorState } from "@/components/learner/learner-ui.jsx"
-import { Celebration, Confidence, ProgressBar } from "@/components/learner/tutor-game-kit.jsx"
+import { ProgressBar } from "@/components/learner/tutor-game-kit.jsx"
 import { getMistakes, setMistakeReviewed } from "@/services/learnerToolsService"
+import { AuthedImage } from "@/lib/authed-media.jsx"
 import ProGate from "@/components/learner/pro-gate.jsx"
 import { FEATURES } from "@/services/subscriptionService.js"
 
@@ -55,7 +56,22 @@ const misses = (mistake) => Number(mistake.mistakeCount ?? 1)
 const isRepeated = (mistake) => misses(mistake) >= REPEAT_THRESHOLD
 const lessonOf = (mistake) => mistake.lessonTitle || "Unassigned lesson"
 
+function selectedChoices(mistake) {
+  const ids = new Set(mistake.selectedChoiceId != null ? [Number(mistake.selectedChoiceId)] : [])
+  try { const values = JSON.parse(mistake.learnerAnswer); if (Array.isArray(values)) values.forEach(id => ids.add(Number(id))) } catch { /* Written answer. */ }
+  return (mistake.choices ?? []).filter(choice => ids.has(Number(choice.choiceId)))
+}
+
+function MistakeFigures({ mistake }) {
+  return <div className="mistake-figures">
+    <AuthedImage imageKey={mistake.questionImageKey} alt="Question reference" zoomable className="mx-auto max-h-96 w-auto rounded-lg border border-border bg-white" />
+    {(mistake.choices ?? []).length > 0 ? <ol className="mt-4 grid gap-2 sm:grid-cols-2" aria-label="Answer choices">{mistake.choices.map((choice, index) => <li key={choice.choiceId} className="min-w-0 rounded-lg border border-border p-3 text-sm text-foreground"><span className="mr-2 text-muted-foreground">{String.fromCharCode(65 + index)}.</span>{choice.choiceText}<AuthedImage imageKey={choice.imageKey} alt={`Choice ${String.fromCharCode(65 + index)}`} zoomable className="mx-auto mt-2 max-h-48 w-auto rounded border border-border bg-white" /></li>)}</ol> : null}
+  </div>
+}
+
 function AnswerPair({ mistake }) {
+  const selected = selectedChoices(mistake)
+  const correct = (mistake.choices ?? []).filter(choice => choice.correct)
   return (
     <>
       <div className="grid gap-2.5 sm:grid-cols-2">
@@ -64,19 +80,21 @@ function AnswerPair({ mistake }) {
             <XCircle className="size-3.5" aria-hidden="true" /> You answered
           </p>
           <p className="mt-1 break-words whitespace-pre-wrap text-sm text-foreground">
-            {mistake.learnerAnswer?.trim() || "No answer submitted"}
+            {selected.length ? selected.map(choice => choice.choiceText).filter(Boolean).join("; ") || "Image answer selected" : mistake.learnerAnswer?.trim() || "No answer submitted"}
           </p>
+          {selected.filter(choice => choice.imageKey).map(choice => <AuthedImage key={choice.choiceId} imageKey={choice.imageKey} alt="Your selected answer" zoomable className="mt-3 max-h-60 w-auto rounded-lg border bg-white" />)}
         </div>
         <div className="rounded-2xl bg-emerald-500/12 p-3 ring-1 ring-emerald-500/40">
           <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 className="size-3.5" aria-hidden="true" /> Correct answer
           </p>
-          <p className="mt-1 break-words whitespace-pre-wrap text-sm text-foreground">{mistake.correctAnswer}</p>
+          <p className="mt-1 break-words whitespace-pre-wrap text-sm text-foreground">{correct.length ? correct.map(choice => choice.choiceText).filter(Boolean).join("; ") || "See the correct image below" : mistake.correctAnswer}</p>
+          {correct.filter(choice => choice.imageKey).map(choice => <AuthedImage key={choice.choiceId} imageKey={choice.imageKey} alt="Correct answer image" zoomable className="mt-3 max-h-60 w-auto rounded-lg border bg-white" />)}
         </div>
       </div>
       {mistake.explanation ? (
         <div className="mt-2.5 rounded-2xl bg-[var(--tg-softer)] p-3 ring-1 ring-[var(--tg-line)]">
-          <p className="tg-kicker">Why</p>
+          <p className="tg-kicker">Explanation</p>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">{mistake.explanation}</p>
         </div>
       ) : null}
@@ -89,20 +107,28 @@ function ReviewSession({ queue, onMark, onClose }) {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [learned, setLearned] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
   const mistake = queue[index]
   const done = index >= queue.length
 
-  function next(gotIt) {
-    if (gotIt) {
-      setLearned((count) => count + 1)
-      onMark(mistake, true)
-    }
-    setRevealed(false)
-    setIndex((current) => current + 1)
+  async function next(gotIt) {
+    if (savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
+    try {
+      if (gotIt) {
+        await onMark(mistake, true)
+        setLearned(count => count + 1)
+      }
+      setRevealed(false)
+      setIndex(current => current + 1)
+    } catch { /* Keep this question open so the learner can retry saving. */ }
+    finally { savingRef.current = false; setSaving(false) }
   }
 
   return (
-    <section className={`tg-frame ${ACCENT}`} aria-label="Review your mistakes">
+    <section className={`mistake-review tg-frame ${ACCENT}`} aria-label="Review your mistakes">
       <header className="tg-head flex items-center gap-3 px-4 py-3 sm:px-5">
         <span className="tg-badge-icon"><Target className="size-4" aria-hidden="true" /></span>
         <span className="tg-kicker flex-1">Mistake review</span>
@@ -115,15 +141,7 @@ function ReviewSession({ queue, onMark, onClose }) {
 
       <div className="p-4 sm:p-6">
         {done ? (
-          <Celebration
-            right={learned}
-            total={queue.length}
-            noun="marked as learned"
-            detail={queue.length - learned ? `${queue.length - learned} still to practise` : null}
-            reviewable={false}
-            onRestart={onClose}
-            restartLabel="Back to the bank"
-          />
+          <div className="py-8 text-center"><h2 className="text-lg font-medium text-foreground">Review complete</h2><p className="mt-2 text-sm text-muted-foreground">{learned} marked as learned · {queue.length - learned} to review again</p><button type="button" onClick={onClose} className="tg-btn mt-5">Back to the bank</button></div>
         ) : (
           <>
             <p className="text-xs font-semibold text-muted-foreground">
@@ -134,10 +152,11 @@ function ReviewSession({ queue, onMark, onClose }) {
               {mistake.question}
             </h2>
 
+            <div className="mt-4"><MistakeFigures mistake={mistake} /></div>
             {revealed ? (
               <div className="mt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <AnswerPair mistake={mistake} />
-                <Confidence missLabel="Still shaky" hitLabel="Got it now" onMiss={() => next(false)} onHit={() => next(true)} />
+                <div className="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" className="tg-btn" disabled={saving} onClick={() => next(false)}>Review again</button><button type="button" className="tg-btn tg-btn-primary" disabled={saving} onClick={() => next(true)}>{saving ? "Saving…" : "Mark as learned"}</button></div>
               </div>
             ) : (
               <div className="mt-5 text-center">
@@ -192,7 +211,8 @@ function MistakeRow({ mistake, open, onToggle, onToggleReviewed, isPending }) {
 
       {open ? (
         <div className="animate-in fade-in px-3.5 pb-4 duration-200 sm:px-4 sm:pl-[3.75rem]">
-          <AnswerPair mistake={mistake} />
+          <MistakeFigures mistake={mistake} />
+          <div className="mt-4"><AnswerPair mistake={mistake} /></div>
           <div className="mt-3 flex justify-end">
             <button type="button" className={cn("tg-btn", !mistake.reviewed && "tg-btn-primary")} disabled={isPending} onClick={() => onToggleReviewed(mistake)}>
               {mistake.reviewed ? "Put back to review" : <><CheckCheck className="size-4" aria-hidden="true" /> Mark as learned</>}
@@ -346,7 +366,7 @@ function MistakeBankContent() {
     return <LearnerErrorState title="Could not load your mistake bank" error={mistakesQuery.error} onRetry={mistakesQuery.refetch} />
   }
 
-  const learnedPct = stats.questions ? Math.round((stats.reviewed / stats.questions) * 100) : 0
+  const learnedPct = stats.questions ? Number(((stats.reviewed / stats.questions) * 100).toFixed(1)) : 0
 
   return (
     <div className={`rb-hub mistake-bank space-y-6 ${ACCENT}`}>
@@ -363,7 +383,7 @@ function MistakeBankContent() {
       ) : session ? (
         <ReviewSession
           queue={session}
-          onMark={(mistake, reviewed) => reviewMutation.mutate({ questionId: mistake.questionId, reviewed, quiet: true })}
+          onMark={(mistake, reviewed) => reviewMutation.mutateAsync({ questionId: mistake.questionId, reviewed, quiet: true })}
           onClose={() => setSession(null)}
         />
       ) : (

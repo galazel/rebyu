@@ -29,9 +29,11 @@ try {
   const errors = []
   page.on("pageerror", (error) => errors.push(error.message))
   await page.setRequestInterception(true)
+  let failReviewSave = true
   page.on("request", (req) => {
     if (req.url().includes("/__fixture.svg")) return req.respond({status:200,contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500"><rect width="1200" height="500" fill="white"/><circle cx="600" cy="250" r="150" stroke="black" fill="green"/></svg>'})
     if (req.url().includes("/api/files/view-url")) return req.respond({status:200,contentType:"application/json",body:JSON.stringify({url:new URL("/__fixture.svg",req.url()).href})})
+    if (req.url().includes("/mistakes/") && req.method() === "PUT" && failReviewSave) { failReviewSave = false; return req.respond({status:500,contentType:"application/json",body:'{"message":"Temporary save failure"}'}) }
     if (!req.url().includes("/api/")) return req.continue()
     return req.respond({ status: 200, contentType: "application/json", body: "[]" })
   })
@@ -73,7 +75,14 @@ try {
       await page.evaluate(()=>[...document.querySelectorAll('button')].find(el=>el.textContent.includes("Start a review")).click())
       await page.waitForSelector('[aria-label="Review your mistakes"]')
       await page.evaluate(()=>[...document.querySelectorAll('button')].find(el=>el.textContent.includes("Show the answer")).click())
-      await page.waitForFunction(()=>document.body.textContent.includes("Got it now"))
+      await page.waitForFunction(()=>document.body.textContent.includes("Mark as learned"))
+      await page.waitForFunction(()=>[...document.querySelectorAll('[aria-label="Review your mistakes"] img')].filter(img=>img.naturalWidth>0).length>=5)
+      await page.screenshot({path:"scripts/tests/mistake-review-mobile.png",fullPage:true})
+      await page.evaluate(()=>[...document.querySelectorAll('[aria-label="Review your mistakes"] button')].find(el=>el.textContent.trim()==="Mark as learned").click())
+      await page.waitForFunction(()=>!document.body.textContent.includes("Saving…"))
+      assert.equal(await page.evaluate(()=>document.body.textContent.includes("Correct answer")),true,"failed save stays on the same question")
+      await page.evaluate(()=>[...document.querySelectorAll('[aria-label="Review your mistakes"] button')].find(el=>el.textContent.trim()==="Mark as learned").click())
+      await page.waitForFunction(()=>!document.body.textContent.includes("Correct answer"))
       await page.click('[aria-label="Close the review"]')
     }else if(route==="certifications/4"){
       await page.click('[data-slot="accordion-trigger"]')
@@ -87,6 +96,10 @@ try {
       await page.emulateMediaType('screen')
     }
   }
+  await goto("certifications")
+  await page.waitForSelector('.rb-bubble-card')
+  assert.equal(await page.$$eval('.rb-bubble-card span[aria-hidden="true"]',nodes=>nodes.some(node=>node.textContent.includes("IT Passport Exam"))),false,"certification cap has no title watermark")
+  assert.equal(await page.$eval('.rb-bubble-card',node=>node.textContent.includes("IT Passport Exam")),true,"normal title remains")
   await goto("recall-media")
   await page.setViewport({width:320,height:900})
   await page.waitForFunction(()=>[...document.images].filter(img=>img.naturalWidth>0).length>=4)

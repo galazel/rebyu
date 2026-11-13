@@ -3,7 +3,23 @@
   min-width: 0; border: 1px solid var(--border); border-radius: 16px;
   padding: clamp(16px, 2vw, 24px); background: var(--card);
 }
-.mistake-bank .mistake-summary { background: linear-gradient(120deg, var(--tg-softer), var(--card) 70%); }
+.mistake-bank .mistake-summary { background: var(--card); }
+.mistake-bank * { box-shadow: none !important; }
+.mistake-bank :is(h1,h2,h3,.font-rb-display) { font-family: var(--font-sans),sans-serif !important; letter-spacing: normal; }
+.mistake-bank :is(.font-semibold,.font-bold,.font-extrabold,.font-black) { font-weight: 500 !important; }
+.mistake-bank .tg-btn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--foreground); font-weight: 500; transform: none; }
+.mistake-bank .tg-btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.mistake-bank .tg-head { background: var(--card); }
+.mistake-bank .tg-head::after, .mistake-bank .tg-frame::after, .mistake-bank .tg-frame::before { display: none; }
+.mistake-bank .tg-kicker { font-size: 12px; letter-spacing: normal; text-transform: none; font-weight: 500; }
+.mistake-review { max-width: 1040px; margin-inline: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.mistake-review h2.rb-form-heading { background: var(--muted); padding: 16px; border-radius: 8px; font-size: 17px; line-height: 1.7; font-weight: 400 !important; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mistake-bank .tg-badge-icon { background: var(--muted); color: var(--muted-foreground); border: 0; }
+.mistake-bank .tg-progress { height: 3px; }
+.mistake-bank .tg-progress > span { background: var(--primary); }
+.mistake-bank .tg-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mistake-bank :is(input,textarea,button,[role="combobox"]):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mistake-figures { min-width: 0; }
 .mistake-summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .mistake-summary-heading > div { min-width: 0; max-width: 640px; }
 .mistake-summary-heading > button { flex-shrink: 0; }
