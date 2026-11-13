@@ -93,4 +93,65 @@ assert.equal(report[0].rows[0][1], "Ana")
 assert.ok(report.some((block) => block.title.startsWith("Assessments (one row each)")))
 assert.ok(hasData(report))
 
+// Rich learner analytics with student profile, behavior, plan, and attempt history
+const masteryTrend = [
+  { occurredAt: "2026-09-25T14:30:00", lessonId: 101, lessonTitle: "Network Security", previousMastery: 20, newMastery: 65, newMasteryLevel: "PRACTICED", assessmentType: "MODULE_EXAM" }
+]
+const richReport = learnerReportBlocks(
+  {
+    scoreTrend: trend,
+    masteryTrend,
+    completedLessonCount: 5,
+    totalLessonCount: 20,
+    highestPriorityTopicCount: 2,
+    bktAvailable: true,
+  },
+  {
+    student: {
+      name: "Juan Dela Cruz",
+      email: "juan@example.com",
+      learnerId: 42,
+      institution: "Technological University",
+      department: "College of Computing",
+      section: "BSIT-4A",
+    },
+    certification: { title: "IT Passport", code: "IT-PASS", certificationId: 13 },
+    behavior: {
+      weekStudyMinutes: 145,
+      focusConsistency: 92,
+      readingPace: "Steady",
+      challengeCompletions: 8,
+      rushEvents: 1,
+    },
+    plan: {
+      planTitle: "October Exam Sprint",
+      targetExamDate: "2026-10-30",
+      dailyGoalMinutes: 45,
+      status: "ACTIVE",
+    },
+  }
+)
+
+assert.ok(richReport.some((b) => b.title === "Summary"))
+assert.ok(richReport.some((b) => b.title === "Study plan & goals"))
+assert.ok(richReport.some((b) => b.title === "Study behavior & telemetry"))
+assert.ok(richReport.some((b) => b.title === "Assessment attempt history (all attempts)"))
+assert.ok(richReport.some((b) => b.title === "Mastery history trend"))
+
+const summaryBlock = richReport.find((b) => b.title === "Summary")
+const summaryMap = new Map(summaryBlock.rows)
+assert.equal(summaryMap.get("Learner"), "Juan Dela Cruz")
+assert.equal(summaryMap.get("Learner email"), "juan@example.com")
+assert.equal(summaryMap.get("Learner ID"), 42)
+assert.equal(summaryMap.get("Institution"), "Technological University")
+assert.equal(summaryMap.get("Certification ID"), 13)
+assert.equal(summaryMap.get("Highest priority topics"), 2)
+assert.equal(summaryMap.get("Mastery tracking active"), "Yes")
+
+const { buildXlsxWorkbook } = await import("./xlsx.js")
+const prepared = prepareExport("Learner progress analytics", richReport, [["Learner", "Juan Dela Cruz"]])
+const xlsxZip = buildXlsxWorkbook(prepared)
+assert.ok(xlsxZip.file("xl/workbook.xml"))
+assert.ok(xlsxZip.file("xl/styles.xml"))
+
 console.log("export-format: all checks passed")

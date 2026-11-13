@@ -2,7 +2,7 @@
 export const BUBBLE_TONES = {
   macaw: {
     accent: "linear-gradient(135deg, #1B6EF3, #1CB0F6)",
-    surface: "bg-rb-macaw-wash dark:bg-[#12283d]",
+    surface: "bg-rb-macaw-wash",
     flat: "#1CB0F6",
     ink: "text-rb-macaw-lip",
     chip: "bg-rb-macaw-wash text-rb-macaw-lip",
@@ -10,7 +10,7 @@ export const BUBBLE_TONES = {
   },
   beetle: {
     accent: "linear-gradient(135deg, #B061E6, #CE82FF)",
-    surface: "bg-rb-beetle-wash dark:bg-[#2a1f3a]",
+    surface: "bg-rb-beetle-wash",
     flat: "#CE82FF",
     ink: "text-rb-beetle-lip",
     chip: "bg-rb-beetle-wash text-rb-beetle-lip",
@@ -18,7 +18,7 @@ export const BUBBLE_TONES = {
   },
   fox: {
     accent: "linear-gradient(135deg, #E08600, #FF9600)",
-    surface: "bg-rb-fox-wash dark:bg-[#3a2a12]",
+    surface: "bg-rb-fox-wash",
     flat: "#FF9600",
     ink: "text-rb-fox-lip",
     chip: "bg-rb-fox-wash text-rb-fox-lip",
@@ -26,15 +26,15 @@ export const BUBBLE_TONES = {
   },
   bee: {
     accent: "linear-gradient(135deg, #248f4c, #47b96d)",
-    surface: "bg-rb-bee-wash dark:bg-[#12333a]",
+    surface: "bg-rb-bee-wash",
     flat: "#47b96d",
-    ink: "text-rb-bee-lip",
-    chip: "bg-rb-bee-wash text-rb-bee-lip",
+    ink: "text-rb-bee-ink",
+    chip: "bg-rb-bee-wash text-rb-bee-ink",
     solid: "#248f4c",
   },
   leaf: {
     accent: "linear-gradient(135deg, #3c6e46, #6aa676)",
-    surface: "bg-rb-leaf-wash dark:bg-[#1a2e1e]",
+    surface: "bg-rb-leaf-wash",
     flat: "#6aa676",
     ink: "text-rb-leaf-lip",
     chip: "bg-rb-leaf-wash text-rb-leaf-lip",
@@ -42,15 +42,15 @@ export const BUBBLE_TONES = {
   },
   feather: {
     accent: "linear-gradient(135deg, #0b6b45, #168a5b)",
-    surface: "bg-rb-feather-wash dark:bg-[#152744]",
+    surface: "bg-rb-feather-wash",
     flat: "#168a5b",
-    ink: "text-rb-feather-lip",
-    chip: "bg-rb-feather-wash text-rb-feather-lip",
+    ink: "text-rb-feather-ink",
+    chip: "bg-rb-feather-wash text-rb-feather-ink",
     solid: "#118a57",
   },
   cardinal: {
     accent: "linear-gradient(135deg, #E03D3D, #FF4B4B)",
-    surface: "bg-rb-cardinal-wash dark:bg-[#3a1c1c]",
+    surface: "bg-rb-cardinal-wash",
     flat: "#FF4B4B",
     ink: "text-rb-cardinal-lip",
     chip: "bg-rb-cardinal-wash text-rb-cardinal-lip",
@@ -96,7 +96,7 @@ export function BubbleCard({
         "--ring": palette.solid,
         "--rb-focus": palette.solid,
       }}
-      className={`group/bubble flex flex-col overflow-hidden rounded-rb-card border-2 text-left transition-colors ${
+      className={`group/bubble rb-bubble-card flex flex-col overflow-hidden rounded-rb-card border-2 text-left transition-colors ${
         surface
       } ${
         active
@@ -106,7 +106,7 @@ export function BubbleCard({
       {...props}
     >
       <div
-        className={`relative flex ${capHeight} shrink-0 items-center justify-center overflow-hidden [container-type:inline-size]`}
+        className={`relative flex ${capHeight} shrink-0 items-center justify-center overflow-hidden [container-type:inline-size] dark:brightness-95`}
         style={{ background: capFace }}
       >
         {(leftChips.length > 0 || rightChips.length > 0) && (
@@ -115,7 +115,7 @@ export function BubbleCard({
               {leftChips.map((chip) => (
                 <span
                   key={chip.label}
-                  className="rounded-rb-pill bg-white/90 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-rb-eel backdrop-blur-sm"
+                  className="rounded-rb-pill bg-white/95 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-[#123126] backdrop-blur-sm dark:border dark:border-white/15 dark:bg-[#171c19]/85 dark:text-[#ece6d8]"
                 >
                   {chip.label}
                 </span>

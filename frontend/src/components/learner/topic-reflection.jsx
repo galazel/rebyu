@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { PortalThemeToggle } from "@/components/portal-theme-toggle"
 import { Collapse, Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 import { submitTopicReflection } from "@/services/reflectionService.js"
 
@@ -66,7 +67,7 @@ function Header({ position, total, title, backTo, onOpenOutline, outlineHidden }
             onClick={onOpenOutline}
             aria-label="Open topic outline"
             title="Topic outline"
-            className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
+            className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-rb-snow text-rb-eel transition hover:bg-rb-polar active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
           >
             <PanelLeft className="size-5" aria-hidden="true" />
           </button>
@@ -79,14 +80,17 @@ function Header({ position, total, title, backTo, onOpenOutline, outlineHidden }
             {title}
           </h1>
         </div>
-        {backTo ? (
-          <TactileButton asChild variant="feather" size="sm" className="shrink-0">
-            <Link to={backTo} aria-label="Back to curriculum">
-              <span className="hidden sm:inline">back to curriculum</span>
-              <span className="sm:hidden">curriculum</span>
-            </Link>
-          </TactileButton>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          <PortalThemeToggle className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-rb-snow text-rb-eel shadow-[0_2px_0_var(--color-rb-swan)] transition hover:bg-rb-polar active:translate-y-px" />
+          {backTo ? (
+            <TactileButton asChild variant="feather" size="sm" className="shrink-0">
+              <Link to={backTo} aria-label="Back to curriculum">
+                <span className="hidden sm:inline">back to curriculum</span>
+                <span className="sm:hidden">curriculum</span>
+              </Link>
+            </TactileButton>
+          ) : null}
+        </div>
       </div>
     </div>
   )

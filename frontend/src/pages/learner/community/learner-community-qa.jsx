@@ -122,6 +122,7 @@ const FEED_TAB_ICONS = {
     flashcard: Layers,
     activity: Sparkles,
     mindmap: Network,
+    reviewer: FileText,
     circle: UsersRound,
 }
 
@@ -870,6 +871,7 @@ export default function Community() {
 
     function selectFeedTab(value) {
         setShowSavedOnly(false)
+        setActiveCircleId(null)
         setActiveTab(value)
     }
 
@@ -1243,37 +1245,77 @@ export default function Community() {
         <div className="rb-hub rb-plain tg-cat-explain space-y-5">
             <LearnerPageHeader title="Community" />
 
-            <div className="sticky top-16 z-20 -mx-3 border-b border-border bg-background/95 px-3 pb-3 pt-2 backdrop-blur sm:-mx-5 sm:px-5 md:top-0 xl:hidden">
-                <div className="mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            {FEED_TABS.map((tab, index) => {
-                                    const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
+            <div className="sticky top-16 z-20 -mx-3 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 lg:-mx-6 xl:hidden">
+                <div
+                    role="tablist"
+                    aria-label="Community feed options"
+                    className="flex w-full items-center gap-2 overflow-x-auto overscroll-x-contain px-3.5 py-2.5 [scrollbar-width:none] sm:px-5 [&::-webkit-scrollbar]:hidden"
+                >
+                    {FEED_TABS.map((tab) => {
+                        const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
+                        const isActive = !showSavedOnly && !activeCircleId && activeTab === tab.value
 
-                                return (
-                                    <button
-                                        key={tab.value}
-                                        type="button"
-                                        onClick={() => selectFeedTab(tab.value)}
-                                        className={`tg-btn shrink-0 !rounded-full ${!showSavedOnly && activeTab === tab.value ? "tg-btn-primary" : ""}`}
-                                    >
-                                        <Icon className="size-4" />
-                                        {tab.label}
-                                    </button>
-                                )
-                            })}
-                        <button
-                            type="button"
-                            className={`tg-btn shrink-0 !rounded-full ${showSavedOnly ? "tg-btn-primary" : ""}`}
-                            onClick={() => {
-                                setShowSavedOnly((current) => !current)
-                            }}
-                        >
-                            <Bookmark className={`size-4 ${showSavedOnly ? "fill-current" : ""}`} />
-                            Saved ({savedCount})
-                        </button>
-                        <button type="button" className="tg-btn tg-btn-primary ml-auto shrink-0 !rounded-full" onClick={() => setCreateCircleOpen(true)}>
-                            <UsersRound className="size-4" aria-hidden="true" />
-                            Create a circle
-                        </button>
+                        return (
+                            <button
+                                key={tab.value}
+                                type="button"
+                                role="tab"
+                                aria-selected={isActive}
+                                onClick={(event) => {
+                                    selectFeedTab(tab.value)
+                                    event.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+                                }}
+                                className={`group inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold tracking-tight transition-all active:scale-95 ${
+                                    isActive
+                                        ? "border border-transparent bg-[var(--tg,#10b981)] text-white shadow-xs"
+                                        : "border border-border/80 bg-card text-muted-foreground hover:border-[var(--tg-line)] hover:bg-[var(--tg-softer)] hover:text-foreground"
+                                }`}
+                            >
+                                <Icon className={`size-3.5 shrink-0 transition-colors ${isActive ? "text-white" : "text-muted-foreground group-hover:text-foreground"}`} aria-hidden="true" />
+                                <span className="whitespace-nowrap">{tab.label}</span>
+                            </button>
+                        )
+                    })}
+
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={showSavedOnly}
+                        onClick={(event) => {
+                            setActiveCircleId(null)
+                            setShowSavedOnly((current) => !current)
+                            event.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+                        }}
+                        className={`group inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold tracking-tight transition-all active:scale-95 ${
+                            showSavedOnly
+                                ? "border border-transparent bg-[var(--tg,#10b981)] text-white shadow-xs"
+                                : "border border-border/80 bg-card text-muted-foreground hover:border-[var(--tg-line)] hover:bg-[var(--tg-softer)] hover:text-foreground"
+                        }`}
+                    >
+                        <Bookmark className={`size-3.5 shrink-0 ${showSavedOnly ? "fill-current text-white" : "text-muted-foreground group-hover:text-foreground"}`} aria-hidden="true" />
+                        <span className="whitespace-nowrap">Saved</span>
+                        {savedCount > 0 ? (
+                            <span
+                                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                                    showSavedOnly
+                                        ? "bg-white/25 text-white"
+                                        : "bg-muted text-muted-foreground"
+                                }`}
+                            >
+                                {savedCount}
+                            </span>
+                        ) : null}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setCreateCircleOpen(true)}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--tg,#10b981)]/80 bg-[var(--tg-softer)]/50 px-3 py-1.5 text-xs font-semibold text-[var(--tg-ink)] transition-all hover:border-[var(--tg,#10b981)] hover:bg-[var(--tg-softer)] active:scale-95"
+                        title="Create study circle"
+                    >
+                        <Plus className="size-3.5 text-[var(--tg,#10b981)]" aria-hidden="true" />
+                        <span className="whitespace-nowrap">New circle</span>
+                    </button>
                 </div>
             </div>
 

@@ -152,7 +152,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
   const doneCount = todaysEvents.filter(isDone).length
 
   return (
-    <BentoTile col={3} row={2} className="!p-0">
+    <BentoTile col={3} row={3} className="!p-0">
       <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <BentoHeading
@@ -172,7 +172,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
             <button
               type="button"
               onClick={() => navigate("/learner/plan")}
-              className="mt-0.5 shrink-0 text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80"
+              className="mt-0.5 shrink-0 whitespace-nowrap text-xs font-semibold text-primary underline decoration-dotted underline-offset-4 hover:text-primary/80"
             >
               view calendar
             </button>
@@ -216,7 +216,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
                 >
                   <span
                     className={`grid size-9 shrink-0 place-items-center rounded-xl ${
-                      done ? "bg-rb-feather text-white" : meta.tone
+                      done ? "bg-rb-feather text-primary-foreground" : meta.tone
                     }`}
                   >
                     {done ? <Check className="size-4" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}

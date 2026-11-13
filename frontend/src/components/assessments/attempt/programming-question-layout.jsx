@@ -92,7 +92,7 @@ export default function ProgrammingQuestionLayout({
       type="button"
       onClick={execute}
       disabled={running || editingLocked}
-      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-rb-feather px-3 text-xs font-extrabold text-white shadow-[0_2px_0_var(--color-rb-feather-lip)] transition hover:bg-rb-feather-lip active:translate-y-[2px] active:shadow-none disabled:opacity-60"
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-rb-feather px-3 text-xs font-extrabold text-white shadow-[0_2px_0_var(--color-rb-feather-lip)] transition hover:bg-rb-feather-lip active:translate-y-[2px] active:shadow-none disabled:opacity-60 dark:text-[#10151a]"
     >
       {running ? (
         <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />

@@ -531,14 +531,14 @@ function SnipViewer({ picture, quote, onClose }) {
           src={picture}
           alt="The part of the lesson asked about"
           onClick={(event) => event.stopPropagation()}
-          className="max-h-[80vh] max-w-[92vw] cursor-default rounded-lg bg-white object-contain shadow-2xl"
+          className="tg-media-img-paper max-h-[80vh] max-w-[92vw] cursor-default rounded-lg object-contain p-1.5 shadow-2xl"
         />
       ) : null}
       {/* A snip shows exactly the area that was snipped; its extracted text is for the tutor only. */}
       {quote && !picture ? (
         <blockquote
           onClick={(event) => event.stopPropagation()}
-          className="max-h-[30vh] max-w-2xl cursor-default overflow-y-auto rounded-lg bg-white px-4 py-3 text-sm italic leading-6 text-rb-eel shadow-2xl"
+          className="max-h-[30vh] max-w-2xl cursor-default overflow-y-auto rounded-lg border border-border bg-card px-4 py-3 text-sm italic leading-6 text-foreground shadow-2xl"
         >
           {quote}
         </blockquote>
@@ -547,7 +547,7 @@ function SnipViewer({ picture, quote, onClose }) {
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
+        className="absolute right-4 top-4 rounded-full border border-border bg-card/95 px-3 py-1.5 text-sm font-bold text-foreground shadow-lg transition hover:bg-card"
       >
         close
       </button>
@@ -574,7 +574,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           <img
             src={picture}
             alt="The part of the lesson asked about"
-            className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+            className="tg-media-img-paper max-h-40 w-auto max-w-full rounded-lg border border-white/40 object-contain"
           />
           <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">
             click to enlarge
@@ -585,11 +585,11 @@ function SnippetPreview({ snippet, onDark = false }) {
           imageKey={snippet.imageKey}
           alt="The part of the lesson asked about"
           zoomable
-          className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+          className="tg-media-img-paper max-h-40 w-auto max-w-full rounded-lg border border-white/40 object-contain"
           placeholderClassName="h-24 w-40 rounded-lg"
         />
       ) : snippet.image ? (
-        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${onDark ? "text-white/85" : "text-muted-foreground"}`}>
+        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${onDark ? "text-white/85 dark:text-[#10151a]/80" : "text-muted-foreground"}`}>
           <ImageIcon className="size-3.5" aria-hidden="true" />
           A snipped part of the lesson
         </span>
@@ -599,7 +599,7 @@ function SnippetPreview({ snippet, onDark = false }) {
           type="button"
           onClick={() => setOpen(true)}
           title="Show the full text"
-          className={`line-clamp-3 cursor-zoom-in border-l-2 pl-2 text-left text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-[var(--tg)] text-muted-foreground"}`}
+          className={`line-clamp-3 cursor-zoom-in border-l-2 pl-2 text-left text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90 dark:border-[#10151a]/45 dark:text-[#10151a]/90" : "border-[var(--tg)] text-muted-foreground"}`}
         >
           {snippet.quote}
         </button>
@@ -641,14 +641,14 @@ export function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLas
               <BubbleContent
                   className={
                     isLearner
-                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-[var(--tg)] !px-4 !py-2.5 !text-white !shadow-[0_2px_0_color-mix(in_oklab,var(--tg)_55%,#000)]`
+                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-[var(--tg)] !px-4 !py-2.5 !text-white dark:!text-[#10151a] !shadow-[0_2px_0_color-mix(in_oklab,var(--tg)_55%,#000)]`
                       : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-foreground !shadow-none"
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
                 {safety ? (safety.kind ? <TutorSafetyCard kind={safety.kind} /> : null) : message.text ? <div className={`text-[15px] leading-7 tracking-[0.002em] ${
                   isLearner
-                    ? "font-medium text-white"
+                    ? "font-medium text-white dark:text-[#10151a]"
                     : "font-normal text-foreground [&_strong]:font-extrabold [&_strong]:text-[var(--tg-ink)] [&_code]:rounded [&_code]:bg-[var(--tg-softer)] [&_code]:px-1 [&_a]:font-semibold [&_a]:text-[var(--tg-ink)] [&_a]:underline"
                 } [&_ol]:my-2.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-2.5 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5`}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -1260,7 +1260,7 @@ export function LessonAiTutor({
                     <img
                         src={attachment.image}
                         alt="Snipped part of the lesson"
-                        className="h-14 w-20 shrink-0 rounded-md border border-[var(--tg-line)] bg-white object-contain"
+                        className="tg-media-img-paper h-14 w-20 shrink-0 rounded-md border border-[var(--tg-line)] object-contain"
                     />
                 ) : (
                     <span className="tg-badge-icon !size-8 !rounded-lg">

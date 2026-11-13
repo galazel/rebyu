@@ -63,7 +63,7 @@ export function ChallengeRail({ certificationId }) {
       >
         <arena.icon className="size-5" />
       </motion.span>
-      <span className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-lg bg-rb-eel px-2.5 py-1 text-xs font-bold text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 lg:block">
+      <span className="pointer-events-none absolute left-full ml-3 hidden whitespace-nowrap rounded-lg bg-rb-eel px-2.5 py-1 text-xs font-bold text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 dark:border dark:border-rb-swan dark:bg-[#1e2521] dark:text-[#ece6d8] lg:block">
         {arena.name}
       </span>
     </Link>
@@ -74,7 +74,7 @@ export function ChallengeRail({ certificationId }) {
       {/* Desktop: stays at the left of the path while scrolling */}
       <div className="pointer-events-none sticky top-24 z-30 hidden h-0 lg:block" aria-label="Challenges for this certification">
         <div className="pointer-events-auto absolute left-6 flex flex-col items-center gap-3 xl:left-8">
-          <span className="rounded-full bg-rb-eel px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-full bg-rb-eel px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white dark:border dark:border-rb-swan dark:bg-[#1e2521] dark:text-[#ece6d8]">
             Challenges
           </span>
           {buttons}

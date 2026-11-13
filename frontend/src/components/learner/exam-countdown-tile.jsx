@@ -98,7 +98,7 @@ export function ExamCountdownBody({ certificationId }) {
 
 export function ExamCountdownTile({ certificationId }) {
   return (
-    <BentoTile col={3} row={2}>
+    <BentoTile col={2} row={3}>
       <BentoHeading icon={CalendarDays} kicker="Exam Day" title="Exam countdown" />
       <ExamCountdownBody certificationId={certificationId} />
     </BentoTile>

@@ -4,6 +4,7 @@ import {
   AwardIcon,
   BookOpenIcon,
   CalendarDays,
+  ChevronDownIcon,
   CrownIcon,
   LibraryBig,
   LogOutIcon,
@@ -19,6 +20,12 @@ import { BrandLogo } from "@/components/brand-logo"
 import { AiUsageSummary } from "@/components/learner/ai-usage.jsx"
 import { NavProjects } from "@/components/nav-projects"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { cn } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,6 +106,23 @@ export function LearnerAppSidebar({
       ? "Pro learner"
       : "Free learner"
 
+  const [aiUsageOpen, setAiUsageOpen] = React.useState<boolean>(() => {
+    try {
+      return localStorage.getItem("rebyu:sidebar:ai-usage-expanded") === "true"
+    } catch {
+      return false
+    }
+  })
+
+  const toggleAiUsage = React.useCallback((nextOpen: boolean) => {
+    setAiUsageOpen(nextOpen)
+    try {
+      localStorage.setItem("rebyu:sidebar:ai-usage-expanded", String(nextOpen))
+    } catch {
+      // ignore
+    }
+  }, [])
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="h-16 shrink-0 flex-row items-center border-b border-sidebar-border p-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
@@ -128,16 +152,42 @@ export function LearnerAppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="shrink-0 border-t border-sidebar-border p-2">
-        <div className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+        <Collapsible
+          open={aiUsageOpen}
+          onOpenChange={toggleAiUsage}
+          className="rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-2.5 group-data-[collapsible=icon]:hidden"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold">AI usage</span>
-            <NavLink to="/learner/subscription" aria-label={planLabel} className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left text-xs font-semibold text-sidebar-foreground hover:text-foreground transition-colors cursor-pointer select-none"
+                aria-label={aiUsageOpen ? "Collapse AI usage details" : "Expand AI usage details"}
+                title={aiUsageOpen ? "Collapse AI usage details" : "Expand AI usage details"}
+              >
+                <ChevronDownIcon
+                  className={cn(
+                    "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                    !aiUsageOpen && "-rotate-90"
+                  )}
+                  aria-hidden="true"
+                />
+                <span className="truncate">AI usage</span>
+              </button>
+            </CollapsibleTrigger>
+            <NavLink
+              to="/learner/subscription"
+              aria-label={planLabel}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+            >
               <CrownIcon className="size-3.5" />
               {entitlements.institutionalActive ? "Institution" : entitlements.personalProActive ? "Pro" : "Free"}
             </NavLink>
           </div>
-          <AiUsageSummary className="mt-2 border-0 bg-transparent p-0" showHeading={false} compact />
-        </div>
+          <CollapsibleContent className="overflow-hidden transition-all">
+            <AiUsageSummary className="mt-2.5 border-0 bg-transparent p-0" showHeading={false} compact />
+          </CollapsibleContent>
+        </Collapsible>
         <SidebarMenu>
           <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
             <SidebarMenuButton asChild tooltip={planLabel} className="group-data-[collapsible=icon]:p-0!">

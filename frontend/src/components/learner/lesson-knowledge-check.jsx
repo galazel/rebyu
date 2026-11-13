@@ -245,10 +245,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       <AlertDialogContent
         data-no-snip
         className={cn(
-          "max-h-[calc(100dvh-2rem)]",
+          "tg-cat-explain max-h-[calc(100dvh-2rem)] border border-[var(--tg-line)] bg-card text-foreground",
           phase === "playing" || phase === "submitting" || phase === "result"
-            ? "flex h-[min(36rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-white p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] sm:max-w-[46rem]"
-            : null,
+            ? "flex h-[min(36rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-rb-snow p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_90px_-24px_rgba(0,0,0,0.75)] sm:max-w-[46rem]"
+            : "rounded-[24px] p-6 shadow-[0_24px_64px_-24px_rgba(16,62,48,0.45)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.75)]",
         )}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
@@ -256,11 +256,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         {phase === "error" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogMedia className="bg-amber-100 text-amber-700">
+              <AlertDialogMedia className="rounded-2xl bg-rb-fox-wash text-rb-fox-lip ring-1 ring-rb-fox/30">
                 <AlertTriangle aria-hidden="true" />
               </AlertDialogMedia>
-              <AlertDialogTitle>Could not run the challenge</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="text-foreground">Could not run the challenge</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
                 {error?.response?.data?.message ?? error?.message ?? "Something went wrong building your questions."}
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -273,10 +273,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
           <ResultScreen result={result} onDone={() => { onComplete?.(result); onDismiss?.() }} onReadAgain={onReadAgain ? () => { onComplete?.(result); onDismiss?.(); onReadAgain() } : null} />
         ) : phase === "playing" || phase === "submitting" ? (
           <>
-            <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,rgba(239,250,244,0.96),rgba(255,255,255,1)_58%)] px-5 pb-5 pt-5 text-left sm:px-8 sm:pb-6 sm:pt-7">
+            <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,var(--tg-soft),var(--card)_62%)] px-5 pb-5 pt-5 text-left sm:px-8 sm:pb-6 sm:pt-7">
               <div className="flex w-full items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="grid size-10 place-items-center rounded-2xl bg-rb-leaf text-white shadow-[0_8px_18px_-10px_rgba(31,132,91,0.9)]">
+                  <span className="grid size-10 place-items-center rounded-2xl bg-rb-leaf text-white shadow-[0_8px_18px_-10px_rgba(31,132,91,0.9)] dark:text-[#10151a]">
                     <Zap className="size-[18px]" aria-hidden="true" />
                   </span>
                   <div>
@@ -286,7 +286,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                     </AlertDialogTitle>
                   </div>
                 </div>
-                <span className="rounded-full border border-rb-swan bg-white/90 px-3 py-1.5 text-xs font-bold tabular-nums text-rb-eel shadow-sm">
+                <span className="rounded-full border border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold tabular-nums text-rb-eel shadow-sm">
                   {index + 1} <span className="font-medium text-rb-wolf">of {total}</span>
                 </span>
               </div>
@@ -333,14 +333,14 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                                 ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                                 : selected
                                   ? "border-rb-leaf bg-rb-leaf-wash text-rb-eel shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-leaf)_16%,transparent)]"
-                                  : "border-rb-swan bg-white text-rb-eel hover:border-rb-leaf/50 hover:bg-rb-polar",
+                                  : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-leaf/50 hover:bg-rb-polar dark:bg-[#1b221e]",
                             revealed && !isRight && !isWrong && "opacity-60",
                           )}
                         >
                           <span
                             className={cn(
                               "grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold",
-                              isRight ? "bg-rb-leaf text-white" : isWrong ? "bg-rb-cardinal text-white" : selected ? "bg-rb-leaf text-white" : "bg-rb-polar text-rb-wolf group-hover:bg-rb-leaf-wash group-hover:text-rb-leaf-lip",
+                              isRight ? "bg-rb-leaf text-white dark:text-[#10151a]" : isWrong ? "bg-rb-cardinal text-white dark:text-[#10151a]" : selected ? "bg-rb-leaf text-white dark:text-[#10151a]" : "bg-rb-polar text-rb-wolf group-hover:bg-rb-leaf-wash group-hover:text-rb-leaf-lip dark:bg-[#28312c]",
                             )}
                           >
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
@@ -437,11 +437,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         ) : (
           <>
             <AlertDialogHeader>
-              <AlertDialogMedia className="bg-rb-leaf-wash text-rb-leaf-lip">
+              <AlertDialogMedia className="rounded-2xl bg-[var(--tg-soft)] text-[var(--tg-ink)] ring-1 ring-[var(--tg-line)]">
                 <Zap aria-hidden="true" />
               </AlertDialogMedia>
-              <AlertDialogTitle>Quick focus check</AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle className="font-rb-display text-xl font-extrabold text-foreground">Quick focus check</AlertDialogTitle>
+              <AlertDialogDescription className="text-[15px] leading-relaxed text-muted-foreground">
                 You moved through this lesson quickly. Before continuing, take{" "}
                 {count} quick {count === 1 ? "question" : "questions"} about the material you just passed.
                 You can begin when you are ready.
@@ -449,9 +449,9 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogHeader>
 
             {sources.length > 0 ? (
-              <div className="rounded-lg border border-rb-swan bg-rb-polar px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rb-wolf">Lesson</p>
-                <p className="mt-1.5 text-sm leading-6 text-rb-eel">{sources.join(" · ")}</p>
+              <div className="rounded-xl border border-rb-swan bg-rb-polar px-4 py-3">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-rb-wolf">Lesson</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-rb-eel">{sources.join(" · ")}</p>
               </div>
             ) : null}
 
@@ -481,16 +481,16 @@ export function SkimWarningDialog({ open, onContinue, onReadAgain }) {
   return (
     <AlertDialog open={open}>
       <AlertDialogContent
-        className="max-w-md rounded-[24px] border-rb-swan bg-white shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)]"
+        className="tg-cat-explain max-w-md rounded-[24px] border border-[var(--tg-line)] bg-rb-snow p-6 text-foreground shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.75)]"
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
       >
         <AlertDialogHeader>
-          <AlertDialogMedia className="bg-amber-100 text-amber-700">
+          <AlertDialogMedia className="rounded-2xl bg-rb-fox-wash text-rb-fox-lip ring-1 ring-rb-fox/30">
             <AlertTriangle aria-hidden="true" />
           </AlertDialogMedia>
-          <AlertDialogTitle>Take a moment with this lesson</AlertDialogTitle>
-          <AlertDialogDescription className="leading-6">
+          <AlertDialogTitle className="font-rb-display text-xl font-extrabold text-foreground">Take a moment with this lesson</AlertDialogTitle>
+          <AlertDialogDescription className="leading-6 text-muted-foreground">
             You have already completed the focus check for this lesson. Moving through it quickly again may make key ideas easier to miss.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -513,7 +513,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
 
   return (
     <>
-      <AlertDialogHeader className="shrink-0 border-b border-rb-swan/80 bg-rb-snow/55 px-5 py-5 sm:px-8 sm:py-6">
+      <AlertDialogHeader className="shrink-0 border-b border-rb-swan/80 bg-[linear-gradient(118deg,var(--tg-soft),var(--card)_62%)] px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex items-start gap-3">
           <AlertDialogMedia className={cn("shrink-0", passed ? "bg-rb-leaf-wash text-rb-leaf-lip" : "bg-rb-fox-wash text-rb-fox-lip")}>
             <Trophy aria-hidden="true" />
@@ -576,7 +576,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
         })}
       </ol>
 
-      <AlertDialogFooter className="shrink-0 border-t border-rb-swan/80 bg-white px-5 py-4 sm:justify-between sm:px-8 sm:py-5">
+      <AlertDialogFooter className="shrink-0 border-t border-rb-swan/80 bg-rb-polar/70 px-5 py-4 sm:justify-between sm:px-8 sm:py-5">
         {onReadAgain ? (
           <Button variant={perfect || passed ? "outline" : "default"} onClick={onReadAgain}>
             Read the lesson again

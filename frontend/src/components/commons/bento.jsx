@@ -1,15 +1,13 @@
 
 const TILE_TONES = {
   plain: "border-border bg-card text-foreground",
-  macaw: "border-rb-macaw/30 bg-rb-macaw-wash text-rb-eel dark:bg-[#12283d] dark:text-rb-snow",
-  beetle: "border-rb-beetle/30 bg-rb-beetle-wash text-rb-eel dark:bg-[#2a1f3a] dark:text-rb-snow",
-  fox: "border-rb-fox/30 bg-rb-fox-wash text-rb-eel dark:bg-[#3a2a12] dark:text-rb-snow",
-  leaf: "border-rb-leaf/30 bg-rb-leaf-wash text-rb-eel dark:bg-[#1e2e14] dark:text-rb-snow",
-  bee: "border-rb-bee/30 bg-rb-bee-wash text-rb-eel dark:bg-[#12333a] dark:text-rb-snow",
-  feather:
-    "border-rb-feather/30 bg-rb-feather-wash text-rb-eel dark:bg-[#152744] dark:text-rb-snow",
-  cardinal:
-    "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-eel dark:bg-[#3a1618] dark:text-rb-snow",
+  macaw: "border-rb-macaw/30 bg-rb-macaw-wash text-rb-eel",
+  beetle: "border-rb-beetle/30 bg-rb-beetle-wash text-rb-eel",
+  fox: "border-rb-fox/30 bg-rb-fox-wash text-rb-eel",
+  leaf: "border-rb-leaf/30 bg-rb-leaf-wash text-rb-eel",
+  bee: "border-rb-bee/30 bg-rb-bee-wash text-rb-eel",
+  feather: "border-rb-feather/30 bg-rb-feather-wash text-rb-eel",
+  cardinal: "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-eel",
   ink: "border-rb-eel bg-rb-eel text-rb-snow",
 }
 
@@ -18,8 +16,10 @@ const TONE_INK = {
   macaw: "text-rb-macaw-lip",
   beetle: "text-rb-beetle-lip",
   fox: "text-rb-fox-lip",
-  bee: "text-rb-bee-lip",
-  feather: "text-rb-feather-lip",
+  leaf: "text-rb-leaf-lip",
+  bee: "text-rb-bee-ink",
+  feather: "text-rb-feather-ink",
+  cardinal: "text-rb-cardinal-lip",
   ink: "text-rb-hare",
 }
 
@@ -115,7 +115,7 @@ export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label,
       <div className="flex items-start justify-between gap-3">
         <p className={`text-sm font-bold ${TONE_INK[tone] ?? TONE_INK.plain}`}>{label}</p>
         {Icon ? (
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-eel">
             <Icon className="size-4" aria-hidden="true" />
           </span>
         ) : null}
