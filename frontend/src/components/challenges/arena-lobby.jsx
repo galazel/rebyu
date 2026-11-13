@@ -134,20 +134,6 @@ export function ArenaLobby({ arenaId, name, blurb }) {
             </Link>
           </TactileButton>
           <div className="flex items-center gap-2">
-            {configured ? (
-              <TactileButton
-                variant="ghost"
-                size="sm"
-                aria-label="Jump to rankings"
-                title="Jump to rankings"
-                onClick={() =>
-                  document.getElementById("arena-rankings")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                <Trophy className="size-4" aria-hidden="true" />
-                <span className="ml-1.5 hidden sm:inline">rankings</span>
-              </TactileButton>
-            ) : null}
             <TactileButton
               variant="ghost"
               size="sm"
