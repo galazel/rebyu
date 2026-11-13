@@ -252,9 +252,9 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       <AlertDialogContent
         data-no-snip
         className={cn(
-          "tg-cat-explain max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1rem)] border border-[var(--tg-line)] bg-card text-foreground sm:w-[min(92vw,66rem)]",
+          "tg-cat-explain max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1rem)] border border-[var(--tg-line)] bg-card text-foreground",
           phase === "playing" || phase === "submitting" || phase === "result"
-            ? "flex h-[min(48rem,calc(100dvh-1.5rem))] max-w-[66rem] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-rb-snow p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_90px_-24px_rgba(0,0,0,0.75)]"
+            ? "flex h-[min(48rem,calc(100dvh-1.5rem))] !max-w-[84rem] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-rb-snow p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_90px_-24px_rgba(0,0,0,0.75)] sm:!w-[min(90vw,84rem)]"
             : "rounded-[24px] p-6 shadow-[0_24px_64px_-24px_rgba(16,62,48,0.45)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.75)]",
         )}
         onEscapeKeyDown={(event) => event.preventDefault()}
