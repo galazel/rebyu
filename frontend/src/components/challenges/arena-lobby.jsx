@@ -3,7 +3,8 @@ import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
 
-import { ArrowLeft, Check, ChevronRight, Clock, Code2, Loader2, Lock, Network, Trophy, Zap } from "@/components/icons"
+import { ArrowLeft, Check, ChevronRight, Clock, Code2, Info, Loader2, Lock, Network, Trophy, Zap } from "@/components/icons"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 import { CHALLENGE_ARENAS_KEY, getChallengeArenas, getArenaProblems, getArenaProgress } from "@/services/challengeService.js"
@@ -118,18 +119,85 @@ export function ArenaLobby({ arenaId, name, blurb }) {
   const stages = problems.length ? problems : Array.from({ length: problemCount }, () => null)
   const totalPoints = stages.reduce((sum, p) => sum + Number(p?.points ?? pointsPerProblem), 0)
   const locked = !configured && arenasQuery.isSuccess
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   return (
     <div className="rebyu-ds relative isolate min-h-dvh overflow-x-hidden bg-rb-polar">
       <PathBackdrop />
 
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
-        <TactileButton asChild variant="ghost" size="sm">
-          <Link replace to="/learner/learning">
-            <ArrowLeft className="mr-1.5 size-4" aria-hidden="true" />
-            back
-          </Link>
-        </TactileButton>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TactileButton asChild variant="ghost" size="sm">
+            <Link replace to="/learner/learning">
+              <ArrowLeft className="mr-1.5 size-4" aria-hidden="true" />
+              back
+            </Link>
+          </TactileButton>
+          <div className="flex items-center gap-2">
+            {configured ? (
+              <TactileButton
+                variant="ghost"
+                size="sm"
+                aria-label="Jump to rankings"
+                title="Jump to rankings"
+                onClick={() =>
+                  document.getElementById("arena-rankings")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                <Trophy className="size-4" aria-hidden="true" />
+                <span className="ml-1.5 hidden sm:inline">rankings</span>
+              </TactileButton>
+            ) : null}
+            <TactileButton
+              variant="ghost"
+              size="sm"
+              aria-label={`About ${name}`}
+              title={`About ${name}`}
+              onClick={() => setAboutOpen(true)}
+            >
+              <Info className="size-4" aria-hidden="true" />
+              <span className="ml-1.5 hidden sm:inline">about</span>
+            </TactileButton>
+          </div>
+        </div>
+
+        <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+          <DialogContent className="rebyu-ds max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-rb-display text-2xl font-extrabold text-rb-eel">About {name}</DialogTitle>
+              <DialogDescription>{blurb}</DialogDescription>
+            </DialogHeader>
+            <ul className="space-y-2.5 text-sm leading-6 text-rb-eel">
+              <li className="flex gap-2.5">
+                {arenaId === "blueprint" ? (
+                  <Network className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
+                ) : (
+                  <Code2 className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
+                )}
+                <span>
+                  {problemCount || "Several"} stage{problemCount === 1 ? "" : "s"}, one{" "}
+                  {arenaId === "blueprint" ? "diagram" : "coding problem"} each. Clear them in order: each stage
+                  unlocks the next.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <Clock className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
+                <span>{timePerProblem} minutes per stage. When the timer runs out, your answer is handed in as it is.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <Zap className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
+                <span>
+                  Each stage is worth its points times your score (80% on a 10-point stage gives 8). Replays only count
+                  if you beat your best, so the most you can earn here is {totalPoints} pts.
+                </span>
+              </li>
+              <li className="flex gap-2.5">
+                <Trophy className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
+                <span>Rankings add up your best points across every stage. Ties share a place.</span>
+              </li>
+            </ul>
+          </DialogContent>
+        </Dialog>
 
         <section className="mt-6 grid items-center gap-6 md:grid-cols-[1.2fr_1fr]">
           <div>

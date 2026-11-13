@@ -147,7 +147,7 @@ class show_true_false(BaseModel):
     """Show a true-or-false myth-buster round. Use to surface common
     misconceptions about the topic."""
 
-    title: str = Field(default="", description="Short title, e.g. 'Myth or fact?'.")
+    title: str = Field(default="", description="Short title starting 'Myth or fact', e.g. 'Myth or fact: Probability'. Never 'True or false'.")
     claims: list[Claim] = Field(description="10-20 distinct statements, default 10. Honour the requested count exactly.")
 
 
@@ -643,7 +643,9 @@ def _true_false(args: dict) -> dict | None:
     claims = _unique(claims, "statement")
     if len(claims) < 3:
         return None
-    return {"type": "true_false", "title": _text(args.get("title"), 120) or "Myth or fact?", "claims": claims}
+    # The activity is branded "Myth or fact"; models still title it "True or False: ...".
+    title = re.sub(r"^\s*true\s*(?:or|/|&)\s*false", "Myth or fact", _text(args.get("title"), 120), flags=re.I)
+    return {"type": "true_false", "title": title or "Myth or fact?", "claims": claims}
 
 
 def _code(args: dict) -> dict | None:

@@ -60,7 +60,7 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
   const rest = rows.slice(3)
 
   return (
-    <section className="mt-12">
+    <section id="arena-rankings" className="mt-12 scroll-mt-6">
       <div className="border-b-2 border-rb-swan pb-2">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">leaderboard</p>
         <h2 className="font-rb-display text-2xl font-extrabold text-rb-eel">{title}</h2>
@@ -118,7 +118,7 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
                       {row.you ? <span className="ml-1.5 text-[11px] font-extrabold text-rb-feather-ink">you</span> : null}
                     </span>
                     <span className="block text-[11px] font-semibold text-rb-wolf">
-                      {row.completed} run{row.completed === 1 ? "" : "s"} · best {row.bestScore}%
+                      {row.completed} stage{row.completed === 1 ? "" : "s"} · best {row.bestScore}%
                     </span>
                   </span>
                   <span className="shrink-0 font-rb-display text-base font-extrabold tabular-nums text-rb-eel">

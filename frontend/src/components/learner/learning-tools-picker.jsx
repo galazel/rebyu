@@ -5,7 +5,7 @@ import { categoryClass, GameIcon, ToolInfoButton } from "@/components/learner/tu
 
 export const LEARNING_ACTIVITIES = [
   { id: 'quiz', name: 'Multiple-choice quiz', group: 'Recall', description: 'Test what you remember with multiple-choice questions.', prompt: 'Create a practice quiz based on this lesson.' },
-  { id: 'true_false', name: 'True or false', group: 'Recall', description: 'Spot facts and misconceptions.', prompt: 'Create a true or false activity based on this lesson.' },
+  { id: 'true_false', name: 'Myth or fact', group: 'Recall', description: 'Spot facts and misconceptions.', prompt: 'Create a myth or fact activity based on this lesson.' },
   { id: 'sorting', name: 'Sorting & categorizing', group: 'Organize', description: 'Drag items into the right groups.', prompt: 'Create a sorting and categorizing game based on this lesson.' },
   { id: 'ordering', name: 'Sequencing', group: 'Organize', description: 'Put steps or events in the correct order.', prompt: 'Sequence these process steps from this lesson.' },
   { id: 'fill_blank', name: 'Fill in the blank', group: 'Recall', description: 'Complete missing terms and ideas.', prompt: 'Create a fill in the blank activity based on this lesson.' },

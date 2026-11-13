@@ -106,7 +106,7 @@ export default function CommunityReviewerPage() {
                 objectUrlRef.current = null
             }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [keysSignature, name])
 
     const document = useMemo(

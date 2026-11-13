@@ -30,6 +30,24 @@ public interface AssessmentAttemptQuestionRepository
             """)
     List<Long> findSubmittedSourceQuestionIds(@Param("learnerId") Long learnerId, @Param("examId") Long examId);
 
+    /** One row per handed-in challenge problem: who, which arena exam, which problem, the run's score. */
+    @Query("""
+            SELECT a.learnerId AS learnerId, a.exam.examId AS examId, a.exam.targetScope AS arenaId,
+                   q.sourceQuestionId AS questionId, a.percentage AS percentage
+            FROM AssessmentAttemptQuestion q JOIN q.attempt a
+            WHERE a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
+              AND a.exam.examType.examTypeText = :examType
+            """)
+    List<ChallengeRunView> findSubmittedChallengeRuns(@Param("examType") String examType);
+
+    interface ChallengeRunView {
+        Long getLearnerId();
+        Long getExamId();
+        String getArenaId();
+        Long getQuestionId();
+        java.math.BigDecimal getPercentage();
+    }
+
     interface ExposureView {
         Long getSourceQuestionId();
         long getTimesSeen();

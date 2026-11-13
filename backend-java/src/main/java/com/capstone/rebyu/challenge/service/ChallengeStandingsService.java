@@ -4,7 +4,11 @@ import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeActivity
 import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeLeaderboardRow;
 import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeRecord;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
+import com.capstone.rebyu.assessment.entity.ExamQuestion;
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptQuestionRepository;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
+import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
+import java.util.HashMap;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.repository.LearnerRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +33,11 @@ public class ChallengeStandingsService {
     private static final int MAX_LEADERBOARD_ROWS = 50;
     private static final int RECENT_ACTIVITY_ROWS = 8;
 
+    private static final double DEFAULT_STAGE_POINTS = 10;
+
     private final AssessmentAttemptRepository attempts;
+    private final AssessmentAttemptQuestionRepository attemptQuestions;
+    private final ExamQuestionRepository examQuestions;
     private final LearnerRepository learners;
 
     private record Standing(Long learnerId, String name, int points, int completed, int bestScore) {}
@@ -106,22 +114,42 @@ public class ChallengeStandingsService {
                 recent);
     }
 
+    /**
+     * Points are earned per stage, not per run: each stage counts once, at the learner's
+     * best score on it, scaled to that stage's points (a 10-point stage at 80% gives 8).
+     * Replaying a stage can raise its points but never stacks them. Learners with no
+     * points yet are left off the board.
+     */
     private List<Standing> standings(String arenaId) {
-        Map<Long, int[]> totals = new LinkedHashMap<>();
-        for (AssessmentAttempt run : attempts.findByStatusAndExam_ExamType_ExamTypeText(
-                AssessmentAttempt.Status.SUBMITTED, ChallengeArenaService.CHALLENGE_EXAM_TYPE)) {
-            if (arenaId != null && (run.getExam() == null || !arenaId.equals(run.getExam().getTargetScope()))) {
-                continue;
-            }
-            Integer score = score(run);
-            if (score == null || run.getLearnerId() == null) {
-                continue;
-            }
-            int[] t = totals.computeIfAbsent(run.getLearnerId(), id -> new int[3]);
-            t[0] += score;
-            t[1] += 1;
-            t[2] = Math.max(t[2], score);
+        // best score per learner, per stage (exam + problem)
+        Map<Long, Map<String, Integer>> best = new LinkedHashMap<>();
+        Map<Long, Map<Long, BigDecimal>> stagePoints = new HashMap<>();
+        for (AssessmentAttemptQuestionRepository.ChallengeRunView run :
+                attemptQuestions.findSubmittedChallengeRuns(ChallengeArenaService.CHALLENGE_EXAM_TYPE)) {
+            if (arenaId != null && !arenaId.equals(run.getArenaId())) continue;
+            if (run.getLearnerId() == null || run.getQuestionId() == null || run.getPercentage() == null) continue;
+            int score = Math.max(0, Math.min(100, run.getPercentage().intValue()));
+            best.computeIfAbsent(run.getLearnerId(), id -> new HashMap<>())
+                    .merge(run.getExamId() + ":" + run.getQuestionId(), score, Math::max);
+            stagePoints.computeIfAbsent(run.getExamId(), this::pointsByQuestion);
         }
+
+        Map<Long, int[]> totals = new LinkedHashMap<>();
+        best.forEach((learnerId, stages) -> {
+            int[] t = new int[3];
+            double points = 0;
+            for (Map.Entry<String, Integer> stage : stages.entrySet()) {
+                String[] key = stage.getKey().split(":");
+                BigDecimal worth = stagePoints.getOrDefault(Long.valueOf(key[0]), Map.of())
+                        .get(Long.valueOf(key[1]));
+                double value = worth == null || worth.signum() <= 0 ? DEFAULT_STAGE_POINTS : worth.doubleValue();
+                points += value * stage.getValue() / 100.0;
+                t[1] += 1;
+                t[2] = Math.max(t[2], stage.getValue());
+            }
+            t[0] = (int) Math.round(points);
+            if (t[0] > 0) totals.put(learnerId, t);
+        });
 
         Map<Long, Standing> byLearner = new LinkedHashMap<>();
         for (Learner learner : learners.findAllById(totals.keySet())) {
@@ -135,6 +163,14 @@ public class ChallengeStandingsService {
                         .thenComparing(Comparator.comparingInt(Standing::bestScore).reversed())
                         .thenComparing(Standing::learnerId))
                 .toList();
+    }
+
+    private Map<Long, BigDecimal> pointsByQuestion(Long examId) {
+        Map<Long, BigDecimal> byQuestion = new HashMap<>();
+        for (ExamQuestion row : examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(examId)) {
+            if (row.getQuestion() != null) byQuestion.put(row.getQuestion().getQuestionId(), row.getPoints());
+        }
+        return byQuestion;
     }
 
     private String displayName(Learner learner) {
