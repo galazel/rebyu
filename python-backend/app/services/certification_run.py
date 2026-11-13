@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -42,6 +43,9 @@ from app.services import workflow_registry as registry
 from app.services.assessment_persistence import persist_generated_assessments
 
 logger = logging.getLogger(__name__)
+
+
+PERSIST_STAGE = "save_generated_content"
 
 
 class RecoveryError(Exception):
@@ -255,28 +259,65 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
             registry.mark_completed(session, context.thread_id)
         return {"outcome": registry.COMPLETED, "exams": 0, "bank_questions": 0}
 
-    _persist_curriculum(context.certification_id, curriculum)
+    saving_started = time.monotonic()
+    _record_save_started(context)
+    try:
+        _persist_curriculum(context.certification_id, curriculum)
 
-    with SessionLocal() as session:
-        summary = persist_generated_assessments(session, context.certification_id, result)
+        with SessionLocal() as session:
+            summary = persist_generated_assessments(session, context.certification_id, result)
+    except Exception as error:
+        _record_save_finished(
+            context,
+            saving_started,
+            failed=True,
+            payload={"error": str(error)},
+        )
+        raise
     for warning in summary["warnings"]:
         logger.warning("Assessment persistence: %s", warning)
 
     stranded = _stranded_output(summary)
     if stranded:
-        return fail(
-            context,
+        error = (
             "Generation succeeded but its output was not saved: "
             + "; ".join(stranded)
-            + ". The run can be retried once the cause is fixed.",
+            + ". The run can be retried once the cause is fixed."
+        )
+        _record_save_finished(
+            context, saving_started, failed=True, payload={"error": error}
+        )
+        return fail(
+            context,
+            error,
         )
 
-    with SessionLocal() as session:
-        repo.mark_generation_request_done(session, context.generation_request_id)
-        registry.mark_completed(
-            session, context.thread_id,
-            payload={"exams": len(summary["exams"]), "bank_questions": summary["bank_questions"]},
+    try:
+        with SessionLocal() as session:
+            repo.mark_generation_request_done(session, context.generation_request_id)
+            registry.mark_stage_completed(
+                session,
+                context.thread_id,
+                stage=PERSIST_STAGE,
+                duration_ms=_elapsed_ms(saving_started),
+                payload={
+                    "lessons": summary["lessons_written"],
+                    "exams": len(summary["exams"]),
+                    "bank_questions": summary["bank_questions"],
+                },
+            )
+            registry.mark_completed(
+                session, context.thread_id,
+                payload={"exams": len(summary["exams"]), "bank_questions": summary["bank_questions"]},
+            )
+    except Exception as error:
+        _record_save_finished(
+            context,
+            saving_started,
+            failed=True,
+            payload={"error": str(error)},
         )
+        raise
 
     _notify(
         context,
@@ -294,6 +335,40 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
         "exams": len(summary["exams"]),
         "bank_questions": summary["bank_questions"],
     }
+
+
+def _elapsed_ms(started: float) -> int:
+    return max(0, int((time.monotonic() - started) * 1000))
+
+
+def _record_save_started(context: RunContext) -> None:
+    """Best-effort timeline update; persistence must not depend on telemetry."""
+    try:
+        with SessionLocal() as session:
+            registry.mark_stage_started(session, context.thread_id, stage=PERSIST_STAGE)
+    except Exception:
+        logger.debug("Could not record saving start for run %s", context.thread_id, exc_info=True)
+
+
+def _record_save_finished(
+    context: RunContext,
+    started: float,
+    *,
+    failed: bool,
+    payload: dict[str, Any],
+) -> None:
+    try:
+        with SessionLocal() as session:
+            registry.mark_stage_completed(
+                session,
+                context.thread_id,
+                stage=PERSIST_STAGE,
+                duration_ms=_elapsed_ms(started),
+                payload=payload,
+                failed=failed,
+            )
+    except Exception:
+        logger.debug("Could not record saving result for run %s", context.thread_id, exc_info=True)
 
 
 def _params_of(generation_request: dict | None) -> dict:
@@ -550,6 +625,7 @@ async def advance(context: RunContext, graph_input: Any) -> tuple[dict[str, Any]
     _DRIVEN_THREADS.add(context.thread_id)
     try:
         result = await graph.ainvoke(graph_input, config=_thread_config(context.thread_id))
+        return result, finalize(context, result)
     except RunCancelled as cancelled:
         logger.info("Certification run %s stopped: %s", context.thread_id, cancelled)
         saved = await rescue_partial_output(context)
@@ -576,9 +652,6 @@ async def advance(context: RunContext, graph_input: Any) -> tuple[dict[str, Any]
         ) from error
     finally:
         _DRIVEN_THREADS.discard(context.thread_id)
-
-    return result, finalize(context, result)
-
 
 async def execute(context: RunContext, graph_input: Any) -> dict[str, Any]:
     """Runs the graph to its next stopping point and finalises the outcome.

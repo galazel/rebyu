@@ -62,9 +62,24 @@ export function currentAttemptEvents(events) {
 export function buildTasks(events) {
   const tasks = []
   const openByStage = new Map()
+  const artifactsByKey = new Map()
+
+  const latestArtifactFor = (stage, index) => {
+    const exact = artifactsByKey.get(`${stage}:${index ?? 0}`)
+    if (exact !== undefined) return exact
+
+    for (const [key, artifact] of [...artifactsByKey.entries()].reverse()) {
+      if (key.startsWith(`${stage}:`)) return artifact
+    }
+    return undefined
+  }
 
   ;(events ?? []).forEach((event) => {
     const { stage, event_type: type } = event
+    if (type === "version.recorded" && event.payload?.key && "artifact" in event.payload) {
+      artifactsByKey.set(event.payload.key, event.payload.artifact)
+      return
+    }
     if (!stage) return
 
     if (type === "node.started") {
@@ -109,6 +124,9 @@ export function buildTasks(events) {
     }
 
     if (type === "review.waiting") {
+      const review = event.payload?.review
+      const itemIndex = review?.item_index ?? 0
+      const artifact = review?.payload ?? review?.batch ?? latestArtifactFor(stage, itemIndex)
       tasks.push({
         id: `review:${stage}#${event.seq}`,
         stage,
@@ -117,6 +135,7 @@ export function buildTasks(events) {
         durationMs: null,
         retryCount: 0,
         isReview: true,
+        artifact,
         seq: event.seq,
       })
       return
@@ -167,6 +186,7 @@ const STAGE_FAMILIES = {
   MOCK_EXAM: "mock_exam",
   generate_question_bank: "question_bank",
   audit_questions: "question_bank",
+  save_generated_content: "saving",
   QUESTION_BANK: "question_bank",
   resolve_scope: "scope",
   generate_batch: "question_batch",
@@ -183,6 +203,7 @@ const FAMILY_LABELS = {
   diagnostic_exam: "Diagnostic exam",
   mock_exam: "Mock exam",
   question_bank: "Question bank",
+  saving: "Saving generated certification",
   scope: "Scope",
   question_batch: "Question batch",
 }

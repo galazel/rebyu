@@ -350,6 +350,57 @@ def mark_completed(
     )
 
 
+def mark_stage_started(
+    session: Session, thread_id: str, *, stage: str, payload: dict[str, Any] | None = None
+) -> WorkflowRun | None:
+    """Records non-graph work, such as the final draft save, in the timeline."""
+    run = session.execute(
+        select(WorkflowRun).where(WorkflowRun.thread_id == thread_id)
+    ).scalar_one_or_none()
+    if run is None:
+        logger.warning("No workflow run registered for thread_id=%s", thread_id)
+        return None
+
+    run.current_stage = stage
+    event = record_event(
+        session, run, EVT_NODE_STARTED, stage=stage, task_status=TASK_RUNNING, payload=payload,
+    )
+    session.commit()
+    _publish(run.run_id, [event])
+    return run
+
+
+def mark_stage_completed(
+    session: Session,
+    thread_id: str,
+    *,
+    stage: str,
+    duration_ms: int,
+    payload: dict[str, Any] | None = None,
+    failed: bool = False,
+) -> WorkflowRun | None:
+    """Closes a stage recorded with :func:`mark_stage_started`."""
+    run = session.execute(
+        select(WorkflowRun).where(WorkflowRun.thread_id == thread_id)
+    ).scalar_one_or_none()
+    if run is None:
+        logger.warning("No workflow run registered for thread_id=%s", thread_id)
+        return None
+
+    event = record_event(
+        session,
+        run,
+        EVT_NODE_COMPLETED,
+        stage=stage,
+        task_status=TASK_FAILED if failed else TASK_COMPLETED,
+        duration_ms=duration_ms,
+        payload=payload,
+    )
+    session.commit()
+    _publish(run.run_id, [event])
+    return run
+
+
 def mark_failed(session: Session, thread_id: str, *, error: str) -> WorkflowRun | None:
     return _transition(
         session, thread_id, status=FAILED, event_type=EVT_WORKFLOW_FAILED,

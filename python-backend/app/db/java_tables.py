@@ -249,6 +249,9 @@ exam_questions = Table(
     Column("exam_id", BigInteger, nullable=False),
     Column("question_id", BigInteger, nullable=False),
     Column("display_order", Integer, nullable=False),
+    # Added by Java migration V10.  The generation service writes a score for
+    # each generated exam question, so this mirror must include the column.
+    Column("points", Numeric(5, 2)),
 )
 
 assessment_attempts = Table(

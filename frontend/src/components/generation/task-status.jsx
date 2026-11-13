@@ -56,6 +56,7 @@ const STAGE_LABELS = {
   generate_mock_exam: "Mock exam",
   generate_question_bank: "Question bank",
   audit_questions: "Checking for duplicate questions",
+  save_generated_content: "Saving generated certification",
   DIAGNOSTIC_EXAM: "Diagnostic exam review",
   MOCK_EXAM: "Mock exam review",
   QUESTION_BANK: "Question bank review",

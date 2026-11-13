@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "@/components/icons"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { buildTranscript } from "@/hooks/workflow-timeline-model"
 import { TaskStatusIcon, formatDuration, stageLabel, taskStatusLabel } from "./task-status"
+import { ArtifactViewer } from "./artifact-viewer"
 
 export function GenerationTranscript({
   tasks,
@@ -16,6 +25,7 @@ export function GenerationTranscript({
   const endRef = useRef(null)
   const pinnedToBottom = useRef(true)
   const hasTail = Boolean(children)
+  const [output, setOutput] = useState(null)
 
   useEffect(() => {
     if (pinnedToBottom.current) {
@@ -39,6 +49,7 @@ export function GenerationTranscript({
             group={group}
             currentTaskId={currentTaskId}
             defaultOpen={index === groups.length - 1}
+            onViewOutput={(step) => setOutput(step)}
           />
         ))}
 
@@ -50,11 +61,25 @@ export function GenerationTranscript({
 
         <div ref={endRef} className="h-px" />
       </div>
+
+      <Dialog open={Boolean(output)} onOpenChange={(open) => !open && setOutput(null)}>
+        <DialogContent className="flex h-[88vh] w-[96vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] lg:w-[84vw] xl:w-[72rem]">
+          <DialogHeader className="gap-1.5 border-b border-border px-6 py-4 pr-14 text-left">
+            <DialogTitle>{output ? stageLabel(output.stage) : "Generated output"}</DialogTitle>
+            <DialogDescription>
+              Generated output retained for this completed step.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+            {output ? <ArtifactViewer payload={output.artifact} /> : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </ScrollArea>
   )
 }
 
-function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
+function TranscriptGroup({ group, currentTaskId, defaultOpen, onViewOutput }) {
   const [open, setOpen] = useState(defaultOpen)
 
   const wasDefaultOpen = useRef(defaultOpen)
@@ -107,7 +132,12 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
       {open ? (
         <ol className="ml-[1.4rem] space-y-px border-l border-border/70 pb-1.5 pl-3">
           {group.steps.map((step) => (
-            <TranscriptStep key={step.id} step={step} isCurrent={step.id === currentTaskId} />
+            <TranscriptStep
+              key={step.id}
+              step={step}
+              isCurrent={step.id === currentTaskId}
+              onViewOutput={onViewOutput}
+            />
           ))}
         </ol>
       ) : null}
@@ -115,7 +145,7 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
   )
 }
 
-function TranscriptStep({ step, isCurrent }) {
+function TranscriptStep({ step, isCurrent, onViewOutput }) {
   const failed = step.status === "FAILED"
 
   return (
@@ -152,6 +182,18 @@ function TranscriptStep({ step, isCurrent }) {
         <span className="shrink-0 font-mono text-[11px] leading-5 tabular-nums text-muted-foreground">
           {step.durationMs != null ? formatDuration(step.durationMs) : taskStatusLabel(step.status)}
         </span>
+
+        {step.artifact !== undefined ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-1.5 text-xs"
+            onClick={() => onViewOutput?.(step)}
+          >
+            View output
+          </Button>
+        ) : null}
       </div>
 
       {step.error ? (
