@@ -68,6 +68,7 @@ const InstitutionDepartmentWorkspacePage = lazyRoute(() => import("./pages/insti
 const InstitutionDepartmentLearnerPage = lazyRoute(() => import("./pages/institution/departments/institution-department-learner-page.jsx"))
 const InstitutionLearnersPage = lazyRoute(() => import("./pages/institution/departments/institution-learners-page.jsx"))
 const InstitutionCertificationsPage = lazyRoute(() => import("./pages/institution/certifications/institution-certifications-page.jsx"))
+const InstitutionCertificationArchivesPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-archives-page.jsx"))
 const InstitutionCertificationDetailPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-detail-page.jsx"))
 const InstitutionCertificationViewerPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-viewer-page.jsx"))
 const InstitutionAssessmentBuilderPage = lazyRoute(() => import("./pages/institution/certifications/institution-assessment-builder-page.jsx"))
@@ -394,6 +395,10 @@ export function App() {
                     <Route
                         path="certifications"
                         element={<InstitutionCertificationsPage />}
+                    />
+                    <Route
+                        path="certifications/archived"
+                        element={<InstitutionCertificationArchivesPage />}
                     />
                     <Route
                         path="certifications/:institutionCertId"

@@ -199,7 +199,7 @@ export async function certificationsPageCsv(allocations, titleOf) {
 }
 
 /** Finished access terms with their learners as they stood when access ended. */
-export function CertificationArchives() {
+export function CertificationArchives({ showHeading = true }) {
   const [openId, setOpenId] = useState(null)
   const archivesQuery = useQuery({ queryKey: ["certification-archives"], queryFn: getCertificationArchives })
   const archives = Array.isArray(archivesQuery.data) ? archivesQuery.data : []
@@ -230,23 +230,26 @@ export function CertificationArchives() {
     },
   ]
 
-  // Nothing archived yet: the section would only explain itself, so it stays hidden.
-  if (archivesQuery.isSuccess && archives.length === 0) return null
+  // On the active certifications page, do not reserve space when there is nothing
+  // to archive. The dedicated archive page still explains the empty state.
+  if (showHeading && archivesQuery.isSuccess && archives.length === 0) return null
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
-        <div>
-          <h2 className="flex items-center gap-2 font-rb-display text-lg font-bold">
-            <HistoryIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-            Archived terms
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            When a certification's access expires, its term is archived here and its learners leave the institution — they
-            keep their own enrolment. Their records are kept for export.
-          </p>
+      {showHeading ? (
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-2">
+          <div>
+            <h2 className="flex items-center gap-2 font-rb-display text-lg font-bold">
+              <HistoryIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+              Archived terms
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              When a certification's access expires, its term is archived here and its learners leave the institution — they
+              keep their own enrolment. Their records are kept for export.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
       {archivesQuery.isLoading ? (
         <InstitutionLoadingSkeleton rows={2} />
       ) : archivesQuery.isError ? (

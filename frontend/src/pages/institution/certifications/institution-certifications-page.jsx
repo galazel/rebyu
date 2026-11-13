@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { GraduationCapIcon, UsersRound } from "@/components/icons"
+import { GraduationCapIcon, HistoryIcon, UsersRound } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -28,7 +28,6 @@ import { getDepartments, getMyDepartmentHeads } from "@/services/institutionServ
 import { ManageGroupDialog } from "@/pages/institution/departments/institution-departments-page.jsx"
 import {
   AllocationLearnersButton,
-  CertificationArchives,
   certificationsPageCsv,
 } from "@/components/institution/allocation-learners.jsx"
 import { ExportButton } from "@/components/commons/export-button.jsx"
@@ -192,20 +191,27 @@ export default function InstitutionCertificationsPage() {
         title="Certifications"
         subtitle="Your departments and the certifications under each. Manage a department's head, learners and groups from here."
         actions={
-          data.institutionCerts.length ? (
-            <ExportButton
-              filename="rebyu-institution-certifications"
-              report="Certifications, learners and archives"
-              details={[["Institution", institution?.institutionName], ["Certifications", data.institutionCerts.length]]}
-              label="Export everything"
-              sections={() =>
-                certificationsPageCsv(
-                  data.institutionCerts,
-                  (a) => data.certificationById.get(a.certificationId)?.title ?? `Certification #${a.certificationId}`
-                )
-              }
-            />
-          ) : null
+          <>
+            <Button asChild size="icon" variant="outline" title="Archived terms" aria-label="View archived terms">
+              <Link to="/institution/certifications/archived">
+                <HistoryIcon className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            {data.institutionCerts.length ? (
+              <ExportButton
+                filename="rebyu-institution-certifications"
+                report="Certifications, learners and archives"
+                details={[["Institution", institution?.institutionName], ["Certifications", data.institutionCerts.length]]}
+                label="Export everything"
+                sections={() =>
+                  certificationsPageCsv(
+                    data.institutionCerts,
+                    (a) => data.certificationById.get(a.certificationId)?.title ?? `Certification #${a.certificationId}`
+                  )
+                }
+              />
+            ) : null}
+          </>
         }
       />
 
@@ -268,9 +274,6 @@ export default function InstitutionCertificationsPage() {
           ))}
         </div>
       )}
-
-      <CertificationArchives />
-
       <ManageGroupDialog
         group={manageGroup}
         open={manageGroup != null}
