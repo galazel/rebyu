@@ -223,7 +223,13 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
         with SessionLocal() as session:
             registry.mark_waiting_for_review(
                 session, context.thread_id, stage=stage,
-                payload={"validation_report": interrupt_value.get("validation_report")},
+                # The browser is already listening to the registry stream.  Keep the
+                # interrupt with the pause event so it can render the item immediately
+                # instead of issuing a second, often slow, checkpoint read.
+                payload={
+                    "review": interrupt_value,
+                    "validation_report": interrupt_value.get("validation_report"),
+                },
             )
         logger.info(
             "Certification run %s paused for admin review at %s; resume via "
@@ -782,7 +788,10 @@ async def adopt_orphan(run) -> dict[str, Any]:
         with SessionLocal() as session:
             registry.mark_waiting_for_review(
                 session, run.thread_id, stage=stage,
-                payload={"validation_report": (interrupts[0].value or {}).get("validation_report")},
+                payload={
+                    "review": interrupts[0].value or {},
+                    "validation_report": (interrupts[0].value or {}).get("validation_report"),
+                },
             )
         return {"action": "waiting_for_review", "stage": stage}
 

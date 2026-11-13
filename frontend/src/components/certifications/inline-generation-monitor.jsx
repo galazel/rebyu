@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertTriangle, Ban, ChevronDown, FastForward, Loader2, RefreshCw } from "@/components/icons"
 import { toast } from "sonner"
@@ -76,6 +76,14 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     reconnect,
   } = stream
 
+  // New pause events carry the checkpoint itself.  Rendering this directly
+  // avoids a second (and comparatively expensive) LangGraph state read.
+  // Older runs retain the endpoint fallback below.
+  const streamedReview = useMemo(
+    () => latestStreamedReview(attemptEvents),
+    [attemptEvents],
+  )
+
   const finishedRef = useRef(false)
   useEffect(() => {
     if (!isTerminal || finishedRef.current || !run?.status) return
@@ -86,11 +94,13 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
   const review = useQuery({
     queryKey: ["workflow-review", runId, isWaitingForReview, run?.last_seq],
     queryFn: () => getPendingReview(runId),
-    enabled: Boolean(runId) && isWaitingForReview,
+    enabled: Boolean(runId) && isWaitingForReview && !streamedReview,
   })
 
-  const versionKey = review.data?.review
-    ? `${review.data.review.stage}:${review.data.review.item_index ?? 0}`
+  const pendingReview = streamedReview ?? review.data?.review
+
+  const versionKey = pendingReview
+    ? `${pendingReview.stage}:${pendingReview.item_index ?? 0}`
     : null
 
   const versions = useQuery({
@@ -282,9 +292,9 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
       <div className="min-h-0 flex-1 px-2 sm:px-4">
         <GenerationTranscript tasks={tasks} currentTaskId={currentTask?.id}>
           {isWaitingForReview ? (
-            review.data?.review ? (
+            pendingReview ? (
               <ReviewCheckpoint
-                review={review.data.review}
+                review={pendingReview}
                 versions={versions.data?.versions}
                 submitting={submitReview.isPending}
                 onSubmit={(decision) => submitReview.mutate(decision)}
@@ -337,6 +347,16 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
       />
     </div>
   )
+}
+
+function latestStreamedReview(events) {
+  for (let index = (events?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.event_type !== "review.waiting") continue
+    const review = event.payload?.review
+    if (review && typeof review === "object" && review.stage) return review
+  }
+  return null
 }
 
 function minutesSince(milliseconds) {

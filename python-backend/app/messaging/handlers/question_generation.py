@@ -154,6 +154,9 @@ async def handle_question_generation_requested(payload: dict) -> None:
                 thread_id,
                 stage=interrupt_value.get("stage", "QUESTION_BATCH"),
                 payload={
+                    # Include the actual checkpoint in the streamed pause event.
+                    # Fetching it again from LangGraph delayed the review screen.
+                    "review": interrupt_value,
                     "generated_count": interrupt_value.get("generated_count"),
                     "target_total": interrupt_value.get("target_total"),
                     "validation_report": interrupt_value.get("validation_report"),

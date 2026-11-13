@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -73,14 +73,21 @@ export default function GenerationWorkspacePage() {
     isWaitingForReview,
   } = stream
 
+  // Pause events now contain the review checkpoint, so the review card can
+  // appear as soon as the live event arrives.  Keep the request below for
+  // runs created before that payload was added.
+  const streamedReview = useMemo(() => latestStreamedReview(events), [events])
+
   const review = useQuery({
     queryKey: ["workflow-review", runId, isWaitingForReview, run?.last_seq],
     queryFn: () => getPendingReview(runId),
-    enabled: Boolean(runId) && isWaitingForReview,
+    enabled: Boolean(runId) && isWaitingForReview && !streamedReview,
   })
 
-  const versionKey = review.data?.review
-    ? `${review.data.review.stage}:${review.data.review.item_index ?? 0}`
+  const pendingReview = streamedReview ?? review.data?.review
+
+  const versionKey = pendingReview
+    ? `${pendingReview.stage}:${pendingReview.item_index ?? 0}`
     : null
 
   const versions = useQuery({
@@ -264,9 +271,9 @@ export default function GenerationWorkspacePage() {
               <div className="min-h-0 flex-1">
                 <GenerationTranscript tasks={tasks} currentTaskId={currentTask?.id}>
                   {isWaitingForReview ? (
-                    review.data?.review ? (
+                    pendingReview ? (
                       <ReviewCheckpoint
-                        review={review.data.review}
+                        review={pendingReview}
                         versions={versions.data?.versions}
                         submitting={submitReview.isPending}
                         onSubmit={(decision) => submitReview.mutate(decision)}
@@ -517,6 +524,16 @@ function useWaitedTooLong(active, afterMs) {
 
 function mapRunStatus(status) {
   return status === "RUNNING" ? "RUNNING" : status ?? "PENDING"
+}
+
+function latestStreamedReview(events) {
+  for (let index = (events?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const event = events[index]
+    if (event?.event_type !== "review.waiting") continue
+    const review = event.payload?.review
+    if (review && typeof review === "object" && review.stage) return review
+  }
+  return null
 }
 
 function reviewToast(action) {
