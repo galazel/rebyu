@@ -137,6 +137,13 @@ export function ClassBody({ group }) {
                   </span>
                   <ArrowRight className="size-4 shrink-0 text-rb-hare" aria-hidden="true" />
                 </Link>
+                <Link
+                  to={`/learner/assessments/${exam.examId}/history`}
+                  state={returnState(location)}
+                  className="mt-1 inline-block px-3 text-xs font-bold text-rb-wolf underline-offset-2 hover:text-rb-eel hover:underline"
+                >
+                  View attempts
+                </Link>
               </li>
             ))}
           </ul>
