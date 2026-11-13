@@ -170,7 +170,6 @@ export default function CertificationExamsSection({ certification }) {
             {card.type === "MOCK_EXAM" ? (
               <ExamFormatPanel
                 certificationId={certificationId}
-                editable
                 selectedCount={card.exam ? card.count : null}
               />
             ) : null}
