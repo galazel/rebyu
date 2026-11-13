@@ -35,6 +35,11 @@ import {
 } from "@/utils/certification-edit.js"
 import { Button } from "@/components/ui/button"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -401,52 +406,73 @@ export default function ViewCertificationAdmin() {
 
               <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
                 {isGenerating ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                     <Button
                         type="button"
-                        size="sm"
-                        className="gap-2 rounded-lg font-medium shadow-sm"
+                        size="icon-sm"
+                        className="shadow-sm"
                         onClick={() => setIsWatchingGeneration(true)}
+                        aria-label="View generation progress"
                     >
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      View progress
                     </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">View generation progress</TooltipContent>
+                    </Tooltip>
                 ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                     <Button
                         type="button"
                         variant="outline"
-                        size="sm"
-                        className="gap-2 rounded-lg border-white/25 bg-white/10 font-medium text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
+                        size="icon-sm"
+                        className="border-white/25 bg-white/10 text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
                         onClick={() => setIsGenerateMoreOpen(true)}
+                        aria-label="Add with AI"
                     >
                       <Sparkles className="h-3.5 w-3.5" />
-                      Add with AI
                     </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">Add with AI</TooltipContent>
+                    </Tooltip>
                 )}
 
+                <Tooltip>
+                  <TooltipTrigger asChild>
                 <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    className="gap-2 rounded-lg border-white/25 bg-white/10 font-medium text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
+                    size="icon-sm"
+                    className="border-white/25 bg-white/10 text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
                     onClick={() => setIsEditOpen(true)}
+                    aria-label="Edit certification"
                 >
                   <PencilIcon className="h-3.5 w-3.5" />
-                  Edit
                 </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Edit certification</TooltipContent>
+                </Tooltip>
 
+                <Tooltip>
+                  <TooltipTrigger asChild>
                 <Button
                     type="button"
-                    size="sm"
-                    className="gap-2 rounded-lg font-medium shadow-sm"
+                    variant="outline"
+                    size="icon-sm"
+                    className="border-white/25 bg-white/10 text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
                     onClick={() =>
                         navigate(
                             `/admin/certification/${certification.certificationId}/question-bank`
                         )
                     }
+                    aria-label="Open question bank"
                 >
                   <ListChecks className="h-3.5 w-3.5" />
-                  Question Bank
                 </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">Open question bank</TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </div>

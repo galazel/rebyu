@@ -641,11 +641,9 @@ export default function AssessmentDialog({
     handleAddQuestions(picks)
   }
 
-  const canOpenQuestionPicker =
-      createTypeConfig.scope === "CERTIFICATION" || Boolean(targetId)
-
   return (
-      <Dialog open={open} onOpenChange={handleAssessmentDialogOpenChange}>
+      <>
+      <Dialog open={open && !pickerOpen} onOpenChange={handleAssessmentDialogOpenChange}>
         <DialogContent
             onInteractOutside={(event) => {
               if (pickerOpen || saveMutation.isPending) {
@@ -822,25 +820,6 @@ export default function AssessmentDialog({
                     <h3 className="text-sm font-semibold text-muted-foreground">
                       {isAdaptiveType ? "Seed questions (optional)" : "Questions"} ({selectedQuestions.length} selected)
                     </h3>
-
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (!canOpenQuestionPicker) {
-                            setError(
-                                `Select a ${createTypeConfig.targetLabel.toLowerCase()} first.`
-                            )
-                            return
-                          }
-
-                          setPickerOpen(true)
-                        }}
-                    >
-                      <Plus aria-hidden="true" />
-                      Add Questions
-                    </Button>
                   </div>
                   {isAdaptiveType ? (
                       <p className="text-xs leading-5 text-muted-foreground">
@@ -925,8 +904,7 @@ export default function AssessmentDialog({
 
                   {selectedQuestions.length === 0 ? (
                       <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                        No questions selected yet. Use Add Questions to pick from
-                        this certification&apos;s question bank.
+                        No questions are in this paper yet.
                       </div>
                   ) : (
                       <>
@@ -1084,23 +1062,24 @@ export default function AssessmentDialog({
             </div>
           </div>
 
-          <AssessmentQuestionPickerDialog
-              open={pickerOpen}
-              onOpenChange={setPickerOpen}
-              certification={certification}
-              alreadySelectedIds={alreadySelectedIds}
-              currentExamId={exam?.examId ?? null}
-              initialLessonId={createTypeConfig.scope === "LESSON" ? targetId : null}
-              initialMiddleCategoryId={
-                createTypeConfig.scope === "MIDDLE_CATEGORY" ? targetId : null
-              }
-              initialMajorCategoryId={
-                createTypeConfig.scope === "MAJOR_CATEGORY" ? targetId : null
-              }
-              onAddQuestions={handleAddQuestions}
-              ownerDepartmentId={ownerDepartmentId}
-          />
         </DialogContent>
       </Dialog>
+      <AssessmentQuestionPickerDialog
+          open={open && pickerOpen}
+          onOpenChange={setPickerOpen}
+          certification={certification}
+          alreadySelectedIds={alreadySelectedIds}
+          currentExamId={exam?.examId ?? null}
+          initialLessonId={createTypeConfig.scope === "LESSON" ? targetId : null}
+          initialMiddleCategoryId={
+            createTypeConfig.scope === "MIDDLE_CATEGORY" ? targetId : null
+          }
+          initialMajorCategoryId={
+            createTypeConfig.scope === "MAJOR_CATEGORY" ? targetId : null
+          }
+          onAddQuestions={handleAddQuestions}
+          ownerDepartmentId={ownerDepartmentId}
+      />
+      </>
   )
 }

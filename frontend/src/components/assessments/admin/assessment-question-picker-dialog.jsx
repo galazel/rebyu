@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import { Search } from "@/components/icons"
 
 import {
@@ -71,6 +72,7 @@ export default function AssessmentQuestionPickerDialog({
                                                          // A department picks only from the questions it wrote.
                                                          departmentQuestionsOnly = false,
                                                        }) {
+  const navigate = useNavigate()
   const [sourceFilter, setSourceFilter] = useState("all")
   const [search, setSearch] = useState("")
   const [difficultyFilter, setDifficultyFilter] = useState("all")
@@ -475,11 +477,27 @@ export default function AssessmentQuestionPickerDialog({
                     Unable to load questions. Close this dialog and try again.
                   </p>
               ) : rows.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-muted-foreground">
-                    {departmentQuestionsOnly
-                        ? "None of your department's questions match. Add questions in the Question Bank tab, or write one here."
-                        : "No unused questions match the current filters. Create more questions in the Question Bank first."}
-                  </p>
+                  <div className="flex min-h-48 flex-col items-center justify-center gap-3 py-10 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {departmentQuestionsOnly
+                        ? "None of your department's questions match."
+                        : "No unused questions match the current filters."}
+                    </p>
+                    {!departmentQuestionsOnly && certificationId != null ? (
+                      <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            handleDialogOpenChange(false)
+                            navigate(
+                                `/admin/certification/${certificationId}/question-bank?tab=question-builder&mode=manual`,
+                            )
+                          }}
+                      >
+                        Go to Question Builder
+                      </Button>
+                    ) : null}
+                  </div>
               ) : (
                   <ul className="space-y-2">
                     {rows.map(({ question, context }) => (

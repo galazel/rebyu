@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { ClipboardCheck, EyeIcon, PencilIcon, Plus } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import AssessmentDialog from "./assessment-dialog.jsx"
 import AssessmentPreviewDialog from "./assessment-preview-dialog.jsx"
-import ExamFormatPanel from "./exam-format-panel.jsx"
+import ExamFormatPanel, { examFormatQuery } from "./exam-format-panel.jsx"
 import { useAssessmentData } from "./assessments-tab.jsx"
 
 const EXAMS = [
@@ -50,6 +51,7 @@ export default function CertificationExamsSection({ certification }) {
   const [previewTarget, setPreviewTarget] = useState(null)
 
   const editorTarget = pickerTarget ?? editTarget
+  const examFormat = useQuery(examFormatQuery(certificationId)).data
 
   const lessonIds = useMemo(() => lessonIdsOf(certification), [certification])
 
@@ -96,7 +98,17 @@ export default function CertificationExamsSection({ certification }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {cards.map((card) => (
+        {cards.map((card) => {
+          const requiredQuestionCount =
+            card.type === "MOCK_EXAM"
+              ? Number(examFormat?.totalItems) || null
+              : card.type === "DIAGNOSTIC"
+                ? lessonIds.length
+                : null
+          const needsMoreQuestions =
+            requiredQuestionCount != null && card.count < requiredQuestionCount
+
+          return (
           <article key={card.type} className="flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -169,14 +181,16 @@ export default function CertificationExamsSection({ certification }) {
                   <Button type="button" variant="outline" size="sm" onClick={() => setPreviewTarget(card.exam)}>
                     <EyeIcon aria-hidden="true" /> Preview
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPickerTarget(card.exam)}
-                  >
-                    <Plus aria-hidden="true" /> Add questions
-                  </Button>
+                  {needsMoreQuestions ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPickerTarget(card.exam)}
+                    >
+                      <Plus aria-hidden="true" /> Add more questions
+                    </Button>
+                  ) : null}
                   <Button type="button" size="sm" onClick={() => setEditTarget(card.exam)}>
                     <PencilIcon aria-hidden="true" /> Edit paper
                   </Button>
@@ -188,7 +202,8 @@ export default function CertificationExamsSection({ certification }) {
               )}
             </div>
           </article>
-        ))}
+          )
+        })}
       </div>
 
       <AssessmentDialog
