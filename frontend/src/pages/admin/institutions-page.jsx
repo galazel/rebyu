@@ -336,7 +336,18 @@ export default function Institutions({ onEdit, onDelete }) {
             details={() => [["Institutions in file", `${sortedInstitutions.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
             className="order-last ml-auto self-center"
             disabled={sortedInstitutions.length === 0}
-            sections={() => [tableFromObjects("Institutions", sortedInstitutions)]}
+            sections={() => [{
+              title: "Institutions",
+              columns: [
+                "Institution", "Type", "Verified", "Status", "Address", "Contact person", "Contact email",
+                "Contact phone", "Joined on", "Learners", "Certifications",
+              ],
+              rows: sortedInstitutions.map((i) => [
+                i.institutionName, i.institutionType, Boolean(i.isVerified ?? i.verified), i.status, i.address ?? "",
+                i.primaryContactName ?? "", i.primaryContactEmail ?? "", i.primaryContactPhone ?? "",
+                i.joinedAt, i.learnerCount ?? 0, i.certificationCount ?? 0,
+              ]),
+            }]}
           />
           <div className="flex items-baseline gap-2">
             <Building2 className="h-4 w-4 self-center text-primary" />

@@ -27,6 +27,13 @@ export const RECORD_COLUMNS = [
   "Passed mock exam", "Best mock exam score (%)", "Last active",
 ]
 
+/* Current learners have not left, so the two "left" columns would always be blank. */
+const LEFT_COLUMNS = new Set([8, 9])
+export const CURRENT_COLUMNS = RECORD_COLUMNS.filter((_, i) => !LEFT_COLUMNS.has(i))
+export function currentRow(r) {
+  return recordRow(r).filter((_, i) => !LEFT_COLUMNS.has(i))
+}
+
 const REASON = { removed: "Removed by the department", expired: "Certification access expired" }
 
 export function recordRow(r) {
@@ -98,7 +105,7 @@ export function AllocationLearnersButton({ allocation, title }) {
   const csv = async () => {
     const data = query.data ?? (await getAllocationLearners(allocation.institutionCertId))
     return [
-      { title: "Current learners", columns: RECORD_COLUMNS, rows: (data.current ?? []).map(recordRow) },
+      { title: "Current learners", columns: CURRENT_COLUMNS, rows: (data.current ?? []).map(currentRow) },
       { title: "Former learners (removed; figures frozen when they left)", columns: RECORD_COLUMNS, rows: (data.former ?? []).map(recordRow) },
     ]
   }
@@ -164,7 +171,7 @@ export async function certificationsPageCsv(allocations, titleOf) {
     {
       title: "Certifications",
       columns: [
-        "Certification", "Status", "Access from", "Access until", "Seats total", "Seats used", "Seats free",
+        "Certification", "Status", "Access from", "Access until", "Seats total", "Seats used (incl. pending invitations)", "Seats free",
         "Current learners", "Former learners",
       ],
       rows: allocations.map((a, i) => [
@@ -175,8 +182,8 @@ export async function certificationsPageCsv(allocations, titleOf) {
     },
     {
       title: "Current learners (all certifications)",
-      columns: RECORD_COLUMNS,
-      rows: perAllocation.flatMap((d) => (d?.current ?? []).map(recordRow)),
+      columns: CURRENT_COLUMNS,
+      rows: perAllocation.flatMap((d) => (d?.current ?? []).map(currentRow)),
     },
     {
       title: "Former learners (removed; figures frozen when they left)",

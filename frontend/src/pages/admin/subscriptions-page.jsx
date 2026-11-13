@@ -13,7 +13,7 @@ import { BentoGrid, BentoStat } from "@/components/commons/bento.jsx"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 import { apiMessage } from "@/services/base"
 import {
   approveSubscription,
@@ -309,20 +309,21 @@ export default function AdminSubscriptionsPage() {
   const proRows = rows.filter((row) => (tab === "awaiting" ? row.awaitingApproval : true))
   const isLedgerTab = tab === "certifications" || tab === "all"
 
-  const exportCsv = () => {
-    const stamp = new Date().toISOString()
-    downloadCsv(
-      timestampedFilename("rebyu-payments"),
-      toCsv([
+  const statusLabel = (value) => {
+    const text = String(value ?? "").toLowerCase().replaceAll("_", " ")
+    return text ? text[0].toUpperCase() + text.slice(1) : ""
+  }
+
+  const exportSections = () => [
         {
-          title: `REBYU payments analytics (exported ${stamp})`,
+          title: "Payments summary",
           columns: ["Metric", "Value"],
           rows: [
             ["Learners who paid", ledger.payers ?? ""],
-            ["Certification orders (paid)", ledger.certificationOrders ?? ""],
+            ["Certification orders paid for (above ₱0)", ledger.certificationOrders ?? ""],
             ["Certification sales (PHP)", ledger.certificationRevenue ?? ""],
-            ["Pro payments", ledger.proPayments ?? ""],
-            ["Approved Pro revenue (PHP, test)", ledger.proRevenue ?? ""],
+            ["Pro payments (any status, including rejected)", ledger.proPayments ?? ""],
+            ["Approved Pro revenue (PHP, test mode)", ledger.proRevenue ?? ""],
             ["Learners on Pro now", counts.active],
             ["Pro awaiting approval", counts.awaiting],
           ],
@@ -338,7 +339,7 @@ export default function AdminSubscriptionsPage() {
             row.reference,
             row.amount ?? "",
             row.paidAt ?? "",
-            row.status,
+            statusLabel(row.status),
           ]),
         },
         {
@@ -348,7 +349,7 @@ export default function AdminSubscriptionsPage() {
             row.learnerName ?? `Learner #${row.learnerId}`,
             row.email ?? "",
             row.planName ?? row.planCode ?? "",
-            row.awaitingApproval ? "Awaiting approval" : row.active ? "Active" : row.status,
+            row.awaitingApproval ? "Awaiting approval" : row.active ? "Active" : statusLabel(row.status),
             row.amount ?? "",
             row.paidAt ?? "",
             row.currentPeriodEnd ?? "",
@@ -356,9 +357,7 @@ export default function AdminSubscriptionsPage() {
             row.reviewNote ?? "",
           ]),
         },
-      ])
-    )
-  }
+  ]
 
   if (query.isLoading) return <InstitutionLoadingSkeleton />
   if (query.isError) {
@@ -377,10 +376,14 @@ export default function AdminSubscriptionsPage() {
         title="Payments"
         subtitle="Everyone who has paid — certification purchases and Pro subscriptions — plus test-mode PayMongo payments waiting for review."
         actions={
-          <Button variant="outline" onClick={exportCsv} disabled={paymentsQuery.isLoading}>
-            <Download className="size-4" aria-hidden="true" />
-            Download CSV
-          </Button>
+          <ExportButton
+            filename="rebyu-payments"
+            report="Payments"
+            details={[["Mode", "PayMongo test mode"]]}
+            sections={exportSections}
+            disabled={paymentsQuery.isLoading}
+            size="default"
+          />
         }
       />
 

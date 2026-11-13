@@ -239,13 +239,26 @@ public class InstitutionSectionController {
         return withCounts(s, learners, pending);
     }
 
+    /** What a section's learners study: its program's certifications, else the section's own (older sections). */
+    public static String certificationsOf(InstitutionSection s) {
+        if (s.getProgram() != null && !s.getProgram().getInstitutionCerts().isEmpty()) {
+            return s.getProgram().getInstitutionCerts().stream()
+                    .filter(c -> c.getCertification() != null)
+                    .map(c -> c.getCertification().getTitle())
+                    .sorted()
+                    .collect(java.util.stream.Collectors.joining(" / "));
+        }
+        var cert = s.getInstitutionCert();
+        return cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle();
+    }
+
     private SectionDto withCounts(InstitutionSection s, long learners, long pending) {
         var cert = s.getInstitutionCert();
         return new SectionDto(s.getSectionId(), s.getDepartment().getDepartmentId(), s.getSectionName(),
                 s.getDescription(), s.getCreatedAt(), learners, pending,
                 cert == null ? null : cert.getInstitutionCertId(),
                 cert == null || cert.getCertification() == null ? null : cert.getCertification().getCertificationId(),
-                cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle(),
+                certificationsOf(s),
                 s.getProgram() == null ? null : s.getProgram().getProgramId(),
                 s.getProgram() == null ? null : s.getProgram().getProgramName());
     }

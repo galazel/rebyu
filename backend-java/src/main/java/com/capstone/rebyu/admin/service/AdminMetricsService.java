@@ -154,9 +154,9 @@ public class AdminMetricsService {
         };
         each.accept("select to_char(date_trunc('month', joined_at), 'YYYY-MM') m, count(*) c from users "
                 + "where joined_at >= ? group by 1", rs -> bump(counts, rs, 0));
-        each.accept("select to_char(date_trunc('month', submitted_at), 'YYYY-MM') m, count(*) c, "
-                + "count(*) filter (where passed) p from assessment_attempts "
-                + "where status = 'SUBMITTED' and submitted_at >= ? group by 1", rs -> {
+        each.accept("select to_char(date_trunc('month', a.submitted_at), 'YYYY-MM') m, count(*) c, "
+                + "count(*) filter (where a.passed) p from assessment_attempts a" + OWN_ATTEMPTS
+                + " and a.submitted_at >= ? group by 1", rs -> {
             bump(counts, rs, 1);
             try {
                 long[] row = counts.get(rs.getString("m"));
@@ -326,19 +326,23 @@ public class AdminMetricsService {
                 pending);
     }
 
+    /* Certification assessments only: not a learner's AI practice or flashcards, not a
+       department's own paper. The same rule as every institution and learner figure. */
+    private static final String OWN_ATTEMPTS =" join exams e on e.exam_id = a.exam_id left join exam_types et on et.exam_type_id = e.exam_type_id where a.status = 'SUBMITTED' and e.learner_id is null and e.owner_department_id is null and coalesce(e.target_scope,'') <> 'GENERATED' and coalesce(et.exam_type_text,'') not in ('GENERATED_QUIZ','GENERATED_FLASHCARD')";
+
     private AssessmentMetrics assessments() {
-        long graded = attemptRepository.countByStatus(AssessmentAttempt.Status.SUBMITTED);
-        long passed = attemptRepository
-                .countByStatusAndPassed(AssessmentAttempt.Status.SUBMITTED, Boolean.TRUE);
-        Double average = attemptRepository
-                .averagePercentageByStatus(AssessmentAttempt.Status.SUBMITTED);
-        return new AssessmentMetrics(
-                graded,
-                passed,
-                graded == 0 ? null : (int) Math.round(passed * 100.0 / graded),
-                average == null ? null : (int) Math.round(average),
-                attemptRepository.countByStatusAndSubmittedAtGreaterThanEqual(
-                        AssessmentAttempt.Status.SUBMITTED, LocalDateTime.now().minusDays(30)));
+        return jdbc.queryForObject("select count(*) g, count(*) filter (where a.passed) p, avg(a.percentage) av, "
+                + "count(*) filter (where a.submitted_at >= now() - interval '30 days') r "
+                + "from assessment_attempts a" + OWN_ATTEMPTS, (rs, i) -> {
+            long graded = rs.getLong("g");
+            long passed = rs.getLong("p");
+            double avg = rs.getDouble("av");
+            boolean noAvg = rs.wasNull();
+            return new AssessmentMetrics(graded, passed,
+                    graded == 0 ? null : (int) Math.round(passed * 100.0 / graded),
+                    noAvg ? null : (int) Math.round(avg),
+                    rs.getLong("r"));
+        });
     }
 
     private SalesMetrics sales() {

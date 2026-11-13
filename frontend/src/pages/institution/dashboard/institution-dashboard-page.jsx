@@ -913,13 +913,14 @@ export default function InstitutionDashboardPage() {
                     ["Attempt pass rate (%)", summary.passRate, "Passed submitted assessments divided by all submitted assessments"],
                     ["Attempt average score (%)", summary.averageScore, "Average score across submitted assessments"],
                     ["Lessons completed", summary.lessonsCompleted, "Lessons completed in the selected period"],
-                    ["Licensed seats used", summary.seatsUsed, "Active certification seats currently in use"],
+                    ["Licensed seats used", summary.seatsUsed, "Seats taken on active certifications: enrolled learners plus seats held by pending invitations"],
+                    ["Seats held by pending invitations", pendingCertificationInvitations, "Certification invitations sent but not yet accepted; each holds one seat until accepted or expired"],
                     ["Licensed seats available", summary.seatsTotal, "Active certification seats available to the institution"],
                   ],
                 },
                 {
                   title: "Certification capacity",
-                  columns: ["Certification", "Status", "Seats used", "Seats available", "Access starts", "Access ends", "Department seats assigned"],
+                  columns: ["Certification", "Status", "Seats used (incl. pending invitations)", "Seats available", "Access starts", "Access ends", "Department seats assigned"],
                   rows: certifications.map((cert) => [
                     cert.title, cert.status, cert.seatsUsed, cert.totalSlots, cert.accessStartDate, cert.accessExpiryDate, cert.departmentSlots,
                   ]),

@@ -144,7 +144,7 @@ export default function InstitutionDepartmentWorkspacePage() {
         </div>
         <dl className="grid shrink-0 grid-cols-2 gap-2 text-center">
           {[
-            ["Learners", learners.length],
+            ["Learners", new Set(learners.map((row) => row.learnerId)).size],
             ["Certifications", coveredCertifications.length],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2">

@@ -25,6 +25,8 @@ import java.util.Objects;
 @Transactional
 public class DepartmentLearnerService {
 
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
+
     private final DepartmentLearnerRepository departmentLearnerRepository;
     private final DepartmentRepository departmentRepository;
     private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
@@ -105,6 +107,7 @@ public class DepartmentLearnerService {
         entity.setStatus(DepartmentLearner.Status.archived);
         entity.setRemovedAt(LocalDateTime.now());
         departmentLearnerRepository.save(entity);
+        seatLedger.recountAfterCommit();
     }
 
     public DepartmentLearnerDto changeRole(

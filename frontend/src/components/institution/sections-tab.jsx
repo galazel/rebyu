@@ -1267,6 +1267,8 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
       inProgram(row.certificationId) &&
       inProgramSection(row.sectionId)
   )
+  // One row per learner per certification: count people for "learners", rows for seats.
+  const rosterPeople = new Set(roster.map((row) => row.learnerId)).size
   const invitations = asArray(invitationsQuery.data).filter(
     (inv) =>
       inv.departmentId === departmentId &&
@@ -1336,8 +1338,11 @@ export function SectionsTab({ departmentId, group: department, certificationId, 
           <div className="min-w-0">
             <CardTitle className="text-base">Sections</CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              {sections.length} section{sections.length === 1 ? "" : "s"} · {roster.length} learner
-              {roster.length === 1 ? "" : "s"} · {remainingSlots} of {slotTotal} slot(s) remaining
+              {sections.length} section{sections.length === 1 ? "" : "s"} · {rosterPeople} learner
+              {rosterPeople === 1 ? "" : "s"} · {remainingSlots} of {slotTotal} slot(s) remaining
+              {slotUsed > roster.length
+                ? ` · ${slotUsed - roster.length} more held by pending invitations or other programs`
+                : ""}
             </CardDescription>
           </div>
           <Button size="sm" onClick={() => setDialog({ section: null })} className="self-start sm:self-auto shrink-0">

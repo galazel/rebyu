@@ -117,6 +117,22 @@ public class CascadeDeleteService {
     private final NamedParameterJdbcTemplate named;
     private volatile Schema schema;
 
+    /* Deleting a learner, enrollment, invitation or department frees seats. Lazy: the
+       ledger lives in a feature package and must not create a construction cycle. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.capstone.rebyu.institution.service.SeatLedgerService seats;
+
+    private static final Set<String> SEAT_TABLES = Set.of(
+            "users", "learners", "institution_certification_learners", "learner_invitations",
+            "department_learners", "departments", "institution_certificates", "institutions");
+
+    private void recountSeatsIfNeeded(Map<String, Integer> removed) {
+        if (seats != null && removed.keySet().stream().anyMatch(SEAT_TABLES::contains)) {
+            seats.recountAfterCommit();
+        }
+    }
+
     public CascadeDeleteService(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
         this.named = new NamedParameterJdbcTemplate(jdbc);
@@ -132,6 +148,7 @@ public class CascadeDeleteService {
         int count = deleteWhereIn(table, keyColumn, keys);
         removed.merge(table, count, Integer::sum);
         log.info("Cascade-deleted {} {} row(s) {}: {}", count, table, ids, removed);
+        recountSeatsIfNeeded(removed);
         return removed;
     }
 
@@ -146,6 +163,11 @@ public class CascadeDeleteService {
         Map<String, Integer> removed = new LinkedHashMap<>();
         List<Object> keys = existing(table, keyColumn, ids);
         if (!keys.isEmpty()) deleteDescendants(table, keyColumn, keys, 0, removed);
+        if (!keys.isEmpty()) {
+            // The caller deletes the rows themselves next, so count them as removed here.
+            removed.putIfAbsent(table, 0);
+            recountSeatsIfNeeded(removed);
+        }
         return removed;
     }
 

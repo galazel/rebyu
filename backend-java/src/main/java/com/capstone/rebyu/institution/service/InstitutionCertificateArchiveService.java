@@ -29,6 +29,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InstitutionCertificateArchiveService {
 
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
+
     private final InstitutionCertificateRepository allocations;
     private final InstitutionCertificateArchiveRepository archives;
     private final InstitutionCertificationLearnerRepository enrollments;
@@ -80,6 +82,7 @@ public class InstitutionCertificateArchiveService {
         archives.save(archive);
         allocation.setStatus(InstitutionCertificate.Status.expired);
         allocation.setUsedSlots(0);
+        seatLedger.recountAfterCommit();
         allocations.save(allocation);
         log.info("Archived allocation {} ({}): {} learner(s) released", allocation.getInstitutionCertId(),
                 allocation.getCertification().getTitle(), released);

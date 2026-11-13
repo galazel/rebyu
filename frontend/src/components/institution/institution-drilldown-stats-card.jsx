@@ -290,13 +290,17 @@ export default function InstitutionDrilldownStatsCard({
       .sort((a, b) => b.value - a.value)
   }, [departments])
 
+  // Whole-institution totals use the server's seat count (one seat per learner per
+  // certification), the same figure the department-head page shows, so the portals agree.
   const totalLevel1Slots = useMemo(() => {
-    return level1Data.reduce((sum, item) => sum + item.allottedSlots, 0)
-  }, [level1Data])
+    const server = Number(summary?.seatsTotal ?? 0)
+    return server > 0 ? server : level1Data.reduce((sum, item) => sum + item.allottedSlots, 0)
+  }, [level1Data, summary?.seatsTotal])
 
   const totalLevel1Enrolled = useMemo(() => {
+    if (Number(summary?.seatsTotal ?? 0) > 0) return Number(summary?.seatsUsed ?? 0)
     return level1Data.reduce((sum, item) => sum + item.enrolled, 0)
-  }, [level1Data])
+  }, [level1Data, summary?.seatsTotal, summary?.seatsUsed])
 
   const overallLevel1ReachPct = useMemo(() => {
     return totalLevel1Slots > 0
@@ -772,7 +776,8 @@ export default function InstitutionDrilldownStatsCard({
 
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
-    const totalEnrolled = totalLevel1Enrolled
+    // Learners per department, not seats (seats also count pending invitations).
+    const totalEnrolled = level1Data.reduce((sum, d) => sum + d.enrolled, 0)
     const certifiedCount = level1Data.reduce((sum, d) => sum + d.certified, 0)
     const inProgressCount = level1Data.reduce((sum, d) => sum + d.inProgress, 0)
 

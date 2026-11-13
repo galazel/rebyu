@@ -412,7 +412,7 @@ public class DepartmentOverviewService {
                 section.getSectionName(),
                 section.getProgram() == null ? null : section.getProgram().getProgramId(),
                 section.getProgram() == null ? null : section.getProgram().getProgramName(),
-                cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle(),
+                com.capstone.rebyu.department.controller.InstitutionSectionController.certificationsOf(section),
                 members.size(),
                 progress,
                 score,
@@ -467,7 +467,7 @@ public class DepartmentOverviewService {
         if (sections.isEmpty()) return counts;
         List<Long> ids = sections.stream().map(InstitutionSection::getSectionId).toList();
         for (Object[] row : entityManager.createQuery(
-                        "select i.section.sectionId, count(i) from LearnerInvitation i "
+                        "select i.section.sectionId, count(distinct lower(i.email)) from LearnerInvitation i "
                                 + "where i.section.sectionId in :ids and i.status = :st group by i.section.sectionId",
                         Object[].class)
                 .setParameter("ids", ids)

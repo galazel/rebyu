@@ -6,6 +6,8 @@ import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.user.entity.User;
+import com.capstone.rebyu.department.entity.InstitutionSection;
 import com.capstone.rebyu.department.entity.DepartmentLearner;
 import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
 import com.capstone.rebyu.department.repository.DepartmentRepository;
@@ -38,6 +40,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class LearnerService {
+
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
 
     private final LearnerRepository learnerRepository;
     private final LearnerMapper learnerMapper;
@@ -191,6 +195,7 @@ public class LearnerService {
         if (invitation.getExpiresAt() != null
                 && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             invitation.setStatus(LearnerInvitation.Status.EXPIRED);
+            seatLedger.recountAfterCommit();
             learnerInvitationRepository.save(invitation);
             restoreSlot(invitation.getInstitutionCert());
             restoreDepartmentSlot(invitation.getDepartment());
@@ -319,15 +324,45 @@ public class LearnerService {
 
     /** Enrols the learner in the invitation's certification, places them in its department, marks it accepted. */
     private InstitutionCertificationLearner enroll(LearnerInvitation invitation, Learner learner) {
-        InstitutionCertificate institutionCert = invitation.getInstitutionCert();
+        Department group = invitation.getDepartment();
+        Placement placement = place(invitation.getInstitutionCert(), learner, group,
+                invitation.getSection(), invitation.getInvitedBy());
+        if (placement.wasActive()) {
+            // No new seat was taken: give back the one reserved when the invitation was sent.
+            restoreSlot(invitation.getInstitutionCert());
+            restoreDepartmentSlot(group);
+        }
+        markAccepted(invitation, learner);
+        return placement.enrollment();
+    }
+
+    public record Placement(InstitutionCertificationLearner enrollment, boolean wasActive) {}
+
+    /**
+     * Gives a learner a certification directly, with no invitation: used when a program
+     * the learner already studies in gains a certification. Takes a seat (the caller checks
+     * there is one) and places them in the same department and section.
+     */
+    @Transactional
+    public Placement enrollDirectly(InstitutionCertificate institutionCert, Learner learner, Department group,
+                                    InstitutionSection section, User assignedBy) {
+        Placement placement = place(institutionCert, learner, group, section, assignedBy);
+        seatLedger.recountAfterCommit();
+        return placement;
+    }
+
+    private Placement place(InstitutionCertificate institutionCert, Learner learner, Department group,
+                            InstitutionSection section, User assignedBy) {
         var previous = institutionCertificationLearnerRepository
                 .findFirstByInstitutionCertAndLearner(institutionCert, learner);
         boolean wasActive = previous.filter(row -> row.getStatus() != InstitutionCertificationLearner.Status.revoked).isPresent();
         // A learner the institution removed earlier is re-admitted on their old enrolment row.
         InstitutionCertificationLearner enrollment = previous
                 .map(row -> {
-                    row.setStatus(InstitutionCertificationLearner.Status.active);
-                    row.setAssignedAt(LocalDateTime.now());
+                    if (row.getStatus() == InstitutionCertificationLearner.Status.revoked) {
+                        row.setStatus(InstitutionCertificationLearner.Status.active);
+                        row.setAssignedAt(LocalDateTime.now());
+                    }
                     return row;
                 })
                 .orElseGet(() -> InstitutionCertificationLearner.builder()
@@ -339,6 +374,7 @@ public class LearnerService {
                         .status(InstitutionCertificationLearner.Status.active)
                         .build());
         enrollment = institutionCertificationLearnerRepository.save(enrollment);
+        seatLedger.recountAfterCommit();
         ensureDirectCertificationEnrollment(learner, institutionCert.getCertification());
         orgEnrollmentProgressService.sync(enrollment);
 
@@ -351,43 +387,34 @@ public class LearnerService {
                     "/learner/certifications/" + institutionCert.getCertification().getCertificationId());
         }
 
-        Department group = invitation.getDepartment();
         var placed = group == null ? java.util.Optional.<DepartmentLearner>empty()
                 : departmentLearnerRepository.findByDepartmentAndInstitutionCertLearner(group, enrollment);
         if (placed.isPresent()) {
-            // Already in this department (e.g. re-invited): move them to the invited section.
             DepartmentLearner existing = placed.get();
             existing.setStatus(DepartmentLearner.Status.active);
-            existing.setSection(invitation.getSection());
+            existing.setSection(section);
             departmentLearnerRepository.save(existing);
-        } else if (group != null && invitation.getInvitedBy() != null) {
-            DepartmentLearner assignee = DepartmentLearner.builder()
+        } else if (group != null && assignedBy != null) {
+            departmentLearnerRepository.save(DepartmentLearner.builder()
                     .department(group)
                     .institutionCertLearner(enrollment)
-                    .assignedBy(invitation.getInvitedBy())
+                    .assignedBy(assignedBy)
                     .assignedAt(LocalDateTime.now())
                     .status(DepartmentLearner.Status.active)
                     .role(DepartmentLearner.Role.member)
-                    .section(invitation.getSection())
-                    .build();
-            departmentLearnerRepository.save(assignee);
-            log.info("Learner {} placed into group {} via invitation {}",
-                    learner.getLearnerId(), group.getDepartmentId(), invitation.getInvitationId());
+                    .section(section)
+                    .build());
+            log.info("Learner {} placed into group {} for institution cert {}",
+                    learner.getLearnerId(), group.getDepartmentId(), institutionCert.getInstitutionCertId());
         }
-
-        if (wasActive) {
-            // No new seat was taken: give back the one reserved when the invitation was sent.
-            restoreSlot(institutionCert);
-            restoreDepartmentSlot(group);
-        }
-        markAccepted(invitation, learner);
-        return enrollment;
+        return new Placement(enrollment, wasActive);
     }
 
     private void markAccepted(LearnerInvitation invitation, Learner learner) {
         invitation.setLearner(learner);
         invitation.setAcceptedAt(LocalDateTime.now());
         invitation.setStatus(LearnerInvitation.Status.ACCEPTED);
+        seatLedger.recountAfterCommit();
         learnerInvitationRepository.save(invitation);
     }
 
@@ -413,6 +440,7 @@ public class LearnerService {
             return;
         }
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
+        seatLedger.recountAfterCommit();
         departmentRepository.save(group);
     }
 
@@ -443,6 +471,7 @@ public class LearnerService {
             return;
         }
         institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+        seatLedger.recountAfterCommit();
         institutionCertificateRepository.save(institutionCert);
     }
 

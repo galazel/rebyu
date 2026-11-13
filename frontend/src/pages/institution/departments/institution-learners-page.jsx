@@ -34,6 +34,17 @@ import {
   useInstitutionData,
 } from "@/hooks/use-institution-data.js"
 
+/* Same rule as the dashboards: an enrollment that reached 100% or has a completion
+   date is completed, even if its stored status was never flipped. */
+function enrollmentStatus(assignment) {
+  if (!assignment) return ""
+  if (assignment.status === "revoked") return "revoked"
+  if (assignment.status === "completed" || assignment.completedAt || Number(assignment.progressPercentage ?? 0) >= 100) {
+    return "completed"
+  }
+  return assignment.status
+}
+
 export default function InstitutionLearnersPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
@@ -79,7 +90,7 @@ export default function InstitutionLearnersPage() {
         ) {
           return false
         }
-        if (statusFilter !== "all" && row.assignment.status !== statusFilter) {
+        if (statusFilter !== "all" && enrollmentStatus(row.assignment) !== statusFilter) {
           return false
         }
         if (search.trim()) {
@@ -208,7 +219,7 @@ export default function InstitutionLearnersPage() {
                     row.learner?.username,
                     row.certification?.title,
                     row.group?.departmentName ?? "Not in a department",
-                    row.assignment.status,
+                    enrollmentStatus(row.assignment),
                     pct(row.assignment.progressPercentage),
                     isoDay(row.assignment.assignedAt),
                     isoDay(row.assignment.completedAt),
@@ -292,7 +303,7 @@ export default function InstitutionLearnersPage() {
                           </TableCell>
                           <TableCell>
                             <InstitutionStatusBadge
-                              status={row.assignment.status}
+                              status={enrollmentStatus(row.assignment)}
                             />
                           </TableCell>
                         </TableRow>

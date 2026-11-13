@@ -43,6 +43,11 @@ public class BktOutboxService {
         if (!properties.isEnabled()) {
             return 0;
         }
+        // Mastery is measured on the certification's own assessments only: not a learner's
+        // AI practice quiz or flashcards, and not a department's own paper.
+        if (!com.capstone.rebyu.assessment.service.CertificationAssessments.isCertificationOwn(attempt.getExam())) {
+            return 0;
+        }
         try {
             String rawAssessmentType = attempt.getExam().getExamType().getExamTypeText();
             Long certificationId = attempt.getExam().getCertification().getCertificationId();

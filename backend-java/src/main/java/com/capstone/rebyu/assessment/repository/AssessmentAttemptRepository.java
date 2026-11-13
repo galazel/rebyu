@@ -135,6 +135,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds AND a.status = :status
               AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.exam.ownerDepartment IS NULL AND a.exam.learner IS NULL
               AND a.submittedAt >= :from AND a.submittedAt <= :to
               AND a.exam.certification.certificationId IN :certificationIds
             GROUP BY a.learnerId
@@ -160,6 +161,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds AND a.status = :status
               AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.exam.ownerDepartment IS NULL AND a.exam.learner IS NULL
               AND a.submittedAt >= :from AND a.submittedAt <= :to
               AND a.exam.certification.certificationId IN :certificationIds
             """)
@@ -185,6 +187,8 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds
               AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.exam.ownerDepartment IS NULL AND a.exam.learner IS NULL
+              AND a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL
               AND a.submittedAt >= :from AND a.submittedAt <= :to
@@ -222,7 +226,9 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds
               AND a.exam.examType.examTypeText IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND a.exam.ownerDepartment IS NULL AND a.exam.learner IS NULL
               AND a.exam.certification.certificationId IN :certificationIds
+              AND a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL
               AND a.submittedAt >= :from AND a.submittedAt <= :to

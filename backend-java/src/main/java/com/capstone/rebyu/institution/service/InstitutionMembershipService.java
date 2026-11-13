@@ -49,6 +49,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InstitutionMembershipService {
 
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
+
     private final InstitutionCertificationLearnerRepository enrollments;
     private final DepartmentLearnerRepository departmentLearners;
     private final DepartmentRepository departments;
@@ -109,6 +111,7 @@ public class InstitutionMembershipService {
                 Department department = membership.getDepartment();
                 if (department != null) {
                     department.setUsedSlots(Math.max(0, department.getUsedSlots() - 1));
+                    seatLedger.recountAfterCommit();
                     departments.save(department);
                 }
             }
@@ -121,6 +124,7 @@ public class InstitutionMembershipService {
                 if (reason == InstitutionLearnerRecord.Reason.removed) {
                     int used = seatRow.getUsedSlots() == null ? 0 : seatRow.getUsedSlots();
                     seatRow.setUsedSlots(Math.max(0, used - 1));
+                    seatLedger.recountAfterCommit();
                     allocations.save(seatRow);
                 }
                 keepOwnEnrollment(enrollment.getLearner(), seatRow);

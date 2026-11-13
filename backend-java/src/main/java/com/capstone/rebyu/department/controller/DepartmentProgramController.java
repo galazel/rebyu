@@ -35,6 +35,8 @@ public class DepartmentProgramController {
     private final CognitoAuthService auth;
     private final EntityManager entityManager;
     private final RoleGuard roleGuard;
+    private final com.capstone.rebyu.user.service.LearnerService learnerService;
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
 
     public record ProgramRequest(
             @NotBlank @Size(max = 150) String programName,
@@ -149,7 +151,8 @@ public class DepartmentProgramController {
         program.setProgramCode(blankToNull(request.programCode()));
         program.setDescription(blankToNull(request.description()));
         if (request.institutionCertIds() != null && !request.institutionCertIds().isEmpty()) {
-            program.setInstitutionCerts(coveredCertifications(program.getDepartment(), request.institutionCertIds()));
+            changeCertifications(program, coveredCertifications(program.getDepartment(), request.institutionCertIds()),
+                    auth.syncCurrentUser(jwt, jwt.getTokenValue()));
         }
         return toDto(programs.save(program), countSections(programId));
     }
@@ -168,13 +171,13 @@ public class DepartmentProgramController {
             @PathVariable Long departmentId,
             @PathVariable Long programId,
             @RequestBody CertificationsRequest request) {
-        requireDepartmentAccess(jwt, departmentId);
+        CurrentUserDto caller = requireDepartmentAccess(jwt, departmentId);
         DepartmentProgram program = find(departmentId, programId);
         if (request == null || request.institutionCertIds() == null || request.institutionCertIds().isEmpty()) {
             throw new IllegalArgumentException("Choose at least one certification for this program.");
         }
-        program.setInstitutionCerts(coveredCertifications(program.getDepartment(), request.institutionCertIds()));
-        return toDto(programs.save(program), countSections(programId));
+        changeCertifications(program, coveredCertifications(program.getDepartment(), request.institutionCertIds()), caller);
+        return toDto(program, countSections(programId));
     }
 
     /** Archives the program; its sections stay, unlinked from it. */
@@ -201,6 +204,77 @@ public class DepartmentProgramController {
                     .orElseThrow(() -> new IllegalArgumentException("This department does not cover that certification.")));
         }
         return chosen;
+    }
+
+    /**
+     * Sets the program's certifications. Learners already studying in the program's
+     * sections are enrolled in any newly added certification straight away: they are
+     * already the school's learners, so there is nothing to invite them to.
+     */
+    private void changeCertifications(DepartmentProgram program,
+                                      java.util.Set<com.capstone.rebyu.institution.entity.InstitutionCertificate> next,
+                                      CurrentUserDto caller) {
+        java.util.Set<Long> before = new java.util.HashSet<>();
+        program.getInstitutionCerts().forEach(c -> before.add(c.getInstitutionCertId()));
+        program.setInstitutionCerts(next);
+        // Save the program's own change first: enrolling syncs progress through other
+        // services that can reset the persistence context, which would drop it.
+        programs.saveAndFlush(program);
+        List<com.capstone.rebyu.institution.entity.InstitutionCertificate> added = next.stream()
+                .filter(c -> !before.contains(c.getInstitutionCertId()))
+                .toList();
+        if (added.isEmpty()) return;
+
+        // Each learner once, in the section they are in now.
+        List<com.capstone.rebyu.department.entity.DepartmentLearner> members = entityManager.createQuery("""
+                        select dl from DepartmentLearner dl
+                          join fetch dl.institutionCertLearner icl
+                          join fetch icl.learner
+                          join fetch dl.section s
+                         where s.program.programId = :programId and s.status = :sectionActive
+                           and dl.status = :active and icl.status in :live
+                         order by dl.assignedAt""", com.capstone.rebyu.department.entity.DepartmentLearner.class)
+                .setParameter("programId", program.getProgramId())
+                .setParameter("sectionActive", InstitutionSection.Status.active)
+                .setParameter("active", com.capstone.rebyu.department.entity.DepartmentLearner.Status.active)
+                .setParameter("live", List.of(
+                        com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.active,
+                        com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.completed))
+                .getResultList();
+        Map<Long, com.capstone.rebyu.department.entity.DepartmentLearner> byLearner = new java.util.LinkedHashMap<>();
+        members.forEach(dl -> byLearner.putIfAbsent(dl.getInstitutionCertLearner().getLearner().getLearnerId(), dl));
+        if (byLearner.isEmpty()) return;
+
+        com.capstone.rebyu.user.entity.User by = entityManager.getReference(
+                com.capstone.rebyu.user.entity.User.class, caller.userId());
+        for (var cert : added) {
+            Long certId = cert.getInstitutionCertId();
+            List<com.capstone.rebyu.department.entity.DepartmentLearner> toEnroll = byLearner.values().stream()
+                    .filter(dl -> entityManager.createQuery("""
+                                    select count(x) from InstitutionCertificationLearner x
+                                     where x.institutionCert.institutionCertId = :cert
+                                       and x.learner.learnerId = :learner and x.status in :live""", Long.class)
+                            .setParameter("cert", certId)
+                            .setParameter("learner", dl.getInstitutionCertLearner().getLearner().getLearnerId())
+                            .setParameter("live", List.of(
+                                    com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.active,
+                                    com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner.Status.completed))
+                            .getSingleResult() == 0)
+                    .toList();
+            int total = cert.getTotalSlots() == null ? 0 : cert.getTotalSlots();
+            int used = seatLedger.usedSeats(certId);
+            if (toEnroll.size() > total - used) {
+                throw new IllegalArgumentException(String.format(
+                        "%s has %d free seat(s), but %d learner(s) in this program would be enrolled in it. "
+                                + "Ask your institution administrator for more seats first.",
+                        cert.getCertification() == null ? "This certification" : cert.getCertification().getTitle(),
+                        Math.max(0, total - used), toEnroll.size()));
+            }
+            for (var dl : toEnroll) {
+                learnerService.enrollDirectly(cert, dl.getInstitutionCertLearner().getLearner(),
+                        dl.getDepartment(), dl.getSection(), by);
+            }
+        }
     }
 
     private DepartmentProgram find(Long departmentId, Long programId) {

@@ -144,7 +144,15 @@ export default function InstitutionCertificationsPage() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {assignedCount} learner(s) assigned
+                    {assignedCount} {assignedCount === 1 ? "learner" : "learners"} assigned
+                    {used > assignedCount ? (
+                      <>
+                        {" · "}
+                        <span className="font-semibold text-foreground">
+                          {used - assignedCount} {used - assignedCount === 1 ? "seat" : "seats"} held by pending invitations
+                        </span>
+                      </>
+                    ) : null}
                   </p>
                 </CardContent>
                 <CardFooter className="flex-wrap gap-2">

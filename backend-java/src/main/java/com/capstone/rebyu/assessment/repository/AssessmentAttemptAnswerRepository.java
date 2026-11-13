@@ -101,7 +101,7 @@ public interface AssessmentAttemptAnswerRepository
             JOIN certifications c ON c.certification_id = j.certification_id
             WHERE t.learner_id IN :learnerIds
               AND j.certification_id IN :certificationIds
-              AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+              AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM') AND ex.owner_department_id IS NULL AND ex.learner_id IS NULL
               AND t.submitted_at IS NOT NULL
               AND t.submitted_at >= :from AND t.submitted_at <= :to
               AND a.is_correct IS NOT NULL

@@ -15,6 +15,7 @@ import {
   DonutChart,
   TrendAreaChart,
   TrendLineChart,
+  Sparkline,
 } from "@/components/charts/rebyu-charts.jsx"
 import { Link } from "react-router-dom"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
@@ -22,7 +23,7 @@ import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearr
 import { ADMIN_DEFAULT } from "@/components/commons/dashboard-tile-labels.js"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { Button } from "@/components/ui/button"
-import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
+import { ExportButton } from "@/components/commons/export-button.jsx"
 import { getPlatformMetrics, getUserPresence } from "@/services/adminMetricsService.js"
 import { base } from "@/services/base"
 
@@ -85,6 +86,38 @@ function PeriodSwitch({ value, onChange }) {
   )
 }
 
+function MiniRows({ rows }) {
+  return (
+    <dl className="mt-2 space-y-1 text-xs">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between gap-2 border-b border-black/5 pb-1 last:border-0">
+          <dt className="truncate font-semibold opacity-75">{label}</dt>
+          <dd className="font-extrabold tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function MiniBars({ rows }) {
+  const peak = Math.max(1, ...rows.map(([, value]) => value))
+  return (
+    <ul className="space-y-2 text-xs">
+      {rows.map(([label, value]) => (
+        <li key={label}>
+          <div className="flex justify-between gap-2 font-semibold">
+            <span className="truncate opacity-80">{label}</span>
+            <span className="font-extrabold tabular-nums">{value}</span>
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-black/10">
+            <div className="h-full rounded-full bg-rb-eel" style={{ width: `${(value / peak) * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function AdminDashboard() {
   const metricsQuery = useQuery({
     queryKey: ["admin-platform-metrics"],
@@ -136,6 +169,7 @@ export default function AdminDashboard() {
         const label = new Date(year, (month || 1) - 1, 1).toLocaleDateString(undefined, { month: "short" })
         return {
           month: label,
+          monthKey: String(row.month).slice(0, 7),
           users: Number(row.newUsers ?? 0),
           attempts: Number(row.attempts ?? 0),
           sales: Math.round(Number(row.certificationSales ?? 0)),
@@ -207,13 +241,9 @@ export default function AdminDashboard() {
     [partnershipsQuery.data]
   )
 
-  const buildCsv = () => {
+  const buildSections = () => {
     const range = PERIODS.find((option) => option.key === (presence?.period ?? period))
-    return toCsv([
-      {
-        title: "REBYU platform dashboard — data definitions",
-        columns: ["Exported", new Date().toISOString()],
-      },
+    return [
       {
         title: "Current platform presence (administrators excluded)",
         columns: ["Metric", "Value"],
@@ -238,11 +268,11 @@ export default function AdminDashboard() {
           ["Published certifications", catalog.publishedCertifications, "Catalog certifications currently published"],
           ["Institutions onboarded", catalog.institutions, "Institution accounts on the platform"],
           ["Partnership requests awaiting review", catalog.pendingPartnerships, "Requests in pending or under-review status"],
-          ["Paid certification orders", sales.paidOrders, "Completed learner certification purchases"],
+          ["Completed certification orders", sales.paidOrders, "Completed learner certification orders, including free (₱0) ones"],
           ["Pending certification orders", sales.pendingOrders, "Learner orders awaiting payment or completion"],
           ["Live subscriptions", sales.activeSubscriptions, "Subscriptions in an active or trial state"],
           ["Live institution licences", sales.activeLicenses, "Institution licences in an active or trial state"],
-          ["Graded attempts", assessments.gradedAttempts, "All submitted assessment attempts"],
+          ["Graded attempts", assessments.gradedAttempts, "Submitted attempts on certification assessments (not AI practice or department papers)"],
           ["Recorded Pro subscription revenue (PHP)", pro?.approvedRevenue, "Subscription payments with an active billing period"],
           ["Recorded Pro revenue, past 30 days (PHP)", pro?.approvedRevenueLast30Days, "Subscription payments whose billing period began in the past 30 days"],
           ["Learners on Pro", pro?.activePro, "Distinct learners with an active or trial Pro subscription"],
@@ -270,7 +300,7 @@ export default function AdminDashboard() {
           "New accounts",
           "Assessment attempts",
         ],
-        rows: trends.map((row) => [row.month, row.sales, row.pro, row.approvals, row.users, row.attempts]),
+        rows: trends.map((row) => [row.monthKey, row.sales, row.pro, row.approvals, row.users, row.attempts]),
       },
       {
         title: "Certification catalog",
@@ -278,7 +308,7 @@ export default function AdminDashboard() {
         rows: catalogMix.map((slice) => [slice.name, slice.value]),
       },
       {
-        title: "Recent paid orders and Pro subscription payments",
+        title: "Recent certification orders and Pro subscription payments (any status)",
         columns: ["Learner", "Type", "Reference", "Amount (PHP)", "Paid at", "Status"],
         rows: recentPayments.map((payment) => [
           payment.name,
@@ -298,7 +328,7 @@ export default function AdminDashboard() {
           request.submittedAt,
         ]),
       },
-    ])
+    ]
   }
 
   const tiles = useMemo(() => {
@@ -352,6 +382,19 @@ export default function AdminDashboard() {
             icon={UserCheck}
             label="Online now"
             value={presenceQuery.isError ? "—" : count(presence?.onlineUsers)}
+            children={
+              presenceQuery.isError || activity.length === 0 ? null : (
+                <div>
+                  <Sparkline data={activity} dataKey="active" height={52} />
+                  <MiniRows
+                    rows={[
+                      [range.key === "year" ? "Active this month" : "Active today", activity.at(-1)?.active ?? 0],
+                      [`Peak, ${range.label.toLowerCase()}`, Math.max(...activity.map((row) => row.active))],
+                    ]}
+                  />
+                </div>
+              )
+            }
             hint={
               presenceQuery.isError
                 ? "Could not be loaded"
@@ -374,6 +417,13 @@ export default function AdminDashboard() {
             icon={GraduationCapIcon}
             label="Learners enrolled"
             value={failed ? "—" : count(people.learnersInCertification)}
+            children={
+              failed || learnersPerCertification.length === 0 ? null : (
+                <MiniBars
+                  rows={learnersPerCertification.slice(0, 4).map((row) => [row.title, Number(row.learners ?? 0)])}
+                />
+              )
+            }
             hint={failed ? "Could not be loaded" : `${count(people.activeEnrollments)} active certification enrollments`}
           />
         ),
@@ -392,6 +442,18 @@ export default function AdminDashboard() {
             icon={CreditCard}
             label="Recorded Pro revenue"
             value={failed || !pro ? "—" : money(pro.approvedRevenue)}
+            children={
+              failed || !pro || trends.length === 0 ? null : (
+                <div>
+                  <Sparkline data={trends} dataKey="pro" height={52} />
+                  <MiniRows
+                    rows={[
+                      ["This month", money(trends.at(-1)?.pro ?? 0)],
+                    ]}
+                  />
+                </div>
+              )
+            }
             hint={
               failed || !pro
                 ? "Could not be loaded"
@@ -531,7 +593,7 @@ export default function AdminDashboard() {
           <BentoTile col={4} row={2}>
             <BentoHeading
               title="Platform activity"
-              hint="New accounts and graded assessment attempts, last six months"
+              hint="New accounts and graded certification assessment attempts, last six months"
             />
             {failed ? (
               <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
@@ -565,7 +627,7 @@ export default function AdminDashboard() {
             ) : (
               <BarBreakdownChart
                 data={[
-                  { label: "Paid orders", count: Number(sales.paidOrders ?? 0) },
+                  { label: "Completed orders", count: Number(sales.paidOrders ?? 0) },
                   { label: "Pending orders", count: Number(sales.pendingOrders ?? 0) },
                   { label: "Pro subs", count: Number(sales.activeSubscriptions ?? 0) },
                   { label: "Pro pending", count: Number(planMix?.awaitingApproval ?? 0) },
@@ -742,14 +804,14 @@ export default function AdminDashboard() {
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        <Button
-          variant="outline"
-          onClick={() => downloadCsv(timestampedFilename("rebyu-admin-dashboard"), buildCsv())}
+        <ExportButton
+          filename="rebyu-admin-dashboard"
+          report="Platform dashboard"
+          details={[["Scope", "Whole platform; administrators are not counted"]]}
+          sections={buildSections}
           disabled={metricsQuery.isLoading || metricsQuery.isError || presenceQuery.isLoading}
-        >
-          <Download className="size-4" aria-hidden="true" />
-          Export CSV
-        </Button>
+          size="default"
+        />
 
         <DashboardRearrangeControls
           rearranging={layout.rearranging}

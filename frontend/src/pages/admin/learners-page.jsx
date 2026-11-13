@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
+import { ExportButton, sectionsFromPayload } from "@/components/commons/export-button.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -481,7 +481,21 @@ export default function Learners({
             details={() => [["Learners in file", `${sortedLearners.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
             className="order-last ml-auto"
             disabled={sortedLearners.length === 0}
-            sections={() => [tableFromObjects("Learners", sortedLearners)]}
+            sections={() => [{
+              title: "Learners",
+              columns: [
+                "Learner", "Username", "Email", "Account status", "Joined on", "Learner type", "Institution",
+                "Certifications", "Average progress (%)",
+              ],
+              rows: sortedLearners.map((l) => [
+                [l.firstName, l.lastName].filter(Boolean).join(" ") || l.username,
+                l.username, l.email, l.status, l.joinedAt,
+                l.learnerType === "institution" ? "Institution learner" : "Individual",
+                l.institutionName ?? "",
+                l.certificationCount ?? 0,
+                l.progressPercentage == null ? null : Math.round(Number(l.progressPercentage)),
+              ]),
+            }]}
           />
           <div className="flex items-baseline gap-2">
             <Users className="self-center h-4 w-4 text-primary" />

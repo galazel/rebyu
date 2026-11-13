@@ -30,6 +30,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CertificationDepartmentService implements ApplicationRunner {
 
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
+
     private final DepartmentRepository departments;
     private final InstitutionCertificateRepository allocations;
     private final DepartmentHeadRepository members;
@@ -88,6 +90,7 @@ public class CertificationDepartmentService implements ApplicationRunner {
                 .map(ReferenceOption::getDescription)
                 .orElse(null));
         department.setUsedSlots(0);
+        seatLedger.recountAfterCommit();
         department.setCreatedBy(owner);
         department.setCreatedAt(LocalDateTime.now());
         department.setStatus(Department.Status.active);

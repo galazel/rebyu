@@ -33,6 +33,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class InstitutionInvitationService {
 
+    private final com.capstone.rebyu.institution.service.SeatLedgerService seatLedger;
+
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final int INVITATION_VALID_DAYS = 14;
 
@@ -72,6 +74,7 @@ public class InstitutionInvitationService {
                 invitationRepository.save(invitation);
                 InstitutionCertificate institutionCert = invitation.getInstitutionCert();
                 institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+                seatLedger.recountAfterCommit();
                 institutionCertificateRepository.save(institutionCert);
                 restoreDepartmentSlot(invitation.getDepartment());
                 log.info("Invitation {} expired; 1 slot restored on institutionCert {}",
@@ -112,6 +115,8 @@ public class InstitutionInvitationService {
 
     @Transactional
     public SendInvitationsResponse sendInvitations(SendInvitationsRequest request) throws Exception {
+        // Check free seats against the true count, not a counter another path may have left stale.
+        seatLedger.recountInstitution(request.institutionId());
         Department group = departmentRepository.findById(request.departmentId())
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Group not found: " + request.departmentId()));
@@ -238,6 +243,7 @@ public class InstitutionInvitationService {
                         savedInvitation.getInvitationId(), invitationTokenService.fingerprint(rawToken));
                 if (emailedToken == null) emailedToken = rawToken;
                 cert.setUsedSlots(cert.getUsedSlots() + 1);
+                seatLedger.recountAfterCommit();
             }
 
             String titles = joinTitles(needed);
@@ -255,6 +261,7 @@ public class InstitutionInvitationService {
 
         institutionCertificateRepository.saveAll(certs);
         group.setUsedSlots(group.getUsedSlots() + totalInvitations);
+        seatLedger.recountAfterCommit();
         departmentRepository.save(group);
 
         log.info("Institution {} invited {} learner(s) to {} certification(s) ({} invitation rows, {} skipped)",
@@ -378,6 +385,7 @@ public class InstitutionInvitationService {
             invitation.setStatus(LearnerInvitation.Status.REVOKED);
             invitationRepository.save(invitation);
             institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+            seatLedger.recountAfterCommit();
             institutionCertificateRepository.save(institutionCert);
             restoreDepartmentSlot(group);
             log.info("Invitation {} cancelled; 1 slot restored on institutionCert {}",
@@ -402,6 +410,7 @@ public class InstitutionInvitationService {
             return;
         }
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
+        seatLedger.recountAfterCommit();
         departmentRepository.save(group);
     }
 

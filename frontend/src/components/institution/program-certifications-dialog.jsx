@@ -24,7 +24,7 @@ export function ProgramCertificationsDialog({ departmentId, program, certificati
   const save = useMutation({
     mutationFn: () => setDepartmentProgramCertifications(departmentId, program.programId, chosen),
     onSuccess: () => {
-      toast.success(`${program.programCode || program.programName} certifications saved`)
+      toast.success(`${program.programCode || program.programName} certifications saved; its learners are enrolled in any you added`)
       queryClient.invalidateQueries({ queryKey: ["department-programs", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-program", departmentId, program.programId] })
       onClose()
@@ -38,8 +38,8 @@ export function ProgramCertificationsDialog({ departmentId, program, certificati
         <DialogHeader>
           <DialogTitle>{program.programCode || program.programName} certifications</DialogTitle>
           <DialogDescription>
-            What {program.programName} learners study. When you add learners to one of its sections, you choose from
-            these.
+            What {program.programName} learners study. Learners already in its sections are enrolled in any
+            certification you add right away, with no invitation email; each takes one seat.
           </DialogDescription>
         </DialogHeader>
 

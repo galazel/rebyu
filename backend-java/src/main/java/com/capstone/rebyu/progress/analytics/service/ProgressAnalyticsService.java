@@ -330,10 +330,12 @@ public class ProgressAnalyticsService {
             bump(byAssessmentType, assessmentType, correct);
         }
 
-        int totalAssessmentAttempts = attempts.size();
         List<AssessmentAttempt> curriculumAttempts = attempts.stream()
                 .filter(a -> isCertificationAssessment(a.getExam()))
                 .toList();
+        // Same attempts as the average score beside it: the certification's own assessments,
+        // not tutor practice quizzes or a department's own assessments.
+        int totalAssessmentAttempts = curriculumAttempts.size();
 
         Double averageAssessmentScore = average(curriculumAttempts.stream()
                 .map(AssessmentAttempt::getPercentage)

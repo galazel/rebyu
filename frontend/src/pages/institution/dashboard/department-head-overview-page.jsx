@@ -197,13 +197,13 @@ async function dashboardCsv(overview, metrics) {
         ["Sections", totals.sections],
         ["Department co-authorities", totals.departmentHeads],
         ["Pending certification invitations", totals.pendingInvitations],
-        ["Active seats used", totals.seatsUsed],
+        ["Active seats used (incl. pending invitations)", totals.seatsUsed],
         ["Active seats available", totals.seatsTotal],
       ],
     },
     {
       title: "Certifications and seats",
-      columns: ["Certification", "Seats used", "Seats total", "Status", "Access from", "Access until", "Days left"],
+      columns: ["Certification", "Seats used (incl. pending invitations)", "Seats total", "Status", "Access from", "Access until", "Days left"],
       rows: overview.certifications.map((c) => [
         c.title, c.usedSlots, c.totalSlots, c.status, c.accessStartDate, c.accessExpiryDate, c.daysRemaining,
       ]),

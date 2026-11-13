@@ -296,9 +296,9 @@ public class InstitutionDashboardService {
         return jdbc.query("""
                 SELECT ic.institution_cert_id, ic.certification_id, c.title, ic.status,
                        ic.access_start_date, ic.access_expiry_date, ic.total_slots,
-                       (SELECT count(*) FROM institution_certification_learners icl
-                         WHERE icl.institution_cert_id = ic.institution_cert_id
-                           AND icl.status IN ('active', 'completed')) AS seats_used,
+                       -- The seat counter itself: enrolled learners plus seats held by pending
+                       -- invitations. The department-head page and the invite gate read the same.
+                       coalesce(ic.used_slots, 0) AS seats_used,
                        (CASE WHEN EXISTS (SELECT 1 FROM department_certifications dc
                                             JOIN departments d ON d.department_id = dc.department_id
                                            WHERE dc.institution_cert_id = ic.institution_cert_id
@@ -391,7 +391,7 @@ public class InstitutionDashboardService {
                        max(a.submitted_at) AS last_at
                   FROM assessment_attempts a
                   JOIN exams e ON e.exam_id = a.exam_id
-                  JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+                  JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM') AND e.owner_department_id IS NULL AND e.learner_id IS NULL
                   JOIN roster r ON r.learner_id = a.learner_id AND r.certification_id = e.certification_id
                  WHERE a.status = 'SUBMITTED' AND a.submitted_at >= ? AND a.submitted_at < ?
                  GROUP BY a.learner_id, e.certification_id""",
@@ -428,7 +428,7 @@ public class InstitutionDashboardService {
                   SELECT a.submitted_at AS at, a.learner_id, 1 AS attempt, 0 AS lesson
                     FROM assessment_attempts a
                     JOIN exams e ON e.exam_id = a.exam_id
-                    JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM')
+                    JOIN exam_types et ON et.exam_type_id = e.exam_type_id AND et.exam_type_text IN ('LESSON_QUIZ', 'MIDDLE_EXAM', 'MAJOR_EXAM', 'MOCK_EXAM') AND e.owner_department_id IS NULL AND e.learner_id IS NULL
                     JOIN roster r ON r.learner_id = a.learner_id AND r.certification_id = e.certification_id
                    WHERE a.status = 'SUBMITTED' AND a.submitted_at >= ? AND a.submitted_at < ?
                   UNION ALL
