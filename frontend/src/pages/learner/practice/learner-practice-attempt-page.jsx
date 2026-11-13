@@ -21,6 +21,7 @@ import {
   submitPracticeAnswer,
 } from "@/services/practiceService"
 import { IconButton } from "@/components/learner/tutor-game-kit.jsx"
+import { useSessionHistoryGuard } from "@/hooks/use-session-history-guard.js"
 
 const MCQ_SECONDS = 20
 const RECALL_SECONDS = 30
@@ -56,6 +57,14 @@ export default function LearnerPracticeAttemptPage() {
   const [completion, setCompletion] = useState(null)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
+  const notifyBlockedBack = useCallback(
+    () => toast.info("Your practice round is still active. Use Exit to leave it."),
+    [],
+  )
+  const { exitTo } = useSessionHistoryGuard({
+    enabled: attempt != null && completion == null,
+    onBack: notifyBlockedBack,
+  })
 
   useEffect(() => {
     let live = true
@@ -222,7 +231,7 @@ export default function LearnerPracticeAttemptPage() {
           tool={isFlashcard ? "flashcards" : "quiz"}
           position={index + 1}
           total={studySet.items.length}
-          onLeave={() => navigate(-1)}
+          onLeave={() => exitTo(navigate, "/learner/library")}
           right={
             <div className="flex items-center gap-4">
               <span className="tg-pill hidden sm:inline">

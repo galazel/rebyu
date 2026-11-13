@@ -491,8 +491,9 @@ function isEditable(target) {
  * While an assessment is open, questions and answer choices cannot be copied out:
  * no right-click menu, no copy or cut, no text selection outside the answer fields.
  */
-function useNoCopyDuringAttempt() {
+function useNoCopyDuringAttempt(enabled) {
   useEffect(() => {
+    if (!enabled) return undefined
     const block = (event) => {
       if (!isEditable(event.target)) event.preventDefault()
     }
@@ -516,7 +517,7 @@ function useNoCopyDuringAttempt() {
       document.removeEventListener("dragstart", block)
       document.removeEventListener("keydown", blockKeys)
     }
-  }, [])
+  }, [enabled])
 }
 
 /* The other player in a Champions Cup match: whichever seat is not the learner's. */
@@ -528,7 +529,6 @@ function opponentName(match, me) {
 }
 
 export default function LearnerAssessmentAttemptPage() {
-  useNoCopyDuringAttempt()
   const { examId } = useParams()
   const [searchParams] = useSearchParams()
   const questionIndex = searchParams.get("q") != null ? Number(searchParams.get("q")) : null
@@ -595,11 +595,19 @@ export default function LearnerAssessmentAttemptPage() {
   // Off from the moment the paper is handed in: no pausing, copy blocking or exit counting while
   // it is marked. A pause racing the submit hit the attempt's version check and failed one of them.
   const [handedIn, setHandedIn] = useState(false)
+  const assessmentType = String(attempt?.assessmentType ?? "").toUpperCase()
+  const isDiagnostic = assessmentType === "DIAGNOSTIC"
+  const isChallenge = assessmentType === "CHALLENGE"
+
+  // A diagnostic is a learning baseline, not a proctored sitting. Its answers must
+  // reach the mastery model even when the learner changes tabs or needs to return.
+  useNoCopyDuringAttempt(attempt != null && !isDiagnostic)
+
   const integrity = useAttemptIntegrity({
     attemptId: attempt?.assessmentAttemptId ?? null,
-    // Every certification assessment is policed; a challenge is a game, not a sitting.
+    // Diagnostics and challenges are learning tools, not proctored sittings.
     enabled: attempt != null && !timeUp && !handedIn
-        && String(attempt.assessmentType ?? "").toUpperCase() !== "CHALLENGE",
+        && !isDiagnostic && !isChallenge,
     onClock: setClockExpiresAt,
     getQuestionId: () => currentQuestionIdRef.current,
     initialViolations: attempt?.focusViolations,
@@ -749,8 +757,6 @@ export default function LearnerAssessmentAttemptPage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [])
 
-  const isDiagnostic = String(attempt?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC"
-  const isChallenge = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
   const isWorldCupChallenge = false
   const isSingleProblemChallenge = isChallenge && arenaId !== "worldcup"
   const isWorldCup = isChallenge && arenaId === "worldcup"
@@ -952,6 +958,7 @@ export default function LearnerAssessmentAttemptPage() {
   }, [timeUp, attempt, submitMutation])
 
   const leavingRef = useRef(false)
+  const restoringHistoryRef = useRef(false)
   const hadPriorHistoryRef = useRef(
     typeof window !== "undefined" ? window.history.length > 1 : true
   )
@@ -969,11 +976,15 @@ export default function LearnerAssessmentAttemptPage() {
 
     const onPopState = () => {
       if (leavingRef.current || submitMutation.isPending || submitMutation.isSuccess) return
-      window.history.pushState(
-        { ...(window.history.state ?? {}), rebyuAttemptGuard: true },
-        "",
-        window.location.href
-      )
+      // The guard is a duplicate history entry. Move straight back to it rather
+      // than pushing another entry, which could briefly expose the previous page
+      // and let the learner restart an in-progress assessment by using Back.
+      if (restoringHistoryRef.current) {
+        restoringHistoryRef.current = false
+        return
+      }
+      restoringHistoryRef.current = true
+      window.history.go(1)
       setLeaveOpen(true)
     }
 

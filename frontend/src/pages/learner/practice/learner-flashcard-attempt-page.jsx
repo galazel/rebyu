@@ -19,6 +19,7 @@ import {
   startPracticeAttempt,
   submitPracticeAnswer,
 } from "@/services/practiceService"
+import { useSessionHistoryGuard } from "@/hooks/use-session-history-guard.js"
 
 const RECALL_SECONDS = 25
 const ENROLLMENT_ACCESS_MESSAGE = "active certification enrollment is required"
@@ -51,6 +52,14 @@ export default function LearnerFlashcardAttemptPage() {
   const [completion, setCompletion] = useState(null)
   const [openingError, setOpeningError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const notifyBlockedBack = useCallback(
+    () => toast.info("Your flashcard round is still active. Use Exit to leave it."),
+    [],
+  )
+  const { exitTo } = useSessionHistoryGuard({
+    enabled: attempt != null && completion == null,
+    onBack: notifyBlockedBack,
+  })
 
   useEffect(() => {
     let live = true
@@ -211,7 +220,7 @@ export default function LearnerFlashcardAttemptPage() {
           tool="flashcards"
           position={index + 1}
           total={studySet.items.length}
-          onLeave={() => navigate(-1)}
+          onLeave={() => exitTo(navigate, "/learner/library")}
           right={
             <CountdownRing remaining={remaining} total={RECALL_SECONDS} paused={flipped} />
           }
