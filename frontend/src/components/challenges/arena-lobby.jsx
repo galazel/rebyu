@@ -125,7 +125,7 @@ export function ArenaLobby({ arenaId, name, blurb }) {
 
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
         <TactileButton asChild variant="ghost" size="sm">
-          <Link replace to="/learner/challenges">
+          <Link replace to="/learner/learning">
             <ArrowLeft className="mr-1.5 size-4" aria-hidden="true" />
             back
           </Link>
