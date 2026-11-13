@@ -247,7 +247,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         className={cn(
           "max-h-[calc(100dvh-2rem)]",
           phase === "playing" || phase === "submitting" || phase === "result"
-            ? "flex flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-white p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] sm:max-h-[760px] sm:max-w-[46rem]"
+            ? "flex h-[min(36rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-white p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] sm:max-w-[46rem]"
             : null,
         )}
         onEscapeKeyDown={(event) => event.preventDefault()}
