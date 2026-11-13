@@ -85,9 +85,12 @@ const FEATURE_CATEGORIES = {
   "Core access": ["CERTIFICATION_BROWSING", "LESSON_ACCESS", "BASIC_LEARNING", "BASIC_COMPLETION_TRACKING"],
   "Analytics": ["DETAILED_PROGRESS", "PROGRESS_ANALYTICS", "MASTERY_ANALYTICS", "WEAKNESS_ANALYSIS", "READINESS_ANALYSIS"],
   "Learning tools": ["PERSONALIZED_STUDY_PLAN", "MOCK_EXAM_ACCESS", "QUIZ_RETAKES", "ADVANCED_RECOMMENDATIONS", "MISTAKE_BANK"],
-  "Social & competitions": ["BATTLES_ACCESS", "CHALLENGES_ACCESS", "COMMUNITY_FULL_ACCESS", "WORLD_CUP_ACCESS"],
+  "Social & competitions": ["BATTLES_ACCESS", "CHALLENGES_ACCESS", "COMMUNITY_FULL_ACCESS"],
   "AI": ["AI_TUTOR", "AI_TUTOR_DAILY_GENERATIONS"],
 }
+
+// Champions Cup is hidden for now, so its entitlement is not shown on plans.
+const HIDDEN_ENTITLEMENTS = new Set(["WORLD_CUP_ACCESS"])
 
 const INSTITUTIONAL_CATEGORIES = {
   "Management": ["GROUP_MANAGEMENT", "AUTHORITY_MANAGEMENT", "LEARNER_ASSIGNMENT"],
@@ -364,7 +367,7 @@ function PlanCard({ plan, type, onRefresh }) {
 
             {(() => {
               const categorised = new Set(Object.values(categories).flat())
-              const uncategorised = entitlements.filter((e) => !categorised.has(e.entitlementCode))
+              const uncategorised = entitlements.filter((e) => !categorised.has(e.entitlementCode) && !HIDDEN_ENTITLEMENTS.has(e.entitlementCode))
               if (uncategorised.length === 0) return null
               return (
                 <div>

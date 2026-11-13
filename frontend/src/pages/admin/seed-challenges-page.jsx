@@ -1,3 +1,4 @@
+import { isArenaHidden } from "@/lib/arenas.js"
 import { useCallback, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -460,7 +461,7 @@ export default function SeedChallengesPage() {
   const seedAll = useCallback(async () => {
     await seedCodeStrike()
     await seedBlueprint()
-    await seedChampionsCup()
+    if (!isArenaHidden("worldcup")) await seedChampionsCup()
   }, [seedCodeStrike, seedBlueprint, seedChampionsCup])
 
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
@@ -555,7 +556,8 @@ export default function SeedChallengesPage() {
           </div>
         </button>
 
-        <button
+        {/* Champions Cup is hidden for now; its seed button is kept but not shown. */}
+        {!isArenaHidden("worldcup") && <button
           onClick={seedChampionsCup}
           disabled={!certificationId || !lessonId || seeding}
           className="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
@@ -569,7 +571,7 @@ export default function SeedChallengesPage() {
               30 MCQ questions (10 per stage), create and publish this week&rsquo;s edition
             </div>
           </div>
-        </button>
+        </button>}
 
         <button
           onClick={seedAll}

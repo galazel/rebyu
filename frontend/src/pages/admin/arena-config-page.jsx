@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { ARENAS } from "@/lib/arenas.js"
+import { ARENAS, isArenaHidden } from "@/lib/arenas.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import {
   CHALLENGE_ARENAS_KEY,
@@ -92,6 +92,8 @@ export default function ArenaConfigPage() {
         </p>
       ) : null}
 
+      {/* Certification tracks only apply to Champions Cup, which is hidden for now. */}
+      {isArenaHidden("worldcup") ? null : (
       <section className="rebyu-section">
         <div className="rounded-2xl border-2 border-border bg-card p-5">
           <h2 className="text-base font-bold">Certification tracks</h2>
@@ -128,10 +130,11 @@ export default function ArenaConfigPage() {
           )}
         </div>
       </section>
+      )}
 
       <section className="rebyu-section">
         <div className="grid gap-4 xl:grid-cols-3">
-          {ARENAS.map((arena) => {
+          {ARENAS.filter((arena) => !isArenaHidden(arena.id)).map((arena) => {
             const status = statusById.get(arena.id)
             const pending =
               liveMutation.isPending && liveMutation.variables?.arenaId === arena.id

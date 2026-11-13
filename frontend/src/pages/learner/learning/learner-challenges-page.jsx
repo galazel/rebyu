@@ -24,7 +24,7 @@ import ProBadge from "@/components/learner/pro-badge.jsx"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { XpRankingsPanel } from "@/components/learner/xp-rankings-panel.jsx"
 import { FREE_ARENA_PROBLEM_LIMIT } from "@/services/subscriptionService.js"
-import { getWorldCupTracks } from "@/lib/arenas.js"
+import { getWorldCupTracks, isArenaHidden } from "@/lib/arenas.js"
 import { getMyRewards } from "@/services/learnerService.js"
 
 
@@ -114,7 +114,7 @@ export default function LearnerChallengesPage() {
 
   const challenges = useMemo(
     () =>
-      CHALLENGES.map((challenge) => {
+      CHALLENGES.filter((challenge) => !isArenaHidden(challenge.id)).map((challenge) => {
         const arena = configuredArenas.get(challenge.id)
         const configured = Boolean(arena?.configured)
 
@@ -213,8 +213,7 @@ export default function LearnerChallengesPage() {
               <p className="rb-chalk-label">it olympics</p>
               <h1 className="rb-chalk mt-3 text-4xl leading-none sm:text-5xl">pick your arena</h1>
               <p className="rb-chalk-body mt-2 max-w-md text-sm leading-6">
-                Three arenas, one board. Coding, design, and a bracket against seven others on
-                your own track.
+                Two arenas, one board. Test your coding and your design skills.
               </p>
             </div>
             <dl className="grid shrink-0 grid-cols-4 gap-x-5 gap-y-1 border-t border-white/20 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">

@@ -152,9 +152,18 @@ export function getWorldCupTracks(enrolledCertifications = [], disabledTrackIds 
   }))
 }
 
-/** Where a learner plays each arena. */
-export const ARENA_LEARNER_PATHS = {
-  codestrike: "/learner/challenges/codestrike",
-  blueprint: "/learner/challenges/blueprint-arena",
-  worldcup: "/learner/challenges/world-cup",
-}
+/**
+ * Arenas hidden from every page. The code stays; remove an id here to bring the
+ * arena back. Champions Cup (internal id "worldcup") is hidden for now.
+ */
+export const HIDDEN_ARENA_IDS = new Set(["worldcup"])
+export const isArenaHidden = (arenaId) => HIDDEN_ARENA_IDS.has(arenaId)
+
+/** Where a learner plays each arena (hidden arenas have no path). */
+export const ARENA_LEARNER_PATHS = Object.fromEntries(
+  Object.entries({
+    codestrike: "/learner/challenges/codestrike",
+    blueprint: "/learner/challenges/blueprint-arena",
+    worldcup: "/learner/challenges/world-cup",
+  }).filter(([arenaId]) => !HIDDEN_ARENA_IDS.has(arenaId)),
+)

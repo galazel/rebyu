@@ -1,3 +1,4 @@
+import { isArenaHidden } from "./lib/arenas.js"
 import { Suspense, useEffect, useRef } from "react"
 import { RouteErrorBoundary, lazyRoute } from "@/lib/lazy-route.jsx"
 import { Navigate, Routes, Route, useLocation, useParams } from "react-router-dom"
@@ -369,8 +370,15 @@ export function App() {
                 <Route path="/learner/practice-review/:attemptId" element={<LearnerPracticeReviewPage />} />
                 <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
                 <Route path="/learner/challenges/blueprint-arena" element={<BlueprintArenaPage />} />
-                <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
-                <Route path="/learner/challenges/world-cup/history" element={<WorldCupHistoryPage />} />
+                {/* Champions Cup is hidden: its pages stay in the codebase but redirect to the challenges list. */}
+                {isArenaHidden("worldcup") ? (
+                  <Route path="/learner/challenges/world-cup/*" element={<Navigate to="/learner/challenges" replace />} />
+                ) : (
+                  <>
+                    <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
+                    <Route path="/learner/challenges/world-cup/history" element={<WorldCupHistoryPage />} />
+                  </>
+                )}
 
                 <Route path="/challenges" element={<CompilerArea />} />
 

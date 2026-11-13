@@ -1,3 +1,4 @@
+import { isArenaHidden } from "@/lib/arenas.js"
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Code2, Network, Settings, Trophy } from "@/components/icons"
@@ -56,7 +57,9 @@ const INITIAL_CHALLENGES = [
 ]
 
 export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
-  const [challenges, setChallenges] = useState(initialChallenges)
+  const [challenges, setChallenges] = useState(() =>
+    initialChallenges.filter((challenge) => !isArenaHidden(challenge.arenaId)),
+  )
 
   const arenasQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY],
@@ -100,7 +103,7 @@ export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
         ) : arenasQuery.isError ? (
           <InstitutionErrorState
             title="Unable to load the arenas"
-            description="The arena settings could not be read. The three arenas themselves are unaffected."
+            description="The arena settings could not be read. The arenas themselves are unaffected."
             onRetry={arenasQuery.refetch}
           />
         ) : (
