@@ -64,13 +64,13 @@ export default function DiagramQuestionLayout({
   )
 
   const workspace = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-rb-snow shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-rb-swan bg-rb-polar/60 px-3 py-2">
         <span className="flex min-w-0 items-center gap-1.5 text-xs font-extrabold text-rb-eel">
-          <Workflow className="size-4 shrink-0 text-rb-feather" aria-hidden="true" />
+          <Workflow className="size-4 shrink-0 text-rb-feather-ink" aria-hidden="true" />
           <span className="truncate">{diagramLabel} canvas</span>
         </span>
-        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-rb-hare">
+        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-rb-wolf">
           <span className="size-1.5 rounded-full bg-rb-feather" aria-hidden="true" />
           {editingLocked ? "Locked" : "Saves automatically"}
         </span>

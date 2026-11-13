@@ -5,6 +5,7 @@ import { java } from "@codemirror/lang-java"
 import { python } from "@codemirror/lang-python"
 import { sql } from "@codemirror/lang-sql"
 import { Maximize2Icon, Minimize2Icon, RotateCcwIcon } from "@/components/icons"
+import { useTheme } from "@/hooks/use-theme"
 
 import {
   AlertDialog,
@@ -80,6 +81,10 @@ export default function CodeMirrorProgrammingWorkspace({
 }) {
   const [fullscreen, setFullscreen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
+  const { theme } = useTheme()
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches)
 
   const extensions = useMemo(() => getLanguageExtension(language), [language])
   const lineCount = (value ?? "").split("\n").length
@@ -92,7 +97,7 @@ export default function CodeMirrorProgrammingWorkspace({
           : "flex h-full min-h-0 flex-col"
       }
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-rb-snow shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex shrink-0 items-center gap-2 border-b border-rb-swan bg-rb-polar/60 px-2 py-1.5">
           {readOnly || languageLocked ? (
             <Badge variant="secondary">{language}</Badge>
@@ -100,7 +105,7 @@ export default function CodeMirrorProgrammingWorkspace({
             <Select value={language} onValueChange={onLanguageChange}>
               <SelectTrigger
                 size="sm"
-                className="h-8 w-[118px] bg-white text-xs font-bold sm:w-[140px]"
+                className="h-8 w-[118px] bg-rb-snow text-xs font-bold text-foreground sm:w-[140px]"
                 aria-label="Programming language"
               >
                 <SelectValue />
@@ -134,6 +139,7 @@ export default function CodeMirrorProgrammingWorkspace({
         <div className="min-h-0 flex-1 overflow-hidden">
           <CodeMirror
             value={value}
+            theme={isDark ? "dark" : "light"}
             onChange={readOnly ? undefined : onChange}
             readOnly={readOnly}
             extensions={extensions}
@@ -150,7 +156,7 @@ export default function CodeMirrorProgrammingWorkspace({
           />
         </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-rb-swan bg-rb-polar/40 px-3 py-1 text-[11px] font-semibold text-rb-hare">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-rb-swan bg-rb-polar/40 px-3 py-1 text-[11px] font-semibold text-rb-wolf">
           <span className="truncate">{readOnly ? "Submitted code" : "Saved with your answer"}</span>
           <span className="shrink-0 tabular-nums">
             {language} · {lineCount} {lineCount === 1 ? "line" : "lines"}
@@ -159,7 +165,7 @@ export default function CodeMirrorProgrammingWorkspace({
       </div>
 
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rebyu-ds tg-cat-explain">
           <AlertDialogHeader>
             <AlertDialogTitle>Reset code?</AlertDialogTitle>
             <AlertDialogDescription>

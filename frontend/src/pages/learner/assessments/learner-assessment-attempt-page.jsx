@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { PortalThemeToggle } from "@/components/portal-theme-toggle"
 import { ASSESSMENT_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { gradingMessagesFor } from "@/components/loading-screen.jsx"
@@ -253,7 +254,7 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
             imageKey={question.questionImageKey}
             alt="Question reference"
             zoomable
-            className="max-h-80 w-auto rounded-xl border"
+            className="tg-media-img-paper max-h-80 w-auto rounded-xl border dark:p-1.5"
         />
 
         {isMultipleAnswer(question) ? (
@@ -299,7 +300,7 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                 </span>
                       <AuthedImage
                           imageKey={choice.imageKey}
-                          className="mt-2 max-h-40 w-auto rounded-lg border"
+                          className="tg-media-img-paper mt-2 max-h-40 w-auto rounded-lg border dark:p-1"
                           placeholderClassName="mt-2 h-16 w-full max-w-[10rem]"
                       />
                     </div>
@@ -403,7 +404,7 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
             imageKey={question.questionImageKey}
             alt="Problem reference"
             zoomable
-            className="w-full rounded-xl border"
+            className="tg-media-img-paper w-full rounded-xl border dark:p-1.5"
         />
       </div>
   )
@@ -753,16 +754,6 @@ export default function LearnerAssessmentAttemptPage() {
   const isWorldCupChallenge = false
   const isSingleProblemChallenge = isChallenge && arenaId !== "worldcup"
   const isWorldCup = isChallenge && arenaId === "worldcup"
-  const challengeLobby = {
-    codestrike: "/learner/challenges/codestrike",
-    blueprint: "/learner/challenges/blueprint-arena",
-    worldcup: "/learner/challenges/world-cup",
-  }[arenaId]
-  // A challenge has a known home. Do not use browser history here: after a
-  // hand-in, history can still contain the prior result screen.
-  const leaveAttempt = () => {
-    navigate(challengeLobby ?? returnPath(location) ?? "/learner/learning", { replace: true })
-  }
   // A challenge is played, not sat: its screen speaks of rounds and challenges.
   const ROUND_NAMES = { QUARTERFINAL: "Quarterfinals", SEMIFINAL: "Semifinals", FINAL: "Final" }
   const worldCupRound = worldCupMatch ? ROUND_NAMES[worldCupMatch.round] ?? "Match" : "Match"
@@ -960,6 +951,47 @@ export default function LearnerAssessmentAttemptPage() {
     }
   }, [timeUp, attempt, submitMutation])
 
+  const leavingRef = useRef(false)
+  const hadPriorHistoryRef = useRef(
+    typeof window !== "undefined" ? window.history.length > 1 : true
+  )
+
+  useEffect(() => {
+    if (!attempt || submitMutation.isSuccess || leavingRef.current) return undefined
+
+    if (!window.history.state?.rebyuAttemptGuard) {
+      window.history.pushState(
+        { ...(window.history.state ?? {}), rebyuAttemptGuard: true },
+        "",
+        window.location.href
+      )
+    }
+
+    const onPopState = () => {
+      if (leavingRef.current || submitMutation.isPending || submitMutation.isSuccess) return
+      window.history.pushState(
+        { ...(window.history.state ?? {}), rebyuAttemptGuard: true },
+        "",
+        window.location.href
+      )
+      setLeaveOpen(true)
+    }
+
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  }, [attempt, submitMutation.isPending, submitMutation.isSuccess])
+
+  const confirmLeave = useCallback(() => {
+    leavingRef.current = true
+    setLeaveOpen(false)
+    if (window.history.state?.rebyuAttemptGuard) {
+      if (hadPriorHistoryRef.current) window.history.go(-2)
+      else navigate(returnPath(location) || "/learner/learning", { replace: true })
+      return
+    }
+    navigate(-1)
+  }, [location, navigate])
+
 
 
 
@@ -1016,6 +1048,37 @@ export default function LearnerAssessmentAttemptPage() {
       />
   )
 
+  const leaveDialog = (
+    <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+      <AlertDialogContent className="rebyu-ds tg-cat-explain">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{copy.leaveTitle}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {attempt?.adaptive ? (
+              "Your saved answers stay on the server — you can resume this attempt later."
+            ) : (
+              <>
+                You have answered {answeredIds.size} of {questions.length}{" "}
+                question(s)
+                {flagged.size > 0 ? `, with ${flagged.size} flagged` : ""}. Your
+                saved drafts stay on the server — you can resume this attempt
+                later.
+              </>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="tg-btn">
+            {copy.keep}
+          </AlertDialogCancel>
+          <AlertDialogAction className="tg-btn tg-btn-primary" onClick={confirmLeave}>
+            {copy.leave}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+
   const pausedModal = (
       <AttemptPausedModal
           open={integrity.paused}
@@ -1029,21 +1092,22 @@ export default function LearnerAssessmentAttemptPage() {
   if (attempt.adaptive) {
     return (
         <>
-        {pausedModal}
-        <AdaptiveAttemptRunner
-            attempt={attempt}
-            learnerId={learnerId}
-            remainingSeconds={remainingSeconds}
-            timeUp={timeUp}
-            onFinish={() => {
-              if (!submitMutation.isPending && !submitMutation.isSuccess) submitMutation.mutate()
-            }}
-            onLeave={leaveAttempt}
-            isSubmitting={submitMutation.isPending || submitMutation.isSuccess}
-            toDraftDto={toDraftDto}
-            isMultipleChoice={isMultipleChoice}
-            WorkspaceQuestionPanel={WorkspaceQuestionPanel}
-        />
+          {pausedModal}
+          <AdaptiveAttemptRunner
+              attempt={attempt}
+              learnerId={learnerId}
+              remainingSeconds={remainingSeconds}
+              timeUp={timeUp}
+              onFinish={() => {
+                if (!submitMutation.isPending && !submitMutation.isSuccess) submitMutation.mutate()
+              }}
+              onLeave={() => setLeaveOpen(true)}
+              isSubmitting={submitMutation.isPending || submitMutation.isSuccess}
+              toDraftDto={toDraftDto}
+              isMultipleChoice={isMultipleChoice}
+              WorkspaceQuestionPanel={WorkspaceQuestionPanel}
+          />
+          {leaveDialog}
         </>
     )
   }
@@ -1051,22 +1115,23 @@ export default function LearnerAssessmentAttemptPage() {
   if (attempt.assessmentType === "GENERATED_QUIZ" && !timeUp) {
     return (
         <>
-        {pausedModal}
-        <GeneratedQuizArena
-            attempt={attempt}
-            questions={questions}
-            answers={answers}
-            onAnswer={setAnswer}
-            onCheckChoice={(attemptQuestionId, selectedChoiceId) =>
-              checkChoiceAnswer(attempt.assessmentAttemptId, attemptQuestionId, learnerId, selectedChoiceId)
-            }
-            currentIndex={currentIndex}
-            onIndexChange={setCurrentIndex}
-            onFinish={() => submitMutation.mutate()}
-            onLeave={leaveAttempt}
-            isSubmitting={submitMutation.isPending}
-            remainingSeconds={remainingSeconds}
-        />
+          {pausedModal}
+          <GeneratedQuizArena
+              attempt={attempt}
+              questions={questions}
+              answers={answers}
+              onAnswer={setAnswer}
+              onCheckChoice={(attemptQuestionId, selectedChoiceId) =>
+                checkChoiceAnswer(attempt.assessmentAttemptId, attemptQuestionId, learnerId, selectedChoiceId)
+              }
+              currentIndex={currentIndex}
+              onIndexChange={setCurrentIndex}
+              onFinish={() => submitMutation.mutate()}
+              onLeave={() => setLeaveOpen(true)}
+              isSubmitting={submitMutation.isPending}
+              remainingSeconds={remainingSeconds}
+          />
+          {leaveDialog}
         </>
     )
   }
@@ -1075,17 +1140,17 @@ export default function LearnerAssessmentAttemptPage() {
       <div className="rebyu-ds tg-cat-explain flex h-dvh flex-col overflow-hidden bg-[var(--tg-softer)]">
         {pausedModal}
         <header className="shrink-0 border-b border-[var(--tg-line)] bg-card">
-          <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <button type="button" className="tg-btn" onClick={() => setLeaveOpen(true)} aria-label="Exit attempt">
+          <div className="flex min-h-16 items-center justify-between gap-2 px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <button type="button" className="tg-btn !h-9 shrink-0 !px-2.5 sm:!px-3.5" onClick={() => setLeaveOpen(true)} aria-label="Exit attempt">
               <ArrowLeftIcon aria-hidden="true" />
               <span className="hidden sm:inline">Exit</span>
             </button>
-            <div className="min-w-0">
-              <p className="truncate font-rb-display text-lg font-extrabold text-foreground">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-rb-display text-base font-extrabold leading-tight text-foreground sm:text-lg">
                 {copy.title}
               </p>
-              <p className="truncate text-xs font-semibold text-muted-foreground">
+              <p className="truncate whitespace-nowrap text-[11px] font-semibold leading-tight text-muted-foreground sm:text-xs">
                 {isSingleProblemChallenge
                   ? `Problem ${(questionIndex ?? 0) + 1}${totalProblems ? ` of ${totalProblems}` : ""}`
                   : isWorldCup
@@ -1100,17 +1165,17 @@ export default function LearnerAssessmentAttemptPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             <SaveStatusIndicator status={saveStatus} />
 
             {remainingSeconds != null ? (
                 <span
                     className={cn(
-                        "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold tabular-nums",
+                        "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold tabular-nums sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm",
                         remainingSeconds <= 120
                             ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                             : remainingSeconds <= 600
-                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                ? "border-rb-bee bg-rb-bee-wash text-rb-bee-ink"
                                 : "border-[var(--tg-line)] bg-[var(--tg-softer)] text-[var(--tg-ink)]",
                         remainingSeconds > 0 &&
                         remainingSeconds <= 60 &&
@@ -1119,10 +1184,12 @@ export default function LearnerAssessmentAttemptPage() {
                     role="timer"
                     aria-label={describeCountdown(remainingSeconds)}
                 >
-              <ClockIcon className="size-4" aria-hidden="true" />
+              <ClockIcon className="size-3.5 sm:size-4" aria-hidden="true" />
                   {formatCountdown(remainingSeconds)}
             </span>
             ) : null}
+
+            <PortalThemeToggle className="tg-btn tg-icon-btn !size-9 shrink-0" />
 
             {!isSingleProblemChallenge && (
               <Sheet>
@@ -1340,7 +1407,7 @@ export default function LearnerAssessmentAttemptPage() {
                         type="button"
                         className={cn(
                             "tg-btn !rounded-full !px-3 !py-1.5 !text-xs",
-                            flagged.has(currentQuestion.attemptQuestionId) && "!border-amber-400 !bg-amber-50 !text-amber-800"
+                            flagged.has(currentQuestion.attemptQuestionId) && "!border-rb-bee !bg-rb-bee-wash !text-rb-bee-ink"
                         )}
                         onClick={() => toggleFlag(currentQuestion.attemptQuestionId)}
                         disabled={editingLocked}
@@ -1413,28 +1480,7 @@ export default function LearnerAssessmentAttemptPage() {
           )}
         </footer>
 
-        <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
-          <AlertDialogContent className="rebyu-ds">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{copy.leaveTitle}</AlertDialogTitle>
-              <AlertDialogDescription>
-                You have answered {answeredIds.size} of {questions.length}{" "}
-                question(s)
-                {flagged.size > 0 ? `, with ${flagged.size} flagged` : ""}. Your
-                saved drafts stay on the server — you can resume this attempt
-                later.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="tg-btn">
-                {copy.keep}
-              </AlertDialogCancel>
-              <AlertDialogAction className="tg-btn tg-btn-primary" onClick={leaveAttempt}>
-                {copy.leave}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {leaveDialog}
 
         <AlertDialog open={finishOpen} onOpenChange={setFinishOpen}>
           <AlertDialogContent className="rebyu-ds">

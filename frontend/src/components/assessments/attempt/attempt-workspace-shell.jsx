@@ -13,7 +13,7 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
       <div
         role="tablist"
         aria-label="Item panes"
-        className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-rb-swan bg-white p-1 lg:hidden"
+        className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-rb-swan bg-rb-snow p-1 lg:hidden"
       >
         {tabs.map((tab) => {
           const Icon = tab.icon
@@ -27,7 +27,7 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
               onClick={() => setPane(tab.id)}
               className={cn(
                 "flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-extrabold transition-colors",
-                active ? "bg-rb-feather text-white shadow-sm" : "text-rb-wolf hover:bg-rb-polar"
+                active ? "bg-rb-feather text-white shadow-sm dark:text-[#10151a]" : "text-rb-wolf hover:bg-rb-polar"
               )}
             >
               {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
@@ -39,7 +39,7 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
 
       <section
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto rounded-2xl border border-rb-swan bg-white lg:block",
+          "min-h-0 flex-1 overflow-y-auto rounded-2xl border border-rb-swan bg-rb-snow lg:block",
           pane !== "problem" && "hidden"
         )}
       >
@@ -74,10 +74,10 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
   return (
     <div className="space-y-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="rounded-full bg-rb-feather px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white">
+        <span className="rounded-full bg-rb-feather px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white dark:text-[#10151a]">
           Item {index + 1}
         </span>
-        <span className="rounded-full bg-rb-feather-wash px-2.5 py-1 text-[11px] font-bold text-rb-feather-lip">
+        <span className="rounded-full bg-rb-feather-wash px-2.5 py-1 text-[11px] font-bold text-rb-feather-ink">
           {typeLabel}
         </span>
         {question.difficultyLevel ? (
@@ -102,7 +102,7 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
 
       {question.instructions ? (
         <div className="rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/60 px-3.5 py-3">
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-lip">
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-rb-feather-ink">
             Instructions
           </p>
           <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-rb-eel/85">
@@ -112,7 +112,7 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
       ) : null}
 
       {imageSrc ? (
-        <img src={imageSrc} alt="Problem reference" className="mx-auto block h-auto max-w-full rounded-lg" />
+        <img src={imageSrc} alt="Problem reference" className="tg-media-img-paper mx-auto block h-auto max-w-full rounded-lg dark:p-1.5" />
       ) : null}
 
       {children}
@@ -122,11 +122,11 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
 
 export function SidePanel({ title, icon: Icon, aside, className, children }) {
   return (
-    <div className={cn("rounded-2xl border border-rb-swan bg-white p-3", className)}>
+    <div className={cn("rounded-2xl border border-rb-swan bg-rb-snow p-3", className)}>
       {title ? (
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-rb-wolf">
-            {Icon ? <Icon className="size-3.5 text-rb-feather" aria-hidden="true" /> : null}
+            {Icon ? <Icon className="size-3.5 text-rb-feather-ink" aria-hidden="true" /> : null}
             {title}
           </p>
           {aside}

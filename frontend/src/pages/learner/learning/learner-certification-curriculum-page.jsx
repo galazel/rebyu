@@ -130,7 +130,7 @@ function XpPill({ amount, earned, upTo = false }) {
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-extrabold tabular-nums ${
-        earned ? "bg-rb-swan text-rb-wolf" : "bg-rb-bee-wash text-rb-bee-lip"
+        earned ? "bg-rb-swan text-rb-wolf" : "bg-rb-bee-wash text-rb-bee-ink"
       }`}
       title={
         earned
@@ -297,7 +297,7 @@ function StartBubble({ tone }) {
       aria-hidden="true"
     >
       <span
-        className={`block whitespace-nowrap rounded-rb-control px-4 py-1.5 font-rb-display text-sm font-extrabold lowercase text-white shadow-[0_3px_0_var(--bubble-lip)] ${tone.face}`}
+        className={`block whitespace-nowrap rounded-rb-control px-4 py-1.5 font-rb-display text-sm font-extrabold lowercase text-white shadow-[0_3px_0_var(--bubble-lip)] dark:text-[#10151a] ${tone.face}`}
         style={{ "--bubble-lip": tone.lipVar }}
       >
         start
@@ -543,9 +543,9 @@ function PathNode({ node, index, onSelect, onLocked }) {
         }
 
   const iconInk = locked
-    ? "text-rb-hare"
+    ? "text-rb-hare dark:text-[#9aa198]"
     : filled
-      ? "text-white"
+      ? "text-white dark:text-[#10151a]"
       : tone.ink
 
   const side = labelSideAt(index, narrow)
@@ -745,7 +745,7 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
         <div className="min-w-0 flex-1">
           <p
             className={`text-[11px] font-extrabold uppercase tracking-[0.18em] ${
-              locked ? "text-rb-hare" : tone.ink
+              locked ? "text-rb-hare dark:text-[#969d94]" : tone.ink
             }`}
           >
             unit {major.index}
@@ -753,7 +753,7 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
 
           <h2
             className={`mt-0.5 truncate font-rb-display text-xl font-extrabold lowercase leading-tight sm:text-2xl ${
-              locked ? "text-rb-hare" : "text-rb-eel"
+              locked ? "text-rb-hare dark:text-[#9da49b]" : "text-rb-eel"
             }`}
           >
             {major.name}
@@ -763,7 +763,7 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
         <div className="shrink-0 text-right">
           <p
             className={`flex items-center justify-end gap-1.5 text-xs font-extrabold ${
-              locked ? "text-rb-hare" : complete ? tone.ink : "text-rb-wolf"
+              locked ? "text-rb-hare dark:text-[#969d94]" : complete ? tone.ink : "text-rb-wolf"
             }`}
           >
             {locked ? (
@@ -1183,7 +1183,7 @@ export default function LearnerCertificationCurriculumPage() {
           className="mx-auto mt-6 flex max-w-[720px] flex-col gap-4 rounded-rb-card border-2 border-rb-swan bg-rb-fox-wash p-5 sm:flex-row sm:items-center"
         >
           <motion.span
-            className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rb-fox text-white"
+            className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rb-fox text-white dark:text-[#10151a]"
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
           >

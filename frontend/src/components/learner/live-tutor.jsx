@@ -610,7 +610,7 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
             <button type="button" onClick={() => setChatOpen(false)} aria-label="Close live chat" className="tg-btn tg-icon-btn !size-8"><X className="size-4" /></button>
           </div>
           <div ref={feedRef} className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3" aria-live="polite">
-            {shownMessages.filter((message) => message.text?.trim()).map((message) => <div key={message.id} className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === "user" ? "ml-auto rounded-br-md bg-[var(--tg)] text-white" : "rounded-tl-md bg-[var(--tg-softer)] text-foreground"}`}>{message.text}</div>)}
+            {shownMessages.filter((message) => message.text?.trim()).map((message) => <div key={message.id} className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === "user" ? "ml-auto rounded-br-md bg-[var(--tg)] text-white dark:text-[#10151a]" : "rounded-tl-md bg-[var(--tg-softer)] text-foreground"}`}>{message.text}</div>)}
             {!shownMessages.length ? <p className="text-sm text-muted-foreground">Type a question to start. No microphone or headset needed.</p> : null}
           </div>
           {typing ? <p role="status" className="px-4 pb-2 text-xs font-semibold text-[var(--tg-ink)]">You’re typing · your tutor is waiting</p> : null}

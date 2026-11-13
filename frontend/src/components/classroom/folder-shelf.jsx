@@ -327,8 +327,8 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
             triggerTemporaryVisibility()
           }}
         >
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-20 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-20 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-20 bg-gradient-to-r from-background via-background/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-20 bg-gradient-to-l from-background via-background/80 to-transparent z-10" />
 
           <div
             ref={scrollRef}
@@ -386,11 +386,11 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
               className="group/track relative flex items-center w-48 sm:w-64 md:w-80 py-3 -my-3 cursor-pointer select-none"
               title="Drag or click to navigate certifications"
             >
-              <div className="relative w-full h-1 group-hover/track:h-1.5 rounded-full bg-black/10 transition-[height,background-color] duration-200 overflow-hidden">
+              <div className="relative w-full h-1 group-hover/track:h-1.5 rounded-full bg-rb-swan transition-[height,background-color] duration-200 overflow-hidden">
                 <div
                   ref={thumbRef}
                   onPointerDown={handleThumbPointerDown}
-                  className="absolute top-0 bottom-0 rounded-full bg-[#123126]/35 hover:bg-[#123126]/60 active:bg-[#123126]/80 cursor-grab active:cursor-grabbing transition-[background-color] duration-150"
+                  className="absolute top-0 bottom-0 rounded-full bg-rb-wolf/50 hover:bg-rb-wolf/80 active:bg-rb-eel cursor-grab active:cursor-grabbing transition-[background-color] duration-150"
                   style={{ width: "48px", transform: "translateX(0px)" }}
                 />
               </div>

@@ -131,11 +131,15 @@ function CategoryFilter({ categories, categoryCounts, selectedCategories, onTogg
   const pill = (active) =>
     `inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw ${
       active
-        ? "border-rb-feather bg-rb-feather text-white"
+        ? "border-rb-feather bg-rb-feather text-primary-foreground"
         : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-hare hover:bg-rb-polar"
     }`
   const count = (active) =>
-    `rounded-full px-1.5 text-[11px] font-bold tabular-nums ${active ? "bg-white/20 text-white" : "bg-rb-polar text-rb-wolf"}`
+    `rounded-full px-1.5 text-[11px] font-bold tabular-nums ${
+      active
+        ? "bg-white/20 text-primary-foreground dark:bg-black/20"
+        : "bg-rb-polar text-rb-wolf"
+    }`
 
   return (
     <div role="group" aria-label="Filter by category" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
@@ -359,7 +363,7 @@ export default function LearnerCertificationsPage() {
               </span>
 
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[160px] bg-card">
                     <SelectValue aria-label="Sort certifications" />
                   </SelectTrigger>
                   <SelectContent align="end">

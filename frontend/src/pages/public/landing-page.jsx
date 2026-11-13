@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Medal,
   Mic,
+  MoonIcon,
   Network,
   Plus,
   Shield,
@@ -35,6 +36,7 @@ import {
   Sparkles,
   SquarePen,
   Star,
+  SunIcon,
   Target,
   ChevronDown,
   Users,
@@ -43,6 +45,7 @@ import {
 } from "@/components/icons";
 
 import { BrandLogo } from "@/components/brand-logo";
+import { useTheme } from "@/hooks/use-theme";
 import { FolderShelf } from "@/components/classroom/folder-shelf.jsx";
 import { PinBoard } from "@/components/classroom/pin-board.jsx";
 import { DiagnosticMock, ProgressMock, StudyLoopMock } from "@/pages/public/landing-product-mocks.jsx";
@@ -584,6 +587,32 @@ function BrandMark({ light = false }) {
 }
 
 
+function LandingThemeToggle({ overHero = false }) {
+  const { theme, setTheme } = useTheme();
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={label}
+      title={label}
+      className={`grid size-10 place-items-center rounded-rb-tile transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw cursor-pointer ${
+        overHero
+          ? "text-white hover:bg-white/15 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.5))]"
+          : "text-rb-wolf hover:bg-rb-polar hover:text-rb-eel"
+      }`}
+    >
+      {isDark ? <SunIcon className="size-4.5" aria-hidden="true" /> : <MoonIcon className="size-4.5" aria-hidden="true" />}
+    </button>
+  );
+}
+
 function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -689,7 +718,7 @@ function LandingNavbar() {
       >
         <div
           className={`w-full border-b-2 transition-colors duration-200 ${
-            overHero ? "border-transparent bg-transparent" : "border-rb-swan bg-rb-snow"
+            overHero ? "border-transparent bg-transparent" : "border-rb-swan bg-rb-snow/95 backdrop-blur-md"
           }`}
         >
           <div className="relative z-50 mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
@@ -728,7 +757,7 @@ function LandingNavbar() {
                         className={`absolute inset-0 rounded-rb-pill ${
                           overHero
                             ? "bg-white/15 backdrop-blur-md border border-white/20 shadow-sm"
-                            : "bg-black/[0.05] border border-black/[0.04]"
+                            : "bg-foreground/[0.06] border border-foreground/[0.08]"
                         }`}
                         transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
                       />
@@ -740,6 +769,7 @@ function LandingNavbar() {
             </nav>
 
             <div className="hidden items-center gap-3 lg:flex">
+              <LandingThemeToggle overHero={overHero} />
               <TactileButton asChild variant="ghost" size="sm">
                 <Link to="/login">log in</Link>
               </TactileButton>
@@ -748,18 +778,21 @@ function LandingNavbar() {
               </TactileButton>
             </div>
 
-            <button
-              type="button"
-              className={`grid size-11 place-items-center rounded-rb-tile transition-colors hover:bg-rb-polar hover:text-rb-eel focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw lg:hidden ${
-                overHero ? "text-white" : "text-rb-eel"
-              }`}
-              aria-label="Toggle navigation menu"
-              aria-expanded={mobileMenuOpen}
-              aria-controls="landing-mobile-navigation"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-            >
-              {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
-            </button>
+            <div className="flex items-center gap-1 lg:hidden">
+              <LandingThemeToggle overHero={overHero} />
+              <button
+                type="button"
+                className={`grid size-11 place-items-center rounded-rb-tile transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
+                  overHero ? "text-white hover:bg-white/15" : "text-rb-eel hover:bg-rb-polar"
+                }`}
+                aria-label="Toggle navigation menu"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="landing-mobile-navigation"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+              >
+                {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -793,7 +826,7 @@ function LandingNavbar() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -16 }}
                   transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-                  className="rebyu-ds rb-light-only rb-classroom-landing relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-b-3xl border-b-2 border-rb-swan bg-rb-snow shadow-2xl overscroll-contain"
+                  className="rebyu-ds rb-classroom-landing relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-b-3xl border-b-2 border-rb-swan bg-rb-snow shadow-2xl overscroll-contain"
                 >
                   <div className="flex h-20 w-full shrink-0 items-center justify-between border-b-2 border-rb-swan bg-rb-snow px-5 sm:px-8">
                     <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
@@ -912,7 +945,7 @@ function HeroSection() {
 
 function AboutSection() {
   return (
-    <section id="about" className="scroll-mt-24 bg-white px-5 py-20 lg:px-8 lg:py-28">
+    <section id="about" className="scroll-mt-24 bg-background px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-3xl">
           <p className="rb-eyebrow">what REBYU is</p>
@@ -1005,7 +1038,7 @@ function ProblemSection() {
 
 function SolutionSection() {
   return (
-    <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
+    <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-background px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div data-landing-reveal>
           <StudyLoopMock />
@@ -1231,7 +1264,7 @@ function CertificationSection() {
   }, [filteredCertifications]);
 
   return (
-    <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
+    <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-background px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -1265,7 +1298,7 @@ function CertificationSection() {
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-rb-swan bg-white px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-rb-swan bg-rb-snow px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
                   aria-expanded={dropdownOpen}
                   aria-haspopup="listbox"
                 >
@@ -1290,7 +1323,7 @@ function CertificationSection() {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
+                  <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-rb-snow p-2 shadow-xl z-50">
                     {DEPARTMENTS.map((dept) => {
                       const count = dept.id === "all"
                         ? CERTIFICATIONS.length
@@ -1308,12 +1341,12 @@ function CertificationSection() {
                           className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
                             isSelected
                               ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
-                              : "text-rb-eel hover:bg-black/5"
+                              : "text-rb-eel hover:bg-rb-polar"
                           }`}
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-black/5">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-rb-polar text-rb-eel">
                                 {dept.code}
                               </span>
                               <span className="text-sm truncate">{dept.name}</span>
@@ -1344,8 +1377,8 @@ function CertificationSection() {
                   onClick={() => setSelectedDept(dept.id)}
                   className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
                     isSelected
-                      ? "bg-[#123126] text-white shadow-xs"
-                      : "border border-rb-swan bg-white text-rb-eel hover:border-[#123126] hover:text-[#123126]"
+                      ? "bg-rb-eel text-rb-snow shadow-xs"
+                      : "border border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-feather hover:text-rb-feather-ink"
                   }`}
                 >
                   {dept.code === "ALL" ? "All Departments" : dept.code}
@@ -1462,7 +1495,7 @@ function TypedParts({ parts, revealed = Infinity }) {
 
 function DemoTutorAvatar() {
   return (
-    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-rb-feather text-white ring-2 ring-white">
+    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#2f6b4f] text-white ring-2 ring-rb-snow">
       <Sparkles className="size-4" aria-hidden="true" />
     </span>
   )
@@ -1471,7 +1504,7 @@ function DemoTutorAvatar() {
 function DemoLearnerMessage({ message }) {
   return (
     <div className="rb-pop-in flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-rb-feather px-3.5 py-2.5 text-white">
+      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-[#2f6b4f] px-3.5 py-2.5 text-white">
         {message.snip ? (
           <div className="mb-1.5 flex items-center gap-2 rounded-lg bg-white/15 px-2.5 py-1.5 text-xs font-semibold">
             <Crop className="size-3.5 shrink-0" aria-hidden="true" />
@@ -1486,13 +1519,13 @@ function DemoLearnerMessage({ message }) {
 
 function DemoQuiz({ picked }) {
   return (
-    <div className="w-full rounded-2xl border border-rb-swan bg-white p-4 shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
+    <div className="w-full rounded-2xl border border-rb-swan bg-rb-snow p-4 shadow-[0_2px_10px_rgba(17,55,43,0.06)]">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex rounded-xl bg-rb-polar p-1 text-xs font-semibold">
-          <span className="rounded-lg bg-white px-2.5 py-1 text-rb-eel shadow-sm">Quiz</span>
+          <span className="rounded-lg bg-rb-snow px-2.5 py-1 text-rb-eel shadow-sm">Quiz</span>
           <span className="px-2.5 py-1 text-rb-wolf">Flashcards</span>
         </span>
-        <span className="flex items-center gap-1 text-[11px] font-semibold text-rb-feather-lip">
+        <span className="flex items-center gap-1 text-[11px] font-semibold text-rb-feather-ink">
           <BookOpen className="size-3.5" aria-hidden="true" />
           Saved to Library
         </span>
@@ -1510,7 +1543,7 @@ function DemoQuiz({ picked }) {
               }`}
             >
               {correct ? (
-                <Check className="size-4 shrink-0 text-rb-feather-lip" aria-hidden="true" />
+                <Check className="size-4 shrink-0 text-rb-feather-ink" aria-hidden="true" />
               ) : (
                 <span className="grid size-4 shrink-0 place-items-center rounded-full border border-rb-swan text-[9px] font-bold text-rb-wolf">
                   {String.fromCharCode(65 + index)}
@@ -1535,7 +1568,7 @@ function DemoChatTutorMessage({ message, revealed, quizPicked }) {
     <div className="rb-pop-in flex items-start gap-2.5">
       <DemoTutorAvatar />
       <div className="min-w-0 flex-1">
-        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">REBYU AI Tutor</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-ink">REBYU AI Tutor</p>
         {message.kind === "quiz" ? (
           <DemoQuiz picked={quizPicked} />
         ) : (
@@ -1554,8 +1587,8 @@ function DemoDialogueTutorMessage({ message, revealed }) {
   return (
     <div className="rb-pop-in flex items-start gap-2.5">
       <DemoTutorAvatar />
-      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-rb-swan bg-white px-3.5 py-3 text-sm leading-6 text-rb-eel shadow-[0_2px_10px_rgba(17,55,43,0.06)] [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink">
-        <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+      <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-rb-swan bg-rb-snow px-3.5 py-3 text-sm leading-6 text-rb-eel shadow-[0_2px_10px_rgba(17,55,43,0.06)] [&_strong]:font-extrabold [&_strong]:text-rb-feather-ink">
+        <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-ink">
           REBYU AI Tutor
         </p>
         {message.feedback ? (
@@ -1567,7 +1600,7 @@ function DemoDialogueTutorMessage({ message, revealed }) {
           <div
             className={`rb-pop-in ${message.feedback ? "mt-2.5" : ""} rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/50 px-3 py-2.5`}
           >
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-lip">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-rb-feather-ink">
               {message.label}
             </p>
             <p className="mt-0.5 font-extrabold leading-snug">{message.question}</p>
@@ -1582,7 +1615,7 @@ function DemoThinking() {
   return (
     <div className="rb-pop-in flex items-center gap-2.5">
       <DemoTutorAvatar />
-      <p className="flex items-center gap-2 rounded-[1.1rem] rounded-tl-md border-2 border-rb-swan bg-white px-3.5 py-2 text-xs font-bold text-rb-wolf">
+      <p className="flex items-center gap-2 rounded-[1.1rem] rounded-tl-md border-2 border-rb-swan bg-rb-snow px-3.5 py-2 text-xs font-bold text-rb-wolf">
         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
         Thinking…
       </p>
@@ -1593,7 +1626,7 @@ function DemoThinking() {
 function DemoComposer({ draft, placeholder, tips }) {
   return (
     <div className="shrink-0 border-t border-rb-swan bg-rb-snow px-3 pb-2 pt-3">
-      <div className="rounded-[18px] border border-rb-feather/40 bg-white p-3">
+      <div className="rounded-[18px] border border-rb-feather/40 bg-rb-snow p-3">
         {tips ? (
           <p className="mb-2 flex flex-wrap gap-1.5 text-[10px] font-bold text-rb-wolf">
             {DEMO_FEYNMAN_TIPS.map((tip) => (
@@ -1617,7 +1650,7 @@ function DemoComposer({ draft, placeholder, tips }) {
             <Mic className="size-4 text-rb-wolf" />
             <span
               className={`grid size-9 place-items-center rounded-[10px] text-white transition-colors ${
-                draft ? "bg-rb-feather" : "bg-rb-feather/40"
+                draft ? "bg-[#2f6b4f]" : "bg-[#2f6b4f]/40"
               }`}
             >
               <ArrowUp className="size-4" />
@@ -1651,7 +1684,7 @@ function DemoDialogueBar({ part }) {
   return (
     <>
       <div className="flex shrink-0 items-center gap-2 border-b-2 border-rb-swan bg-rb-polar/60 px-3 py-2">
-        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-extrabold text-rb-feather-lip">
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-extrabold text-rb-feather-ink">
           <ArrowLeft className="size-3.5" aria-hidden="true" /> chat
         </span>
         <p className="text-xs font-extrabold uppercase tracking-wide text-rb-wolf">guided dialogue</p>
@@ -1814,8 +1847,8 @@ function TutorConversation() {
             }}
             className={`inline-flex items-center gap-1.5 rounded-rb-pill px-3.5 py-1.5 text-xs font-bold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather ${
               slide === index
-                ? "bg-rb-feather text-white"
-                : "bg-white text-rb-eel ring-1 ring-rb-swan hover:ring-rb-feather"
+                ? "bg-[#2f6b4f] text-white"
+                : "bg-rb-snow text-rb-eel ring-1 ring-rb-swan hover:ring-rb-feather"
             }`}
           >
             <item.icon className="size-3.5" aria-hidden="true" />
@@ -1828,9 +1861,9 @@ function TutorConversation() {
         className="flex h-[560px] flex-col overflow-hidden rounded-[1.25rem] border border-rb-swan bg-rb-snow shadow-[0_26px_65px_-24px_rgba(17,55,43,0.4)]"
         aria-label="AI tutor demo"
       >
-        <div className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between bg-[#2f6b4f] px-4">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-rb-feather-lip ring-2 ring-white/40">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-[#245440] ring-2 ring-white/40">
               <Sparkles className="size-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -2102,7 +2135,7 @@ function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
       <ul className="mt-5 flex-1 space-y-2.5">
         {points.map((point) => (
           <li key={point} className="flex items-start gap-3">
-            <Check className="mt-0.5 size-5 shrink-0 text-rb-feather" aria-hidden="true" />
+            <Check className="mt-0.5 size-5 shrink-0 text-[#2f6b4f]" aria-hidden="true" />
             <span className="text-[0.9375rem] text-[#3a2d0c]">{point}</span>
           </li>
         ))}
@@ -2124,7 +2157,7 @@ function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
 
 function AccessSection() {
   return (
-    <section id="get-access" className="scroll-mt-24 bg-white px-5 py-20 lg:px-8 lg:py-28">
+    <section id="get-access" className="scroll-mt-24 bg-background px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">get access</p>
@@ -2273,7 +2306,7 @@ function BackToTopButton() {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="rebyu-ds rb-light-only pointer-events-none">
+    <div className="rebyu-ds pointer-events-none">
       <AnimatePresence>
         {visible && (
           <motion.button
@@ -2285,7 +2318,7 @@ function BackToTopButton() {
             transition={{ duration: 0.24, ease: EASE }}
             whileHover={{ scale: 1.08, y: -2 }}
             whileTap={{ scale: 0.94 }}
-            className="group pointer-events-auto fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full border border-rb-swan/90 bg-white/95 text-rb-eel shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-rb-macaw/50 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-13 cursor-pointer select-none"
+            className="group pointer-events-auto fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full border border-rb-swan/90 bg-rb-snow/95 text-rb-eel shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-rb-macaw/50 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-13 cursor-pointer select-none"
             aria-label="Back to top"
             title="Back to top"
           >
@@ -2345,7 +2378,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div ref={rootRef} className="rebyu-ds rb-light-only rb-classroom-landing tg-cat-explain min-h-screen overflow-x-clip">
+    <div ref={rootRef} className="rebyu-ds rb-classroom-landing tg-cat-explain min-h-screen overflow-x-clip">
       <LandingNavbar />
       <main>
         <HeroSection />
