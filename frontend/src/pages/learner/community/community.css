@@ -24,7 +24,8 @@
 .community-feed:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 @media(min-width:1280px) {
   .community-layout { height: var(--community-pane-height, calc(100dvh - 8rem)); min-height: 0; overflow: hidden; }
-  .community-feed { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding-right: 8px; }
+  .community-feed { height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; -ms-overflow-style: none; }
+  .community-feed::-webkit-scrollbar { display: none; width: 0; height: 0; }
   .community-layout > aside { position: static; height: 100%; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
 }
 .community-page [data-slot="input"], .community-page [data-slot="textarea"] { border-width: 1px; }
