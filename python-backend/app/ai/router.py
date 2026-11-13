@@ -85,7 +85,7 @@ def model_chain(task: str = "question") -> list[str]:
     return profile_for(task).chain
 
 
-_MAX_AGENT_STEPS = 8
+_MAX_AGENT_STEPS = 12
 
 
 @retry_llm_call

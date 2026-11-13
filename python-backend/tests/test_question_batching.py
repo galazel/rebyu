@@ -388,4 +388,4 @@ async def test_a_reworded_repeat_is_dropped_like_an_exact_one(recorder):
 
     stems = [q.question for q in batch.questions]
     assert stem not in stems and reworded not in stems
-    assert stems == ["fresh-1"]
+    assert stems == ["fresh-1", "fresh-2", "fresh-3"]

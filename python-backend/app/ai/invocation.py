@@ -44,7 +44,7 @@ from app.schemas.certification.question_schema import QuestionBatch
 
 logger = logging.getLogger(__name__)
 
-_DEDUPE_TOPUP_ROUNDS = 2
+_DEDUPE_TOPUP_ROUNDS = 4
 
 def _accepts_config(agent: Any) -> bool:
     """Real LangGraph agents take a config (the step cap); simple stand-ins may not."""
@@ -502,7 +502,9 @@ async def invoke_question_agent(
     prior_list: list[str] = [s for s in (existing_stems or []) if s]
     size = get_settings().question_batch_size
 
-    if count is None or count <= 0 or count <= size:
+    # Exact counts (even small ones) go through the waves below, so questions
+    # dropped as invalid or duplicate are topped up rather than left missing.
+    if count is None or count <= 0:
         result = await invoke_agent(
             get_question_generation_agent,
             build_question_batch_prompt(scope, context, instructions + _avoid_clause(prior_list)),
@@ -563,6 +565,20 @@ async def invoke_question_agent(
 
         failures = [result for result in results if isinstance(result, BaseException)]
         if len(failures) == len(results):
+            from app.graphs.cancellation import RunCancelled
+
+            cancelled = any(isinstance(f, RunCancelled) for f in failures)
+            never_valid = all(type(f).__name__ == "GraphRecursionError" for f in failures)
+            if not cancelled and never_valid and calls < batches + _DEDUPE_TOPUP_ROUNDS:
+                # The model answered but never validly; ask afresh rather than fail.
+                logger.warning("No valid questions in a wave for %.40s; trying again", scope)
+                continue
+            if not cancelled and (questions or never_valid):
+                # Keep what was written rather than failing the whole run over a
+                # few missing questions; callers with a coverage check top up.
+                logger.warning("Giving up on %.40s at %d/%d questions (%s)",
+                               scope, len(questions), count, failures[0])
+                break
             raise failures[0]
         for failure in failures:
             logger.warning("A question batch for %.40s failed (%s); topping up instead", scope, failure)

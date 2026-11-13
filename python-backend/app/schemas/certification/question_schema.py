@@ -542,7 +542,13 @@ class QuestionBatch(BaseModel):
             try:
                 kept.append(QuestionDraft.model_validate(item))
             except Exception as error:  # noqa: BLE001 -- any invalid item is simply dropped
-                errors.append(str(error).splitlines()[0][:200])
+                try:
+                    detail = error.errors()[0]  # type: ignore[attr-defined]
+                    where = ".".join(str(part) for part in detail.get("loc", ()))
+                    reason = f"{where}: {detail.get('msg')}" if where else str(detail.get("msg"))
+                except Exception:  # noqa: BLE001
+                    reason = str(error).splitlines()[-1]
+                errors.append(reason[:200])
         if errors and kept:
             logging.getLogger(__name__).info(
                 "Dropped %d invalid question(s) of %d: %s",

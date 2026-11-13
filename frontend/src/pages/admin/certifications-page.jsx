@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { Plus } from "@/components/icons"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
@@ -63,6 +63,13 @@ function Certifications() {
 
   const { byCertificationId: activeGenerations } = useActiveGenerations()
 
+  // A certification seen generating stays listed for the rest of the visit. The
+  // active-runs poll briefly drops a run around a review pause or resume; without
+  // this the card left the "With content" list for that moment, unmounted, and
+  // took its open progress modal with it.
+  const seenGeneratingRef = useRef(new Set())
+  for (const id of activeGenerations.keys()) seenGeneratingRef.current.add(String(id))
+
   const filteredCertifications = useMemo(() => {
     return items.filter((certification) => {
       if (chosenDepartment !== "all") {
@@ -74,9 +81,8 @@ function Certifications() {
 
       // A certification still being generated has no lessons yet but is not empty
       // for long, so it stays with the ones that have content.
-      const generating = activeGenerations.has(
-          String(certification.certificationId ?? certification.id)
-      )
+      const id = String(certification.certificationId ?? certification.id)
+      const generating = activeGenerations.has(id) || seenGeneratingRef.current.has(id)
       const hasContent = lessonCount(certification) > 0 || generating
       return contentFilter === "content" ? hasContent : !hasContent
     })
