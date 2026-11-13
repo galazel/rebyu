@@ -94,9 +94,14 @@ export function ManageGroupDialog({
 
   const sendHeadCodeMutation = useMutation({
     mutationFn: () => sendDepartmentHeadCode({ departmentId, email: inviteEmail.trim() }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["department-head-codes", departmentId] })
-      toast.success(`Department head code emailed to ${inviteEmail.trim()}.`)
+      if (data?.status === "REASSIGNED") {
+        queryClient.invalidateQueries({ queryKey: ["department-head-assignments"] })
+        toast.success(`${inviteEmail.trim()} already has a department head account, so access was restored directly.`)
+      } else {
+        toast.success(`Department head code emailed to ${inviteEmail.trim()}.`)
+      }
       setInviteEmail("")
       setShowInviteForm(false)
     },

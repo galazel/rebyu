@@ -148,6 +148,32 @@ public class OnboardingService {
                 .forEach(old -> old.setStatus(DepartmentHeadInvitation.Status.CANCELLED));
 
         LocalDateTime now = LocalDateTime.now();
+
+        // A department head of this school who was removed already has a working account: give the
+        // department back directly instead of emailing a code they would have to redeem again.
+        User existing = userRepository.findByEmailIgnoreCase(cleanEmail).orElse(null);
+        if (existing != null
+                && CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE.equals(
+                        com.capstone.rebyu.auth.service.AccountRoleGuard.roleOf(existing))
+                && !departmentHeadRepository.findByInstitution_InstitutionIdAndUser_UserId(
+                        department.getInstitution().getInstitutionId(), existing.getUserId()).isEmpty()) {
+            DepartmentHeadAssignment assignment = assignmentRepository.findByDepartmentAndUser(department, existing)
+                    .orElseGet(() -> DepartmentHeadAssignment.builder().department(department).user(existing).build());
+            if (assignment.getStatus() == DepartmentHeadAssignment.Status.active) {
+                throw new IllegalArgumentException("This person already heads this department.");
+            }
+            assignment.setStatus(DepartmentHeadAssignment.Status.active);
+            assignment.setAssignedBy(userRepository.getReferenceById(caller.userId()));
+            assignment.setAssignedAt(now);
+            assignment.setRemovedAt(null);
+            assignmentRepository.save(assignment);
+            events.publishEvent(new IdentityChangedEvent(existing.getCognitoSub()));
+            log.info("Reassigned existing department head userId={} to department {}",
+                    existing.getUserId(), departmentId);
+            return new InvitationView(null, departmentId, cleanEmail, "REASSIGNED", now, null,
+                    accountName(cleanEmail));
+        }
+
         DepartmentHeadInvitation invitation = invitationRepository.save(DepartmentHeadInvitation.builder()
                 .department(department)
                 .email(cleanEmail)

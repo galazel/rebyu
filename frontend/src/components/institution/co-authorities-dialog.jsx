@@ -159,7 +159,12 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
       }),
     onSuccess: (data, email) => {
       queryClient.invalidateQueries({ queryKey: ["department-head-codes", departmentId] })
-      toast.success(`Co-authority invitation emailed to ${email}.`)
+      if (data?.status === "REASSIGNED") {
+        queryClient.invalidateQueries({ queryKey: ["department-head-assignments"] })
+        toast.success(`${email} already has a department head account, so access was restored directly.`)
+      } else {
+        toast.success(`Co-authority invitation emailed to ${email}.`)
+      }
       setInviteEmail("")
     },
     onError: (err) => {
