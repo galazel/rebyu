@@ -174,7 +174,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
         <section className="space-y-3">
             <div
                 className={cn(
-                    "relative flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-3 transition-colors has-[input:focus]:ring-2",
+                    "relative flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed p-4 transition-colors has-[input:focus]:ring-2",
                     problem
                         ? "border-destructive bg-destructive/5 has-[input:focus]:ring-destructive/30"
                         : "border-border has-[input:focus]:border-primary has-[input:focus]:ring-ring/30",
@@ -189,10 +189,10 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                 <input {...getInputProps()} aria-label="Upload exam papers and answer keys" className="sr-only" />
 
                 <div className="flex flex-col items-center px-4 py-2 text-center">
-                    <div className="mb-2 flex size-10 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+                    <div className="mb-3 flex size-10 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
                         <FileText className="size-5" />
                     </div>
-                    <p className="text-sm font-medium text-foreground">Drop your exam papers and answer keys here</p>
+                    <p className="text-sm font-semibold text-foreground">Drop papers and answer keys here</p>
                     <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
                         PDF or Word (.docx, .doc). Up to {MAX_FILES} files, {MAX_SIZE_MB} MB each.
                     </p>
@@ -294,19 +294,21 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                 </div>
             ) : null}
 
-            <div className="flex justify-end">
-                <Button
-                    type="button"
-                    disabled={disabled || pairs.length === 0 || errors.length > 0}
-                    onClick={() => {
-                        onNext(pairs.map((pair) => ({ title: pair.title, paper: pair.paper.file, key: pair.key?.file ?? null })))
-                        clearFiles()
-                    }}
-                >
-                    {nextLabel}
-                    <ArrowRight aria-hidden="true" className="ms-1 size-4" />
-                </Button>
-            </div>
+            {pairs.length ? (
+                <div className="flex justify-end border-t pt-3">
+                    <Button
+                        type="button"
+                        disabled={disabled || errors.length > 0}
+                        onClick={() => {
+                            onNext(pairs.map((pair) => ({ title: pair.title, paper: pair.paper.file, key: pair.key?.file ?? null })))
+                            clearFiles()
+                        }}
+                    >
+                        {nextLabel}
+                        <ArrowRight aria-hidden="true" className="ms-1 size-4" />
+                    </Button>
+                </div>
+            ) : null}
         </section>
     )
 }

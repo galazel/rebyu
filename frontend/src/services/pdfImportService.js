@@ -90,3 +90,46 @@ export async function asPdf(file) {
     const name = file.name.replace(/\.[^.]+$/, "") + ".pdf"
     return new File([blob], name, { type: "application/pdf" })
 }
+
+// ---- Import jobs: the server reads, checks and tags; the page only uploads ----
+
+export function createImportJob(certificationId, owner, papers) {
+    return base("ai/past-papers/import-jobs", {
+        method: "POST",
+        data: { certificationId: Number(certificationId), owner: String(owner), papers },
+        timeout: 60000,
+    })
+}
+
+export function uploadImportPage(jobId, page, signal) {
+    return base(`ai/past-papers/import-jobs/${jobId}/pages`, {
+        method: "POST",
+        data: page,
+        timeout: 120000,
+        signal,
+    })
+}
+
+export function startImportJob(jobId) {
+    return base(`ai/past-papers/import-jobs/${jobId}/start`, { method: "POST", data: {}, timeout: 60000 })
+}
+
+export function getImportJob(jobId) {
+    return base(`ai/past-papers/import-jobs/${jobId}`, { timeout: 30000 })
+}
+
+export function latestImportJob(owner) {
+    return base(`ai/past-papers/import-jobs/latest?owner=${encodeURIComponent(owner)}`, { timeout: 30000 })
+}
+
+export function getImportJobResult(jobId, index) {
+    return base(`ai/past-papers/import-jobs/${jobId}/results/${index}`, { timeout: 60000 })
+}
+
+export function cancelImportJob(jobId) {
+    return base(`ai/past-papers/import-jobs/${jobId}/cancel`, { method: "POST", data: {}, timeout: 30000 })
+}
+
+export function discardImportJob(jobId) {
+    return base(`ai/past-papers/import-jobs/${jobId}/discard`, { method: "POST", data: {}, timeout: 30000 })
+}

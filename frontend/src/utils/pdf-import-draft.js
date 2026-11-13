@@ -88,3 +88,38 @@ export async function clearDraft(certificationId) {
     } catch {
     }
 }
+
+// The PDFs of a server import job, kept so the browser can cut figures from
+// them once the server has read the pages -- even after a refresh, a logout
+// or the tab being closed.
+const fileKey = (jobId, index, role) => `file::${jobId}::${index}::${role}`
+
+export async function saveJobFile(jobId, index, role, file) {
+    try {
+        await run([META], "readwrite", (tx) => {
+            tx.objectStore(META).put({ name: file.name, type: file.type, blob: file }, fileKey(jobId, index, role))
+        })
+        return true
+    } catch {
+        return false
+    }
+}
+
+export async function loadJobFile(jobId, index, role) {
+    try {
+        const entry = await run([META], "readonly", (tx) => tx.objectStore(META).get(fileKey(jobId, index, role)))
+        return entry ? new File([entry.blob], entry.name, { type: entry.type || "application/pdf" }) : null
+    } catch {
+        return null
+    }
+}
+
+export async function clearJobFiles(jobId) {
+    try {
+        await run([META], "readwrite", (tx) => {
+            tx.objectStore(META).delete(IDBKeyRange.bound(`file::${jobId}::`, `file::${jobId}::￿`))
+        })
+    } catch {
+        // Best effort: stale blobs are harmless.
+    }
+}

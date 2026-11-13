@@ -134,6 +134,65 @@ public class PastPaperImportController {
                 "/past-papers/tag-jobs/" + safeId(jobId) + "/cancel", Map.of(), "Tagging could not be stopped");
     }
 
+    // ---- Import jobs: reading + checking + tagging on the server ----
+
+    @PostMapping(value = "/import-jobs", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> createImportJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireImporter(jwt, certificationIdOf(request));
+        return pastPaperImportService.forward("/past-papers/import-jobs", request, "The import could not be started");
+    }
+
+    @GetMapping("/import-jobs/latest")
+    public Map<String, Object> latestImportJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam String owner) {
+        requireImporter(jwt, null);
+        if (!owner.matches("[0-9]+(:dept:[0-9]+)?")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not an import owner.");
+        }
+        return pastPaperImportService.get("/past-papers/import-jobs/latest?owner=" + owner, "The import could not be read");
+    }
+
+    @PostMapping(value = "/import-jobs/{jobId}/pages", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> addImportJobPage(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId,
+            @RequestBody Map<String, Object> request) {
+        requireImporter(jwt, null);
+        return pastPaperImportService.forward(
+                "/past-papers/import-jobs/" + safeId(jobId) + "/pages", request, "The page could not be uploaded");
+    }
+
+    @PostMapping("/import-jobs/{jobId}/{action:start|cancel|discard}")
+    public Map<String, Object> importJobAction(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId,
+            @PathVariable String action) {
+        requireImporter(jwt, null);
+        return pastPaperImportService.forward(
+                "/past-papers/import-jobs/" + safeId(jobId) + "/" + action, Map.of(), "The import could not be updated");
+    }
+
+    @GetMapping("/import-jobs/{jobId}")
+    public Map<String, Object> importJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId) {
+        requireImporter(jwt, null);
+        return pastPaperImportService.get("/past-papers/import-jobs/" + safeId(jobId), "The import could not be read");
+    }
+
+    @GetMapping("/import-jobs/{jobId}/results/{index}")
+    public Map<String, Object> importJobResult(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId,
+            @PathVariable int index) {
+        requireImporter(jwt, null);
+        return pastPaperImportService.get(
+                "/past-papers/import-jobs/" + safeId(jobId) + "/results/" + index, "The import results could not be read");
+    }
+
     private static String safeId(String jobId) {
         if (jobId == null || !jobId.matches("[0-9a-f]{32}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not a tagging job id.");

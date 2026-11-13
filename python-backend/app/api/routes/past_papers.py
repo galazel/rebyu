@@ -334,6 +334,111 @@ async def cancel_tag_job(job_id: str):
     return job
 
 
+class ImportJobPaper(BaseModel):
+    paperId: str = Field(max_length=300)
+    name: str = Field(default="", max_length=300)
+    keyName: str | None = Field(default=None, max_length=300)
+    pages: int = Field(ge=1, le=400)
+    keyPages: int = Field(default=0, ge=0, le=400)
+
+
+class ImportJobRequest(BaseModel):
+    certificationId: int
+    owner: str = Field(max_length=100)
+    papers: list[ImportJobPaper] = Field(min_length=1, max_length=20)
+
+
+class ImportJobPage(BaseModel):
+    paper: int = Field(ge=0)
+    role: Literal["paper", "key"]
+    number: int = Field(ge=1)
+    image: str = Field(max_length=8_000_000)
+    text: str = ""
+    figures: list[PageFigure] = Field(default_factory=list, max_length=60)
+
+
+def _import_job_error(error: Exception):
+    if isinstance(error, LookupError):
+        return HTTPException(status.HTTP_404_NOT_FOUND, "That import is not known -- it may have expired.")
+    return HTTPException(status.HTTP_409_CONFLICT, str(error))
+
+
+@router.post("/import-jobs")
+async def create_import_job(request: ImportJobRequest):
+    """Reading + checking + tagging as one server job. The browser uploads the
+    rendered pages, then starts it; the work survives the page closing."""
+    from app.papers import import_jobs
+
+    return await import_jobs.create_job(
+        request.certificationId, request.owner, [p.model_dump() for p in request.papers])
+
+
+@router.get("/import-jobs/latest")
+async def latest_import_job(owner: str):
+    from app.papers import import_jobs
+
+    return {"job": await import_jobs.latest_job(owner)}
+
+
+@router.post("/import-jobs/{job_id}/pages")
+async def add_import_job_page(job_id: str, request: ImportJobPage):
+    from app.papers import import_jobs
+
+    try:
+        return await import_jobs.add_page(
+            job_id, request.paper, request.role, request.number,
+            {"image": request.image, "text": request.text,
+             "figures": [f.model_dump() for f in request.figures]})
+    except (LookupError, ValueError) as error:
+        raise _import_job_error(error) from error
+
+
+@router.post("/import-jobs/{job_id}/start")
+async def start_import_job(job_id: str):
+    from app.papers import import_jobs
+
+    try:
+        return await import_jobs.start_job(job_id)
+    except (LookupError, ValueError) as error:
+        raise _import_job_error(error) from error
+
+
+@router.get("/import-jobs/{job_id}")
+async def get_import_job(job_id: str):
+    from app.papers import import_jobs
+
+    job = await import_jobs.get_job(job_id)
+    if not job:
+        raise _import_job_error(LookupError())
+    return job
+
+
+@router.get("/import-jobs/{job_id}/results/{index}")
+async def get_import_job_result(job_id: str, index: int):
+    """The raw page reads, answer check and tags of one paper."""
+    from app.papers import import_jobs
+
+    return await import_jobs.get_result(job_id, index)
+
+
+@router.post("/import-jobs/{job_id}/cancel")
+async def cancel_import_job(job_id: str):
+    from app.papers import import_jobs
+
+    job = await import_jobs.cancel_job(job_id)
+    if not job:
+        raise _import_job_error(LookupError())
+    return job
+
+
+@router.post("/import-jobs/{job_id}/discard")
+async def discard_import_job(job_id: str):
+    from app.papers import import_jobs
+
+    await import_jobs.discard_job(job_id)
+    return {"discarded": True}
+
+
 @router.post("/suggest-lessons")
 def suggest_lessons_route(request: SuggestLessonsRequest):
     """The lesson each question most likely belongs to, for review.

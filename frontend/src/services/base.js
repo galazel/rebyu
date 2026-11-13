@@ -82,6 +82,7 @@ async function request(endpoint, options = {}) {
       responseType: options.responseType,
       headers,
       onUploadProgress: options.onUploadProgress,
+      signal: options.signal,
       timeout: options.timeout,
     })
 

@@ -23,16 +23,24 @@ export function activeJobs() {
     return read(ACTIVE, [])
 }
 
+const kindOf = (job) => job.kind ?? "tag"
+
+// One job per certification and kind: a tagging run and an import can coexist.
 export function addActiveJob(job) {
-    write(ACTIVE, [...activeJobs().filter((item) => String(item.certificationId) !== String(job.certificationId)), job])
+    write(ACTIVE, [
+        ...activeJobs().filter(
+            (item) => !(String(item.certificationId) === String(job.certificationId) && kindOf(item) === kindOf(job)),
+        ),
+        job,
+    ])
 }
 
 export function removeActiveJob(jobId) {
     write(ACTIVE, activeJobs().filter((item) => item.id !== jobId))
 }
 
-export function activeJobFor(certificationId) {
-    return activeJobs().find((item) => String(item.certificationId) === String(certificationId)) ?? null
+export function activeJobFor(certificationId, kind = "tag") {
+    return activeJobs().find((item) => String(item.certificationId) === String(certificationId) && kindOf(item) === kind) ?? null
 }
 
 export function appliedPapers(jobId) {

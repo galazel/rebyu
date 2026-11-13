@@ -31,6 +31,7 @@ STALE_SECONDS = 10 * 60
 
 _redis = None
 _tasks: set[asyncio.Task] = set()
+_tasks_by_job: dict[str, asyncio.Task] = {}
 
 
 def _client():
@@ -105,7 +106,14 @@ async def start_job(certification_id: int, papers: list[dict]) -> dict:
     await _client().set(_latest_key(certification_id), job["id"], ex=TTL_SECONDS)
     task = asyncio.create_task(_run(job, papers))
     _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+    _tasks_by_job[job["id"]] = task
+
+    def _forget_task(done_task: asyncio.Task) -> None:
+        _tasks.discard(done_task)
+        if _tasks_by_job.get(job["id"]) is done_task:
+            _tasks_by_job.pop(job["id"], None)
+
+    task.add_done_callback(_forget_task)
     return job
 
 
@@ -113,7 +121,11 @@ async def cancel_job(job_id: str) -> dict | None:
     job = await get_job(job_id)
     if job and job["status"] == "running":
         job["cancelled"] = True
+        job["status"] = "cancelled"
         await _save(job)
+        task = _tasks_by_job.get(job_id)
+        if task and not task.done():
+            task.cancel()
     return job
 
 
@@ -159,6 +171,11 @@ async def _run(job: dict, papers: list[dict]) -> None:
             await _save(job)
         job["status"] = "done"
         await _save(job)
+    except asyncio.CancelledError:
+        # `cancel_job` has already persisted the terminal state.  Re-raise so
+        # cancellation also interrupts an in-flight provider retry or wait.
+        logger.info("Tagging job %s cancelled", job["id"])
+        raise
     except Exception as error:  # noqa: BLE001 -- recorded for the page
         logger.exception("Tagging job %s failed", job["id"])
         job["status"] = "failed"

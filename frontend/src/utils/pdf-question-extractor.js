@@ -529,6 +529,56 @@ export async function readExamPdf(file, onProgress, readLayout, readPage) {
     }
 }
 
+// Render-only pass for a server import job: each page's picture, text layer
+// and figure bands, handed to `onPage` for upload. No AI call is made here.
+// The same render, replayed later with `serverReads`, cuts the same figures.
+export async function renderPagePayloads(file, onPage, signal) {
+    const pdfjs = await loadPdfJs()
+    const data = new Uint8Array(await file.arrayBuffer())
+    const task = pdfjs.getDocument({ data, isEvalSupported: false })
+    const pdf = await task.promise
+    try {
+        const pages = await readPages(pdf, pdfjs, null)
+        for (const pg of pages) {
+            if (signal?.aborted) throw new DOMException("Stopped", "AbortError")
+            const figures = pageFigures(pg)
+            await onPage(
+                {
+                    number: pg.num,
+                    image: pageJpeg(pg),
+                    text: pg.lines.map((line) => line.text).join("\n"),
+                    figures: figures.map((f) => ({ id: f.id, top: f.a / pg.H, bottom: f.b / pg.H })),
+                },
+                pages.length,
+            )
+        }
+        return pages.length
+    } finally {
+        task.destroy()
+    }
+}
+
+export async function countPages(file) {
+    const pdfjs = await loadPdfJs()
+    const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()), isEvalSupported: false })
+    try {
+        return (await task.promise).numPages
+    } finally {
+        task.destroy()
+    }
+}
+
+// A `readPage` that answers from reads the server already made, page by page.
+export function serverReads(byNumber) {
+    let number = 0
+    return async () => {
+        number += 1
+        const read = byNumber?.[String(number)]
+        if (!read) throw new Error(`page ${number} was not read`)
+        return read
+    }
+}
+
 export function canvasToFile(canvas, name) {
     const type = canvas.height > 2500 ? "image/jpeg" : "image/png"
     const fileName = type === "image/jpeg" ? name.replace(/\.png$/i, ".jpg") : name
