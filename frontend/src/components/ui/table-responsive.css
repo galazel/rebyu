@@ -1,0 +1,103 @@
+/* Loaded with Table, including inside dialogs and independently rendered portals. */
+.rb-responsive-table .rb-table-mobile-controls { display: none; }
+.rb-responsive-table > [data-slot="table-container"] {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.rb-responsive-table > [data-slot="table-container"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+@media screen and (max-width: 767px) {
+  .rb-responsive-table .rb-table-mobile-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .75rem;
+    font-size: .75rem;
+    color: var(--muted-foreground);
+  }
+  .rb-table-view-options { display: flex; flex-shrink: 0; gap: .25rem; }
+  .rb-table-view-options button {
+    min-height: 44px;
+    padding: .5rem .75rem;
+    border: 1px solid var(--border);
+    border-radius: .6rem;
+    background: var(--card);
+    color: var(--foreground);
+    cursor: pointer;
+  }
+  .rb-table-view-options button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); border-color: var(--primary); }
+  .rb-table-toolbar [data-slot="select-trigger"] { max-width: 100%; min-width: 0; }
+
+  /* Higher specificity than the classroom theme's desktop cell borders/widths. */
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto;
+  }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > colgroup { display: none; }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > :is(thead, tbody, tfoot) { display: block; width: 100%; }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > thead { position: static; background: var(--muted); }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > thead > tr { display: flex; flex-wrap: wrap; padding: .5rem; gap: .25rem; }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > thead > tr > th {
+    display: none;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto;
+    padding: 0;
+    border: 0;
+    color: var(--foreground);
+  }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > thead > tr > th:has(button, input, [role="checkbox"]) { display: block; }
+  .rb-responsive-table[data-mobile-view="cards"] thead button { min-height: 44px; padding: .5rem; }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > :is(tbody, tfoot) > tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: .75rem;
+    border-bottom: 2px solid var(--border);
+    background: var(--card);
+  }
+  .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > :is(tbody, tfoot) > tr > :is(td, th) {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto;
+    padding: .6rem .25rem;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .rb-responsive-table[data-mobile-view="cards"] td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: .3rem;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--muted-foreground);
+  }
+  .rb-responsive-table[data-mobile-view="cards"] td :is(.truncate, [class*="line-clamp-"]) {
+    overflow: visible;
+    display: block;
+    white-space: normal;
+    text-overflow: clip;
+    -webkit-line-clamp: unset;
+    overflow-wrap: anywhere;
+  }
+  .rb-responsive-table[data-mobile-view="cards"] td > :is(div, span) { min-width: 0; max-width: 100%; }
+  .rb-responsive-table[data-mobile-view="cards"] td > .flex { flex-wrap: wrap; }
+}
+@media print {
+  .rb-responsive-table .rb-table-mobile-controls { display: none; }
+  .rb-responsive-table > [data-slot="table-container"] { overflow: visible; }
+}

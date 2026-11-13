@@ -42,7 +42,7 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6 lg:p-8 dark:from-background dark:to-muted">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <User className="w-8 h-8 text-blue-500" />
@@ -130,7 +130,7 @@ export default function ProfileSettingsPage() {
                   required
                   minLength={8}
                 />
-                <p className="text-xs text-slate-500 mt-1">At least 8 characters</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground">At least 8 characters</p>
               </div>
 
               <div>
@@ -155,7 +155,7 @@ export default function ProfileSettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10">
           <CardHeader>
             <div className="flex items-center gap-2">
               <Trash2 className="w-5 h-5 text-red-600" />
@@ -165,7 +165,7 @@ export default function ProfileSettingsPage() {
           <CardContent>
             {!showDeleteConfirm ? (
               <div>
-                <p className="text-sm text-slate-700 mb-4">
+                <p className="mb-4 text-sm text-slate-700 dark:text-foreground">
                   Deleting your account is permanent and cannot be undone. All your data will be lost.
                 </p>
                 <button
@@ -190,11 +190,11 @@ export default function ProfileSettingsPage() {
                   />
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 px-6 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300"
+                    className="flex-1 rounded-lg bg-slate-200 px-6 py-2 text-slate-700 hover:bg-slate-300 dark:bg-muted dark:text-foreground dark:hover:bg-accent"
                   >
                     Cancel
                   </button>

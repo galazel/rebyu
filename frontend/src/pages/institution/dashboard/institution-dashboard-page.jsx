@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useCallback, useMemo, useState } from "react"
 import { ExportButton } from "@/components/commons/export-button.jsx"
 import { Link, useOutletContext } from "react-router-dom"
@@ -627,8 +628,8 @@ export default function InstitutionDashboardPage() {
                   </div>
                 </div>
               ) : (
-                <div className="min-h-0 flex-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:[mask-image:none]">
-                  <table className="w-full text-sm" style={{ minWidth: 680 }}>
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <Table className="w-full text-sm" style={{ minWidth: 680 }}>
                     <colgroup>
                       <col style={{ width: "22%" }} />
                       <col style={{ width: "10%" }} />
@@ -722,7 +723,7 @@ export default function InstitutionDashboardPage() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
               )}
             </div>

@@ -24,7 +24,7 @@ export const TABLE_SURFACE = "border border-border/70 shadow-none"
 
 export function TableCard({ className = "", children }) {
   return (
-    <div className={`overflow-hidden rounded-rb-card border border-border/70 bg-card ${className}`}>
+    <div className={`min-w-0 max-w-full overflow-hidden rounded-rb-card border border-border/70 bg-card ${className}`}>
       {children}
     </div>
   )
@@ -39,8 +39,8 @@ export function TableToolbar({
   children,
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="rb-table-toolbar flex min-w-0 flex-col gap-3 border-b border-border/60 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         {onPageSizeChange ? (
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             Show
@@ -202,7 +202,7 @@ export function TablePagination({
         <span className="font-bold text-foreground tabular-nums">{total}</span> {unit}
       </p>
 
-      <nav className="flex items-center gap-1" aria-label="Pagination">
+      <nav className="flex max-w-full flex-wrap items-center justify-center gap-1" aria-label="Pagination">
         <Button
           type="button"
           variant="ghost"

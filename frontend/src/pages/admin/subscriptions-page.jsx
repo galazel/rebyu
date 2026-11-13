@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -235,7 +236,7 @@ function PaymentsTable({ rows, onlyKind }) {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)]">
-          <table className="w-full min-w-[720px] text-sm">
+          <Table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b-2 border-rb-swan text-left text-xs font-bold uppercase tracking-wide text-rb-hare">
                 <th className="px-4 py-3">Learner</th>
@@ -275,7 +276,7 @@ function PaymentsTable({ rows, onlyKind }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       )}
     </div>

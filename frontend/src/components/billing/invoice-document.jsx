@@ -92,6 +92,7 @@ export default function InvoiceDocument({ invoice }) {
         </dl>
       </section>
 
+      <div className="min-w-0 max-w-full overflow-x-auto print:overflow-visible" role="region" aria-label="Invoice items — scroll horizontally to see all columns" tabIndex={0}>
       <table className="w-full border-collapse text-[13px]">
         <caption className="pb-2 pt-4 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
           {slots} learner slot{slots === 1 ? "" : "s"} across {items.length}{" "}
@@ -133,6 +134,7 @@ export default function InvoiceDocument({ invoice }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       <dl className="ml-auto mt-4 grid w-full max-w-[17rem] grid-cols-2 gap-y-1.5 text-[13px]">
         <dt className="text-[color:var(--rb-invoice-muted)]">Subtotal</dt>

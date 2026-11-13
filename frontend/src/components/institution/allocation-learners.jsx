@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
@@ -50,7 +51,7 @@ function RecordTable({ rows, showLeft = false }) {
   if (!rows.length) return <p className="py-4 text-center text-xs text-muted-foreground">No learners.</p>
   return (
     <div className="overflow-x-auto rounded-xl border border-border/60">
-      <table className="w-full text-xs">
+      <Table className="w-full text-xs">
         <thead className="bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="px-3 py-2 text-left">Learner</th>
@@ -87,7 +88,7 @@ function RecordTable({ rows, showLeft = false }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
     </div>
   )
 }

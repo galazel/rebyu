@@ -30,7 +30,9 @@ import { PanelLeftIcon } from "@/components/icons"
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+// Keep the drawer comfortably sized on phones without allowing it to run past
+// the viewport on narrow devices (including 320 px screens).
+const SIDEBAR_WIDTH_MOBILE = "min(18rem, calc(100vw - 1rem))"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -49,8 +51,6 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
-
-
 
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
@@ -168,7 +168,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="w-(--sidebar-width) max-w-[calc(100vw-1rem)] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,

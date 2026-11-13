@@ -188,14 +188,14 @@ function Brand({ role, institutionName, isDepartmentHead = false }) {
             <span className="font-heading text-lg font-bold tracking-tight text-white sm:text-xl">
               REBYU
             </span>
-            <span className="font-heading text-xs font-semibold uppercase tracking-wider text-slate-300/80 sm:text-sm">
+            <span className="hidden min-[390px]:inline font-heading text-xs font-semibold uppercase tracking-wider text-slate-300/80 sm:text-sm">
               {scopeLabel}
             </span>
           </span>
 
           {institutionName ? (
             <span
-              className="mt-[1px] block max-w-[120px] xs:max-w-[160px] truncate text-[10px] sm:text-xs font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs md:max-w-md"
+              className="mt-[1px] hidden max-w-[120px] min-[390px]:block xs:max-w-[160px] truncate text-[10px] sm:text-xs font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs md:max-w-md"
               style={{ fontFamily: "var(--font-institution-body, 'Poppins', sans-serif)" }}
               title={institutionName}
             >
@@ -335,7 +335,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md shadow-xs transition-shadow">
-        <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
+        <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-1.5 px-2.5 sm:gap-4 sm:px-5 lg:px-6">
           <div className={cn("flex items-center", isInstitutionRole(role) ? "flex-1 min-w-0 justify-start" : "shrink-0")}>
             <Brand role={role} institutionName={institutionName} isDepartmentHead={isDepartmentHead} />
           </div>
@@ -372,7 +372,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
           </nav>
           <div
             className={cn(
-              "flex items-center justify-end gap-1.5",
+              "flex items-center justify-end gap-1 sm:gap-1.5",
               isInstitutionRole(role) ? "flex-1 lg:flex-none" : "flex-1 lg:flex-none"
             )}
           >
@@ -392,7 +392,7 @@ export function PortalTopNavigation({ role, actions, institutionName, isOwner = 
                   align="end"
                   sideOffset={8}
                   collisionPadding={8}
-                  className="w-72 p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto"
+                  className="w-[min(18rem,calc(100vw-1rem))] p-2 max-h-[calc(100dvh-5rem)] overflow-y-auto"
                 >
                   {groups.map((group, index) => (
                     <div key={group.label}>

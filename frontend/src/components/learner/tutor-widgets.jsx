@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 // The interactive pieces the AI tutor draws with its tools (see the Python
 // app/ai/tutor_widgets.py for the shapes). Everything here is client-side:
 // practice progress is saved locally, scoped to the learner/conversation/activity.
@@ -373,7 +374,7 @@ function TableWidget({ data }) {
   return (
       <Frame kind="Comparison" type="table">
         <div className="overflow-x-auto rounded-xl ring-1 ring-[var(--tg-line)]">
-          <table className="w-full min-w-max border-collapse text-sm">
+          <Table mobileLayout="scroll" className="w-full min-w-max border-collapse text-sm">
             <thead>
               <tr className="bg-[var(--tg-soft)]">{data.columns.map((c, i) => (
                   <th key={i} className="border-b-2 border-[var(--tg-line)] px-3 py-2.5 text-left text-xs font-extrabold uppercase tracking-wide text-[var(--tg-ink)]">{c}</th>
@@ -388,7 +389,7 @@ function TableWidget({ data }) {
                   </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
         {data.caption ? <p className="mt-2 text-xs font-semibold text-muted-foreground">{data.caption}</p> : null}
       </Frame>

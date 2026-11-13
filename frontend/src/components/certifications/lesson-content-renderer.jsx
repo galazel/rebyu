@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 ﻿import { createPortal } from "react-dom"
 import { useEffect, useId, useRef, useState } from "react"
 import { motion } from "framer-motion"
@@ -304,7 +305,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
             role="region"
             aria-label={data.caption ?? data.smallHeader ?? "Table"}
         >
-          <table className="w-full min-w-[34rem] border-collapse text-left text-[15px]">
+          <Table mobileLayout="scroll" className="w-full min-w-[34rem] border-collapse text-left text-[15px]">
             {data.caption ? (
                 <caption className="px-4 pt-3 pb-2 text-left text-sm text-muted-foreground">
                   {data.caption}
@@ -355,7 +356,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
                 )
               })}
             </tbody>
-          </table>
+          </Table>
         </div>
 
         {data.footer ? (

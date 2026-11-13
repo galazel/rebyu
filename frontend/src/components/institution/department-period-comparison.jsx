@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import React, { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -749,7 +750,7 @@ export function PeriodComparisonTile({
                   No certification data available for this comparison period.
                 </div>
               ) : (
-                <table className="w-full text-xs" style={{ minWidth: 620 }}>
+                <Table className="w-full text-xs" style={{ minWidth: 620 }}>
                   <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
                     <tr className="border-b border-border/50 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2.5 text-left">Programme</th>
@@ -801,7 +802,7 @@ export function PeriodComparisonTile({
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Table>
               )}
             </div>
           )}

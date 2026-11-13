@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
@@ -557,7 +558,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                 </p>
               ) : (
                 <div className="-mr-2 min-h-0 flex-1 overflow-x-auto overflow-y-hidden pr-2 my-auto">
-                  <table className="w-full text-xs" style={{ minWidth: 400 }}>
+                  <Table className="w-full text-xs" style={{ minWidth: 400 }}>
                     <thead className="sticky top-0 z-10 bg-background">
                       <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
                         <th className="py-2 pr-3 text-left">Certification</th>
@@ -613,7 +614,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
               )}
 

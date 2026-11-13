@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useMemo, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -103,7 +104,7 @@ function AssessmentStatsTable({ assessments, enrolled }) {
   }
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-sm">
+      <Table className="w-full text-sm">
         <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">Assessment</th>
@@ -130,7 +131,7 @@ function AssessmentStatsTable({ assessments, enrolled }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Table>
     </div>
   )
 }

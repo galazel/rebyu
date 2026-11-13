@@ -384,6 +384,37 @@ body.netacad-overlay-theme {
     background: var(--rb-page-surface);
 }
 
+/* Portal pages contain dense dashboards, tables and workspaces.  Keep a wide
+   child from creating a page-level horizontal scrollbar; components that need
+   horizontal room (tables, tab rails and code blocks) already own an internal
+   overflow container. */
+.netacad-portal {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+.netacad-portal [data-route-content] {
+    min-width: 0;
+}
+
+@media (max-width: 639px) {
+    .rebyu-page {
+        gap: 1.25rem;
+        padding-block: 1.25rem;
+    }
+
+    .netacad-portal [data-slot="table-container"] {
+        scroll-padding-inline: 0.75rem;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .netacad-portal [data-slot="table-head"],
+    .netacad-portal [data-slot="table-cell"] {
+        padding-inline: 0.75rem;
+    }
+}
+
 .dark .netacad-portal,
 .dark body.netacad-overlay-theme {
     --background: #1a1a1a;
@@ -442,6 +473,30 @@ body.netacad-overlay-theme {
     color: var(--muted-foreground);
 }
 
+/* A few older portal screens use fixed Tailwind slate/gray text instead of
+   semantic foreground tokens.  Map those light-only colours to the portal
+   palette so labels remain readable in dark mode. */
+.dark .netacad-portal :is(
+    .text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700,
+    .text-gray-950, .text-gray-900, .text-gray-800, .text-gray-700,
+    .text-zinc-800, .text-neutral-800
+) {
+    color: var(--foreground);
+}
+
+.dark .netacad-portal :is(
+    .text-slate-600, .text-slate-500,
+    .text-gray-600, .text-gray-500,
+    .text-zinc-500, .text-zinc-600,
+    .text-neutral-500, .text-neutral-600
+) {
+    color: var(--muted-foreground);
+}
+
+.dark .netacad-portal :is(.bg-slate-50, .bg-slate-100, .bg-gray-50, .bg-gray-100, .bg-zinc-50, .bg-zinc-100, .bg-neutral-50, .bg-neutral-100) {
+    background-color: var(--card);
+}
+
 .dark body.netacad-overlay-theme :is(
     [data-slot="dialog-content"],
     [data-slot="alert-dialog-content"],
@@ -485,7 +540,10 @@ body.netacad-overlay-theme {
 }
 
 .netacad-portal [data-slot="table-container"] {
-    overflow: hidden;
+    /* Tables keep their columns usable on a narrow screen instead of clipping
+       the right-hand cells or forcing the whole page to overflow. */
+    overflow-x: auto;
+    overflow-y: hidden;
     border-block: 1px solid var(--border);
     border-inline: 0;
     border-radius: 0;

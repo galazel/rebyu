@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useMemo } from "react"
 import { Database } from "@/components/icons"
 
@@ -183,7 +184,7 @@ export default function SqlTables({ script }) {
             </span>
           </header>
           <div className="max-h-80 overflow-auto">
-            <table className="w-full border-collapse font-mono text-xs">
+            <Table mobileLayout="scroll" className="w-full border-collapse font-mono text-xs">
               <thead className="sticky top-0 bg-white">
                 <tr>
                   {table.columns.map((column) => (
@@ -211,7 +212,7 @@ export default function SqlTables({ script }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </section>
       ))}

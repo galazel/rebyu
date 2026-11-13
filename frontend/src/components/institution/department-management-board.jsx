@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useCallback, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -636,7 +637,7 @@ export function DepartmentManagementBoard({
 
                 {/* Table */}
                 <div className="min-h-0 max-h-[560px] overflow-x-auto overflow-y-auto mt-3">
-                  <table className="w-full text-xs border-separate border-spacing-0">
+                  <Table className="w-full text-xs border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
                       <tr className="text-muted-foreground uppercase tracking-wider text-[10px]">
                         <th className="py-2 pl-3 pr-2 text-left">Student</th>
@@ -703,7 +704,7 @@ export function DepartmentManagementBoard({
                         ))
                       )}
                     </tbody>
-                  </table>
+                  </Table>
                 </div>
 
                 {formerLearners.length > 0 ? (
@@ -712,7 +713,7 @@ export function DepartmentManagementBoard({
                       Former learners ({formerLearners.length}) — removed from the department; their history stays in exports
                     </summary>
                     <div className="overflow-x-auto px-3 pb-3">
-                      <table className="w-full text-xs">
+                      <Table className="w-full text-xs">
                         <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
                           <tr>
                             <th className="py-2 pr-2 text-left">Learner</th>
@@ -737,7 +738,7 @@ export function DepartmentManagementBoard({
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </Table>
                     </div>
                   </details>
                 ) : null}

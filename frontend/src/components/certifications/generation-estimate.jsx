@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { AlertTriangle, CheckCircle2, ChevronDown } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
@@ -203,7 +204,7 @@ export function GenerationEstimate({ lessons, bankSize, credits, creditsLoading,
           <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
           Breakdown
         </summary>
-        <table className="mt-2 w-full text-xs">
+        <Table className="mt-2 w-full text-xs">
           <thead className="text-left text-muted-foreground">
             <tr>
               <th className="py-1 font-normal">Step</th>
@@ -228,7 +229,7 @@ export function GenerationEstimate({ lessons, bankSize, credits, creditsLoading,
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </details>
 
       <p className="mt-3 text-xs leading-5 text-muted-foreground">

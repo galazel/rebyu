@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { useMemo, useState } from "react"
 import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -430,7 +431,7 @@ function AssessmentResultsSection({ groups, onOpen, flags }) {
               ))}
             </div>
             <div className="overflow-x-auto rounded-xl border border-border/60">
-              <table className="w-full text-xs">
+              <Table className="w-full text-xs">
                 <thead className="bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">Assessment</th>
@@ -474,7 +475,7 @@ function AssessmentResultsSection({ groups, onOpen, flags }) {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Table>
             </div>
             {visible.length > 12 ? (
               <Button variant="ghost" size="sm" className="h-8 w-full text-xs" onClick={() => setShowAll((v) => !v)}>

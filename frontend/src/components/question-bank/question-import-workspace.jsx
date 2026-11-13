@@ -1,3 +1,4 @@
+import { Table } from "@/components/ui/table"
 import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -615,14 +616,14 @@ function ImportGuide({ step = 0 }) {
                         <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter. AM/PM, morning and afternoon are optional labels, not required parts of the title.
                     </p>
                     <div className="mt-1.5 overflow-x-auto">
-                        <table className="w-full text-left text-xs">
+                        <Table className="w-full text-left text-xs">
                             <thead className="text-muted-foreground"><tr><th className="py-0.5 pr-4 font-semibold">Questions</th><th className="py-0.5 font-semibold">Answer key</th></tr></thead>
                             <tbody className="font-mono">
                                 {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"], ["October FE Questions.pdf", "October FE PM Answer Key.pdf"]].map(([p, k]) => (
                                     <tr key={p} className="border-t"><td className="py-0.5 pr-4">{p}</td><td className="py-0.5">{k}</td></tr>
                                 ))}
                             </tbody>
-                        </table>
+                        </Table>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">PDF and Word files are accepted. A file with no key is allowed when answers are printed inside it.</p>
                     </div>

@@ -86,7 +86,7 @@ export function NotificationBell({
         </TooltipTrigger>
         <TooltipContent side="bottom">Notifications</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" sideOffset={10} className="w-80 p-0">
+      <DropdownMenuContent align="end" sideOffset={10} className="w-[min(20rem,calc(100vw-1rem))] p-0">
         <DropdownMenuLabel className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
           <span>Notifications</span>
           {onMarkAllRead && unread > 0 ? (
