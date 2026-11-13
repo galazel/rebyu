@@ -50,6 +50,7 @@ class DepartmentLearnerServiceTest {
         mapper = mock(DepartmentLearnerMapper.class);
 
         service = new DepartmentLearnerService(
+                mock(com.capstone.rebyu.institution.service.SeatLedgerService.class),
                 assigneeRepository, groupRepository, institutionCertLearnerRepository, mapper);
 
         when(mapper.toDto(any(DepartmentLearner.class))).thenAnswer(inv -> {

@@ -1,0 +1,26 @@
+.admin-directory { min-width: 0; width: 100%; }
+.admin-directory > header [data-slot="button"] { margin: 0; }
+@media (max-width: 767px) {
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > tbody {
+    display: grid;
+    gap: .75rem;
+    padding: .75rem;
+    background: var(--muted);
+  }
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > tbody > tr {
+    border: 1px solid var(--border);
+    border-radius: .8rem;
+    gap: .25rem .75rem;
+    padding: .75rem;
+  }
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] tbody > tr > td:first-child:not([colspan]),
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] tbody > tr > td:last-child {
+    grid-column: 1 / -1;
+  }
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] tbody > tr > td:first-child:not([colspan]) { border-bottom: 1px solid var(--border); padding-bottom: .9rem; }
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] td:first-child:not([colspan])::before { display: none; }
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] td:last-child button { min-height: 44px; }
+}
+@media (min-width: 380px) and (max-width: 767px) {
+  .admin-directory .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > tbody > tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

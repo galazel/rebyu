@@ -49,6 +49,7 @@ public class CognitoAuthService {
     private final InstitutionRepository institutionRepository;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
     private final CognitoAdminService cognitoAdminService;
+    private final com.capstone.rebyu.common.DeletionCleanupService deletionCleanup;
 
     private final org.springframework.beans.factory.ObjectProvider<CognitoAuthService> self;
 
@@ -118,7 +119,7 @@ public class CognitoAuthService {
         if (cognitoSub != null) recentIdentities.remove(cognitoSub);
     }
 
-    @org.springframework.context.event.EventListener
+    @org.springframework.transaction.event.TransactionalEventListener(fallbackExecution = true)
     public void onIdentityChanged(IdentityChangedEvent event) {
         evictIdentity(event.cognitoSub());
     }
@@ -130,6 +131,13 @@ public class CognitoAuthService {
         User existing = userRepository.findByCognitoSub(cognitoSub).orElse(null);
         if (existing != null) {
             return toDto(existing);
+        }
+
+        // A temporary provider outage must not let a deleted sign-in recreate
+        // its account while the durable authentication cleanup is still pending.
+        if (deletionCleanup.identityPending(cognitoSub)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.UNAUTHORIZED, "This account has been deleted.");
         }
 
         Map<String, String> attributes = tokenAttributes(jwt);

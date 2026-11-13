@@ -1,26 +1,15 @@
+import { DirectoryHeader, DirectoryResults } from "@/components/admin/directory-header.jsx"
 import { useEffect, useMemo, useState } from "react"
 import { ExportButton, sectionsFromPayload } from "@/components/commons/export-button.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
-  Award,
-  Eye,
-  GraduationCap,
-  MoreHorizontal,
-  Pencil,
   Trash2,
   Users,
 } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Progress,
 } from "@/components/ui/progress"
@@ -272,8 +261,6 @@ function LearnerTypeBadge({ type }) {
 }
 
 export default function Learners({
-                                   onView,
-                                   onEdit,
                                    onDelete,
                                  }) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -287,7 +274,7 @@ export default function Learners({
   const [pendingDelete, setPendingDelete] = useState(null)
   const queryClient = useQueryClient()
 
-  const { data: fetchedLearners = [], isLoading } = useQuery({
+  const { data: fetchedLearners = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["admin-learners"],
     queryFn: () => getAllLearners(),
     staleTime: 5 * 60 * 1000,
@@ -473,9 +460,9 @@ export default function Learners({
   )
 
   return (
-      <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center gap-x-10 gap-y-3 border-b border-border pb-4">
-          <ExportButton
+      <section className="admin-directory flex min-h-0 w-full flex-1 flex-col gap-6">
+      <DirectoryHeader title="Learners" description="Find learner accounts, check certification progress, and manage account deletion." stats={[{ label: "All learners", value: list.length, onSelect: () => { setTypeFilter(ALL_FILTER_VALUE); setStatusFilter(ALL_FILTER_VALUE); }, active: typeFilter === ALL_FILTER_VALUE && statusFilter === ALL_FILTER_VALUE }, { label: "Active learners", value: activeCount, onSelect: () => setStatusFilter("active"), active: statusFilter === "active" }, { label: "Institution learners", value: institutionCount, onSelect: () => setTypeFilter("institution"), active: typeFilter === "institution" }, { label: "Individual learners", value: individualCount, onSelect: () => setTypeFilter("individual"), active: typeFilter === "individual" }]}>
+        <ExportButton
             filename="rebyu-admin-learners"
             report="Learners"
             details={() => [["Learners in file", `${sortedLearners.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
@@ -497,49 +484,11 @@ export default function Learners({
               ]),
             }]}
           />
-          <div className="flex items-baseline gap-2">
-            <Users className="self-center h-4 w-4 text-primary" />
-            <p className="text-xl font-semibold tabular-nums">
-              {list.length}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Total learners
-            </p>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <span className="self-center h-2.5 w-2.5 rounded-full bg-emerald-500" />
-            <p className="text-xl font-semibold tabular-nums">
-              {activeCount}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Active learners
-            </p>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <GraduationCap className="self-center h-4 w-4 text-primary" />
-            <p className="text-xl font-semibold tabular-nums">
-              {institutionCount}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Institution learners
-            </p>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <Award className="self-center h-4 w-4 text-primary" />
-            <p className="text-xl font-semibold tabular-nums">
-              {individualCount}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Individual learners
-            </p>
-          </div>
-        </div>
+      </DirectoryHeader>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TableCard className="flex min-h-0 flex-1 flex-col">
+            <DirectoryResults title="Learner directory" count={sortedLearners.length} error={isError} onRetry={refetch} filtered={Boolean(searchQuery || institutionFilter !== ALL_FILTER_VALUE || typeFilter !== ALL_FILTER_VALUE || statusFilter !== ALL_FILTER_VALUE)} onReset={() => { setSearchQuery(""); setInstitutionFilter(ALL_FILTER_VALUE); setTypeFilter(ALL_FILTER_VALUE); setStatusFilter(ALL_FILTER_VALUE); }} />
             <TableToolbar
                 pageSize={pageSize}
                 onPageSizeChange={setPageSize}
@@ -709,7 +658,7 @@ export default function Learners({
                                     {getInitials(learnerName)}
                                   </div>
 
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-foreground">
                                       {learnerName}
                                     </p>
@@ -771,49 +720,9 @@ export default function Learners({
                               </TableCell>
 
                               <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        aria-label={`Actions for ${learnerName}`}
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-
-                                  <DropdownMenuContent align="end" className="w-40">
-                                    <DropdownMenuItem
-                                        onSelect={() => onView?.(learner)}
-                                    >
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View profile
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem
-                                        onSelect={() => onEdit?.(learner)}
-                                    >
-                                      <Pencil className="mr-2 h-4 w-4" />
-                                      Edit
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator />
-
-                                    <DropdownMenuItem
-                                        onSelect={() =>
-                                            onDelete
-                                                ? onDelete(learner)
-                                                : setPendingDelete(learner)
-                                        }
-                                        className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <Button type="button" variant="outline" className="min-h-11 gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Delete ${learnerName}`} onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}>
+                                  <Trash2 className="size-4" /> Delete
+                                </Button>
                               </TableCell>
                             </TableRow>
                         )
@@ -827,11 +736,11 @@ export default function Learners({
                             </div>
 
                             <p className="mt-4 text-sm font-semibold">
-                              No learners found
+                              {isError ? "Learners could not be loaded" : "No learners found"}
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                              Try changing the search or filters, or add a new learner.
+                              {isError ? "Try loading the directory again." : "Try changing the search or clearing the filters."}
                             </p>
                           </div>
                         </TableCell>

@@ -51,7 +51,7 @@ class InstitutionMembershipServiceTest {
     private final AssessmentAttemptRepository attempts = mock(AssessmentAttemptRepository.class);
 
     private final InstitutionMembershipService service = new InstitutionMembershipService(
-            enrollments, departmentLearners, departments, allocations, own, records, stats, attempts);
+            mock(SeatLedgerService.class), enrollments, departmentLearners, departments, allocations, own, records, stats, attempts);
 
     private InstitutionCertificate seatRow;
     private Department department;

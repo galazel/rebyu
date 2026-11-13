@@ -22,3 +22,11 @@ export const live = {
   credits: { available: true, remaining: 1234567, used: 1234567, limit: 9999999, tier: "Professional educational teaching plan" },
   voices: [{ id: "long_educational_voice_id", name: "An educational voice with a very long descriptive name", category: "professional" }],
 }
+
+export const certification = {
+  certificationId: 1, title: "Certification with a complete course structure", status: "PUBLISHED",
+  majorCategory: Array.from({ length: 5 }, (_, major) => ({ title: `Major ${major + 1}`, middleCategory: [{ title: "Foundations and programming", lessons: Array.from({ length: 20 }, (_, index) => ({ lessonId: major * 20 + index + 1, name: `Lesson ${String(major * 20 + index + 1).padStart(3, "0")} — Discrete Mathematics, Algorithms and Extended Programming Fundamentals` })) }] })),
+}
+export const directoryLearners = Array.from({ length: 24 }, (_, i) => ({ learnerId: i + 1, firstName: `Learner ${String(i + 1).padStart(2, "0")}`, lastName: "Example", email: `learner${i}@example.test`, institutionName: i % 2 ? "Cebu Institute of Technology — University" : null, learnerType: i % 2 ? "institution" : "individual", status: i % 3 ? "active" : "pending", certificationCount: 3, progressPercentage: 67, joinedAt: "2026-06-18" }))
+export const directoryInstitutions = Array.from({ length: 14 }, (_, i) => ({ institutionId: i + 1, institutionName: `Institution ${String(i + 1).padStart(2, "0")} with an extended university name`, primaryContactName: "Institution contact", primaryContactEmail: `contact${i}@example.test`, status: i % 2 ? "active" : "pending", learnerCount: 120, certificationCount: 5, joinedAt: "2026-06-18" }))
+export const directoryRequests = [{ requestId: 1, institutionName: "Cebu Institute of Technology — University", institutionEmail: "institution@example.test", referenceNumber: "REQ-0001", status: "PENDING", requestType: "NEW", submittedAt: "2026-06-18" }]

@@ -53,6 +53,7 @@ class LearnerServiceAcceptInvitationTest {
         learnerCertificationRepository = mock(LearnerCertificationRepository.class);
         institutionCertRepository = mock(InstitutionCertificateRepository.class);
         service = new LearnerService(
+                mock(com.capstone.rebyu.institution.service.SeatLedgerService.class),
                 learnerRepository, mock(LearnerMapper.class), invitationRepository,
                 enrollmentRepository, institutionCertRepository,
                 learnerCertificationRepository,

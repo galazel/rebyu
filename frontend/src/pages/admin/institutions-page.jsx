@@ -1,3 +1,4 @@
+import { DirectoryHeader, DirectoryResults } from "@/components/admin/directory-header.jsx"
 import { useEffect, useMemo, useState } from "react"
 import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { useNavigate } from "react-router-dom"
@@ -5,21 +6,10 @@ import { useQuery } from "@tanstack/react-query"
 import {
   Building2,
   Eye,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Users,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { InstitutionStatusBadge } from "@/components/institution/institution-ui.jsx"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -184,7 +174,7 @@ function formatDate(value) {
   }).format(date)
 }
 
-export default function Institutions({ onEdit, onDelete }) {
+export default function Institutions() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState(ALL_FILTER_VALUE)
@@ -192,7 +182,7 @@ export default function Institutions({ onEdit, onDelete }) {
   const [pageSize, setPageSize] = useState(10)
   const { sort, toggle, sortRows } = useTableSort()
 
-  const { data: fetchedInstitutions = [], isLoading } = useQuery({
+  const { data: fetchedInstitutions = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["admin-institutions"],
     queryFn: () => getAllInstitutions(),
     staleTime: 5 * 60 * 1000,
@@ -328,9 +318,9 @@ export default function Institutions({ onEdit, onDelete }) {
   )
 
   return (
-      <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-baseline gap-x-10 gap-y-3 border-b border-border pb-4">
-          <ExportButton
+      <section className="admin-directory flex min-h-0 w-full flex-1 flex-col gap-6">
+      <DirectoryHeader title="Institutions" description="Manage institution accounts, contacts, certification access, and learner coverage." stats={[{ label: "All institutions", value: list.length, onSelect: () => setStatusFilter(ALL_FILTER_VALUE), active: statusFilter === ALL_FILTER_VALUE }, { label: "Active", value: activeCount, onSelect: () => setStatusFilter("active"), active: statusFilter === "active" }, { label: "Institution learners", value: totalLearners.toLocaleString(), hint: "Across all institutions" }, { label: "Pending", value: list.filter((i) => String(i.status).toLowerCase() === "pending").length, onSelect: () => setStatusFilter("pending"), active: statusFilter === "pending" }]}>
+        <ExportButton
             filename="rebyu-admin-institutions"
             report="Institutions"
             details={() => [["Institutions in file", `${sortedInstitutions.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
@@ -349,33 +339,11 @@ export default function Institutions({ onEdit, onDelete }) {
               ]),
             }]}
           />
-          <div className="flex items-baseline gap-2">
-            <Building2 className="h-4 w-4 self-center text-primary" />
-            <p className="text-xl font-semibold tabular-nums">{list.length}</p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Total institutions
-            </p>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <span className="h-2.5 w-2.5 self-center rounded-full bg-rb-bee" />
-            <p className="text-xl font-semibold tabular-nums">{activeCount}</p>
-            <p className="text-xs font-medium text-muted-foreground">Active</p>
-          </div>
-
-          <div className="flex items-baseline gap-2">
-            <Users className="h-4 w-4 self-center text-primary" />
-            <p className="text-xl font-semibold tabular-nums">
-              {totalLearners.toLocaleString()}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">
-              Institution learners
-            </p>
-          </div>
-        </div>
+      </DirectoryHeader>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TableCard className="flex min-h-0 flex-1 flex-col">
+            <DirectoryResults title="Institution directory" count={sortedInstitutions.length} error={isError} onRetry={refetch} filtered={Boolean(searchQuery || statusFilter !== ALL_FILTER_VALUE)} onReset={() => { setSearchQuery(""); setStatusFilter(ALL_FILTER_VALUE); }} />
             <TableToolbar
                 pageSize={pageSize}
                 onPageSizeChange={setPageSize}
@@ -483,7 +451,7 @@ export default function Institutions({ onEdit, onDelete }) {
                                     {getInitials(institutionName)}
                                   </div>
 
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-semibold text-foreground">
                                       {institutionName}
                                     </p>
@@ -537,49 +505,9 @@ export default function Institutions({ onEdit, onDelete }) {
                               </TableCell>
 
                               <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        aria-label={`Actions for ${institutionName}`}
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-
-                                  <DropdownMenuContent align="end" className="w-40">
-                                    <DropdownMenuItem
-                                        onSelect={() =>
-                                            navigate(
-                                                `/admin/institutions/${getInstitutionId(institution, index)}`
-                                            )
-                                        }
-                                    >
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View details
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem
-                                        onSelect={() => onEdit?.(institution)}
-                                    >
-                                      <Pencil className="mr-2 h-4 w-4" />
-                                      Edit
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuSeparator />
-
-                                    <DropdownMenuItem
-                                        onSelect={() => onDelete?.(institution)}
-                                        className="text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <Button type="button" variant="outline" className="min-h-11 gap-2" aria-label={`View details for ${institutionName}`} onClick={() => navigate(`/admin/institutions/${getInstitutionId(institution, index)}`)}>
+                                  <Eye className="size-4" /> View details
+                                </Button>
                               </TableCell>
                             </TableRow>
                         )
@@ -593,12 +521,11 @@ export default function Institutions({ onEdit, onDelete }) {
                             </div>
 
                             <p className="mt-4 text-sm font-semibold">
-                              No institutions found
+                            {isError ? "Institutions could not be loaded" : "No institutions found"}
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                              Try changing the search or filter, or add a new
-                              institution.
+                              {isError ? "Try loading the directory again." : "Try changing the search or clearing the filters."}
                             </p>
                           </div>
                         </TableCell>

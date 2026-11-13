@@ -3,6 +3,7 @@ import { Link, useOutletContext } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FileQuestionIcon, Loader2, Pencil, Plus, Search, Trash2, Upload } from "@/components/icons"
 import { toast } from "sonner"
+import { LessonPicker } from "@/components/question-bank/lesson-picker.jsx"
 
 import {
   AlertDialog,
@@ -225,21 +226,10 @@ function QuestionFormDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Lesson</Label>
-            <Select value={lessonId} onValueChange={setLessonId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a lesson" />
-              </SelectTrigger>
-              <SelectContent>
-                {lessonOptions.map((lesson) => (
-                  <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
-                    {lesson.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LessonPicker value={lessonId} onValueChange={setLessonId} options={lessonOptions.map((lesson) => ({ value: String(lesson.lessonId), label: lesson.label }))} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Question type</Label>
               <Select value={questionType} onValueChange={setQuestionType}>
@@ -562,34 +552,18 @@ export function InstitutionQuestionBankPanel({
         )}
         <div className="w-full sm:min-w-64 sm:flex-1 space-y-1.5">
           <Label>Lesson</Label>
-          <Select
+          <LessonPicker
             value={selectedLessonId}
             onValueChange={(value) => {
               setSelectedLessonId(value)
               setSourceFilter("all")
             }}
             disabled={!selectedCertId}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a lesson" />
-            </SelectTrigger>
-            <SelectContent>
-              {departmentId != null ? (
-                <SelectItem value={ALL_LESSONS}>All lessons — our questions</SelectItem>
-              ) : null}
-              {lessonOptions.length === 0 ? (
-                <SelectItem value="none" disabled>
-                  No lessons available
-                </SelectItem>
-              ) : (
-                lessonOptions.map((lesson) => (
-                  <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
-                    {lesson.label}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
+            options={[
+              ...(departmentId != null ? [{ value: ALL_LESSONS, label: "All lessons — our questions" }] : []),
+              ...lessonOptions.map((lesson) => ({ value: String(lesson.lessonId), label: lesson.label })),
+            ]}
+          />
         </div>
 
         {selectedLessonId ? (

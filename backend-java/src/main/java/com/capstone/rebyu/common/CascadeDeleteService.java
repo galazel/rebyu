@@ -56,6 +56,7 @@ public class CascadeDeleteService {
     static final Map<String, List<SoftReference>> SOFT_REFERENCES = Map.of(
             "learners", List.of(
                     new SoftReference("assessment_attempts", "learner_id"),
+                    new SoftReference("assessment_integrity_events", "learner_id"),
                     new SoftReference("ai_generation_usage", "learner_id"),
                     new SoftReference("learner_activity_progress", "learner_id"),
                     new SoftReference("learner_bank_cycles", "learner_id"),
@@ -291,7 +292,9 @@ public class CascadeDeleteService {
 
     private Schema loadSchema() {
         Map<String, List<Reference>> referencesTo = new HashMap<>();
-        // ON DELETE CASCADE / SET NULL keys (confdeltype c / n) are left to Postgres.
+        // Walk CASCADE children too: Postgres cannot clean their soft references,
+        // and their own RESTRICT children could otherwise block the parent delete.
+        // SET NULL relationships remain independent and are left to Postgres.
         jdbc.query("""
                 SELECT c.confrelid::regclass::text AS parent_table,
                        c.conrelid::regclass::text  AS child_table,
@@ -300,7 +303,7 @@ public class CascadeDeleteService {
                 FROM pg_constraint c
                 JOIN pg_attribute child_att  ON child_att.attrelid = c.conrelid  AND child_att.attnum = c.conkey[1]
                 JOIN pg_attribute parent_att ON parent_att.attrelid = c.confrelid AND parent_att.attnum = c.confkey[1]
-                WHERE c.contype = 'f' AND array_length(c.conkey, 1) = 1 AND c.confdeltype IN ('a', 'r')
+                WHERE c.contype = 'f' AND array_length(c.conkey, 1) = 1 AND c.confdeltype IN ('a', 'r', 'c')
                 """, rs -> {
             referencesTo.computeIfAbsent(rs.getString("parent_table"), k -> new ArrayList<>())
                     .add(new Reference(rs.getString("child_table"), rs.getString("child_column"),

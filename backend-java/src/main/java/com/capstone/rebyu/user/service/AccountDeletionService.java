@@ -1,7 +1,5 @@
 package com.capstone.rebyu.user.service;
 
-import com.capstone.rebyu.auth.service.CognitoAdminService;
-import com.capstone.rebyu.certification.service.S3StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,9 +16,7 @@ public class AccountDeletionService {
 
     private final JdbcTemplate jdbc;
     private final com.capstone.rebyu.common.CascadeDeleteService cascade;
-    private final S3StorageService s3StorageService;
-    private final CognitoAdminService cognitoAdminService;
-    private final com.capstone.rebyu.bkt.client.BktClient bktClient;
+    private final com.capstone.rebyu.common.DeletionCleanupService cleanup;
     private final org.springframework.context.ApplicationEventPublisher events;
 
     @Transactional
@@ -61,30 +57,15 @@ public class AccountDeletionService {
             }
         }
 
-        for (Long learnerId : learnerIds) {
-            try {
-                bktClient.purgeLearnerState(learnerId);
-            } catch (Exception ex) {
-                log.error("Learner {} deleted, but their BKT mastery could not be purged. "
-                        + "It will be inherited by the next learner issued this id.", learnerId, ex);
-            }
-        }
-
-        for (String key : fileKeys) {
-            try {
-                s3StorageService.deleteFile(key);
-            } catch (Exception ex) {
-                log.warn("Account {} deleted, but stored file {} could not be removed: {}",
-                        userId, key, ex.getMessage());
-            }
-        }
+        learnerIds.forEach(cleanup::learner);
+        fileKeys.stream().distinct().forEach(cleanup::file);
         if (cognitoSub != null && !cognitoSub.isBlank()) {
-            cognitoAdminService.deleteAccount(cognitoSub);
+            cleanup.identity(cognitoSub);
             // Drop the cached identity, or the deleted user keeps working for up to 30 s.
             events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(cognitoSub));
         }
-        log.info("Deleted user {} (learner ids {}, {} stored files, cognito sub {})",
-                userId, learnerIds, fileKeys.size(), cognitoSub == null ? "none" : "removed");
+        log.info("Deleted user {} (learner ids {}, {} stored files queued for cleanup, sign-in cleanup {})",
+                userId, learnerIds, fileKeys.size(), cognitoSub == null ? "not needed" : "queued");
     }
 
     /**
@@ -93,6 +74,12 @@ public class AccountDeletionService {
      * became an institution (an approved one belongs to the institution and goes with it).
      */
     private void deleteRowsLinkedByEmail(String email) {
+        // Invitations may predate this account and have no learner_id FK yet.
+        List<Long> learnerInvitations = jdbc.queryForList(
+                "SELECT invitation_id FROM learner_invitations WHERE lower(email) = ?", Long.class, email);
+        if (!learnerInvitations.isEmpty()) {
+            cascade.delete("learner_invitations", "invitation_id", learnerInvitations);
+        }
         List<Long> invitations = jdbc.queryForList(
                 "SELECT department_head_invitation_id FROM department_head_invitations WHERE lower(email) = ?",
                 Long.class, email);
@@ -110,6 +97,9 @@ public class AccountDeletionService {
 
     private List<String> attachmentKeysOf(Long learnerId) {
         List<String> keys = new ArrayList<>(jdbc.queryForList(
+                "SELECT avatar_key FROM learners WHERE learner_id = ? AND avatar_key IS NOT NULL "
+                        + "AND avatar_key NOT LIKE '/%'", String.class, learnerId));
+        keys.addAll(jdbc.queryForList(
                 "SELECT attachment_key FROM community_posts "
                         + "WHERE author_learner_id = ? AND attachment_key IS NOT NULL",
                 String.class, learnerId));

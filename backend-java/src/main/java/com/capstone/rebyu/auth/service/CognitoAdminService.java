@@ -64,13 +64,13 @@ public class CognitoAdminService {
             } else if (status >= 200 && status < 300) {
                 log.info("Deleted Supabase account for subject {}", subject);
             } else {
-                log.error("Supabase account for subject {} could not be deleted ({}): {}. "
-                        + "The learner's data is gone, but this sign-in must be removed by hand "
-                        + "or the account will be re-provisioned on next login.", subject, status, response.body());
+                throw new IllegalStateException("Sign-in deletion failed with HTTP " + status);
             }
-        } catch (Exception ex) {
-            log.error("Supabase account for subject {} could not be deleted: {}. "
-                    + "Remove this sign-in by hand in the Supabase dashboard.", subject, ex.getMessage());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Sign-in deletion interrupted", ex);
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Sign-in deletion failed", ex);
         }
     }
 

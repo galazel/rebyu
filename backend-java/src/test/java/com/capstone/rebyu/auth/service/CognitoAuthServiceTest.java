@@ -33,6 +33,7 @@ class CognitoAuthServiceTest {
     private com.capstone.rebyu.institution.repository.InstitutionRepository institutionRepository;
     private com.capstone.rebyu.bkt.client.BktClient bktClient;
     private CognitoAdminService cognitoAdminService;
+    private com.capstone.rebyu.common.DeletionCleanupService deletionCleanup;
     private CognitoAuthService service;
 
     private static final String SUB = "11111111-2222-3333-4444-555555555555";
@@ -51,6 +52,7 @@ class CognitoAuthServiceTest {
                 .thenReturn(Optional.empty());
         bktClient = mock(com.capstone.rebyu.bkt.client.BktClient.class);
         cognitoAdminService = mock(CognitoAdminService.class);
+        deletionCleanup = mock(com.capstone.rebyu.common.DeletionCleanupService.class);
         when(cognitoAdminService.signInExists(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
 
         @SuppressWarnings("unchecked")
@@ -61,7 +63,20 @@ class CognitoAuthServiceTest {
         service = new CognitoAuthService(
                 userRepository, userTypeRepository, learnerRepository,
                 departmentHeadRepository, institutionRepository,
-                bktClient, cognitoAdminService, self);
+                bktClient, cognitoAdminService, deletionCleanup, self);
+    }
+
+    @Test
+    void pendingSignInDeletionCannotRecreateLearnerAccount() {
+        when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
+        when(deletionCleanup.identityPending(SUB)).thenReturn(true);
+        var refused = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> service.syncCurrentUser(jwt(), "access-token"));
+        assertEquals(401, refused.getStatusCode().value());
+        verify(cognitoAdminService, never()).signInExists(SUB);
+        verify(userRepository, never()).save(any());
+        verify(learnerRepository, never()).save(any(Learner.class));
     }
 
     @Test

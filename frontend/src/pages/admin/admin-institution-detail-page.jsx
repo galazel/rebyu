@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useMemo } from "react"
+import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
   AlertTriangle,
@@ -42,25 +42,6 @@ import {
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
-import {
-  dropInstitutionCertification,
-  getAllocationImpact,
-} from "@/services/adminInstitutionService.js"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { getInstitutionOrganisation } from "@/services/adminInstitutionService.js"
 import {
   getAllInstitutionCertificates,
@@ -72,140 +53,6 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-function DropCertificationDialog({ allocation, title, onClose }) {
-  const queryClient = useQueryClient()
-  const [reason, setReason] = useState("")
-
-  const impactQuery = useQuery({
-    queryKey: ["allocation-impact", allocation?.institutionCertId],
-    queryFn: () => getAllocationImpact(allocation.institutionCertId),
-    enabled: allocation != null,
-  })
-
-  const drop = useMutation({
-    mutationFn: () =>
-      dropInstitutionCertification(
-        allocation.institutionCertId,
-        reason.trim() || `${title} dropped by REBYU admin`
-      ),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["admin-institution-certificates"] })
-      queryClient.invalidateQueries({ queryKey: ["admin-institution-cert-learners"] })
-      const refunded = Number(result?.refund?.refunded ?? 0)
-      const pending = Number(result?.refund?.pending ?? 0)
-      const expired = Number(result?.refund?.expired ?? 0)
-      const failed = Number(result?.refund?.failed ?? 0)
-      toast.success(`${title} removed`, {
-        description:
-          refunded > 0
-            ? `₱${refunded.toLocaleString("en-PH")} refunded to the institution.`
-            : pending > 0
-              ? `₱${pending.toLocaleString("en-PH")} refund sent — it may take a few days to settle.`
-            : expired > 0
-              ? `No refund — ₱${expired.toLocaleString("en-PH")} was past the refund window.`
-              : failed > 0
-                ? `₱${failed.toLocaleString("en-PH")} could not be refunded. Check PayMongo.`
-                : "There was nothing to refund.",
-      })
-      onClose()
-    },
-    onError: (error) =>
-      toast.error(
-        error?.response?.data?.message ?? "Could not drop this certification."
-      ),
-  })
-
-  const impact = impactQuery.data
-  const loading = impactQuery.isLoading
-
-  return (
-    <AlertDialog open={allocation != null} onOpenChange={(open) => !open && onClose()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Drop {title}?</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-2 text-sm">
-              <p>This removes the allocation and everything built on it, and cannot be undone.</p>
-              {loading ? (
-                <p className="text-muted-foreground">Checking what this would remove…</p>
-              ) : impact ? (
-                <>
-                  <ul className="list-disc space-y-1 pl-5">
-                    <li>
-                      <strong>{impact.departments}</strong> department
-                      {impact.departments === 1 ? "" : "s"}
-                    </li>
-                    <li>
-                      <strong>{impact.enrolments}</strong> learner enrolment
-                      {impact.enrolments === 1 ? "" : "s"} — access ends immediately
-                    </li>
-                    <li>
-                      <strong>{impact.invitations}</strong> pending invitation
-                      {impact.invitations === 1 ? "" : "s"}
-                    </li>
-                  </ul>
-                  {impact.exams + impact.questions + impact.curriculumBranches > 0 ? (
-                    <p className="text-muted-foreground">
-                      {impact.exams} exam(s), {impact.questions} question(s) and{" "}
-                      {impact.curriculumBranches} curriculum branch(es) authored by these
-                      departments are kept — learners have already answered them — but they
-                      lose their owner.
-                    </p>
-                  ) : null}
-                  {Number(impact.refundable) > 0 ? (
-                    <p>
-                      <strong>
-                        ₱{Number(impact.refundable).toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </strong>{" "}
-                      is refunded to the institution's original payment method.
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      <strong>No refund.</strong> Nothing paid for {title} is still inside the{" "}
-                      {impact.refundWindowHours}-hour refund window, so the access is removed
-                      without money being returned.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="text-destructive">
-                  Could not read what this would remove. Do not proceed.
-                </p>
-              )}
-            </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="drop-reason">Reason (recorded against the refund)</Label>
-          <Textarea
-            id="drop-reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Optional."
-            rows={2}
-          />
-        </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={drop.isPending}>Keep it</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(event) => {
-              event.preventDefault()
-              drop.mutate()
-            }}
-            disabled={drop.isPending || loading || !impact}
-            className="bg-destructive text-white hover:bg-destructive/90"
-          >
-            {drop.isPending ? "Removing…" : "Drop and refund"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXPIRY_WARNING_DAYS = 30
@@ -279,8 +126,6 @@ export default function AdminInstitutionDetail() {
     enabled: Number.isFinite(institutionId),
     retry: 1,
   })
-
-  const [dropping, setDropping] = useState(null)
 
   const institutionCertsQuery = useQuery({
     queryKey: ["admin-institution-certificates"],
@@ -537,7 +382,6 @@ export default function AdminInstitutionDetail() {
                   <TableHead>Completed</TableHead>
                   <TableHead>Access</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -587,18 +431,6 @@ export default function AdminInstitutionDetail() {
                     <TableCell>
                       <AccessWindowBadge allocation={row.institutionCert} />
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() =>
-                          setDropping({ allocation: row.institutionCert, title: row.title })
-                        }
-                      >
-                        Drop
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -606,14 +438,6 @@ export default function AdminInstitutionDetail() {
           )}
         </CardContent>
       </Card>
-
-      {dropping ? (
-        <DropCertificationDialog
-          allocation={dropping.allocation}
-          title={dropping.title}
-          onClose={() => setDropping(null)}
-        />
-      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className={TABLE_SURFACE}>

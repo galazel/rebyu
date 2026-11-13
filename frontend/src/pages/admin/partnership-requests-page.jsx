@@ -1,7 +1,7 @@
+import { DirectoryHeader, DirectoryResults } from "@/components/admin/directory-header.jsx"
 import { useEffect, useMemo, useState } from "react"
-import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/components/commons/export-button.jsx"
+import { ExportButton, tableFromObjects } from "@/components/commons/export-button.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, Clock, XCircle } from "@/components/icons"
 import { toast } from "sonner"
 
 import {
@@ -194,11 +194,8 @@ export default function PartnershipRequests() {
     (detail?.items ?? []).some((item) => item.existingSlots != null)
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 flex-wrap items-center gap-x-10 gap-y-3 border-b border-border pb-4">
-        <SummaryCard icon={Clock} label="Pending" value={counts.PENDING} />
-        <SummaryCard icon={CheckCircle2} label="Approved" value={counts.APPROVED} />
-        <SummaryCard icon={XCircle} label="Rejected" value={counts.REJECTED} />
+    <div className="admin-directory flex min-h-0 w-full flex-1 flex-col gap-6">
+      <DirectoryHeader title="Partnership requests" description="Review institution applications, additional access, renewals, and cancellations." stats={[{ label: "Requests in this view", value: requests.length, hint: "Current status filter" }, { label: "Awaiting review", value: counts.PENDING + requests.filter((r) => r.status === "UNDER_REVIEW").length, hint: "In current status view" }, { label: "Approved", value: counts.APPROVED, hint: "In current status view" }, { label: "Rejected", value: counts.REJECTED, hint: "In current status view" }]}>
         <ExportButton
           filename="rebyu-admin-partnership-requests"
           report="Partnership requests"
@@ -207,10 +204,11 @@ export default function PartnershipRequests() {
           disabled={sorted.length === 0}
           sections={() => [tableFromObjects("Partnership requests", sorted)]}
         />
-      </div>
+      </DirectoryHeader>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <TableCard className="flex min-h-0 flex-1 flex-col">
+        <DirectoryResults title="Request inbox" count={sorted.length} filtered={Boolean(search || statusFilter !== "ALL")} onReset={() => { setSearch(""); setStatusFilter("ALL"); }} error={listQuery.isError} onRetry={() => listQuery.refetch()} />
         <TableToolbar
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
@@ -225,6 +223,7 @@ export default function PartnershipRequests() {
             <SelectContent>
               <SelectItem value="ALL">All statuses</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="UNDER_REVIEW">Under review</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
             </SelectContent>
@@ -273,7 +272,7 @@ export default function PartnershipRequests() {
                     colSpan={7}
                     className="h-48 text-center text-sm text-muted-foreground"
                   >
-                    No partnership requests match your filters.
+                    {listQuery.isError ? "Partnership requests could not be loaded. Try again above." : "No partnership requests match your filters."}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -284,6 +283,7 @@ export default function PartnershipRequests() {
                       <div className="text-xs text-muted-foreground">
                         {r.institutionEmail}
                       </div>
+                      {r.requestType ? <p className="mt-1 text-xs text-muted-foreground">{REQUEST_TYPE_LABEL[r.requestType] ?? r.requestType}</p> : null}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {r.referenceNumber}
@@ -298,7 +298,7 @@ export default function PartnershipRequests() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         className="rounded-full"
                         onClick={() => {
@@ -561,16 +561,6 @@ export default function PartnershipRequests() {
 function money(value, currency = "PHP") {
   if (value == null) return "—"
   return Number(value).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 2 })
-}
-
-function SummaryCard({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <Icon className="size-4 self-center text-muted-foreground" aria-hidden="true" />
-      <p className="text-xl font-semibold tabular-nums">{value}</p>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-    </div>
-  )
 }
 
 function Row({ label, value }) {

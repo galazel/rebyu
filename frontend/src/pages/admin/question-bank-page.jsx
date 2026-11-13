@@ -69,6 +69,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery } from "@tanstack/react-query";
+import { LessonPicker } from "@/components/question-bank/lesson-picker.jsx";
 
 import { getAllCertifications } from "../../services/certificationService.js";
 import { getFileViewUrl, uploadQuestionImage } from "../../services/fileService.js";
@@ -739,12 +740,12 @@ function CompactQuestionCard({
             }`}
         >
             <CardContent className="space-y-4 p-4">
-                <div className="flex min-w-0 items-center gap-2 border-b border-border pb-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border pb-3">
           <span className="shrink-0 text-xs font-semibold text-muted-foreground">
             {questionNumber}.
           </span>
 
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="max-w-full break-words rounded-md bg-muted px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {type}
           </span>
 
@@ -775,6 +776,28 @@ function CompactQuestionCard({
                 {children}
             </CardContent>
         </Card>
+    );
+}
+
+function MobileQuestionTypePicker({ onAdd }) {
+    return (
+        <div className="w-full min-w-0 sm:hidden">
+            <Select value="" onValueChange={(value) => {
+                const type = questionTypes.find((item) => item.id === value);
+                if (type) onAdd(type);
+            }}>
+                <SelectTrigger aria-label="Add question type" className="min-h-11 w-full min-w-0">
+                    <SelectValue placeholder="Add a question…" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-w-[calc(100vw-2rem)]">
+                    {questionTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id} className="min-h-11 whitespace-normal">
+                            {type.title}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </div>
     );
 }
 
@@ -3110,7 +3133,7 @@ function QuestionBank({
                                     middleCategoryTitle,
                                 }) {
         if (selectedLesson?.id === lessonId) {
-            return;
+            return true;
         }
 
         const isChangingLesson = selectedLesson && selectedLesson.id !== lessonId;
@@ -3123,7 +3146,7 @@ function QuestionBank({
                     "Save or remove the current questions before selecting another lesson.",
             });
 
-            return;
+            return false;
         }
 
         setSelectedLesson({
@@ -3135,6 +3158,7 @@ function QuestionBank({
 
         setQuestions([]);
         setValidationErrors({});
+        return true;
     }
 
     function scrollToDraft(questionId) {
@@ -4195,7 +4219,8 @@ OUTPUT RULES:
                                             <div className="mx-auto w-full max-w-4xl space-y-4 p-5 sm:p-6">
                                         {selectedLesson && (
                                             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2">
-                                                <span className="mr-1 text-xs font-medium text-muted-foreground">Add:</span>
+                                                <MobileQuestionTypePicker onAdd={addQuestion} />
+                                                <span className="mr-1 hidden text-xs font-medium text-muted-foreground sm:inline">Add:</span>
                                                 {questionTypes.map((questionType) => {
                                                     const Icon = questionType.icon;
                                                     return (
@@ -4204,7 +4229,7 @@ OUTPUT RULES:
                                                             type="button"
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="h-8 gap-1.5 px-2.5 text-xs"
+                                                            className="hidden h-8 gap-1.5 px-2.5 text-xs sm:inline-flex"
                                                             onClick={() => addQuestion(questionType)}
                                                         >
                                                             <Icon className="h-3.5 w-3.5" />
@@ -4268,7 +4293,14 @@ OUTPUT RULES:
                                 </div>
                             ) : (
                             <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)_280px]">
-                        <aside className="min-h-0 border-b border-border bg-background/95 md:overflow-y-auto md:border-b-0 md:border-r">
+                        <div className="space-y-2 border-b border-border p-3 md:hidden">
+                            {!isLockedToCertification ? <Select value={selectedCertificationId} onValueChange={handleBuilderCertificationChange} disabled={isPending}><SelectTrigger className="w-full min-w-0" aria-label="Builder certification"><SelectValue placeholder="Select a certification" /></SelectTrigger><SelectContent position="popper" className="max-w-[calc(100vw-2rem)]">{certifications.map((certification) => <SelectItem key={getCertificationValue(certification)} value={getCertificationValue(certification)} className="whitespace-normal">{getCertificationTitle(certification)}</SelectItem>)}</SelectContent></Select> : null}
+                            <LessonPicker options={builderLessons.map((lesson) => ({ value: lesson.id, label: lesson.name, description: `${lesson.majorCategoryTitle} / ${lesson.middleCategoryTitle}` }))} value={selectedLesson?.id ?? ""} disabled={!selectedCertification} onValueChange={(value) => {
+                                const lesson = builderLessons.find((item) => item.id === value);
+                                return lesson ? handleLessonSelect({ lesson, lessonId: lesson.id, majorCategoryTitle: lesson.majorCategoryTitle, middleCategoryTitle: lesson.middleCategoryTitle }) : false;
+                            }} />
+                        </div>
+                        <aside className="hidden min-h-0 border-border bg-background/95 md:block md:overflow-y-auto md:border-r">
                             <div className="space-y-4 p-4">
                                 <div>
                                     <p className="text-sm font-medium text-foreground">
@@ -4461,7 +4493,7 @@ OUTPUT RULES:
                         </aside>
 
                         <main className="min-h-0 min-w-0 bg-muted/30 md:overflow-y-auto">
-                            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-5 sm:p-6">
+                            <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-6">
                                 {!selectedLesson ? (
                                     <EmptyState
                                         icon={BookOpen}
@@ -4477,7 +4509,7 @@ OUTPUT RULES:
                                                     {selectedLesson.middleCategoryTitle}
                                                 </p>
 
-                                                <h2 className="mt-1 truncate text-lg font-bold text-foreground">
+                                                <h2 className="mt-1 break-words text-base font-bold text-foreground sm:text-lg">
                                                     {selectedLesson.name}
                                                 </h2>
                                             </div>
@@ -4488,8 +4520,9 @@ OUTPUT RULES:
                                             </p>
                                         </div>
 
-                                        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 shadow-sm xl:hidden">
-                                            <span className="mr-1 text-xs font-medium text-muted-foreground">Add:</span>
+                                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 shadow-sm sm:sticky sm:top-0 sm:z-10 xl:hidden">
+                                            <MobileQuestionTypePicker onAdd={addQuestion} />
+                                            <span className="mr-1 hidden text-xs font-medium text-muted-foreground sm:inline">Add:</span>
                                             {questionTypes.map((questionType) => {
                                                 const Icon = questionType.icon;
                                                 return (
@@ -4498,7 +4531,7 @@ OUTPUT RULES:
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="h-8 gap-1.5 px-2.5 text-xs"
+                                                        className="hidden h-8 gap-1.5 px-2.5 text-xs sm:inline-flex"
                                                         onClick={() => addQuestion(questionType)}
                                                     >
                                                         <Icon className="h-3.5 w-3.5" />
