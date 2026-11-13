@@ -21,6 +21,7 @@ import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { useAuth } from "@/context/auth-context.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
+import "@/styles/admin-mobile.css"
 
 export default function DashboardLayout() {
   usePortalTheme()
@@ -83,7 +84,7 @@ export default function DashboardLayout() {
           </>
         }
       />
-      <main data-route-content className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
+      <main data-route-content data-admin-workspace={location.pathname.includes("/lessons/") ? "lesson" : undefined} className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
         <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? <CertificationsPageSkeleton /> : <PortalPageSkeleton />}>
           <Outlet />
         </Suspense>

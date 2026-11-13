@@ -157,7 +157,7 @@ export default function GenerationWorkspacePage() {
   }, [runId, runList, navigate, awaitingCertificationId])
 
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-[32rem] flex-col gap-4 sm:h-[calc(100dvh-8rem)]">
+    <div className="flex min-h-[32rem] flex-col gap-4 lg:h-[calc(100dvh-8rem)]">
       <AlertDialog open={isConfirmingStop} onOpenChange={setIsConfirmingStop}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -416,7 +416,7 @@ function RunList({ runs, activeRunId, onSelect }) {
   const shown = showPast ? [...active, ...past] : active
 
   return (
-    <div className="hidden min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card lg:flex">
+    <div className="flex max-h-48 min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card lg:max-h-none">
       <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {showPast ? "All runs" : "Active runs"}

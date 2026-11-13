@@ -87,7 +87,7 @@ const REWARD_CATEGORIES = [
 
 function RewardField({ field, value, onChange }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg px-3 py-2.5 hover:bg-muted/50">
+    <div className="flex flex-col items-stretch gap-2 rounded-lg px-3 py-2.5 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1">
         <Label className="text-sm font-medium">{field.label}</Label>
         {field.hint ? (
@@ -144,7 +144,7 @@ function ReviewLevelEditor({ levels, onChange, onUpload, uploading }) {
       </div>
       <div className="border-t divide-y">
         {levels.map((level, index) => (
-          <div key={level.levelNumber} className="grid gap-3 p-3 sm:grid-cols-[5rem_minmax(10rem,1fr)_8rem_10rem] sm:items-center">
+          <div key={level.levelNumber} className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[5rem_minmax(10rem,1fr)_8rem_10rem] sm:items-center">
             <div className="text-sm font-semibold text-primary">Level {level.levelNumber}</div>
             <Input aria-label={`Level ${level.levelNumber} title`} value={level.title} onChange={(event) => onChange(index, "title", event.target.value)} />
             <Input aria-label={`Level ${level.levelNumber} XP`} type="number" min={index === 0 ? 0 : levels[index - 1].requiredXp + 1} value={level.requiredXp} onChange={(event) => onChange(index, "requiredXp", Number(event.target.value || 0))} />

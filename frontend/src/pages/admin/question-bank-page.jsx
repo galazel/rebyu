@@ -3617,7 +3617,7 @@ OUTPUT RULES:
                     </TabsList>
 
                     {activeTab === "question-builder" && builderMode !== "" && (
-                        <div className="flex shrink-0 items-center gap-2 py-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 py-1.5">
                             {builderMode === "generate" && (
                                 <Button
                                     type="button"

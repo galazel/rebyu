@@ -753,6 +753,7 @@ function CreateLessons() {
 
   const [validationError, setValidationError] = useState("")
   const [panelTab, setPanelTab] = useState("elements")
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   const [blockSearch, setBlockSearch] = useState("")
   const [zoom, setZoom] = useState(100)
 
@@ -1478,6 +1479,9 @@ function CreateLessons() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" variant="outline" size="icon" className="md:hidden" aria-label="Lesson elements and outline" aria-expanded={mobilePanelOpen} aria-controls="lesson-elements-panel" onClick={() => setMobilePanelOpen((open) => !open)}>
+              {mobilePanelOpen ? <X className="size-4" /> : <Layers className="size-4" />}
+            </Button>
             <Button
                 type="button"
                 variant="outline"
@@ -1523,9 +1527,9 @@ function CreateLessons() {
             onClose={() => setIsErrorAddingToolWithoutSection(false)}
         />
 
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Canva-style side panel */}
-          <aside className="hidden w-72 shrink-0 flex-col border-r bg-background md:flex">
+          <aside id="lesson-elements-panel" className={`${mobilePanelOpen ? "flex" : "hidden md:flex"} max-h-[40dvh] w-full shrink-0 flex-col border-b bg-background md:max-h-none md:w-72 md:border-b-0 md:border-r`}>
             <div className="flex shrink-0 gap-1 border-b p-2">
               {[
                 { key: "elements", label: "Elements", icon: Layers },
@@ -1744,7 +1748,7 @@ function CreateLessons() {
         </div>
 
         {/* Word-style status bar */}
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
           <span>
             {sections.length > 0
                 ? `Section ${sectionIndex + 1} of ${sections.length}`

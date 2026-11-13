@@ -39,7 +39,7 @@ export default function AiSettingsPage() {
   const taskLabel = (name) => data?.tasks?.find((task) => task.task === name)?.label ?? name
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-8 overflow-y-auto">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-5 [overflow-wrap:anywhere] sm:gap-8">
       <div className="border-b border-border pb-4">
         <h1 className="sr-only">AI settings</h1>
       </div>
@@ -103,7 +103,7 @@ function CreditsCard({ credits, providers }) {
         <p className="mt-3 text-sm text-destructive">{credits?.reason ?? "The balance could not be read."}</p>
       ) : (
         <>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 xl:grid-cols-4">
             <Stat label="Remaining" value={money(credits.remaining)} tone={empty ? "bad" : "good"} />
             <Stat label="Bought" value={money(credits.totalCredits)} />
             <Stat label="Used, all time" value={money(credits.totalUsage)} />
@@ -131,7 +131,7 @@ function Stat({ label, value, tone }) {
   return (
     <div className="rounded-lg border border-border p-3">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`mt-1 text-lg font-semibold ${tone === "bad" ? "text-destructive" : tone === "good" ? "text-emerald-700" : ""}`}>
+      <dd className={`mt-1 text-lg font-semibold ${tone === "bad" ? "text-destructive" : tone === "good" ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
         {value}
       </dd>
     </div>
@@ -186,7 +186,7 @@ function TaskCard({ task, models, health, taskLabel }) {
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_minmax(0,26rem)]">
+      <div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <div className="text-sm">
           <p>
             <span className="text-muted-foreground">Uses </span>
@@ -213,12 +213,12 @@ function TaskCard({ task, models, health, taskLabel }) {
         </div>
 
         {task.changeable ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Select value={picked} onValueChange={setPicked}>
-              <SelectTrigger className="min-w-0 flex-1" aria-label={`Model for ${task.label}`}>
+              <SelectTrigger className="h-auto min-h-11 w-full min-w-0 sm:basis-full [&>span]:min-w-0 [&>span]:whitespace-normal [&>span]:break-all" aria-label={`Model for ${task.label}`}>
                 <SelectValue placeholder="Choose a different model…" />
               </SelectTrigger>
-              <SelectContent className="max-h-96">
+              <SelectContent className="max-h-96 w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[data-slot=select-item]]:whitespace-normal [&_[data-slot=select-item]]:break-words">
                 <SelectGroup>
                   <SelectLabel>Recommended for this feature</SelectLabel>
                   {task.recommended.map((model) => (
@@ -342,9 +342,9 @@ function ModelStatusBadge({ health }) {
 
 function MiniStat({ label, value, tone }) {
   return (
-    <div className="rounded-md border border-border/70 px-2 py-1.5">
+    <div className="min-w-0 rounded-md border border-border/70 px-2 py-1.5">
       <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={`mt-0.5 truncate font-semibold ${tone === "bad" ? "text-destructive" : ""}`}>{value}</dd>
+      <dd className={`mt-0.5 break-words font-semibold ${tone === "bad" ? "text-destructive" : ""}`}>{value}</dd>
     </div>
   )
 }
@@ -451,7 +451,7 @@ function ModelHealthRow({ model, label, health, note, taskLabel }) {
       >
         <ModelStatusBadge health={health} />
         <span className="min-w-0 break-all font-medium text-foreground">{label ?? model}</span>
-        {note ? <Badge variant="secondary" className="text-[10px]">{note}</Badge> : null}
+        {note ? <Badge variant="secondary" className="max-w-full whitespace-normal break-words text-left text-[10px]">{note}</Badge> : null}
         <span className="ml-auto text-muted-foreground">{statusDetail(model, health)}</span>
         <ChevronDown
           className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}

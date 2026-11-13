@@ -97,7 +97,7 @@ export function LearnerAppSidebar({
   onLogout,
   ...props
 }: LearnerAppSidebarProps) {
-  const { state } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
   const expanded = state === "expanded"
   const entitlements = useLearnerEntitlements()
   const planLabel = entitlements.institutionalActive
@@ -148,7 +148,7 @@ export function LearnerAppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain group-data-[collapsible=icon]:overflow-y-auto">
-        <NavProjects projects={learnerNav} />
+        <nav aria-label="Learner navigation" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) setOpenMobile(false) }}><NavProjects projects={learnerNav} /></nav>
       </SidebarContent>
 
       <SidebarFooter className="shrink-0 border-t border-sidebar-border p-2">
@@ -215,7 +215,7 @@ export function LearnerAppSidebar({
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-60 p-2">
+              <DropdownMenuContent side={isMobile ? "top" : "right"} align={isMobile ? "start" : "end"} sideOffset={8} collisionPadding={12} className="w-60 max-w-[calc(100vw-2rem)] p-2">
                 <DropdownMenuLabel>
                   <span className="block truncate">{displayName}</span>
                   <span className="block truncate text-xs font-normal text-muted-foreground">{email || "Learner"}</span>

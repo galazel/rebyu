@@ -1,0 +1,24 @@
+/* Admin layouts must shrink at their containers, including nested workspaces. */
+.admin-portal :is(.flex, .grid, [data-slot="card"], [data-slot="tabs-content"]) { min-width: 0; }
+.admin-portal :is(h1, h2, h3, label, dd) { overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .admin-portal .rebyu-page-fill:not([data-admin-workspace="lesson"]) {
+    height: auto;
+    max-height: none;
+    min-height: calc(100dvh - 4rem);
+    overflow: visible;
+  }
+  .admin-portal [data-slot="tabs"][data-orientation="horizontal"] > [data-slot="tabs-list"],
+  .admin-portal [data-slot="tabs-list"]:not([aria-orientation="vertical"]) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+  .admin-portal [data-slot="tabs-trigger"] { min-height: 44px; white-space: normal; }
+  .admin-portal :is([data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) { min-width: 0; max-width: 100%; }
+  .admin-portal [data-slot="button"]:not([data-size^="icon"]) { max-width: 100%; height: auto; min-height: 44px; white-space: normal; }
+  .admin-portal [data-route-content] > :is(section, div) > header { flex-wrap: wrap; }
+  .admin-portal [data-slot="card-header"] { min-width: 0; }
+}
