@@ -312,7 +312,6 @@ function CourseCard({ course, onOpen, onViewBadge }) {
           cap="flat"
           body="card"
           icon={state.StateIcon}
-          wordmark={getCertificationTitle(certification)}
           eyebrow={certification.department ?? "REBYU Certification Review"}
           className="tg-cat-explain h-full"
           title={
