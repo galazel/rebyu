@@ -1,3 +1,4 @@
+import "./learner-certification-detail.css"
 import { useEffect, useMemo } from "react"
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -85,7 +86,7 @@ function SyllabusFigure({ icon: Icon, value, label }) {
   const isNumber = /^\d/.test(String(value))
 
   return (
-      <div className="flex min-w-0 items-center gap-3 rounded-[1rem] border border-[var(--tg-line)] bg-card p-4 shadow-[0_3px_0_var(--tg-line)]">
+      <div className="course-figure flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-4">
         {Icon ? <span className="tg-badge-icon !size-11 !rounded-xl"><Icon className="size-5" aria-hidden="true" /></span> : null}
         <div className="min-w-0">
           <p
@@ -328,8 +329,8 @@ export default function LearnerCertificationDetailPage() {
 
   return (
 
-      <div className="rebyu-ds tg-cat-explain min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-card pb-20">
-        <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8">
+      <div className="certification-detail rebyu-ds tg-cat-explain min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-card pb-20">
+        <div className="mx-auto w-full max-w-[1440px] px-1 sm:px-4 lg:px-6">
 
           <div className="flex items-center gap-3 py-6">
             <button type="button" className="tg-btn" onClick={() => navigate("/learner/certifications")}>
@@ -338,7 +339,7 @@ export default function LearnerCertificationDetailPage() {
             </button>
           </div>
 
-          <header className="tg-frame relative p-6 sm:p-8">
+          <header className="certification-overview">
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <p className="rb-eyebrow min-w-0 break-words">
                 {certification.department || "certification program"}
@@ -349,19 +350,19 @@ export default function LearnerCertificationDetailPage() {
               </span>
             </div>
 
-            <h1 className="mt-3 max-w-4xl break-words font-rb-display text-[clamp(2rem,5vw,3.75rem)] font-extrabold leading-[1.05] text-foreground [overflow-wrap:anywhere]">
+            <h1 className="mt-3 max-w-4xl break-words text-[clamp(1.75rem,3vw,2.5rem)] font-extrabold leading-[1.05] text-foreground [overflow-wrap:anywhere]">
               {certification.title}
             </h1>
 
-            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">
               {certification.description ||
                   "A comprehensive certification review designed to build your expertise, prepare you for the examination, and accelerate your career."}
             </p>
 
-            <div className="mt-7 flex flex-wrap items-center gap-4">
+            <div className="certification-enrolment">
               <button
                   type="button"
-                  className="tg-btn tg-btn-primary !px-6 !py-3 !text-base"
+                  className="course-primary-action"
                   onClick={handlePrimaryAction}
                   disabled={enrollMutation.isPending}
               >
@@ -407,17 +408,16 @@ export default function LearnerCertificationDetailPage() {
             </div>
           </div>
 
-          <main className="mt-10 grid min-w-0 items-start gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)]">
+          <main className="course-layout">
 
-            <div className="min-w-0">
+            <section className="course-outline" aria-label="Course content">
               <div className="mb-6">
                 <h2 className="flex items-center gap-2.5 text-lg font-bold text-foreground">
                   <span className="tg-badge-icon !size-8 !rounded-lg"><BookOpen className="size-4" aria-hidden="true" /></span>
                   Course content
                 </h2>
                 <p className="mt-1.5 text-xs text-muted-foreground">
-                  One mark per lesson, so you can see where the weight of this
-                  certification sits before you open anything.
+                  Browse categories and expand a module to view its lessons.
                 </p>
               </div>
 
@@ -435,45 +435,28 @@ export default function LearnerCertificationDetailPage() {
                           (total, middle) => total + (middle.lessons?.length ?? 0),
                           0
                       )
-                      const isLast = majorIndex === modules.length - 1
+
 
                       return (
                           <li
                               key={major.majorCategoryId ?? majorIndex}
-                              className="relative min-w-0 pb-10 pl-11 last:pb-0 sm:pl-14"
+                              className="course-category relative min-w-0"
                           >
-                            {!isLast && (
-                                <span
-                                    aria-hidden="true"
-                                    className="absolute left-[15px] top-9 bottom-0 w-0.5 sm:left-[19px]"
-                                    style={{ background: "var(--tg-soft)" }}
-                                />
-                            )}
+
 
                             <span
                                 aria-hidden="true"
-                                className="tg-solid-soft absolute left-0 top-0 grid size-8 place-items-center rounded-xl font-rb-display text-sm font-extrabold shadow-[0_3px_0_color-mix(in_oklab,var(--tg)_55%,#000)] sm:size-10 sm:text-base"
+                                className="course-category-number"
                             >
                               {majorIndex + 1}
                             </span>
 
-                            <h3 className="min-w-0 break-words font-rb-display text-xl font-extrabold leading-tight text-foreground sm:text-2xl">
+                            <h3 className="course-category-title min-w-0 break-words text-base font-bold leading-6 text-foreground">
                               {major.title ?? "Untitled"}
                             </h3>
 
 
                             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                              <span
-                                  className="flex min-w-0 flex-wrap gap-1"
-                                  aria-hidden="true"
-                              >
-                                {Array.from({ length: categoryLessons }).map((_, mark) => (
-                                    <span
-                                        key={mark}
-                                        className="h-1.5 w-4 rounded-full bg-[var(--tg)]"
-                                    />
-                                ))}
-                              </span>
                               <span className="shrink-0 text-xs font-extrabold text-muted-foreground">
                                 {categoryLessons} {categoryLessons === 1 ? "lesson" : "lessons"}
                                 {" · "}
@@ -505,7 +488,7 @@ export default function LearnerCertificationDetailPage() {
                                         >
                                           <AccordionTrigger className="px-4 py-3.5 transition-colors hover:bg-[var(--tg-softer)] hover:no-underline">
                                             <div className="flex min-w-0 flex-col items-start text-left">
-                                              <span className="min-w-0 break-words font-rb-display text-lg font-extrabold text-foreground">
+                                              <span className="min-w-0 break-words text-sm font-semibold text-foreground">
                                                 {middle.title ?? "Untitled Module"}
                                               </span>
                                               <span className="mt-0.5 text-xs font-bold text-muted-foreground">
@@ -527,14 +510,14 @@ export default function LearnerCertificationDetailPage() {
                                                   {middleLessons.map((lesson) => (
                                                       <li
                                                           key={lesson.lessonId}
-                                                          className="flex items-center justify-between gap-4 rounded-xl px-3 py-2.5 hover:bg-card"
+                                                          className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4 rounded-xl px-3 py-2.5 hover:bg-card"
                                                       >
                                                         <span className="flex min-w-0 items-center gap-3">
                                                           <PlayCircle
                                                               className="size-4 shrink-0 text-[var(--tg)]"
                                                               aria-hidden="true"
                                                           />
-                                                          <span className="min-w-0 truncate text-sm font-bold text-foreground">
+                                                          <span className="min-w-0 break-words text-sm font-medium text-foreground">
                                                             {lesson.name}
                                                           </span>
                                                         </span>
@@ -560,21 +543,21 @@ export default function LearnerCertificationDetailPage() {
                     })}
                   </ol>
               )}
-            </div>
+            </section>
 
-            <aside className="flex min-w-0 flex-col gap-9 self-start lg:sticky lg:top-6">
+            <aside className="course-sidebar">
               <LearnerAnnouncements certificationId={certificationId} />
 
               <LearnerClassAssessments certificationId={certificationId} />
 
               <section className="tg-frame p-5">
-                <BentoHeading title="How this works" hint="The route from here to the exam." />
+                <BentoHeading title="Learning process" />
                 <ol className="space-y-4">
                   {publishedDiagnostic && (
                       <RouteStep
                           index={1}
                           icon={Target}
-                          title="Sit the diagnostic"
+                          title="Take the diagnostic"
                           tone={tone}
                           done={diagnosticDone}
                       >
@@ -585,7 +568,7 @@ export default function LearnerCertificationDetailPage() {
                   <RouteStep
                       index={publishedDiagnostic ? 2 : 1}
                       icon={BookOpen}
-                      title="Work the lessons"
+                      title="Study the lessons"
                       tone={tone}
                   >
                       {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"} across{" "}
@@ -595,7 +578,7 @@ export default function LearnerCertificationDetailPage() {
                   <RouteStep
                       index={publishedDiagnostic ? 3 : 2}
                       icon={Layers3}
-                      title="Practise what slips"
+                      title="Review and practise"
                       tone={tone}
                   >
                     Quizzes and flashcards are generated from the lessons you
@@ -604,7 +587,7 @@ export default function LearnerCertificationDetailPage() {
                   <RouteStep
                       index={publishedDiagnostic ? 4 : 3}
                       icon={GraduationCap}
-                      title="Sit a mock exam"
+                      title="Take a mock exam"
                       tone={tone}
                   >
                     A full-length paper under exam conditions, marked with a
@@ -614,7 +597,7 @@ export default function LearnerCertificationDetailPage() {
               </section>
 
               <section className="tg-frame p-5">
-                <BentoHeading title="What it asks of you" />
+                <BentoHeading title="Requirements" />
                 <ul className="space-y-2 text-sm font-semibold text-muted-foreground [&>li]:flex [&>li]:items-center [&>li]:gap-2 [&>li]:before:size-1.5 [&>li]:before:shrink-0 [&>li]:before:rounded-full [&>li]:before:bg-[var(--tg)] [&>li]:before:content-['']">
                   <li>No prior experience.</li>
                   <li>A stable internet connection.</li>

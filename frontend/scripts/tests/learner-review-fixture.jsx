@@ -1,8 +1,12 @@
+import { useState } from "react"
+import { NormalQuestionPanel } from "../../src/pages/learner/assessments/learner-assessment-attempt-page.jsx"
+import SubQuestionTabs from "../../src/components/assessments/attempt/sub-question-tabs.jsx"
 import { createRoot } from "react-dom/client"
-import { MemoryRouter, Routes, Route } from "react-router-dom"
+import { MemoryRouter, Routes, Route, Outlet } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ThemeProvider } from "../../src/components/theme-provider"
 import Mistakes from "../../src/pages/learner/mistakes/learner-mistake-bank-page.jsx"
+import Detail from "../../src/pages/learner/learning/learner-certification-detail-page.jsx"
 import Certificate from "../../src/pages/learner/learning/learner-certificate-page.jsx"
 import "../../src/index.css"
 import "../../src/styles/rebyu-classroom.css"
@@ -15,5 +19,13 @@ client.setQueryData(["learner-awards"],[{certificationId:4,certificationTitle:"I
 const scoreTrend=[{assessmentAttemptId:1,examId:10,assessmentType:"MOCK_EXAM",assessmentTitle:"Mock exam",percentage:75,submittedAt:"2026-11-01",correctCount:75,itemCount:100,attemptNumber:1}]
 client.setQueryData(["learner-progress-analytics","4"],{certificationTitle:"IT Passport Exam",overallMasteryPercentage:65,averageAssessmentScore:73,scoreTrend,totalCorrectAnswers:75,totalIncorrectAnswers:25,categoryMastery:[{categoryLevel:"MAJOR",title:"Business strategy",masteryPercentage:65,completedLessonCount:4,totalLessonCount:6}],weakestTopics:[{lessonTitle:"Information Security Measures and Technologies",masteryPercentage:35,priorityTag:"HIGH",categoryTitle:"Technology"}],strongestTopics:[{lessonTitle:"Business strategy",masteryPercentage:90}]})
 client.setQueryData(["attempt-result","1",1],{percentage:75,passed:true,passingScore:60,itemCount:100,correctCount:75,answeredCount:100,durationSeconds:300,questions:[]})
+const cert={certificationId:4,title:"IT Passport Exam",department:"College of Computer Studies",description:"A foundational certification review covering information technology, business strategy, and management.",majorCategory:Array.from({length:3},(_,i)=>({majorCategoryId:i+1,title:["Corporate and Legal Affairs","Business Strategy and Management","Information Technology Fundamentals"][i],middleCategory:[{middleCategoryId:i+1,title:"Corporate Activities and Organizational Structures",lessons:[{lessonId:i+1,name:"Management Principles and Organizational Structures: Understanding Roles, Responsibilities and Business Processes"},{lessonId:i+10,name:"Information security fundamentals"}]}]}))}
+client.setQueryData(["learner-enrollments",1],[{certificationId:4,status:"ACTIVE",diagnosticCompletedAt:"2026-10-01"}])
+client.setQueryData(["exams"],[])
+client.setQueryData(["exam-types"],[])
+client.setQueryData(["learner-announcements","4"],[{departmentAnnouncementId:1,title:"Course schedule and examination preparation",body:"Review the course modules before your next assessment.",authorName:"Course coordinator",pinned:true,createdAt:"2026-11-01"}])
+client.setQueryData(["learner-class-assessments","4"],[])
+function DetailContext(){return <Outlet context={{data:{learnerId:1,certifications:[cert],enrolledCertifications:[cert]}}}/>}
+function RecallMedia(){const [answer,setAnswer]=useState({});return <div className="tg-cat-explain"><h1>Active recall media</h1><NormalQuestionPanel index={0} question={{questionType:"MULTIPLE_CHOICE",question:"Identify this figure",questionImageKey:"private/stem.png",choices:[{choiceId:1,choiceText:"First diagram",imageKey:"private/choice.png"},{choiceId:2,choiceText:"Text only"}]}} answer={answer} onAnswer={value=>setAnswer({...answer,...value})}/><NormalQuestionPanel index={1} question={{questionType:"SHORT_ANSWER",question:"Name the detail",subQuestions:[{subQuestionId:3,questionText:"Describe this image",questionImageKey:"private/sub.png"}]}} answer={answer} onAnswer={value=>setAnswer({...answer,...value})}/><SubQuestionTabs subQuestions={[{questionId:4,questionText:"Explain this workspace figure",questionImageKey:"private/workspace.png"}]} answers={{}} onAnswerChange={()=>{}}/></div>}
 const route=new URLSearchParams(location.search).get("page")||"mistakes"
-createRoot(document.getElementById("root")).render(<QueryClientProvider client={client}><ThemeProvider defaultTheme="light" storageKey="review-test-theme"><MemoryRouter initialEntries={["/"+route]}><div style={{padding:"16px",maxWidth:"1600px",margin:"auto"}}><Routes><Route path="mistakes" element={<Mistakes/>}/><Route path="certifications/:certificationId/certificate" element={<Certificate/>}/></Routes></div></MemoryRouter></ThemeProvider></QueryClientProvider>)
+createRoot(document.getElementById("root")).render(<QueryClientProvider client={client}><ThemeProvider defaultTheme="light" storageKey="review-test-theme"><MemoryRouter initialEntries={["/"+route]}><div style={{padding:"16px",maxWidth:"1600px",margin:"auto"}}><Routes><Route element={<DetailContext/>}><Route path="certifications/:certificationId" element={<Detail/>}/></Route><Route path="/learner/learning/:certificationId" element={<p>Learning destination</p>}/><Route path="recall-media" element={<RecallMedia/>}/><Route path="mistakes" element={<Mistakes/>}/><Route path="certifications/:certificationId/certificate" element={<Certificate/>}/></Routes></div></MemoryRouter></ThemeProvider></QueryClientProvider>)

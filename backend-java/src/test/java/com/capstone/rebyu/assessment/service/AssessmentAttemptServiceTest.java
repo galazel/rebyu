@@ -75,6 +75,25 @@ class AssessmentAttemptServiceTest {
     private Exam exam;
     private Question mcqQuestion;
 
+    @Test
+    void recallSnapshotsKeepQuestionChoiceAndSubQuestionImagesWithoutAnswerKeys() throws Exception {
+        var parent = Question.builder().questionId(900L).questionType("MULTIPLE_CHOICE")
+                .questionText("Identify the figure").imageKey("questions/stem.png").build();
+        var choice = Choice.builder().choiceId(901L).choiceText("A")
+                .imageKey("questions/choice.png").correct(true).build();
+        parent.setChoices(List.of(choice));
+        var sub = Question.builder().questionId(902L).questionText("Explain the detail")
+                .imageKey("questions/sub.png").build();
+        String snapshot = service.buildLearnerSafeSnapshot(parent,
+                new AssessmentAttemptService.SnapshotContext(Map.of(900L, List.of(sub)), Map.of()), null);
+        var json = new ObjectMapper().readTree(snapshot);
+        assertEquals("questions/stem.png", json.path("questionImageKey").asText());
+        assertEquals("questions/choice.png", json.path("choices").get(0).path("imageKey").asText());
+        assertEquals("questions/sub.png", json.path("subQuestions").get(0).path("questionImageKey").asText());
+        assertFalse(snapshot.contains("isCorrect"));
+        assertFalse(snapshot.contains("correctAnswer"));
+    }
+
     @BeforeEach
     void setUp() {
         service = new AssessmentAttemptService(

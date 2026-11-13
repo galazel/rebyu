@@ -239,7 +239,7 @@ function SaveStatusIndicator({ status }) {
   return null
 }
 
-function NormalQuestionPanel({ question, index, answer, onAnswer }) {
+export function NormalQuestionPanel({ question, index, answer, onAnswer }) {
   return (
       <div className="mx-auto w-full max-w-3xl space-y-5">
         <QuestionMetaRow
@@ -315,11 +315,10 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
               {question.subQuestions.map((sub) => (
                   <div
                       key={sub.subQuestionId}
-                      className="flex items-center gap-3"
+                      className="space-y-2"
                   >
-                    <span className="w-10 shrink-0 text-sm font-medium text-muted-foreground">
-                      {sub.questionText}
-                    </span>
+                    <p className="text-sm font-medium text-foreground">{sub.questionText}</p>
+                    <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="max-h-80 w-auto rounded-lg border bg-white" />
                     <Input
                         value={answer?.subAnswers?.[sub.subQuestionId] ?? ""}
                         onChange={(event) =>
@@ -415,6 +414,7 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
               subQuestions={question.subQuestions.map((sub) => ({
                 questionId: sub.subQuestionId,
                 questionText: sub.questionText,
+                questionImageKey: sub.questionImageKey,
               }))}
               answers={answer?.subAnswers ?? {}}
               onAnswerChange={(subQuestionId, text) =>

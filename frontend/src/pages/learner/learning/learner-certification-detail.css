@@ -1,0 +1,32 @@
+.certification-detail :is(h1,h2,h3,.font-rb-display) { font-family: var(--font-sans),sans-serif !important; letter-spacing: normal; }
+.certification-overview { display: grid; grid-template-columns: minmax(0,1fr) auto; column-gap: 32px; border: 1px solid var(--border); border-radius: 16px; padding: clamp(20px,2.5vw,32px); background: var(--card); }
+.certification-overview > :first-child { grid-column: 1 / -1; }
+.certification-overview > h1, .certification-overview > p { grid-column: 1; }
+.certification-enrolment { grid-column: 2; grid-row: 2 / 4; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; max-width: 270px; }
+.course-primary-action { min-height: 44px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; border-radius: 8px; padding: 12px 20px; font-size: 14px; font-weight: 600; color: var(--primary-foreground); background: var(--primary); }
+.course-primary-action:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.course-primary-action:disabled { opacity: .6; }
+.certification-detail .tg-badge-icon { background: var(--muted); color: var(--primary); border: 0; box-shadow: none; border-radius: 8px; }
+.course-figure { height: 100%; }
+.certification-detail .tg-frame { border: 1px solid var(--border); border-radius: 12px; box-shadow: none; }
+.course-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(280px,1fr); gap: 24px; align-items: start; margin-top: 28px; }
+.course-outline, .course-sidebar > section { min-width: 0; border: 1px solid var(--border); border-radius: 16px; padding: 24px; background: var(--card); }
+.course-sidebar { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.course-category { border-top: 1px solid var(--border); padding: 24px 0 0 40px; margin-top: 24px; }
+.course-category:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.course-category-number { position: absolute; left: 0; top: 24px; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--muted); color: var(--muted-foreground); font-size: 12px; font-weight: 600; }
+.course-category:first-child .course-category-number { top: 0; }
+.course-category [data-slot="accordion-item"] { box-shadow: none !important; border-radius: 8px; }
+.course-sidebar :is(p,h3) { overflow-wrap: anywhere; }
+@media(max-width:1023px) { .course-layout { grid-template-columns: minmax(0,1fr); } .course-sidebar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; } }
+@media(max-width:767px) {
+  .certification-overview { grid-template-columns: minmax(0,1fr); gap: 0; }
+  .certification-enrolment { grid-column: 1; grid-row: auto; max-width: none; margin-top: 20px; }
+  .course-sidebar { grid-template-columns: minmax(0,1fr); }
+  .course-outline, .course-sidebar > section { padding: 16px; }
+  .course-category { padding-left: 0; }
+  .course-category-title { padding-left: 38px; min-height: 28px; }
+  .certification-detail .tg-badge-icon { width: 32px !important; height: 32px !important; flex-shrink: 0; }
+  .course-figure > span { display: none; }
+  .course-figure > div > p:first-child { font-size: 22px; line-height: 1.25; white-space: nowrap; }
+}

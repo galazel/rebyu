@@ -56,6 +56,7 @@ export function questionMediaKeys(question) {
   return [
     question.questionImageKey,
     ...(question.choices ?? []).map((choice) => choice?.imageKey),
+    ...(question.subQuestions ?? []).map((sub) => sub?.questionImageKey),
   ].filter(Boolean)
 }
 
@@ -108,6 +109,9 @@ export function AuthedImage({
 }) {
   const { src, loading } = useAuthedMedia(imageKey)
   const [zoomed, setZoomed] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => { setFailed(false); setZoomed(false) }, [imageKey])
 
   useEffect(() => {
     if (!zoomed) return undefined
@@ -119,6 +123,7 @@ export function AuthedImage({
   }, [zoomed])
 
   if (!imageKey) return null
+  if (failed || (!src && !loading)) return <p role="status" className="my-3 rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">{alt || "Image"} could not be loaded. Please refresh to try again.</p>
   if (!src) {
     if (!loading) return null
     return (
@@ -134,7 +139,7 @@ export function AuthedImage({
       </div>
     )
   }
-  const image = <img src={src} alt={alt} className={className} loading="eager" />
+  const image = <img src={src} alt={alt} className={cn("max-w-full object-contain", className)} onError={() => setFailed(true)} loading="eager" />
   if (!zoomable) return image
 
   return (

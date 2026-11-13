@@ -350,7 +350,7 @@ function MistakeBankContent() {
 
   return (
     <div className={`rb-hub mistake-bank space-y-6 ${ACCENT}`}>
-      <header><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Learning tools</p><h1 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl">Mistake bank</h1><p className="mt-2 text-sm text-muted-foreground">Review what you missed and build confidence, one question at a time.</p></header>
+      <header><h1 className="text-2xl font-bold text-foreground sm:text-3xl">Mistake bank</h1></header>
 
       {mistakesQuery.isLoading ? (
         <MistakeBankSkeleton />
@@ -371,9 +371,7 @@ function MistakeBankContent() {
           <section className="mistake-summary" aria-label="Review progress">
             <div className="mistake-summary-heading">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your review progress</p>
-                <h2 className="mt-2 text-xl font-bold text-foreground">Turn mistakes into understanding</h2>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Revisit a question, compare your answer, and mark it learned when you feel confident.</p>
+                <h2 className="text-base font-bold text-foreground">Review progress</h2>
               </div>
               <button type="button" className="tg-btn tg-btn-primary !min-h-11 !px-5 !py-3" onClick={startReview} disabled={!visible.some(m => !m.reviewed)}>
                 <Target className="size-4" aria-hidden="true" /> Start a review
@@ -382,8 +380,8 @@ function MistakeBankContent() {
             <dl className="mistake-stats">
               {[
                 { label: "Questions saved", value: stats.questions, hint: `${stats.totalMisses.toLocaleString()} wrong answers recorded` },
-                { label: "To review", value: stats.todo, hint: "Ready to practise" },
-                { label: "Missed twice or more", value: stats.repeated, hint: "Worth another look" },
+                { label: "To review", value: stats.todo, hint: "" },
+                { label: "Missed twice or more", value: stats.repeated, hint: "" },
                 { label: "Marked learned", value: stats.reviewed, hint: `${learnedPct}% of saved questions` },
               ].map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value.toLocaleString()}</dd><p>{stat.hint}</p></div>)}
             </dl>
@@ -392,7 +390,7 @@ function MistakeBankContent() {
 
           {weakLessons.length > 1 ? (
             <section className="mistake-priorities">
-              <div className="mb-3"><h2 className="text-base font-bold text-foreground">Lessons to focus on</h2><p className="mt-1 text-xs text-muted-foreground">Choose a lesson to filter the questions below. Counts show recorded wrong answers.</p></div>
+              <div className="mb-3"><h2 className="text-base font-bold text-foreground">Lessons to focus on</h2></div>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {weakLessons.map((entry) => {
                   const active = lesson === entry.title

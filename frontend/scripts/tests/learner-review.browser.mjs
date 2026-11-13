@@ -30,6 +30,8 @@ try {
   page.on("pageerror", (error) => errors.push(error.message))
   await page.setRequestInterception(true)
   page.on("request", (req) => {
+    if (req.url().includes("/__fixture.svg")) return req.respond({status:200,contentType:"image/svg+xml",body:'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500"><rect width="1200" height="500" fill="white"/><circle cx="600" cy="250" r="150" stroke="black" fill="green"/></svg>'})
+    if (req.url().includes("/api/files/view-url")) return req.respond({status:200,contentType:"application/json",body:JSON.stringify({url:new URL("/__fixture.svg",req.url()).href})})
     if (!req.url().includes("/api/")) return req.continue()
     return req.respond({ status: 200, contentType: "application/json", body: "[]" })
   })
@@ -47,7 +49,7 @@ try {
     }).map((el) => el.tagName + ": " + el.textContent.slice(0, 50)))
     assert.deepEqual(bad, [], label)
   }
-  for(const route of ["mistakes","certifications/4/certificate"]){
+  for(const route of ["mistakes","certifications/4/certificate","certifications/4"]){
     await goto(route)
     for(const width of [320,390,768,1280]){
       await page.setViewport({width,height:900})
@@ -58,9 +60,9 @@ try {
     }
     await page.setViewport({width:1280,height:1000})
     await page.evaluate(()=>document.documentElement.classList.remove("dark"))
-    await page.screenshot({path:"scripts/tests/"+(route==="mistakes"?"mistake-bank-desktop":"certificate-desktop")+".png",fullPage:true})
+    await page.screenshot({path:"scripts/tests/"+(route==="certifications/4"?"certification-details":route==="mistakes"?"mistake-bank-desktop":"certificate-desktop")+".png",fullPage:true})
     await page.setViewport({width:390,height:844})
-    await page.screenshot({path:"scripts/tests/"+(route==="mistakes"?"mistake-bank-mobile":"certificate-mobile")+".png",fullPage:true})
+    await page.screenshot({path:"scripts/tests/"+(route==="certifications/4"?"certification-details":route==="mistakes"?"mistake-bank-mobile":"certificate-mobile")+".png",fullPage:true})
     if(route==="mistakes"){
       await page.type('[aria-label="Search your mistakes"]',"no-match")
       await page.waitForFunction(()=>document.body.textContent.includes("Nothing matches"))
@@ -73,6 +75,11 @@ try {
       await page.evaluate(()=>[...document.querySelectorAll('button')].find(el=>el.textContent.includes("Show the answer")).click())
       await page.waitForFunction(()=>document.body.textContent.includes("Got it now"))
       await page.click('[aria-label="Close the review"]')
+    }else if(route==="certifications/4"){
+      await page.click('[data-slot="accordion-trigger"]')
+      await page.waitForFunction(()=>document.body.textContent.includes("Understanding Roles, Responsibilities"))
+      await page.evaluate(()=>[...document.querySelectorAll('button')].find(el=>el.textContent.includes("Continue Learning")).click())
+      await page.waitForFunction(()=>document.body.textContent.includes("Learning destination"))
     }else{
       assert.equal(await page.$eval('#rb-certificate',el=>el.textContent.includes('Overall Mastery')),false)
       await page.emulateMediaType('print')
@@ -80,6 +87,15 @@ try {
       await page.emulateMediaType('screen')
     }
   }
+  await goto("recall-media")
+  await page.setViewport({width:320,height:900})
+  await page.waitForFunction(()=>[...document.images].filter(img=>img.naturalWidth>0).length>=4)
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,"recall images fit mobile")
+  await page.click('[aria-label="Enlarge figure"]')
+  await page.waitForSelector('[aria-label="Close figure"]')
+  await page.keyboard.press("Escape")
+  await page.waitForSelector('[aria-label="Close figure"]',{hidden:true})
+  console.log("Recall media: private stem/choice/sub-question/workspace images load, fit mobile, enlarge")
   assert.deepEqual(errors,[])
   console.log("Learner review pages: mobile/desktop light/dark, filtering, reveal/review, certificate print passed")
 }finally{await browser?.close();await server.close()}

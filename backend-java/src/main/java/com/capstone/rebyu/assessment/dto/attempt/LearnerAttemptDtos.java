@@ -36,8 +36,12 @@ public final class LearnerAttemptDtos {
 
     public record LearnerSubQuestionDto(
             Long subQuestionId,
-            String questionText
+            String questionText,
+            String questionImageKey
     ) {
+        public LearnerSubQuestionDto(Long subQuestionId, String questionText) {
+            this(subQuestionId, questionText, null);
+        }
     }
 
     public record LearnerAttemptQuestionDto(
@@ -241,8 +245,13 @@ public final class LearnerAttemptDtos {
             String learnerAnswer,
             BigDecimal earnedPoints,
             BigDecimal maxPoints,
-            String feedback
+            String feedback,
+            String questionImageKey
     ) {
+        public SubQuestionAnswerReviewDto(Long subQuestionId, String questionText, String learnerAnswer,
+                BigDecimal earnedPoints, BigDecimal maxPoints, String feedback) {
+            this(subQuestionId, questionText, learnerAnswer, earnedPoints, maxPoints, feedback, null);
+        }
     }
 
     public record DiagramElementReviewDto(

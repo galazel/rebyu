@@ -935,6 +935,7 @@ export default function LearnerAssessmentResultPage() {
                               <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
                               {sub.questionText}
                             </p>
+                            <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="my-3 max-h-80 w-auto rounded-lg border bg-white" />
                             <p className="mt-1.5 whitespace-pre-wrap rounded-xl bg-[var(--tg-softer)] p-2.5 text-muted-foreground">
                               {sub.learnerAnswer?.trim()
                                 ? sub.learnerAnswer

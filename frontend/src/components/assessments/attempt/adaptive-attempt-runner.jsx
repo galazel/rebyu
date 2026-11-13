@@ -425,8 +425,9 @@ export function AdaptiveAttemptRunner({
                 ) : (current.subQuestions ?? []).length > 0 ? (
                   <div className="space-y-2">
                     {current.subQuestions.map((sub) => (
-                      <div key={sub.subQuestionId} className="flex items-center gap-3">
-                        <span className="w-14 shrink-0 text-sm font-bold text-[var(--tg-ink)]">{sub.questionText}</span>
+                      <div key={sub.subQuestionId} className="space-y-2">
+                        <p className="text-sm font-bold text-foreground">{sub.questionText}</p>
+                        <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="max-h-80 w-auto rounded-lg border bg-white" />
                         <Input
                           value={draft?.subAnswers?.[sub.subQuestionId] ?? ""}
                           onChange={(event) =>

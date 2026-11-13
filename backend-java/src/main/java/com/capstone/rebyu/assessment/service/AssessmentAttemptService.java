@@ -2721,7 +2721,8 @@ public class AssessmentAttemptService {
                     scoreNode != null && scoreNode.hasNonNull("maxPoints")
                             ? scoreNode.get("maxPoints").decimalValue() : null,
                     scoreNode != null && scoreNode.hasNonNull("feedback")
-                            ? scoreNode.get("feedback").asText() : null
+                            ? scoreNode.get("feedback").asText() : null,
+                    sub.getImageKey()
             ));
         }
         return reviews;
@@ -2989,6 +2990,7 @@ public class AssessmentAttemptService {
             Map<String, Object> safe = new LinkedHashMap<>();
             safe.put("subQuestionId", sub.getQuestionId());
             safe.put("questionText", sub.getQuestionText());
+            safe.put("questionImageKey", sub.getImageKey());
             subQuestions.add(safe);
         }
         data.put("subQuestions", subQuestions);
@@ -3058,7 +3060,8 @@ public class AssessmentAttemptService {
                     subQuestions.add(new LearnerSubQuestionDto(
                             map.get("subQuestionId") == null
                                     ? null : Long.valueOf(map.get("subQuestionId").toString()),
-                            (String) map.get("questionText")));
+                            (String) map.get("questionText"),
+                            (String) map.get("questionImageKey")));
                 }
             }
         }
