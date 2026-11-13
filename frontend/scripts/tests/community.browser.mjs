@@ -62,6 +62,16 @@ try {
     }
   }
   await page.setViewport({width:1280,height:1000})
+  await page.evaluate(()=>{const spacer=document.createElement("div");spacer.id="scroll-test-content";spacer.style.height="1400px";document.querySelector('.community-feed').append(spacer)})
+  const beforeScroll=await page.evaluate(()=>({sidebar:document.querySelector('aside').getBoundingClientRect().top,window:scrollY}))
+  const feedBounds=await page.$eval('.community-feed',el=>({x:el.getBoundingClientRect().x+100,y:el.getBoundingClientRect().y+180}))
+  await page.mouse.move(feedBounds.x,feedBounds.y)
+  await page.mouse.wheel({deltaY:600})
+  await page.waitForFunction(()=>document.querySelector('.community-feed').scrollTop>100)
+  const afterScroll=await page.evaluate(()=>({sidebar:document.querySelector('aside').getBoundingClientRect().top,window:scrollY}))
+  assert.deepEqual(afterScroll,beforeScroll,"desktop feed scroll must leave side navigation and page in place")
+  await page.evaluate(()=>{document.getElementById('scroll-test-content').remove();document.querySelector('.community-feed').scrollTop=0})
+
   await page.evaluate(()=>document.documentElement.classList.remove("dark"))
   await new Promise(r=>setTimeout(r,300))
   await page.screenshot({path:"scripts/tests/community-desktop.png",fullPage:true})
@@ -115,5 +125,5 @@ try {
   await new Promise(r=>setTimeout(r,300))
   await page.screenshot({path:"scripts/tests/community-mobile.png",fullPage:true})
   assert.deepEqual(errors,[])
-  console.log("Community: mobile/dark layouts, no shadows, likes/saves/comments, search/circle/saved filters, navigation cache, post create/delete, circle create passed")
+  console.log("Community: independent center scrolling, mobile/dark layouts, no shadows, likes/saves/comments, search/circle/saved filters, navigation cache, post create/delete, circle create passed")
 }finally{await browser?.close();await server.close()}

@@ -736,6 +736,21 @@ export default function Community() {
     const pendingActions = useRef(new Set())
     const [postingComments, setPostingComments] = useState({})
     const latestFeed = useRef(null)
+    const layoutRef = useRef(null)
+
+    useEffect(() => {
+        const layout = layoutRef.current
+        if (!layout) return undefined
+        const resize = () => {
+            const height = Math.max(240, window.innerHeight - layout.getBoundingClientRect().top - 32)
+            layout.style.setProperty("--community-pane-height", `${height}px`)
+        }
+        resize()
+        const observer = new ResizeObserver(resize)
+        observer.observe(layout.parentElement)
+        window.addEventListener("resize", resize)
+        return () => { observer.disconnect(); window.removeEventListener("resize", resize) }
+    }, [])
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const cachedFeed = queryClient.getQueryData(COMMUNITY_FEED_KEY) ?? readCommunityFeedSnapshot()
@@ -1365,10 +1380,10 @@ export default function Community() {
                 </div>
             </div>
 
-            <div className="mx-auto grid w-full max-w-[800px] items-start gap-5 xl:max-w-[1104px] xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6">
+            <div ref={layoutRef} className="community-layout mx-auto grid w-full max-w-[800px] items-start gap-5 xl:max-w-[1104px] xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6">
 
 
-                <main className="min-w-0 space-y-5">
+                <main className="community-feed min-w-0 space-y-5" tabIndex={0} aria-label="Community posts">
                     {activeCircle ? (
                         <CircleHeader
                             circle={activeCircle}
