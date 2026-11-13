@@ -55,10 +55,10 @@ services:
       JAVA_TOOL_OPTIONS: >-
         -Xms128m
         -Xmx384m
-        -XX:MaxMetaspaceSize=192m
+        -XX:MaxMetaspaceSize=320m
         -XX:+UseSerialGC
-        -XX:MaxRAMPercentage=50
-    mem_limit: 768m
+        -XX:+ExitOnOutOfMemoryError
+    mem_limit: 1g
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
       interval: 10s
