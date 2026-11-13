@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { ClipboardCheck, EyeIcon, PencilIcon, Plus } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +44,7 @@ function lessonIdsOf(certification) {
  */
 export default function CertificationExamsSection({ certification }) {
   const certificationId = certification?.certificationId ?? null
+  const navigate = useNavigate()
   const data = useAssessmentData(certificationId)
   const [createType, setCreateType] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
@@ -166,8 +168,20 @@ export default function CertificationExamsSection({ certification }) {
                   <Button type="button" variant="outline" size="sm" onClick={() => setPreviewTarget(card.exam)}>
                     <EyeIcon aria-hidden="true" /> Preview
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      navigate(
+                        `/admin/certification/${certificationId}/question-bank?tab=question-builder&mode=manual`,
+                      )
+                    }
+                  >
+                    <Plus aria-hidden="true" /> Add questions
+                  </Button>
                   <Button type="button" size="sm" onClick={() => setEditTarget(card.exam)}>
-                    <PencilIcon aria-hidden="true" /> Edit questions
+                    <PencilIcon aria-hidden="true" /> Edit paper
                   </Button>
                 </>
               ) : (
