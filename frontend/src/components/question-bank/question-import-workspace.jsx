@@ -2012,6 +2012,20 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     const blocked = pending.filter(({ question, paper: p }) => problemWith(question, p))
     const lessonName = (id) => lessons.find((l) => l.lessonId === id)?.name ?? `Lesson ${id}`
 
+    // Saving finishes the import: everything is cleared, draft included, and
+    // the page returns to the empty upload step for the next papers.
+    function clearSavedFromImport() {
+        latest.current = { papers: [], keys: [] }
+        written.current = new Map()
+        setPapers([])
+        setKeys([])
+        setFailures([])
+        setNotice(null)
+        setCurrentPaperId(null)
+        setTerm("")
+        clearDraft(draftKey)
+    }
+
     async function saveReady() {
         const errors = []
         let done = 0
@@ -2067,7 +2081,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
             setSaving({ done, saved, total: queue.length, errors: [...errors], skipped })
         }
         setSaving({ done, saved, total: queue.length, errors, skipped, finished: true })
-        clearDraft(draftKey)
+        clearSavedFromImport()
     }
 
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
@@ -2734,16 +2748,27 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                     ) : null}
                                 </div>
                             ) : null}
-                            <Button
-                                type="button"
-                                className="mt-2"
-                                onClick={() => {
-                                    setPreviewOpen(false)
-                                    navigate(exitPath)
-                                }}
-                            >
-                                Go to question bank
-                            </Button>
+                            <div className="mt-2 flex flex-wrap justify-center gap-2">
+                                <Button
+                                    type="button"
+                                    onClick={() => {
+                                        setPreviewOpen(false)
+                                        setSaving(null)
+                                    }}
+                                >
+                                    <UploadIcon className="mr-2 h-4 w-4" /> Import more papers
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setPreviewOpen(false)
+                                        navigate(exitPath)
+                                    }}
+                                >
+                                    Go to question bank
+                                </Button>
+                            </div>
                         </div>
                     ) : null}
 
