@@ -124,6 +124,7 @@ const RETAKE_COLORS_DARK = [
   "#6fd3a2", "#f0c85a", "#f08a76", "#8cc6b3", "#efb378",
   "#6aaeff", "#b493ff", "#ff86a6", "#a3d977", "#e0a96d",
 ]
+const MAX_RETAKE_ASSESSMENTS = 10
 
 const MASTERY_TIERS = {
   weak: { label: "low", bars: 1 },
@@ -790,8 +791,7 @@ export default function LearnerProgressPage() {
       }))
       .sort((a, b) => b.attempts.length - a.attempts.length)
 
-    const MAX_SERIES = RETAKE_COLORS.length
-    const shown = assessments.slice(0, MAX_SERIES)
+    const shown = assessments.slice(0, MAX_RETAKE_ASSESSMENTS)
 
     const longestRun = shown.reduce((max, item) => Math.max(max, item.attempts.length), 0)
     const rows = Array.from({ length: longestRun }, (_, index) => {
@@ -826,6 +826,7 @@ export default function LearnerProgressPage() {
       })),
       summaries,
       hiddenCount: assessments.length - shown.length,
+      totalAssessments: assessments.length,
     }
   }, [analytics, retakeColors])
 
@@ -1077,14 +1078,13 @@ export default function LearnerProgressPage() {
             icon={TrendingUp}
             kicker="Progress Over Time"
             title="score across retakes"
-            hint="Each assessment's attempts in order — a rising line is a score you moved."
+            hint="Up to 10 most-retaken assessments. Each line keeps every submitted attempt in order."
             chip={
-              retakeTrend.hiddenCount > 0 ? (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-                  showing {retakeTrend.summaries.length} of{" "}
-                  {retakeTrend.summaries.length + retakeTrend.hiddenCount} · most retaken
-                </span>
-              ) : null
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                {retakeTrend.hiddenCount > 0
+                  ? `top ${MAX_RETAKE_ASSESSMENTS} of ${retakeTrend.totalAssessments}`
+                  : `${retakeTrend.totalAssessments} of up to ${MAX_RETAKE_ASSESSMENTS}`}
+              </span>
             }
           />
 
