@@ -53,6 +53,7 @@ import {
   readinessColor,
   readinessInk,
   readinessMeta,
+  seriesColor,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
 import {
@@ -114,7 +115,15 @@ function getTopicTitle(topic, fallback = "Untitled Topic") {
 }
 
 
-const TOP_RETAKE_SCORE_LIMIT = 10
+const RETAKE_COLORS = [
+  "#2f6b4f", "#c9962b", "#c8553d", "#6b7d3f", "#d9822b",
+  "#4f8a78", "#8a5a2b", "#a8412c", "#9bb35a", "#5c3d2e",
+]
+
+const RETAKE_COLORS_DARK = [
+  "#6fd3a2", "#f0c85a", "#f08a76", "#8cc6b3", "#efb378",
+  "#6aaeff", "#b493ff", "#ff86a6", "#a3d977", "#e0a96d",
+]
 
 const MASTERY_TIERS = {
   weak: { label: "low", bars: 1 },
@@ -750,31 +759,75 @@ export default function LearnerProgressPage() {
   }
 
   const chartTheme = useChartTheme()
-  const topRetakeScores = useMemo(() => {
-    const scoredAttempts = (analytics?.scoreTrend ?? [])
-      .map((point) => ({ ...point, score: clampPercent(point.percentage) }))
-      .filter((point) => point.score !== null)
-      .sort((a, b) =>
-        b.score - a.score || new Date(b.submittedAt ?? 0) - new Date(a.submittedAt ?? 0)
-      )
+  const retakeColors = chartTheme.isDark ? RETAKE_COLORS_DARK : RETAKE_COLORS
 
-    const topAttempts = scoredAttempts.slice(0, TOP_RETAKE_SCORE_LIMIT)
+  const retakeTrend = useMemo(() => {
+    const points = (analytics?.scoreTrend ?? []).filter(
+      (point) => clampPercent(point.percentage) !== null
+    )
+
+    const byAssessment = new Map()
+    for (const point of points) {
+      const key = String(point.examId ?? point.assessmentTitle ?? "unknown")
+      if (!byAssessment.has(key)) {
+        byAssessment.set(key, {
+          key: `assessment-${byAssessment.size}`,
+          name: point.assessmentTitle ?? "Assessment",
+          attempts: [],
+        })
+      }
+      byAssessment.get(key).attempts.push(point)
+    }
+
+    const assessments = [...byAssessment.values()]
+      .map((assessment) => ({
+        ...assessment,
+        attempts: [...assessment.attempts].sort(
+          (a, b) =>
+            (a.attemptNumber ?? 0) - (b.attemptNumber ?? 0) ||
+            new Date(a.submittedAt ?? 0) - new Date(b.submittedAt ?? 0)
+        ),
+      }))
+      .sort((a, b) => b.attempts.length - a.attempts.length)
+
+    const MAX_SERIES = RETAKE_COLORS.length
+    const shown = assessments.slice(0, MAX_SERIES)
+
+    const longestRun = shown.reduce((max, item) => Math.max(max, item.attempts.length), 0)
+    const rows = Array.from({ length: longestRun }, (_, index) => {
+      const row = { label: `Attempt ${index + 1}` }
+      for (const assessment of shown) {
+        row[assessment.key] = clampPercent(assessment.attempts[index]?.percentage) ?? null
+      }
+      return row
+    })
+
+    const summaries = shown.map((assessment) => {
+      const scores = assessment.attempts.map((attempt) => clampPercent(attempt.percentage) ?? 0)
+      const first = scores[0]
+      const latest = scores[scores.length - 1]
+      return {
+        key: assessment.key,
+        name: assessment.name,
+        attempts: scores.length,
+        first,
+        latest,
+        best: Math.max(...scores),
+        delta: latest - first,
+      }
+    })
 
     return {
-      rows: topAttempts.map((attempt, index) => ({ label: `#${index + 1}`, score: attempt.score })),
-      series: [{
-        key: "score",
-        name: "Score",
-        color: chartTheme.isDark ? "#6fd3a2" : "#2f6b4f",
-      }],
-      attempts: topAttempts.map((attempt, index) => ({
-        ...attempt,
-        key: String(attempt.assessmentAttemptId ?? `${attempt.examId ?? attempt.assessmentTitle}-${attempt.attemptNumber ?? index}-${attempt.submittedAt ?? index}`),
-        rank: index + 1,
+      rows,
+      series: shown.map((assessment, index) => ({
+        key: assessment.key,
+        name: assessment.name,
+        color: retakeColors[index],
       })),
-      totalAttempts: scoredAttempts.length,
+      summaries,
+      hiddenCount: assessments.length - shown.length,
     }
-  }, [analytics, chartTheme.isDark])
+  }, [analytics, retakeColors])
 
   const rankedMastery = useMemo(() => {
     const rows = (analytics?.lessonPriorities ?? []).filter(
@@ -1023,32 +1076,36 @@ export default function LearnerProgressPage() {
           <BentoHeading
             icon={TrendingUp}
             kicker="Progress Over Time"
-            title="top scores across retakes"
-            hint="The 10 highest submitted assessment scores in this certification."
+            title="score across retakes"
+            hint="Each assessment's attempts in order — a rising line is a score you moved."
             chip={
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-                {topRetakeScores.attempts.length} of {topRetakeScores.totalAttempts} scored attempts
-              </span>
+              retakeTrend.hiddenCount > 0 ? (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                  showing {retakeTrend.summaries.length} of{" "}
+                  {retakeTrend.summaries.length + retakeTrend.hiddenCount} · most retaken
+                </span>
+              ) : null
             }
           />
 
-          {topRetakeScores.rows.length === 0 ? (
+          {retakeTrend.rows.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
               <Target className="size-7 text-muted-foreground/50" aria-hidden="true" />
 
               <p className="mt-3 text-sm font-medium text-foreground">No graded attempts yet</p>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                Submit an assessment to see its score among your top retake results.
+                Sit a quiz or an assessment, then retake it — this chart is about the
+                difference between the two.
               </p>
             </div>
           ) : (
             <>
               <div className="min-h-0 shrink">
                 <TrendLineChart
-                  data={topRetakeScores.rows}
+                  data={retakeTrend.rows}
                   xKey="label"
-                  series={topRetakeScores.series}
+                  series={retakeTrend.series}
                   height={150}
                   unit="%"
                   ticks={[0, 25, 50, 75, 100]}
@@ -1057,22 +1114,43 @@ export default function LearnerProgressPage() {
               </div>
 
               <div className="-mr-2 mt-2 min-h-16 flex-1 space-y-1 overflow-y-auto pr-2">
-                {topRetakeScores.attempts.map((attempt) => (
-                  <div key={attempt.key} className="flex items-center gap-2.5 text-xs">
+                {retakeTrend.summaries.map((summary, index) => (
+                  <div key={summary.key} className="flex items-center gap-2.5 text-xs">
                     <span
-                      className="flex size-5 shrink-0 items-center justify-center rounded-full bg-rb-feather-wash text-[10px] font-black text-rb-feather-ink"
+                      className="size-2.5 shrink-0 rounded-sm"
+                      style={{ background: retakeColors[index] ?? seriesColor(chartTheme, index) }}
                       aria-hidden="true"
-                    >{attempt.rank}</span>
+                    />
 
                     <span className="min-w-0 flex-1 truncate font-semibold text-foreground">
-                      {attempt.assessmentTitle ?? "Assessment"}
+                      {summary.name}
                     </span>
 
-                    <span className="hidden shrink-0 text-muted-foreground sm:inline">Attempt {attempt.attemptNumber ?? "—"}</span>
-
-                    <span className="w-10 shrink-0 text-right font-bold tabular-nums text-rb-feather-ink">
-                      {attempt.score}%
+                    <span className="hidden shrink-0 text-muted-foreground sm:inline">
+                      {summary.attempts === 1
+                        ? "1 attempt"
+                        : `${summary.attempts} attempts · best ${summary.best}%`}
                     </span>
+
+                    {summary.attempts === 1 ? (
+                      <span className="w-20 shrink-0 text-right font-semibold tabular-nums text-muted-foreground">
+                        {summary.latest}%
+                      </span>
+                    ) : (
+                      <span
+                        className={`w-20 shrink-0 text-right font-bold tabular-nums ${
+                          summary.delta > 0
+                            ? "text-rb-feather-ink"
+                            : summary.delta < 0
+                              ? "text-rb-cardinal-lip"
+                              : "text-muted-foreground"
+                        }`}
+                        title={`First attempt ${summary.first}%, latest ${summary.latest}%`}
+                      >
+                        {summary.delta > 0 ? "+" : ""}
+                        {summary.delta === 0 ? "no change" : `${summary.delta} pts`}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
