@@ -1,15 +1,22 @@
-import { Suspense, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { Suspense } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { PortalPageSkeleton } from "@/components/portal-page-skeleton.jsx"
+import { LogOutIcon } from "@/components/icons"
 import { NotificationBell } from "@/components/notification-bell.jsx"
 import { TaggingJobWatcher } from "@/components/question-bank/tagging-job-watcher.jsx"
-import { AdminAppSidebar } from "@/components/admin/admin-sidebar.jsx"
 import { CertificationsPageSkeleton } from "@/components/admin/certifications-page-skeleton.jsx"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { PortalTopbar } from "@/components/navigation/portal-topbar.jsx"
-import { buildPortalContentItems } from "@/lib/portal-content-search.js"
-import { getAllCertifications } from "@/services/certificationService.js"
+import { PortalTopNavigation } from "@/components/navigation/portal-navigation.jsx"
+import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { defaultAvatarFor } from "@/lib/avatar-presets.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { useAuth } from "@/context/auth-context.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
@@ -19,14 +26,6 @@ export default function DashboardLayout() {
   usePortalTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const [searchValue, setSearchValue] = useState("")
-  const contentQuery = useQuery({
-    queryKey: ["admin-certifications"],
-    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true, summary: true }),
-    enabled: searchValue.trim().length > 0,
-    staleTime: 5 * 60_000,
-  })
-  const searchItems = useMemo(() => buildPortalContentItems({ role: "admin", certifications: contentQuery.data }), [contentQuery.data])
   const BLEED_PATHS = [
     /^\/admin\/certification\/[^/]+$/,
   ]
@@ -55,18 +54,40 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="rebyu-ds netacad-portal admin-portal min-h-screen">
-      <SidebarProvider>
-        <AdminAppSidebar displayName={displayName} email={user?.email ?? ""} avatarUrl={avatarUrl} onLogout={handleLogout} />
-        <SidebarInset className="min-w-0">
-          <PortalTopbar role="admin" items={searchItems} notifications={notificationBell} value={searchValue} onValueChange={setSearchValue} loading={contentQuery.isLoading} error={contentQuery.isError} onRetry={() => contentQuery.refetch()} />
-          <main data-route-content className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
-            <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? <CertificationsPageSkeleton /> : <PortalPageSkeleton />}>
-              <Outlet />
-            </Suspense>
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
+    <div className="rebyu-ds netacad-portal admin-portal flex min-h-screen flex-col">
+      <PortalTopNavigation
+        role="ADMIN"
+        actions={
+          <>
+            {notificationBell}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Open account menu">
+                <Avatar>
+                  <AvatarImage src={avatarUrl ?? defaultAvatarFor(user?.email ?? displayName)} alt="" className="bg-[#FDF1D6] object-cover" />
+                  <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={10} className="w-60 p-2">
+                <DropdownMenuLabel>
+                  <span className="block truncate">{displayName}</span>
+                  <span className="block truncate text-xs font-normal text-muted-foreground">{user?.email ?? "Administrator"}</span>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <PortalThemeMenuItem />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                  <LogOutIcon /> Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+      <main data-route-content className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
+        <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? <CertificationsPageSkeleton /> : <PortalPageSkeleton />}>
+          <Outlet />
+        </Suspense>
+      </main>
       <TaggingJobWatcher />
     </div>
   )
