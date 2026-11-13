@@ -1699,8 +1699,9 @@ def _read_ahead_width(state: CertificationState) -> int:
     did that would be stale -- silently, since the walk cannot tell content it
     wrote ten minutes ago from content it wrote just now.
     """
-    if not auto_approving(state):
-        return 1
+    # Supervised runs read ahead too, but only within the current category (see
+    # lesson_content_node): every lesson written ahead is still shown to the
+    # reviewer on its own, and one sent back is rewritten with that feedback.
     return max(1, get_settings().lesson_concurrency)
 
 
@@ -1733,7 +1734,7 @@ async def lesson_content_node(state: CertificationState):
     # Unattended, every lesson is reached in curriculum order, so writing ahead
     # can run past the end of the current category. Supervised runs never get
     # here with width > 1 (see _read_ahead_width).
-    if width > 1:
+    if width > 1 and auto_approving(state):
         remaining = len(_flatten_lessons(curriculum)) - index
     else:
         remaining = _lessons_left_in_parent(curriculum, index)

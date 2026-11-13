@@ -70,8 +70,13 @@ public class WorkflowGatewayController {
     @GetMapping(value = "/{runId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(
             @PathVariable String runId,
-            @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
-        return relayService.relay(runId, lastEventId);
+            @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
+            @RequestParam(value = "lastSeq", required = false) Long lastSeq) {
+        // The browser reconnects with ?lastSeq=<last event seen>; resume there instead of replaying.
+        String resumeFrom = lastEventId != null && !lastEventId.isBlank()
+                ? lastEventId
+                : (lastSeq != null && lastSeq > 0 ? String.valueOf(lastSeq) : null);
+        return relayService.relay(runId, resumeFrom);
     }
 
     @GetMapping("/{runId}/review")

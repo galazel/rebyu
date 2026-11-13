@@ -201,7 +201,7 @@ export default function GenerationWorkspacePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <ConnectionBadge connected={connected} terminal={isTerminal} hasRun={Boolean(runId)} />
+          <ConnectionBadge connected={connected} terminal={isTerminal} hasRun={Boolean(runId)} onRefresh={stream.reconnect} />
 
           <Button variant="outline" size="sm" onClick={() => runs.refetch()}>
             <RefreshCw className="mr-2 size-4" />
@@ -475,7 +475,7 @@ function RunList({ runs, activeRunId, onSelect }) {
   )
 }
 
-function ConnectionBadge({ connected, terminal, hasRun }) {
+function ConnectionBadge({ connected, terminal, hasRun, onRefresh }) {
   if (!hasRun) return null
   if (terminal) return <Badge variant="secondary">Finished</Badge>
   return connected ? (
@@ -484,10 +484,18 @@ function ConnectionBadge({ connected, terminal, hasRun }) {
       Live
     </Badge>
   ) : (
-    <Badge variant="outline" className="gap-1.5 text-muted-foreground">
-      <WifiOff className="size-3" />
-      Reconnecting
-    </Badge>
+    <span className="inline-flex items-center gap-1">
+      <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+        <WifiOff className="size-3" />
+        Reconnecting
+      </Badge>
+      {onRefresh ? (
+        <Button type="button" size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs" onClick={onRefresh}>
+          <RefreshCw className="size-3.5" aria-hidden="true" />
+          Refresh
+        </Button>
+      ) : null}
+    </span>
   )
 }
 

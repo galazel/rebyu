@@ -76,6 +76,7 @@ function lastActivityAt(state) {
 
 export function useWorkflowStream(runId) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const [reconnectKey, setReconnectKey] = useState(0)
 
   useEffect(() => {
     if (!runId) return undefined
@@ -106,7 +107,7 @@ export function useWorkflowStream(runId) {
     })
 
     return close
-  }, [runId])
+  }, [runId, reconnectKey])
 
   const attempts = useMemo(() => attemptCount(state.events), [state.events])
   const attemptEvents = useMemo(() => currentAttemptEvents(state.events), [state.events])
@@ -144,5 +145,6 @@ export function useWorkflowStream(runId) {
     attemptEvents,
     isTerminal,
     isWaitingForReview: state.run?.status === "WAITING_FOR_REVIEW",
+    reconnect: () => setReconnectKey((n) => n + 1),
   }
 }

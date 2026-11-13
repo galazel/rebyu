@@ -49,38 +49,70 @@ export const submitQuestionBatchReview = (threadId, { action, instructions, ques
     data: { action, instructions, questions, restored_from: restoredFrom },
   })
 
+class StreamRetry extends Error {}
+
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000]
+
+/**
+ * Follows a run's timeline. Each (re)connect fetches a fresh sign-in token and resumes after
+ * the last event seen, so a long run outlives token expiry, proxy drops and laptop sleep
+ * instead of getting stuck retrying with a dead token.
+ */
 export function streamWorkflow(runId, { onMessage, onOpen, onError, lastSeq = 0 } = {}) {
   const controller = new AbortController()
+  let cursor = lastSeq
+  let finished = false
+
+  const wait = (ms) =>
+    new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms)
+      controller.signal.addEventListener("abort", () => { clearTimeout(timer); resolve() }, { once: true })
+    })
 
   const run = async () => {
-    const token = await currentAccessToken()
-    if (!token || controller.signal.aborted) return
-
-    try {
-      await fetchEventSource(`${API}/ai/workflows/${runId}/stream?lastSeq=${lastSeq}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal,
-        openWhenHidden: true,
-        async onopen(response) {
-          if (response.ok) {
+    let failures = 0
+    while (!controller.signal.aborted && !finished) {
+      const token = await currentAccessToken().catch(() => null)
+      if (controller.signal.aborted) return
+      try {
+        await fetchEventSource(`${API}/ai/workflows/${runId}/stream?lastSeq=${cursor}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          openWhenHidden: true,
+          async onopen(response) {
+            if (!response.ok) throw new StreamRetry(`Workflow stream failed: ${response.status}`)
+            failures = 0
             onOpen?.()
-            return
-          }
-          throw new Error(`Workflow stream failed: ${response.status}`)
-        },
-        onmessage(event) {
-          if (!event.data) return
-          try {
-            onMessage?.(JSON.parse(event.data))
-          } catch {
-          }
-        },
-        onerror(error) {
-          if (controller.signal.aborted) throw error
-          onError?.(error)
-        },
-      })
-    } catch {
+          },
+          onmessage(event) {
+            if (!event.data) return
+            let message
+            try {
+              message = JSON.parse(event.data)
+            } catch {
+              return
+            }
+            const seq = message?.event?.seq
+            if (typeof seq === "number" && seq > cursor) cursor = seq
+            if (message?.type === "complete") finished = true
+            onMessage?.(message)
+          },
+          onclose() {
+            // The server or a proxy ended the stream; reconnect unless the run is over.
+            if (!finished) throw new StreamRetry("stream closed")
+          },
+          onerror(error) {
+            // Stop fetchEventSource's own retry (it would reuse the old token); the loop retries.
+            throw error
+          },
+        })
+      } catch (error) {
+        if (controller.signal.aborted || finished) return
+        onError?.(error)
+      }
+      if (finished) return
+      await wait(RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)])
+      failures += 1
     }
   }
 

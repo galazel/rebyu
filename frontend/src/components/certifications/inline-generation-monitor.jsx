@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Ban, ChevronDown, FastForward, Loader2 } from "@/components/icons"
+import { AlertTriangle, Ban, ChevronDown, FastForward, Loader2, RefreshCw } from "@/components/icons"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -73,6 +73,7 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     isWaitingForReview,
     isStalled,
     silentFor,
+    reconnect,
   } = stream
 
   const finishedRef = useRef(false)
@@ -177,9 +178,15 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
             Live
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-muted-foreground">
-            Reconnecting
-          </Badge>
+          <>
+            <Badge variant="outline" className="text-muted-foreground">
+              Reconnecting
+            </Badge>
+            <Button type="button" size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs" onClick={reconnect}>
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+              Refresh
+            </Button>
+          </>
         )}
 
         {attempts > 1 ? <Badge variant="outline">Attempt {attempts}</Badge> : null}
