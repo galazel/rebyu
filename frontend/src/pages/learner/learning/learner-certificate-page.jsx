@@ -49,7 +49,27 @@ function bandColor(v) {
 
 function fmtDate(iso) {
   if (!iso) return "—"
-  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+}
+
+function deriveMockExamSummary(scoreTrend) {
+  const sittings = (scoreTrend ?? [])
+    .filter((point) => ["MOCK_EXAM", "MOCK"].includes(String(point.assessmentType ?? "").toUpperCase()))
+    .filter((point) => Number.isFinite(Number(point.percentage)))
+    .sort((a, b) => new Date(b.submittedAt ?? 0) - new Date(a.submittedAt ?? 0))
+
+  if (!sittings.length) return { latest: null, best: null, count: 0 }
+
+  return {
+    latest: sittings[0],
+    best: sittings.reduce((best, point) =>
+      Number(point.percentage) > Number(best.percentage) ? point : best,
+    ),
+    count: sittings.length,
+  }
 }
 
 function priorityLabel(tag) {
@@ -225,15 +245,12 @@ export default function LearnerCertificatePage() {
   const overallPct = d.overallMasteryPercentage != null ? Math.round(d.overallMasteryPercentage) : null
   const avgScore = d.averageAssessmentScore != null ? Math.round(d.averageAssessmentScore) : null
 
-  const mockExamPct = useMemo(() => {
-    const mockAttempts = (d.scoreTrend ?? []).filter(
-      pt => pt.assessmentType === "MOCK_EXAM" || pt.assessmentType === "MOCK"
-    )
-    if (!mockAttempts.length) return null
-    return Math.round(Math.max(...mockAttempts.map(pt => Number(pt.percentage ?? 0))))
-  }, [d.scoreTrend])
+  const mockExamSummary = useMemo(() => deriveMockExamSummary(d.scoreTrend), [d.scoreTrend])
+  const latestMockPct = mockExamSummary.latest ? Math.round(Number(mockExamSummary.latest.percentage)) : null
+  const bestMockPct = mockExamSummary.best ? Math.round(Number(mockExamSummary.best.percentage)) : null
   const certTitle = d.certificationTitle ?? award?.certificationTitle ?? "Certification"
   const certDate = award?.certificateAwardedAt ?? award?.badgeAwardedAt
+  const credentialDateLabel = award?.certificateAwardedAt ? "Certificate issued" : "Badge earned"
   const learnerName = identity?.name || "Learner"
 
   const { mostAttempted, bestScore, worstScore, mostWrong } = useMemo(
@@ -254,10 +271,20 @@ export default function LearnerCertificatePage() {
   const sz = (cqw, min) => `max(${min}px, ${cqw}cqw)`
 
   const stats = [
-    { label: "Overall Mastery", value: overallPct != null ? `${overallPct} / 100` : "—", note: overallPct != null ? scoreLabel(overallPct) : null },
-    { label: "Avg. Assessment Score", value: avgScore != null ? `${avgScore} / 100` : "—", note: avgScore != null ? scoreLabel(avgScore) : null },
-    { label: "Mock Exam Score", value: mockExamPct != null ? `${mockExamPct} / 100` : "—", note: mockExamPct != null ? `${scoreLabel(mockExamPct)} · best attempt` : null },
-    { label: "Proficiency", value: overallPct != null ? scoreLabel(overallPct) : "—", note: overallPct != null ? `${overallPct} / 100` : null },
+    { label: "Overall Mastery", value: overallPct != null ? `${overallPct} / 100` : "—", note: overallPct != null ? "Current mastery estimate" : null },
+    { label: "Avg. Assessment Score", value: avgScore != null ? `${avgScore} / 100` : "—", note: avgScore != null ? "Across submitted assessments" : null },
+    {
+      label: "Latest Mock Exam",
+      value: latestMockPct != null ? `${latestMockPct} / 100` : "—",
+      note: mockExamSummary.latest ? `${fmtDate(mockExamSummary.latest.submittedAt)} · latest sitting` : "No submitted mock exam",
+    },
+    {
+      label: "Best Mock Exam",
+      value: bestMockPct != null ? `${bestMockPct} / 100` : "—",
+      note: mockExamSummary.best
+        ? `${fmtDate(mockExamSummary.best.submittedAt)} · best of ${mockExamSummary.count} ${mockExamSummary.count === 1 ? "sitting" : "sittings"}`
+        : "No submitted mock exam",
+    },
   ]
 
   return (
@@ -281,8 +308,8 @@ export default function LearnerCertificatePage() {
           <p className="mt-1 text-lg text-muted-foreground">{learnerName}</p>
 
           <p className="mt-3 text-sm leading-6 text-foreground">
-            Completed the review and passed its mock exam. The badge sits on your certification card;
-            the certificate is yours to print or share.
+            This credential was awarded on {fmtDate(certDate)}. Later mock-exam attempts and mastery
+            estimates can change, while the credential record remains available to print or share.
           </p>
 
           <div className="mt-5 space-y-2">
@@ -304,8 +331,8 @@ export default function LearnerCertificatePage() {
 
           <dl className="mt-6 space-y-2.5 border-t border-[var(--tg-line)] pt-5 text-sm">
             <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Badge earned</dt>
-              <dd className="font-semibold text-foreground">{fmtDate(award?.badgeAwardedAt)}</dd>
+              <dt className="text-muted-foreground">{credentialDateLabel}</dt>
+              <dd className="font-semibold text-foreground">{fmtDate(certDate)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3">
               <dt className="text-muted-foreground">Certificate no.</dt>
@@ -325,6 +352,9 @@ export default function LearnerCertificatePage() {
                 </li>
               ))}
             </ul>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">
+              Current learning data updates with each submitted assessment; the credential date does not.
+            </p>
           </div>
         </aside>
 
@@ -399,7 +429,7 @@ export default function LearnerCertificatePage() {
                     </p>
                   )}
                   <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(1.2, 11), color: "#6b7280", marginTop: "0.4cqw" }}>
-                    and passed its mock exam on REBYU.
+                    on the REBYU Learning Platform.
                   </p>
                 </section>
 
@@ -426,7 +456,7 @@ export default function LearnerCertificatePage() {
                   <div>
                     <p style={{ fontFamily: SERIF, fontSize: sz(1.4, 12), color: "#111827" }}>{fmtDate(certDate)}</p>
                     <div style={{ height: 1, background: "#374151", opacity: 0.5, margin: "0.5cqw 0" }} />
-                    <p className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>Date of Completion</p>
+                    <p className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>{credentialDateLabel}</p>
                   </div>
                   <div style={{ width: sz(11.5, 84), height: sz(11.5, 84) }}>
                     {awardLoading ? (
@@ -443,7 +473,7 @@ export default function LearnerCertificatePage() {
                 </footer>
 
                 <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(0.95, 10), color: "#9ca3af" }}>
-                  Issued by the REBYU Learning Platform for completing the review above and passing its mock exam.
+                  Issued by the REBYU Learning Platform for completing the certification review above.
                 </p>
               </div>
             </div>
