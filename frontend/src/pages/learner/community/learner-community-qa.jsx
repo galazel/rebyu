@@ -1,6 +1,7 @@
+import "./community.css"
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import {
     ArrowUp,
     Bookmark,
@@ -26,6 +27,7 @@ import {
     UsersRound,
     X,
 } from "@/components/icons"
+import { getCurrentLearnerIdentity } from "@/services/learnerService.js"
 import { getFileViewLink } from "@/services/fileService"
 import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { toast } from "sonner"
@@ -419,6 +421,8 @@ function PanelHeading({ icon: Icon, title, children }) {
 
 function CommunityPost({
                            post,
+                           myInitials,
+                           commentPending,
                            circles,
                            onToggleUpvote,
                            onToggleSave,
@@ -456,7 +460,7 @@ function CommunityPost({
     }, [threadOpen, onToggleComments, post.postId])
 
     return (
-        <article ref={cardRef} className="tg-frame">
+        <article id={`community-post-${post.postId}`} ref={cardRef} className="tg-frame community-post">
             <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                     <CommunityAvatar initials={post.initials} tone={avatarTone(post.authorName ?? "")} url={authorAvatarUrl} />
@@ -500,7 +504,7 @@ function CommunityPost({
                             </button>
                         </DropdownMenuTrigger>
 
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent className="community-menu" align="end">
                             <DropdownMenuItem onSelect={() => onToggleSave(post.postId)}>
                                 <Bookmark className="mr-2 h-4 w-4" />
                                 {post.saved ? "Remove from saved" : "Save post"}
@@ -508,10 +512,10 @@ function CommunityPost({
 
                             <DropdownMenuItem
                                 onSelect={() => {
-                                    navigator.clipboard?.writeText(
-                                        `${window.location.origin}/learner/community?post=${post.postId}`
-                                    )
-                                    toast.success("Post link copied.")
+                                    if (!navigator.clipboard) { toast.error("Your browser could not copy the link."); return }
+                                    navigator.clipboard.writeText(`${window.location.origin}/learner/community?post=${post.postId}`)
+                                        .then(() => toast.success("Post link copied."))
+                                        .catch(() => toast.error("The link could not be copied."))
                                 }}
                             >
                                 <Share2 className="mr-2 h-4 w-4" />
@@ -542,7 +546,7 @@ function CommunityPost({
                         </h2>
                     )}
 
-                    <p className={`text-[0.9375rem] leading-6 text-muted-foreground ${isStudySet ? "" : "mt-2"}`}>
+                    <p className={`whitespace-pre-wrap break-words text-[0.9375rem] leading-6 text-foreground ${isStudySet ? "" : "mt-2"}`}>
                         {post.description}
                     </p>
                 </div>
@@ -693,12 +697,12 @@ function CommunityPost({
                     )}
 
                     <div className="mt-2 flex items-center gap-2">
-                        <CommunityAvatar initials="GG" className="!size-7 !text-[0.625rem]" />
+                        <CommunityAvatar initials={myInitials} className="!size-7 !text-[0.625rem]" />
                         <Input
                             value={draft ?? ""}
                             onChange={(event) => onDraftChange(post.postId, event.target.value)}
                             onKeyDown={(event) => {
-                                if (event.key === "Enter" && !event.shiftKey) {
+                                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                                     event.preventDefault()
                                     onSubmitComment(post.postId)
                                 }
@@ -711,7 +715,7 @@ function CommunityPost({
                             type="button"
                             className="tg-btn tg-btn-primary tg-icon-btn !size-9 shrink-0"
                             onClick={() => onSubmitComment(post.postId)}
-                            disabled={!draft?.trim()}
+                            disabled={!draft?.trim() || commentPending}
                             aria-label="Post comment"
                         >
                             <Send className="h-4 w-4" />
@@ -725,6 +729,13 @@ function CommunityPost({
 
 export default function Community() {
     const plan = useLearnerEntitlements()
+    const identity = getCurrentLearnerIdentity()
+    const myInitials = (identity.name || identity.email || "Learner").split(/[\s@]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
+    const [searchParams] = useSearchParams()
+    const requestedPost = Number(searchParams.get("post")) || null
+    const pendingActions = useRef(new Set())
+    const [postingComments, setPostingComments] = useState({})
+    const latestFeed = useRef(null)
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const cachedFeed = queryClient.getQueryData(COMMUNITY_FEED_KEY) ?? readCommunityFeedSnapshot()
@@ -814,6 +825,20 @@ export default function Community() {
 
     const isLoading = feedQuery.isLoading || (feedQuery.isFetching && posts.length === 0)
 
+    useEffect(() => {
+        if (!feedQuery.data) return
+        latestFeed.current = { posts, circles, certifications, studyItems }
+        writeCommunityFeedSnapshot(latestFeed.current)
+    }, [posts, circles, certifications, studyItems, feedQuery.data])
+
+    useEffect(() => () => {
+        if (latestFeed.current) queryClient.setQueryData(COMMUNITY_FEED_KEY, latestFeed.current)
+    }, [queryClient])
+
+    useEffect(() => {
+        if (requestedPost && posts.length) document.getElementById(`community-post-${requestedPost}`)?.scrollIntoView({ block: "center" })
+    }, [requestedPost, posts.length])
+
     const topicOptions = useMemo(() => {
         const titles = certifications
             .map((certification) => certification.title || certification.name)
@@ -837,10 +862,10 @@ export default function Community() {
         const query = searchValue.trim().toLowerCase()
 
         const filtered = posts.filter((post) => {
-            if (activeCircleId) return post.circleId === activeCircleId
+            if (activeCircleId && post.circleId !== activeCircleId) return false
             if (showSavedOnly && !post.saved) return false
             const matchesTab =
-                showSavedOnly ||
+                activeCircleId != null || showSavedOnly ||
                 activeTab === "for-you" ||
                 (activeTab === "circle"
                     ? post.circleId != null
@@ -876,12 +901,15 @@ export default function Community() {
     }
 
     async function toggleUpvote(postId) {
+        const action = `like:${postId}`
+        if (pendingActions.current.has(action)) return
+        pendingActions.current.add(action)
         try {
             const counts = await toggleCommunityLike(postId)
             setPosts((current) => applyPostCounts(current, postId, counts, "liked"))
         } catch (error) {
             toast.error(apiMessage(error, "Could not update your upvote."))
-        }
+        } finally { pendingActions.current.delete(action) }
     }
 
     function openAttachment(post) {
@@ -973,15 +1001,21 @@ export default function Community() {
     }
 
     async function toggleSave(postId) {
+        const action = `save:${postId}`
+        if (pendingActions.current.has(action)) return
+        pendingActions.current.add(action)
         try {
             const counts = await toggleCommunitySave(postId)
             setPosts((current) => applyPostCounts(current, postId, counts, "saved"))
         } catch (error) {
             toast.error(apiMessage(error, "Could not update saved posts."))
-        }
+        } finally { pendingActions.current.delete(action) }
     }
 
     async function toggleJoinCircle(circleId) {
+        const action = `join:${circleId}`
+        if (pendingActions.current.has(action)) return
+        pendingActions.current.add(action)
         try {
             const result = await toggleCircleMembership(circleId)
             setCircles((current) =>
@@ -990,14 +1024,15 @@ export default function Community() {
                         ? {
                             ...circle,
                             joined: result.joined,
-                            members: circle.members + (result.joined ? 1 : -1),
+                            members: Math.max(0, Number(circle.members ?? 0) + (result.joined ? 1 : -1)),
                         }
                         : circle
                 )
             )
+            try { setPosts(await getCommunityPosts()) } catch { toast.error("Membership updated, but posts could not be refreshed. Please reload the feed.") }
         } catch (error) {
             toast.error(apiMessage(error, "Could not update circle membership."))
-        }
+        } finally { pendingActions.current.delete(action) }
     }
 
     async function handleAttachmentSelected(event) {
@@ -1046,12 +1081,14 @@ export default function Community() {
     }
 
     async function publishPost() {
-        if (isPublishing) return
+        if (pendingActions.current.has("publish")) return
+        pendingActions.current.add("publish")
         setIsPublishing(true)
         try {
             await publishPostRequest()
         } finally {
             setIsPublishing(false)
+            pendingActions.current.delete("publish")
         }
     }
 
@@ -1126,7 +1163,8 @@ export default function Community() {
             toast.error("Add a circle name and description.")
             return
         }
-        if (isCreatingCircle) return
+        if (pendingActions.current.has("create-circle")) return
+        pendingActions.current.add("create-circle")
         setIsCreatingCircle(true)
 
         try {
@@ -1138,7 +1176,7 @@ export default function Community() {
             })
 
             setCircles((current) => [newCircle, ...current])
-            setPosts(await getCommunityPosts())
+            getCommunityPosts().then(setPosts).catch(() => toast.error("Circle created, but the feed could not refresh."))
             setCircleName("")
             setCircleDescription("")
             setCircleVisibility("PUBLIC")
@@ -1154,6 +1192,7 @@ export default function Community() {
             toast.error(apiMessage(error, "The study circle could not be created."))
         } finally {
             setIsCreatingCircle(false)
+            pendingActions.current.delete("create-circle")
         }
     }
 
@@ -1161,7 +1200,8 @@ export default function Community() {
         try {
             await deleteCommunityCircle(circleId)
             setCircles((current) => current.filter((circle) => circle.circleId !== circleId))
-            setPosts(await getCommunityPosts())
+            setPosts(current => current.filter(post => post.circleId !== circleId))
+            getCommunityPosts().then(setPosts).catch(() => toast.error("Circle deleted, but the feed could not refresh."))
             setActiveCircleId(null)
             toast.success("Study circle deleted.")
         } catch (error) {
@@ -1226,23 +1266,29 @@ export default function Community() {
 
     async function submitComment(postId) {
         const body = (commentDrafts[postId] ?? "").trim()
-        if (!body) return
+        const action = `comment:${postId}`
+        if (!body || pendingActions.current.has(action)) return
+        pendingActions.current.add(action)
+        setPostingComments(current => ({...current, [postId]: true}))
         try {
             const comment = await addCommunityComment(postId, body)
             setCommentsByPost((current) => ({ ...current, [postId]: [...(current[postId] ?? []), comment] }))
             setPosts((current) =>
                 current.map((post) => (post.postId === postId ? { ...post, comments: post.comments + 1 } : post))
             )
-            setDraft(postId, "")
+            setCommentDrafts(current => current[postId]?.trim() === body ? {...current, [postId]: ""} : current)
         } catch (error) {
             toast.error(apiMessage(error, "Your comment could not be posted."))
+        } finally {
+            pendingActions.current.delete(action)
+            setPostingComments(current => ({...current, [postId]: false}))
         }
     }
 
     const savedCount = posts.filter((post) => post.saved).length
 
     return (
-        <div className="rb-hub rb-plain tg-cat-explain space-y-5">
+        <div className="community-page rb-hub rb-plain tg-cat-explain space-y-5">
             <LearnerPageHeader title="Community" />
 
             <div className="sticky top-16 z-20 -mx-3 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-5 lg:-mx-6 xl:hidden">
@@ -1335,19 +1381,19 @@ export default function Community() {
                     {composerOpen ? null : (
                     <PanelCard>
                         <button type="button" className="tg-head flex w-full items-center gap-3 px-4 py-4 sm:px-5" onClick={() => openComposer("discussion")}>
-                            <CommunityAvatar initials="GG" />
+                            <CommunityAvatar initials={myInitials} />
                             <div className="flex h-11 min-w-0 flex-1 items-center rounded-full bg-card px-4 text-left text-sm font-semibold text-muted-foreground ring-1 ring-[var(--tg-line)] transition hover:ring-[var(--tg)]">
                                 <span className="truncate">Start a discussion or share a review resource...</span>
                             </div>
                         </button>
                         <div className="px-4 py-3 sm:px-5">
-                            <div className="flex w-full min-w-0 flex-wrap gap-2">
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Discussion</span></button>
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Quiz</span></button>
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("flashcard")} title="Share flashcards"><Layers className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Flashcards</span></button>
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("activity")} title="Share a game or activity from your Library"><Sparkles className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Game</span></button>
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("mindmap")} title="Share a mind map from your Library"><Network className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Mind map</span></button>
-                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Reviewer</span></button>
+                            <div className="community-composer-options flex w-full min-w-0 flex-wrap gap-2">
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4" aria-hidden="true" /><span className="inline">Discussion</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4" aria-hidden="true" /><span className="inline">Quiz</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("flashcard")} title="Share flashcards"><Layers className="size-4" aria-hidden="true" /><span className="inline">Flashcards</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("activity")} title="Share a game or activity from your Library"><Sparkles className="size-4" aria-hidden="true" /><span className="inline">Game</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("mindmap")} title="Share a mind map from your Library"><Network className="size-4" aria-hidden="true" /><span className="inline">Mind map</span></button>
+                                <button type="button" className="tg-btn !rounded-full" onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4" aria-hidden="true" /><span className="inline">Reviewer</span></button>
                             </div>
 
                         </div>
@@ -1397,7 +1443,7 @@ export default function Community() {
                                         <SelectTrigger><SelectValue placeholder={`Choose a ${SHARE_TYPE_NOUNS[shareType]} from your Library`} /></SelectTrigger>
                                         <SelectContent>{studyItems.filter((item) => item.kind === shareType).map((item) => <SelectItem key={item.id} value={String(item.id)}>{String(item.title || "").replace(/^[a-z ]+:\s*/, "")}</SelectItem>)}</SelectContent>
                                     </Select>
-                                ) : <><Input value={shareTitle} onChange={(event) => setShareTitle(event.target.value)} placeholder="An interesting title" /><Textarea value={shareDescription} onChange={(event) => setShareDescription(event.target.value)} placeholder="What do you want to discuss?" className="min-h-32 resize-y" /></>}
+                                ) : <><Input value={shareTitle} onChange={(event) => setShareTitle(event.target.value)} aria-label="Post title" placeholder="Post title" /><Textarea value={shareDescription} onChange={(event) => setShareDescription(event.target.value)} aria-label="Post description" placeholder="What would you like to share?" className="min-h-32 resize-y" /></>}
 
                                 {shareType === "reviewer" ? (
                                     <div>
@@ -1442,7 +1488,7 @@ export default function Community() {
                                     onChange={(event) => setSearchValue(event.target.value)}
                                     placeholder="Search posts, authors, circles..."
                                     aria-label="Search community posts"
-                                    className="h-10 w-full rounded-full pl-9 sm:w-72"
+                                    className="h-11 w-full rounded-lg pl-9 sm:w-72"
                                 />
                             </div>
 
@@ -1455,6 +1501,25 @@ export default function Community() {
                         </div>
                     </div>
 
+                    {activeTab === "circle" && !activeCircle && !showSavedOnly ? (
+                        <section aria-label="Study circle directory" className="tg-frame p-4 xl:hidden">
+                            <h2 className="mb-3 text-sm font-medium text-foreground">Study circles</h2>
+                            <div className="space-y-2">
+                                {circles.filter(circle => !searchValue.trim() || [circle.name, circle.description, circle.topic].some(value => String(value ?? "").toLowerCase().includes(searchValue.trim().toLowerCase()))).map(circle => (
+                                    <button key={circle.circleId} type="button" onClick={() => setActiveCircleId(circle.circleId)} className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border p-3 text-left text-sm">
+                                        <span className="min-w-0 break-words">{circle.name}</span><span className="shrink-0 text-xs text-muted-foreground">{circle.members ?? 0} members</span>
+                                    </button>
+                                ))}
+                                {!circles.length ? <p className="text-sm text-muted-foreground">No study circles yet.</p> : null}
+                            </div>
+                        </section>
+                    ) : null}
+                    {feedQuery.isError ? (
+                        <div role="alert" className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+                            <p>The feed could not be refreshed.</p>
+                            <button type="button" className="tg-btn mt-3" onClick={() => feedQuery.refetch()}>Try again</button>
+                        </div>
+                    ) : null}
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] py-16 text-center">
                             <span className="grid size-12 place-items-center tg-badge-icon">
@@ -1473,6 +1538,8 @@ export default function Community() {
                                 <CommunityPost
                                     key={post.postId}
                                     post={post}
+                                    myInitials={myInitials}
+                                    commentPending={Boolean(postingComments[post.postId])}
                                     authorAvatarUrl={authorAvatarUrls[post.authorAvatarKey]}
                                     circles={circles}
                                     onToggleUpvote={toggleUpvote}
@@ -1494,7 +1561,7 @@ export default function Community() {
                                 />
                             ))}
                         </div>
-                    ) : (
+                    ) : feedQuery.isError ? null : (
                         <div className="rounded-3xl border-2 border-dashed border-[var(--tg-line)] bg-[var(--tg-softer)] py-16 text-center">
                             <span className="mx-auto grid size-12 place-items-center tg-badge-icon">
                                 <MessageCircle className="size-6" />
@@ -1518,7 +1585,7 @@ export default function Community() {
 
                         {FEED_TABS.map((tab, index) => {
                             const Icon = FEED_TAB_ICONS[tab.value] ?? FileText
-                            const active = !showSavedOnly && activeTab === tab.value
+                            const active = !showSavedOnly && !activeCircleId && activeTab === tab.value
 
                             return (
                                 <button
@@ -1539,7 +1606,7 @@ export default function Community() {
 
                         <button
                             type="button"
-                            onClick={() => setShowSavedOnly((current) => !current)}
+                            onClick={() => { setActiveCircleId(null); setShowSavedOnly((current) => !current) }}
                             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-bold transition-colors ${
                                 showSavedOnly
                                     ? "bg-[var(--tg-soft)] text-[var(--tg-ink)]"
@@ -1636,7 +1703,7 @@ export default function Community() {
             </div>
 
             <Dialog open={createCircleOpen} onOpenChange={setCreateCircleOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="community-dialog sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Create study circle</DialogTitle>
                         <DialogDescription>
@@ -1725,7 +1792,7 @@ export default function Community() {
             </Dialog>
 
             <Dialog open={confirmDeleteCircleId != null} onOpenChange={(open) => { if (!open) setConfirmDeleteCircleId(null) }}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="community-dialog sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Delete this study circle?</DialogTitle>
                         <DialogDescription>
@@ -1753,7 +1820,7 @@ export default function Community() {
             </Dialog>
 
             <Dialog open={reportPostId != null} onOpenChange={(open) => { if (!open) setReportPostId(null) }}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="community-dialog sm:max-w-md">
                     <DialogHeader><DialogTitle>Report post</DialogTitle><DialogDescription>Tell us why this post should be reviewed.</DialogDescription></DialogHeader>
                     <div className="space-y-4">
                         <div className="space-y-2"><Label>Reason</Label><Select value={reportReason} onValueChange={setReportReason}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="SPAM">Spam or misleading</SelectItem><SelectItem value="HARASSMENT">Harassment</SelectItem><SelectItem value="COPYRIGHT">Copyright concern</SelectItem><SelectItem value="EXAM_CONTENT">Active exam content</SelectItem><SelectItem value="OTHER">Other</SelectItem></SelectContent></Select></div>

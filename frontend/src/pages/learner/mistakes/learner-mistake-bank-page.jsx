@@ -350,7 +350,7 @@ function MistakeBankContent() {
 
   return (
     <div className={`rb-hub mistake-bank space-y-6 ${ACCENT}`}>
-      <header><h1 className="text-2xl font-bold text-foreground sm:text-3xl">Mistake bank</h1></header>
+      <h1 className="sr-only">Mistake bank</h1>
 
       {mistakesQuery.isLoading ? (
         <MistakeBankSkeleton />

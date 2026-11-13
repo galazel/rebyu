@@ -1,0 +1,34 @@
+.community-page { min-width: 0; }
+.community-page > .sticky { margin-inline: 0; max-width: 100%; border-radius: 8px; }
+.community-page *, .community-dialog *, .community-menu * { box-shadow: none !important; }
+.community-page .lowercase { text-transform: none; }
+.community-page :is(h1,h2,h3,.font-rb-display), .community-dialog :is(h1,h2,h3) { font-family: var(--font-sans),sans-serif !important; letter-spacing: normal !important; text-transform: none !important; }
+.community-page :is(.font-semibold,.font-bold,.font-extrabold,.font-black), .community-dialog :is(.font-bold,.font-extrabold) { font-weight: 500 !important; }
+.community-page :is(.tg-frame,.tg-btn,.tg-badge-icon,[data-slot="input"],[data-slot="textarea"],[data-slot="select-trigger"]), .community-dialog, .community-dialog button, .community-menu { box-shadow: none !important; }
+.community-page .tg-frame { border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.community-page .tg-frame::before, .community-page .tg-frame::after, .community-page .tg-head::after { display: none; }
+.community-page .tg-head { background: var(--card); border-color: var(--border); }
+.community-page .tg-kicker { font-size: 13px; font-weight: 500; letter-spacing: normal; text-transform: none; color: var(--muted-foreground); }
+.community-page .tg-btn { min-height: 40px; border: 1px solid var(--border); border-radius: 8px !important; background: var(--card); color: var(--foreground); font-weight: 500; transform: none !important; }
+.community-page .tg-btn:hover { background: var(--muted); }
+.community-page .tg-btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.community-page .tg-btn-primary:hover { background: var(--primary); opacity: .9; }
+.community-page .tg-badge-icon { border: 0; background: var(--muted); color: var(--muted-foreground); border-radius: 8px; }
+.community-page .tg-chip { font-weight: 500; letter-spacing: normal; text-transform: none; border-radius: 6px; }
+.community-post { scroll-margin-top: 100px; }
+.community-post h2 { font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
+.community-post :is(p,span) { overflow-wrap: anywhere; }
+.community-page button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.community-page .community-composer-options { gap: 6px; }
+.community-page .community-composer-options .tg-btn { border-color: transparent; padding-inline: 10px !important; color: var(--muted-foreground); }
+.community-page [data-slot="input"], .community-page [data-slot="textarea"] { border-width: 1px; }
+.community-dialog { max-height: 90dvh; overflow-y: auto; border-width: 1px; }
+.community-dialog button { font-weight: 500; }
+@media(max-width:767px) {
+  .community-page .community-composer-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .community-page .community-composer-options .tg-btn { padding: 8px 4px !important; font-size: 12px; min-width: 0; }
+  .community-page .community-post > div:first-child > div:first-child { flex-wrap: wrap; }
+  .community-page .community-post > div:first-child > div:first-child > .tg-chip { margin-left: 52px; }
+  .community-page button[role="tab"] { min-height: 44px; box-shadow: none; }
+  .community-page button[aria-label^="Delete comment"] { opacity: 1; min-width: 32px; min-height: 40px; }
+}
