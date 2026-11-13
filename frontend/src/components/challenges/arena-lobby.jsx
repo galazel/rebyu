@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
 
@@ -76,8 +76,6 @@ function useWideScreen() {
 }
 
 export function ArenaLobby({ arenaId, name, blurb }) {
-  const location = useLocation()
-  const navigate = useNavigate()
   const tone = TONES[arenaId] ?? TONES.codestrike
   const arenasQuery = useQuery({ queryKey: [CHALLENGE_ARENAS_KEY], queryFn: getChallengeArenas, staleTime: 60_000 })
 
@@ -121,22 +119,13 @@ export function ArenaLobby({ arenaId, name, blurb }) {
   const totalPoints = stages.reduce((sum, p) => sum + Number(p?.points ?? pointsPerProblem), 0)
   const locked = !configured && arenasQuery.isSuccess
 
-  // Back returns to wherever the learner came from (e.g. their learning path); the
-  // link target is only the fallback when the page was opened directly.
-  const goBack = (event) => {
-    if (location.key !== "default") {
-      event.preventDefault()
-      navigate(-1)
-    }
-  }
-
   return (
     <div className="rebyu-ds relative isolate min-h-dvh overflow-x-hidden bg-rb-polar">
       <PathBackdrop />
 
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
         <TactileButton asChild variant="ghost" size="sm">
-          <Link to="/learner/challenges" onClick={goBack}>
+          <Link replace to="/learner/challenges">
             <ArrowLeft className="mr-1.5 size-4" aria-hidden="true" />
             back
           </Link>

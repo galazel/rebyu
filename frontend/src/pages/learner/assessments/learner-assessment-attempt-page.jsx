@@ -753,6 +753,16 @@ export default function LearnerAssessmentAttemptPage() {
   const isWorldCupChallenge = false
   const isSingleProblemChallenge = isChallenge && arenaId !== "worldcup"
   const isWorldCup = isChallenge && arenaId === "worldcup"
+  const challengeLobby = {
+    codestrike: "/learner/challenges/codestrike",
+    blueprint: "/learner/challenges/blueprint-arena",
+    worldcup: "/learner/challenges/world-cup",
+  }[arenaId]
+  // A challenge has a known home. Do not use browser history here: after a
+  // hand-in, history can still contain the prior result screen.
+  const leaveAttempt = () => {
+    navigate(challengeLobby ?? returnPath(location) ?? "/learner/learning", { replace: true })
+  }
   // A challenge is played, not sat: its screen speaks of rounds and challenges.
   const ROUND_NAMES = { QUARTERFINAL: "Quarterfinals", SEMIFINAL: "Semifinals", FINAL: "Final" }
   const worldCupRound = worldCupMatch ? ROUND_NAMES[worldCupMatch.round] ?? "Match" : "Match"
@@ -1028,7 +1038,7 @@ export default function LearnerAssessmentAttemptPage() {
             onFinish={() => {
               if (!submitMutation.isPending && !submitMutation.isSuccess) submitMutation.mutate()
             }}
-            onLeave={() => navigate(-1)}
+            onLeave={leaveAttempt}
             isSubmitting={submitMutation.isPending || submitMutation.isSuccess}
             toDraftDto={toDraftDto}
             isMultipleChoice={isMultipleChoice}
@@ -1053,7 +1063,7 @@ export default function LearnerAssessmentAttemptPage() {
             currentIndex={currentIndex}
             onIndexChange={setCurrentIndex}
             onFinish={() => submitMutation.mutate()}
-            onLeave={() => navigate(-1)}
+            onLeave={leaveAttempt}
             isSubmitting={submitMutation.isPending}
             remainingSeconds={remainingSeconds}
         />
@@ -1419,7 +1429,7 @@ export default function LearnerAssessmentAttemptPage() {
               <AlertDialogCancel className="tg-btn">
                 {copy.keep}
               </AlertDialogCancel>
-              <AlertDialogAction className="tg-btn tg-btn-primary" onClick={() => navigate(-1)}>
+              <AlertDialogAction className="tg-btn tg-btn-primary" onClick={leaveAttempt}>
                 {copy.leave}
               </AlertDialogAction>
             </AlertDialogFooter>

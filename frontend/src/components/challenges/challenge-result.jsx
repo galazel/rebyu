@@ -309,7 +309,7 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
       <div className="mt-6 flex flex-wrap justify-center gap-3">
         {nextTo ? (
           <TactileButton asChild>
-            <Link to={nextTo}>
+            <Link replace to={nextTo}>
               stage {stageNo + 1}
               <ChevronRight className="ml-1 size-4" aria-hidden="true" />
             </Link>
@@ -320,6 +320,7 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
         </TactileButton>
         <TactileButton asChild variant="ghost">
           <Link
+            replace
             to={
               index != null
                 ? `/learner/assessments/${result.assessmentId}?q=${index}${stageCount ? `&total=${stageCount}` : ""}&arena=${arenaId}`
