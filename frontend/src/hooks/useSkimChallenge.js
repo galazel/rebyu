@@ -103,6 +103,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
         if (!check?.examId) {
           // Keep this lesson quiet when it has no available quick questions.
           askedRef.current = false
+          skimmedRef.current = false
           return
         }
         const idem = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`

@@ -95,7 +95,9 @@ public class LessonKnowledgeCheckService {
     public CheckOffer create(Long learnerId, Long triggerLessonId, boolean currentLessonOnly) {
         Lesson trigger = requireLesson(triggerLessonId);
 
-        if (onCooldown(learnerId, currentLessonOnly)) {
+        // The skim challenge is per lesson (the client offers it once per lesson per session), so
+        // only the cross-lesson knowledge check is rate limited by the learner-wide cooldown.
+        if (!currentLessonOnly && onCooldown(learnerId, false)) {
             return CheckOffer.unavailable("cooldown");
         }
 
