@@ -228,10 +228,13 @@ export function answerAdaptiveItem(attemptId, learnerId, answer) {
   })
 }
 
-export function answerAdaptiveItems(attemptId, learnerId, answers) {
+// Adaptive MCQ marking should be quick. A bounded request prevents an unavailable
+// API connection from leaving a learner trapped on "Loading next" indefinitely.
+export function answerAdaptiveItems(attemptId, learnerId, answers, { timeout = 15_000 } = {}) {
   return base(`learner/assessment-attempts/${attemptId}/adaptive/answers`, {
     method: "POST",
     data: { learnerId, answers },
+    timeout,
   })
 }
 

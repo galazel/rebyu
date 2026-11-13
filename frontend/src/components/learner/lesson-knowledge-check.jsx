@@ -97,7 +97,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         // Keep the answers so "Try again" resends them instead of waiting forever for the next item.
         outboxRef.current.unshift(...batch)
         failedRef.current = true
-        setError(caught)
+        setError(
+          caught?.code === "ECONNABORTED"
+            ? new Error("The next question took too long to prepare. Your answer is ready to retry.")
+            : caught,
+        )
         setPhase("error")
       })
       .finally(() => {
@@ -280,24 +284,24 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
           <ResultScreen result={result} onDone={() => { onComplete?.(result); onDismiss?.() }} onReadAgain={onReadAgain ? () => { onComplete?.(result); onDismiss?.(); onReadAgain() } : null} />
         ) : phase === "playing" || phase === "submitting" ? (
           <>
-            <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,var(--tg-soft),var(--card)_62%)] px-5 pb-5 pt-5 text-left sm:px-8 sm:pb-6 sm:pt-7">
-              <div className="flex w-full items-center justify-between gap-4">
+            <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,var(--tg-soft),var(--card)_62%)] px-5 py-4 text-left sm:px-8 sm:py-4">
+              <div className="flex w-full items-center gap-3">
                 <div className="flex items-center gap-3">
                   <span className="grid size-10 place-items-center rounded-2xl bg-rb-leaf text-white shadow-[0_8px_18px_-10px_rgba(31,132,91,0.9)] dark:text-[#10151a]">
                     <Zap className="size-[18px]" aria-hidden="true" />
                   </span>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rb-leaf-lip">Focus check</p>
-                    <AlertDialogTitle className="mt-0.5 text-lg font-extrabold tracking-[-0.02em] text-rb-eel sm:text-xl">
-                      Skim challenge
-                    </AlertDialogTitle>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rb-leaf-lip">Focus check</p>
+                      <span className="rounded-full border border-rb-swan bg-rb-polar px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-rb-eel shadow-sm">
+                        {index + 1} <span className="font-medium text-rb-wolf">of {total}</span>
+                      </span>
+                    </div>
+                    <AlertDialogTitle className="mt-0.5 text-lg font-extrabold tracking-[-0.02em] text-rb-eel sm:text-xl">Skim challenge</AlertDialogTitle>
                   </div>
                 </div>
-                <span className="rounded-full border border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold tabular-nums text-rb-eel shadow-sm">
-                  {index + 1} <span className="font-medium text-rb-wolf">of {total}</span>
-                </span>
               </div>
-              <div className="mt-5">
+              <div className="mt-3">
                 <ProgressDots total={total} current={index} answers={answers} questions={questions} />
               </div>
               <AlertDialogDescription className="sr-only">
@@ -445,7 +449,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                 ) : awaitingNext ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    Loading next
+                    Preparing next
                   </>
                 ) : !revealed && currentKey ? (
                   "Check"
@@ -629,7 +633,7 @@ function ProgressDots({ total, current, answers, questions }) {
           <span
             key={position}
             className={cn(
-              "h-1.5 flex-1 rounded-full transition-colors",
+              "h-2 flex-1 rounded-full transition-colors",
               position === current ? "bg-rb-leaf" : done ? "bg-rb-leaf/50" : "bg-rb-swan",
             )}
           />
