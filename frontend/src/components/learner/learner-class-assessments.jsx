@@ -80,15 +80,13 @@ export function LearnerClassAssessments({ certificationId }) {
                 >
                   {inProgress ? "Resume" : taken ? "Take again" : "Start"}
                 </Link>
-                {taken || inProgress ? (
-                  <Link
-                    to={`/learner/assessments/${assessment.examId}/history`}
-                    state={returnState(location)}
-                    className="tg-btn shrink-0"
-                  >
-                    View attempts
-                  </Link>
-                ) : null}
+                <Link
+                  to={`/learner/assessments/${assessment.examId}/history`}
+                  state={returnState(location)}
+                  className="tg-btn shrink-0"
+                >
+                  View attempts
+                </Link>
             </article>
           )
         })}
