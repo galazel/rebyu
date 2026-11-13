@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link, Navigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
 
@@ -9,6 +9,7 @@ import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
 import { ScoreBreakdown } from "@/components/challenges/score-breakdown.jsx"
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import { getWorldCupBracketForMatch } from "@/services/challengeService.js"
+import { isArenaHidden } from "@/lib/arenas.js"
 import { cn } from "@/lib/utils"
 
 /*
@@ -47,6 +48,10 @@ export default function ChallengeResult({ result, state, marking }) {
   const arenaId = arenaOfResult(result, state)
   const arena = ARENA[arenaId]
   const reduceMotion = useReducedMotion()
+
+  if (isArenaHidden(arenaId)) {
+    return <Navigate to="/learner/challenges" replace />
+  }
 
   const percentage = Math.round(Number(result.percentage ?? 0))
   const correct = Number(result.correctCount ?? 0)

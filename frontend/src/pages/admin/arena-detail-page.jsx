@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, Navigate, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeftIcon, Loader2, Save } from "@/components/icons"
 import { toast } from "sonner"
@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import ArenaProblemBuilder from "@/components/challenges/arena-problem-builder.jsx"
 import WorldCupEditions from "@/components/challenges/world-cup-editions.jsx"
 import ArenaCertifications from "@/components/challenges/arena-certifications.jsx"
-import { getArena } from "@/lib/arenas.js"
+import { getArena, isArenaHidden } from "@/lib/arenas.js"
 import { cn } from "@/lib/utils"
 import {
   CHALLENGE_ARENAS_KEY,
@@ -45,7 +45,8 @@ function updateStatus(queryClient, arenaId, next) {
 
 export default function ArenaDetailPage() {
   const { arenaId } = useParams()
-  const arena = getArena(arenaId)
+  const hidden = isArenaHidden(arenaId)
+  const arena = hidden ? null : getArena(arenaId)
   const queryClient = useQueryClient()
 
   const statusQuery = useQuery({
@@ -110,6 +111,10 @@ export default function ArenaDetailPage() {
       return
     }
     saveMutation.mutate(settings)
+  }
+
+  if (hidden) {
+    return <Navigate to="/admin/challenges" replace />
   }
 
   if (!arena) {
