@@ -398,9 +398,7 @@ export function DashboardBoard({
         rowHeight={width < 640 ? 84 : ROW_HEIGHT}
         margin={width < 640 ? [12, 12] : MARGIN}
         containerPadding={[0, 0]}
-        // The whole card is the drag target while rearranging (the small grip alone
-        // was easy to miss); its own controls stay clickable.
-        draggableCancel="a, input, select, textarea, label, button:not(.rebyu-board-handle), [role='tab'], [role='switch'], [role='combobox'], .react-resizable-handle"
+        draggableHandle=".rebyu-board-handle"
         isDraggable={editing}
         isResizable={editing}
         resizeHandles={["se"]}
@@ -415,7 +413,7 @@ export function DashboardBoard({
           if (!tile) return null
 
           return (
-            <div key={item.i} id={item.i} className={`min-w-0 ${editing ? "cursor-grab active:cursor-grabbing select-none" : ""}`}>
+            <div key={item.i} id={item.i} className="min-w-0">
               {tile.element}
 
               {editing ? (
