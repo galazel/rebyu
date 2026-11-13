@@ -89,7 +89,10 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
 
     const onMouseDown = (event) => {
       const page = document.documentElement
-      const rightEdge = event.clientX >= Math.max(page.clientWidth, window.innerWidth) - 2
+      // clientWidth stops where the page's scrollbar starts, so anything right of it is the bar.
+      // Overlay scrollbars take no width; for those, treat the last 16px as the bar.
+      const barStart = page.clientWidth < window.innerWidth ? page.clientWidth : window.innerWidth - 16
+      const rightEdge = event.clientX >= barStart
       if (rightEdge) {
         draggingBar.current = true
         gesture()
