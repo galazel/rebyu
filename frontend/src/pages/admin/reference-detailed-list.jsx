@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Pencil, Plus, Trash2 } from "@/components/icons"
+import { Loader2, Pencil, Plus, Search, Trash2, X } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,10 +25,12 @@ const EMPTY = { label: "", code: "", description: "", category: "", certificatio
  * A reference list whose entries carry more than a label: programs (code, description,
  * certifications) and institutions (short name, address, category).
  */
-export function DetailedReferenceList({ kind, title, description, fields, withCertifications = false }) {
+export function DetailedReferenceList({ kind, title, description, fields, withCertifications = false, className = "" }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [search, setSearch] = useState("")
 
   const query = useQuery({
     queryKey: ["reference-options-admin", kind],
@@ -60,6 +62,7 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
   const reset = () => {
     setDraft(EMPTY)
     setEditingId(null)
+    setEditorOpen(false)
   }
 
   const payload = () => ({
@@ -98,6 +101,18 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
   const rows = Array.isArray(query.data) ? query.data : []
   const active = rows.filter((row) => row.active)
   const retired = rows.filter((row) => !row.active)
+  const searchTerm = search.trim().toLocaleLowerCase()
+  const visibleActive = active.filter((row) => {
+    if (!searchTerm) return true
+    const certificationNames = (row.certificationIds ?? [])
+      .map((id) => titleById.get(Number(id)) ?? "")
+      .join(" ")
+    return [row.code, row.label, row.description, row.category, certificationNames]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(searchTerm)
+  })
 
   const startEdit = (row) => {
     setEditingId(row.id)
@@ -108,6 +123,13 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
       category: row.category ?? "",
       certificationIds: (row.certificationIds ?? []).map(Number),
     })
+    setEditorOpen(true)
+  }
+
+  const startAdd = () => {
+    setDraft(EMPTY)
+    setEditingId(null)
+    setEditorOpen(true)
   }
 
   const toggleCertification = (id) =>
@@ -121,125 +143,175 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
   const set = (key) => (event) => setDraft((current) => ({ ...current, [key]: event.target.value }))
 
   return (
-    <section className="rounded-xl border border-border bg-background">
-      <div className="border-b border-border p-4">
+    <section className={`overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs ${className}`}>
+      <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">{title}</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          <div className="min-w-0">
+            <h2 className="font-rb-display text-xl font-bold text-foreground">{title}</h2>
+            <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">{description}</p>
           </div>
-          <Badge variant="secondary">{active.length}</Badge>
+          <Badge variant="secondary" className="shrink-0 px-2.5 py-1 tabular-nums">{active.length}</Badge>
         </div>
 
-        <form
-          className="mt-3 space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (draft.label.trim().length < 2) return
-            save.mutate()
-          }}
-        >
-          <div className="grid gap-3 sm:grid-cols-2">
-            {fields.map((field) => (
-              <div key={field.key} className={`space-y-1 ${field.wide ? "sm:col-span-2" : ""}`}>
-                <Label htmlFor={`${kind}-${field.key}`}>{field.label}</Label>
-                {field.optionsKind ? (
-                  <CodeChecklist
-                    kind={field.optionsKind}
-                    value={draft[field.key]}
-                    onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
-                  />
-                ) : field.multiline ? (
-                  <Textarea
-                    id={`${kind}-${field.key}`}
-                    value={draft[field.key]}
-                    onChange={set(field.key)}
-                    placeholder={field.placeholder}
-                    maxLength={field.max}
-                    rows={2}
-                  />
-                ) : (
-                  <Input
-                    id={`${kind}-${field.key}`}
-                    value={draft[field.key]}
-                    onChange={set(field.key)}
-                    placeholder={field.placeholder}
-                    maxLength={field.max}
-                    required={field.key === "label"}
-                  />
-                )}
-              </div>
-            ))}
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={`Search ${title.toLocaleLowerCase()}...`}
+              className="pl-9 pr-9"
+              aria-label={`Search ${title}`}
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="size-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
+          <Button type="button" onClick={startAdd} className="shrink-0">
+            <Plus className="size-4" aria-hidden="true" />
+            Add {title.slice(0, -1)}
+          </Button>
+        </div>
+      </div>
 
-          {withCertifications ? (
-            <fieldset className="space-y-1.5">
-              <legend className="text-sm font-medium">Certifications under this program</legend>
-              {certificationsQuery.isLoading ? (
-                <Skeleton className="h-16 w-full" />
-              ) : (
-                <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-md border border-border p-2 sm:grid-cols-2">
-                  {certifications.map((certification) => (
-                    <label
-                      key={certification.certificationId}
-                      className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
-                    >
-                      <Checkbox
-                        checked={draft.certificationIds.includes(certification.certificationId)}
-                        onCheckedChange={() => toggleCertification(certification.certificationId)}
-                      />
-                      <span className="min-w-0 truncate">{certification.title}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </fieldset>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={save.isPending || draft.label.trim().length < 2} className="gap-1.5">
-              {save.isPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : editingId ? null : (
-                <Plus className="size-4" aria-hidden="true" />
-              )}
-              {editingId ? "Save changes" : "Add"}
+      {editorOpen ? (
+        <div className="border-y border-border/70 bg-muted/20 p-5 sm:p-6">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                {editingId ? "Editing entry" : "New entry"}
+              </p>
+              <h3 className="mt-1 font-semibold text-foreground">
+                {editingId ? `Update ${draft.label || title.slice(0, -1)}` : `Add ${title.slice(0, -1)}`}
+              </h3>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={reset} aria-label="Close editor">
+              <X className="size-4" aria-hidden="true" />
             </Button>
-            {editingId ? (
+          </div>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (draft.label.trim().length < 2) return
+              save.mutate()
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              {fields.map((field) => (
+                <div key={field.key} className={`space-y-1.5 ${field.wide ? "sm:col-span-2" : ""}`}>
+                  <Label htmlFor={`${kind}-${field.key}`} className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{field.label}</Label>
+                  {field.optionsKind ? (
+                    <CodeChecklist
+                      kind={field.optionsKind}
+                      value={draft[field.key]}
+                      onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+                    />
+                  ) : field.multiline ? (
+                    <Textarea
+                      id={`${kind}-${field.key}`}
+                      value={draft[field.key]}
+                      onChange={set(field.key)}
+                      placeholder={field.placeholder}
+                      maxLength={field.max}
+                      rows={2}
+                    />
+                  ) : (
+                    <Input
+                      id={`${kind}-${field.key}`}
+                      value={draft[field.key]}
+                      onChange={set(field.key)}
+                      placeholder={field.placeholder}
+                      maxLength={field.max}
+                      required={field.key === "label"}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {withCertifications ? (
+              <fieldset className="space-y-1.5">
+                <legend className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Certifications under this program</legend>
+                {certificationsQuery.isLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <div className="grid max-h-56 gap-1.5 overflow-y-auto rounded-lg border border-border bg-background p-2 sm:grid-cols-2">
+                    {certifications.map((certification) => (
+                      <label
+                        key={certification.certificationId}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+                      >
+                        <Checkbox
+                          checked={draft.certificationIds.includes(certification.certificationId)}
+                          onCheckedChange={() => toggleCertification(certification.certificationId)}
+                        />
+                        <span className="min-w-0 truncate">{certification.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </fieldset>
+            ) : null}
+
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
               <Button type="button" variant="outline" onClick={reset}>
                 Cancel
               </Button>
-            ) : null}
-          </div>
-        </form>
+              <Button type="submit" disabled={save.isPending || draft.label.trim().length < 2} className="gap-1.5">
+                {save.isPending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : editingId ? null : (
+                  <Plus className="size-4" aria-hidden="true" />
+                )}
+                {editingId ? "Save changes" : "Add"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-3 sm:px-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{searchTerm ? "Matching entries" : "Active entries"}</p>
+        <p className="text-xs tabular-nums text-muted-foreground">{visibleActive.length} of {active.length}</p>
       </div>
 
-      <ul className="max-h-[32rem] divide-y divide-border overflow-y-auto">
+      <ul className="divide-y divide-border/70">
         {query.isLoading ? (
           <li className="space-y-2 p-4">
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-5 w-1/2" />
           </li>
-        ) : active.length === 0 ? (
-          <li className="p-4 text-sm text-muted-foreground">Nothing here yet.</li>
+        ) : visibleActive.length === 0 ? (
+          <li className="p-8 text-center text-sm text-muted-foreground">
+            {active.length === 0 ? `No ${title.toLocaleLowerCase()} yet.` : "No entries match that search."}
+          </li>
         ) : (
-          active.map((row) => (
+          visibleActive.map((row) => (
             <li
               key={row.id}
-              className={`flex items-start justify-between gap-3 px-4 py-2.5 text-sm ${
-                editingId === row.id ? "bg-primary/5" : ""
+              className={`flex items-start justify-between gap-3 px-5 py-4 text-sm transition-colors sm:px-6 ${
+                editingId === row.id ? "bg-primary/5" : "hover:bg-muted/30"
               }`}
             >
               <div className="min-w-0">
-                <p className="break-words">
+                <p className="break-words font-medium text-foreground">
                   {row.code ? (
-                    <span className="mr-1.5 rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold">{row.code}</span>
+                    <span className="mr-2 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-bold text-primary">{row.code}</span>
                   ) : null}
                   {row.label}
                 </p>
-                {row.description ? <p className="text-xs text-muted-foreground">{row.description}</p> : null}
+                {row.category ? <p className="mt-1 text-xs text-muted-foreground">Classification: {row.category}</p> : null}
+                {row.description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{row.description}</p> : null}
                 {withCertifications ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
+                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
                     {(row.certificationIds ?? []).length === 0
                       ? "No certifications yet"
                       : (row.certificationIds ?? []).map((id) => titleById.get(Number(id)) ?? `#${id}`).join(", ")}
@@ -250,8 +322,8 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
+                  size="icon"
+                  className="size-8 text-muted-foreground"
                   title="Edit"
                   onClick={() => startEdit(row)}
                 >
@@ -260,8 +332,8 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground hover:text-destructive"
+                  size="icon"
+                  className="size-8 text-muted-foreground hover:text-destructive"
                   title="Retire: hide from the selects"
                   disabled={retire.isPending}
                   onClick={() => retire.mutate(row.id)}
@@ -275,8 +347,8 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
       </ul>
 
       {retired.length > 0 ? (
-        <div className="border-t border-border p-4">
-          <p className="text-xs font-medium text-muted-foreground">Retired ({retired.length})</p>
+        <div className="border-t border-border/70 bg-muted/20 p-5 sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Retired ({retired.length})</p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {retired.map((row) => (
               <li key={row.id}>
