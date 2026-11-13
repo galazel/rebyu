@@ -2024,6 +2024,21 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
         setCurrentPaperId(null)
         setTerm("")
         clearDraft(draftKey)
+        // Nothing may keep spending AI credits for an import that is finished.
+        uploadAbort.current?.abort()
+        if (importJob) {
+            if (["uploading", "running", "interrupted"].includes(importJob.status)) {
+                cancelImportJob(importJob.id).catch(() => {})
+            }
+            forgetJob(importJob.id)
+            clearJobFiles(importJob.id)
+            setImportJob(null)
+        }
+        if (tagJob) {
+            if (tagJob.status === "running") cancelTagJob(tagJob.id).catch(() => {})
+            forgetJob(tagJob.id)
+            setTagJob(null)
+        }
     }
 
     async function saveReady() {
@@ -2211,7 +2226,7 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
                                                 {stopping ? "Stopping…" : "Stop"}
                                             </Button>
                                         ) : null}
-                                        <Button type="button" size="sm" disabled={!taggedCount || tagging || importing} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
+                                        <Button type="button" size="sm" disabled={!taggedCount || tagging || importing || checkingAny} title={checkingAny ? "Wait for the AI check to finish" : undefined} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
                                             <Eye className="mr-2 h-4 w-4" /> Preview & save
                                         </Button>
                                     </div>
