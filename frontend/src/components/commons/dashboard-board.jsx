@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Responsive, utils as gridUtils } from "react-grid-layout"
+import { Responsive } from "react-grid-layout"
 
 import { GripHorizontal } from "@/components/icons"
 
@@ -295,17 +295,9 @@ export function DashboardBoard({
     }
   }, [currentLayout, byId, collapsedTiles])
 
-  const handleLayoutChange = (dropped) => {
+  const handleLayoutChange = (next) => {
     if (!editing) return
     movedRef.current = true
-    // The dropped card keeps the spot it was dropped on (cards under it moved
-    // down); then everything slides up into the gaps that left behind. Packing
-    // during the drag is off because it sent a card dropped beside one in the same
-    // row back underneath it.
-    const cols = Object.entries(BREAKPOINTS)
-      .sort((a, b) => b[1] - a[1])
-      .find(([, min]) => width >= min)?.[0]
-    const next = gridUtils.compact(dropped, "vertical", COLS[cols] ?? COLS.lg)
     onLayoutChange?.(
       next.map((item) => {
         const isCollapsed = Boolean(collapsedTiles[item.i])
@@ -412,10 +404,7 @@ export function DashboardBoard({
         isDraggable={editing}
         isResizable={editing}
         resizeHandles={["se"]}
-        // No auto-packing: a card stays exactly where it is dropped and the cards it
-        // lands on move down. Vertical packing sent a card dropped beside a card of
-        // the same row back below it, so the top row could never be rearranged.
-        compactType={null}
+        compactType="vertical"
         preventCollision={false}
         allowOverlap={false}
         onDragStop={handleLayoutChange}
