@@ -445,11 +445,20 @@ def _avoid_clause(stems: list[str]) -> str:
     )
 
 
-def _take_new(result_questions, seen: KnownQuestions, into: list) -> int:
-    """Appends the questions that are not a copy of one already in `seen`."""
+def _take_new(result_questions, seen: KnownQuestions, into: list, repeats: list | None = None) -> int:
+    """Appends the questions that are not a copy of one already in `seen`.
+
+    Copies go to `repeats` when given, so the caller can have them rewritten
+    into different questions instead of losing them."""
     fresh = 0
     for question in result_questions:
         if seen.twin_of(question.question) is not None:
+            if repeats is not None:
+                repeats.append((
+                    question.model_dump() if hasattr(question, "model_dump") else question,
+                    "it repeats a question that already exists; keep the same lesson and "
+                    "question type but ask about a DIFFERENT fact, step or distinction",
+                ))
             continue
         seen.add(question.question, len(into))
         into.append(question)
@@ -551,7 +560,12 @@ async def invoke_question_agent(
                 f"{instructions}{avoid_clause}"
             )
 
-        results = await asyncio.gather(
+        from app.schemas.certification.question_schema import dropped_questions
+
+        sink: list = []
+        sink_token = dropped_questions.set(sink)
+        try:
+            results = await asyncio.gather(
             *(
                 invoke_agent(
                     get_question_generation_agent,
@@ -561,6 +575,8 @@ async def invoke_question_agent(
             ),
             return_exceptions=True,
         )
+        finally:
+            dropped_questions.reset(sink_token)
         calls += width
 
         failures = [result for result in results if isinstance(result, BaseException)]
@@ -583,11 +599,17 @@ async def invoke_question_agent(
         for failure in failures:
             logger.warning("A question batch for %.40s failed (%s); topping up instead", scope, failure)
 
+        repeats: list = []
         fresh = sum(
-            _take_new(result.questions, seen, questions)
+            _take_new(result.questions, seen, questions, repeats)
             for result in results
             if not isinstance(result, BaseException)
         )
+        sink.extend(repeats)
+        if sink and len(questions) < count:
+            fresh += await _repair_dropped(
+                scope, context, sink[: count - len(questions)], seen, questions
+            )
         logger.info(
             "Question wave of %d for %.40s: %d new, %d/%d total",
             width, scope, fresh, len(questions), count,
@@ -609,6 +631,40 @@ async def invoke_question_agent(
     await fill_diagram_references(final)
     final = await verify_programming_questions(final)
     return QuestionBatch(scope=scope, questions=final)
+
+
+async def _repair_dropped(scope: str, context: str, dropped: list, seen, questions: list) -> int:
+    """Sends questions that failed a rule back to be fixed, instead of discarding them.
+
+    One small call carrying only the broken items and why each failed is far
+    cheaper than writing replacements, and keeps content that was otherwise
+    good. Anything still invalid after the repair is dropped and the normal
+    top-up covers it.
+    """
+    import json
+
+    listing = "\n\n".join(
+        f"QUESTION {n + 1} -- problem: {reason}\n{json.dumps(item, ensure_ascii=False, default=str)}"
+        for n, (item, reason) in enumerate(dropped)
+    )
+    instructions = (
+        f"Repair these {len(dropped)} question(s). Each failed one rule, named above it. "
+        "Keep each question's topic, stem and correct answer; change only what the "
+        "problem names (for example: give every choice its own explanation, make the "
+        "options similar in length so the right one is not the longest, add the missing "
+        f"field). Return exactly {len(dropped)} corrected question(s).\n\n{listing}"
+    )
+    try:
+        result = await invoke_agent(
+            get_question_generation_agent,
+            build_question_batch_prompt(scope, context, instructions),
+        )
+    except Exception as error:  # noqa: BLE001 -- the top-up still covers the gap
+        logger.warning("Repairing %d question(s) for %.40s failed (%s)", len(dropped), scope, error)
+        return 0
+    kept = _take_new(result.questions, seen, questions)
+    logger.info("Repaired %d of %d invalid question(s) for %.40s", kept, len(dropped), scope)
+    return kept
 
 
 def questions_as_dicts(batch: QuestionBatch) -> list[dict]:

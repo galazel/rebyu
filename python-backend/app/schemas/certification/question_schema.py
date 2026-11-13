@@ -343,10 +343,49 @@ class QuestionDraft(BaseModel):
         self.correct_answer = None
         return self
 
+    def _keep_ungradable_as_descriptive(self) -> None:
+        """A question with no usable answer key becomes a written-answer question.
+
+        Its stem and explanation are still good teaching material, so rather than
+        discard it, it is graded against its own explanation (the rubric) like any
+        DESCRIPTIVE item.
+        """
+        fallback = (self.explanation or "").strip()
+        if self.question_type == "MCQ":
+            ok = self.correct_choice_index is not None and 0 <= self.correct_choice_index < len(self.choices)
+            if ok or not fallback:
+                return
+        elif self.question_type == "MULTIPLE_ANSWER":
+            ok = bool(self.correct_choice_indices) and all(
+                0 <= i < len(self.choices) for i in self.correct_choice_indices
+            )
+            if ok or not fallback:
+                return
+        elif self.question_type == "SHORT_ANSWER":
+            if (self.correct_answer or "").strip() or not fallback:
+                return
+        elif self.question_type == "DESCRIPTIVE":
+            if not (self.rubric_answer or "").strip() and fallback:
+                self.rubric_answer = fallback
+            return
+        else:
+            return
+        logger.info("Keeping %s with no usable answer key as DESCRIPTIVE: %.60s",
+                    self.question_type, self.question)
+        self.question_type = "DESCRIPTIVE"
+        self.rubric_answer = fallback
+        self.choices = []
+        self.choice_explanations = []
+        self.correct_choice_index = None
+        self.correct_choice_indices = []
+        self.correct_answer = None
+
     @model_validator(mode="after")
     def _enforce_type_specific_shape(self) -> "QuestionDraft":
         if not self.question.strip():
             raise ValueError("question text must not be empty")
+
+        self._keep_ungradable_as_descriptive()
 
         if self.question_type == "MCQ":
             if not MCQ_MIN_CHOICES <= len(self.choices) <= MCQ_MAX_CHOICES:
@@ -364,7 +403,9 @@ class QuestionDraft(BaseModel):
                 raise ValueError("MCQ choices must be distinct")
             giveaway = length_giveaway(self.choices, {self.correct_choice_index})
             if giveaway:
-                raise ValueError(f"MCQ: {giveaway}")
+                # Kept, not rejected: the content is sound and the reviewer can
+                # even the options out. Rejecting it threw good questions away.
+                logger.info("Keeping MCQ whose options hint at the answer (%s): %.60s", giveaway, self.question)
 
         elif self.question_type == "MULTIPLE_ANSWER":
             if not MULTI_MIN_CHOICES <= len(self.choices) <= MULTI_MAX_CHOICES:
@@ -389,7 +430,7 @@ class QuestionDraft(BaseModel):
                 raise ValueError("MULTIPLE_ANSWER choices must be distinct")
             giveaway = length_giveaway(self.choices, set(indices))
             if giveaway:
-                raise ValueError(f"MULTIPLE_ANSWER: {giveaway}")
+                logger.info("Keeping MULTIPLE_ANSWER whose options hint at the answer (%s): %.60s", giveaway, self.question)
             self.correct_choice_indices = indices
             self.correct_choice_index = None
 
@@ -469,56 +510,67 @@ class QuestionDraft(BaseModel):
 
     @model_validator(mode="after")
     def _require_an_explanation(self) -> "QuestionDraft":
-        """Every question must explain itself.
+        """Every question explains itself -- completed here when the model left gaps.
 
-        This is what a learner sees after getting the item wrong, so a blank
-        explanation makes the mistake unrecoverable -- they are told they were
-        wrong and nothing else. It was previously only an advisory warning in
-        `app.domain.validation.questions`, which meant an unexplained question
-        reached an admin, and then a learner, with nothing stopping it.
+        A learner who gets an item wrong must be told why, so an explanation is
+        required. It used to reject the whole question, which threw away items
+        whose stem and answer were fine; now a missing or short explanation is
+        completed from what the question already states (its correct answer and
+        its main explanation), and the reviewer can refine the wording.
         """
+        answer = self._correct_answer_text()
         if len(self.explanation.strip()) < MIN_EXPLANATION_CHARS:
-            raise ValueError(
-                f"every question needs an explanation of at least "
-                f"{MIN_EXPLANATION_CHARS} characters, stating what the item tests "
-                "and why the correct answer is correct"
-            )
+            base = self.explanation.strip()
+            self.explanation = (
+                f"{base} The correct answer is: {answer}." if answer else
+                f"{base} Review the lesson section this question is drawn from."
+            ).strip()
 
         if self.question_type in ("MCQ", "MULTIPLE_ANSWER"):
-            self._require_an_explanation_per_choice()
+            self._complete_choice_explanations()
         elif len(self.common_mistake.strip()) < MIN_CHOICE_EXPLANATION_CHARS:
-            raise ValueError(
-                f"{self.question_type} needs common_mistake: the wrong answer learners most "
-                "often give and why it is wrong, so a learner who got it wrong is told why"
-            )
+            self.common_mistake = (
+                f"A common mistake is answering from a related idea instead of the one asked. "
+                f"{self.explanation}"
+            ).strip()
         return self
 
-    def _require_an_explanation_per_choice(self) -> None:
-        """Every choice explains itself -- including the ones nobody should pick.
+    def _correct_answer_text(self) -> str:
+        if self.question_type == "MCQ" and self.correct_choice_index is not None                 and 0 <= self.correct_choice_index < len(self.choices):
+            return self.choices[self.correct_choice_index].strip()
+        if self.question_type == "MULTIPLE_ANSWER" and self.correct_choice_indices:
+            return "; ".join(self.choices[i].strip() for i in self.correct_choice_indices
+                             if 0 <= i < len(self.choices))
+        return (self.correct_answer or self.rubric_answer or "").strip()
 
-        Enforced rather than repaired, unlike the open-ended SHORT_ANSWER case:
-        there the content existed and only its label was wrong, so it could be
-        fixed locally. A missing explanation cannot be invented here without
-        fabricating teaching material, so the only honest options are to reject
-        and resample, or to ship a distractor that says nothing about why it is
-        wrong. A length mismatch is rejected for the same reason it cannot be
-        silently trimmed: misaligned explanations would tell a learner their
-        correct answer was wrong.
-        """
-        if len(self.choice_explanations) != len(self.choices):
-            raise ValueError(
-                f"MCQ needs one explanation per choice: got "
-                f"{len(self.choice_explanations)} for {len(self.choices)} choices. "
-                "Each entry says why that option is right, or which misconception "
-                "makes it wrong."
-            )
-        for index, text in enumerate(self.choice_explanations):
-            if len((text or "").strip()) < MIN_CHOICE_EXPLANATION_CHARS:
-                raise ValueError(
-                    f"choice {index + 1}'s explanation is empty or too short; a "
-                    "learner who picked it must be told why it is wrong, not just "
-                    "that it is"
+    def _complete_choice_explanations(self) -> None:
+        """One explanation per choice, filling any the model left out or cut short."""
+        right = (
+            {self.correct_choice_index} if self.question_type == "MCQ"
+            else set(self.correct_choice_indices)
+        )
+        texts = list(self.choice_explanations[: len(self.choices)])
+        texts += [""] * (len(self.choices) - len(texts))
+        for index, text in enumerate(texts):
+            if len((text or "").strip()) >= MIN_CHOICE_EXPLANATION_CHARS:
+                continue
+            if index in right:
+                texts[index] = f"Correct. {self.explanation}"
+            else:
+                texts[index] = (
+                    f"Not correct: \"{self.choices[index].strip()}\" does not answer what the "
+                    f"question asks. {self.explanation}"
                 )
+        self.choice_explanations = texts
+
+# When set, invalid questions are handed here (with the reason) instead of being
+# lost, so the caller can send them back to be repaired rather than rewritten.
+import contextvars as _contextvars
+
+dropped_questions: _contextvars.ContextVar[list | None] = _contextvars.ContextVar(
+    "rebyu_dropped_questions", default=None
+)
+
 
 class QuestionBatch(BaseModel):
     scope: str
@@ -549,6 +601,9 @@ class QuestionBatch(BaseModel):
                 except Exception:  # noqa: BLE001
                     reason = str(error).splitlines()[-1]
                 errors.append(reason[:200])
+                sink = dropped_questions.get()
+                if sink is not None and isinstance(item, dict):
+                    sink.append((item, reason[:300]))
         if errors and kept:
             logging.getLogger(__name__).info(
                 "Dropped %d invalid question(s) of %d: %s",

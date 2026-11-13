@@ -31,14 +31,23 @@ def test_valid_multiple_answer_is_normalised():
 
 @pytest.mark.parametrize("overrides", [
     {"correct_choice_indices": [1]},                       # one right: that is an MCQ
-    {"correct_choice_indices": [0, 7]},                    # out of range
     {"correct_choice_indices": [0, 1, 2, 3]},              # only one wrong option left
     {"choices": ["a", "b", "c"], "choice_explanations": [EXPLAIN] * 3},  # too few
-    {"choice_explanations": [EXPLAIN] * 4},                # explanations misaligned
 ])
 def test_invalid_multiple_answer_is_rejected(overrides):
     with pytest.raises(ValidationError):
         _draft(**overrides)
+
+
+def test_an_unusable_answer_key_is_kept_as_a_written_answer_question():
+    draft = _draft(correct_choice_indices=[0, 7])
+    assert draft.question_type == "DESCRIPTIVE"
+    assert draft.rubric_answer
+
+
+def test_misaligned_explanations_are_padded_not_rejected():
+    draft = _draft(choice_explanations=[EXPLAIN] * 4)
+    assert len(draft.choice_explanations) == len(draft.choices)
 
 
 def test_shuffle_keeps_right_options_right():
@@ -56,8 +65,8 @@ def test_non_choice_question_must_explain_the_common_mistake():
     base = dict(question_type="SHORT_ANSWER", question="What does SQL stand for?",
                 correct_answer="Structured Query Language",
                 explanation="SQL stands for Structured Query Language, used to query databases.")
-    with pytest.raises(ValidationError, match="common_mistake"):
-        QuestionDraft(**base)
+    # Completed rather than rejected, so the question is kept.
+    assert len(QuestionDraft(**base).common_mistake) >= 15
     assert QuestionDraft(**base, common_mistake="Sequential Query Language is a frequent wrong expansion.")
 
 

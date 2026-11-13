@@ -140,7 +140,8 @@ async def test_an_all_duplicate_batch_stops_the_run_rather_than_burning_tokens(r
         "s", "c", "Generate lots.", count=size * 3
     )
 
-    assert len(calls) == 2
+    # Two waves plus one attempt to rewrite the repeats, then it stops.
+    assert len(calls) == 3
 
 
 async def test_top_up_rounds_replace_dropped_duplicates(recorder):

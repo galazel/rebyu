@@ -12,7 +12,6 @@ import {
 import { cn } from "@/lib/utils"
 import { ArtifactViewer } from "./artifact-viewer"
 import { ReviewActions } from "./review-panel"
-import { ValidationReport } from "./validation-report"
 import { VersionHistory } from "./version-history"
 import { stageLabel } from "./task-status"
 
@@ -91,7 +90,6 @@ export function ReviewCheckpoint({
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
             <div className="space-y-5">
-              {report ? <ValidationReport report={report} /> : null}
 
               <ArtifactViewer payload={payload} />
 

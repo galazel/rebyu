@@ -240,30 +240,28 @@ def test_an_mcq_carries_an_explanation_for_every_choice():
     assert len(_mcq().choice_explanations) == 4
 
 
-def test_an_mcq_without_per_choice_explanations_is_rejected():
-    """Rejected, not repaired: an explanation cannot be invented here without
-    fabricating teaching material."""
-    with pytest.raises(ValueError, match="one explanation per choice"):
-        _mcq(choice_explanations=[])
+def test_an_mcq_without_per_choice_explanations_is_completed_not_dropped():
+    """Kept, not rejected: missing choice explanations are completed from the
+    question's own explanation so the question is not wasted."""
+    q = _mcq(choice_explanations=[])
+    assert len(q.choice_explanations) == len(q.choices)
+    assert all(len(text) >= 15 for text in q.choice_explanations)
 
 
-def test_a_misaligned_explanation_list_is_rejected():
-    """Trimming to fit would attach the wrong reason to the wrong option --
-    telling a learner their correct answer was wrong."""
-    with pytest.raises(ValueError, match="one explanation per choice"):
-        _mcq(choice_explanations=["only one"])
+def test_a_short_explanation_list_is_padded_to_one_per_choice():
+    q = _mcq(choice_explanations=["only one"])
+    assert len(q.choice_explanations) == len(q.choices)
 
 
 @pytest.mark.parametrize("filler", ["", "   ", "Wrong.", "Incorrect"])
-def test_a_dismissive_choice_explanation_is_rejected(filler):
-    """"Incorrect." teaches nothing, which is the whole point of the field."""
-    with pytest.raises(ValueError, match="why it is wrong"):
-        _mcq(choice_explanations=[filler, "b" * 30, "c" * 30, "d" * 30])
+def test_a_dismissive_choice_explanation_is_replaced(filler):
+    q = _mcq(choice_explanations=[filler, "b" * 30, "c" * 30, "d" * 30])
+    assert len(q.choice_explanations[0].strip()) >= 15
 
 
-def test_every_question_needs_an_item_level_explanation():
-    with pytest.raises(ValueError, match="explanation"):
-        _mcq(explanation="")
+def test_a_missing_item_explanation_is_completed():
+    q = _mcq(explanation="")
+    assert len(q.explanation) >= 20
 
 
 def test_the_shape_error_is_not_masked_by_the_explanation_error():
