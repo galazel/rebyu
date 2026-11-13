@@ -164,7 +164,7 @@ class Settings(BaseSettings):
 
     question_bank_questions_per_lesson: int = 0
 
-    question_batch_size: int = 20
+    question_batch_size: int = 5
 
     # Question batches of one large ask (bank, mock exam) written at once.
     # Batches in the same wave cannot see each other's stems, so duplicates
