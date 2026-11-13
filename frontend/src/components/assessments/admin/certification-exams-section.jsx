@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { ClipboardCheck, EyeIcon, PencilIcon, Plus } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
@@ -44,11 +43,13 @@ function lessonIdsOf(certification) {
  */
 export default function CertificationExamsSection({ certification }) {
   const certificationId = certification?.certificationId ?? null
-  const navigate = useNavigate()
   const data = useAssessmentData(certificationId)
   const [createType, setCreateType] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  const [pickerTarget, setPickerTarget] = useState(null)
   const [previewTarget, setPreviewTarget] = useState(null)
+
+  const editorTarget = pickerTarget ?? editTarget
 
   const lessonIds = useMemo(() => lessonIdsOf(certification), [certification])
 
@@ -172,11 +173,7 @@ export default function CertificationExamsSection({ certification }) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      navigate(
-                        `/admin/certification/${certificationId}/question-bank?tab=question-builder&mode=manual`,
-                      )
-                    }
+                    onClick={() => setPickerTarget(card.exam)}
                   >
                     <Plus aria-hidden="true" /> Add questions
                   </Button>
@@ -205,16 +202,24 @@ export default function CertificationExamsSection({ certification }) {
       />
 
       <AssessmentDialog
-        open={editTarget != null}
-        onOpenChange={(open) => !open && setEditTarget(null)}
+        open={editorTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null)
+            setPickerTarget(null)
+          }
+        }}
         mode="edit"
         certification={certification}
-        exam={editTarget}
+        exam={editorTarget}
         examTypeByIdText={data.examTypeByIdText}
         existingExamQuestions={
-          editTarget ? data.examQuestions.filter((row) => row.examId === editTarget.examId) : []
+          editorTarget
+            ? data.examQuestions.filter((row) => row.examId === editorTarget.examId)
+            : []
         }
         questionById={data.questionById}
+        openQuestionPicker={pickerTarget != null}
       />
 
       <AssessmentPreviewDialog

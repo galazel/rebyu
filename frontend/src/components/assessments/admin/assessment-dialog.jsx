@@ -217,6 +217,7 @@ export default function AssessmentDialog({
                                            initialTitle = "",
                                            lockPreset = false,
                                            ownerDepartmentId = null,
+                                           openQuestionPicker = false,
                                          }) {
   const queryClient = useQueryClient()
   const isEdit = mode === "edit"
@@ -330,10 +331,10 @@ export default function AssessmentDialog({
     }
 
     setError("")
-    setPickerOpen(false)
+    setPickerOpen(openQuestionPicker)
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, exam?.examId, mode, isEdit && questionById.size > 0])
+  }, [open, exam?.examId, mode, isEdit && questionById.size > 0, openQuestionPicker])
 
   const alreadySelectedIds = useMemo(
       () => new Set(selectedQuestions.map((question) => question.questionId)),

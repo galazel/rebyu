@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { useParams, useSearchParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -9,9 +9,6 @@ import { getAllCertifications } from "@/services/certificationService.js"
 
 export default function CertificationQuestionBankPage() {
   const { id: certificationId } = useParams()
-  const [searchParams] = useSearchParams()
-  const openBuilder = searchParams.get("tab") === "question-builder"
-  const initialBuilderMode = searchParams.get("mode") === "generate" ? "generate" : "manual"
 
   const { data: certifications = [], isLoading: certificationsLoading } = useQuery({
     queryKey: ["admin-certifications", "question-bank-page"],
@@ -47,11 +44,7 @@ export default function CertificationQuestionBankPage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <QuestionBank
-          certificationId={Number(certificationId)}
-          initialTab={openBuilder ? "question-builder" : "all-questions"}
-          initialBuilderMode={openBuilder ? initialBuilderMode : ""}
-        />
+        <QuestionBank certificationId={Number(certificationId)} />
       </div>
     </div>
   )
