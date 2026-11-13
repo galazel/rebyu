@@ -1,16 +1,15 @@
 import { Table } from "@/components/ui/table"
+import { DirectoryHeader, DirectoryResults } from "@/components/admin/directory-header.jsx"
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { CheckIcon, Clock, CreditCard, Download, Loader2Icon, UsersIcon, XCircleIcon } from "@/components/icons"
+import { CheckIcon, Loader2Icon, XCircleIcon } from "@/components/icons"
 import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionPageHeader,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
-import { BentoGrid, BentoStat } from "@/components/commons/bento.jsx"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,12 +37,12 @@ function money(value, currency = "PHP") {
 
 function StatusPill({ row }) {
   const [label, tone] = row.awaitingApproval
-    ? ["Awaiting approval", "bg-rb-bee-wash text-rb-eel border-rb-bee/50"]
+    ? ["Awaiting approval", "bg-rb-bee-wash text-foreground border-rb-bee/50"]
     : row.active
       ? ["Active", "bg-rb-feather-wash text-rb-feather-lip border-rb-feather/40"]
       : row.status === "CANCELED" && row.reviewNote
         ? ["Rejected", "bg-rb-cardinal/10 text-rb-cardinal-lip border-rb-cardinal/40"]
-        : [row.status.charAt(0) + row.status.slice(1).toLowerCase(), "bg-rb-polar text-rb-wolf border-rb-swan"]
+        : [row.status.charAt(0) + row.status.slice(1).toLowerCase(), "bg-rb-polar text-muted-foreground border-border"]
   return <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${tone}`}>{label}</span>
 }
 
@@ -85,35 +84,35 @@ function SubscriptionCard({ row }) {
   const busy = approve.isPending || reject.isPending || revoke.isPending
 
   return (
-    <li className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[var(--comic-shadow-sm)]">
+    <li className="rounded-xl border border-border bg-card p-4 shadow-[var(--comic-shadow-sm)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-rb-display text-base font-extrabold text-rb-eel">
+          <p className="break-words font-rb-display text-base font-extrabold text-foreground">
             {row.learnerName || `Learner #${row.learnerId}`}
           </p>
-          <p className="truncate text-sm text-rb-wolf">{row.email ?? "No email"}</p>
+          <p className="break-all text-sm text-muted-foreground">{row.email ?? "No email"}</p>
         </div>
         <StatusPill row={row} />
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
         <div>
-          <dt className="text-xs font-bold uppercase tracking-wide text-rb-hare">Plan</dt>
-          <dd className="font-bold text-rb-eel">{row.planName ?? row.planCode}</dd>
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Plan</dt>
+          <dd className="font-bold text-foreground">{row.planName ?? row.planCode}</dd>
         </div>
         <div>
-          <dt className="text-xs font-bold uppercase tracking-wide text-rb-hare">Paid (test)</dt>
-          <dd className="font-bold tabular-nums text-rb-eel">{money(row.amount, row.currency)}</dd>
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Paid (test)</dt>
+          <dd className="font-bold tabular-nums text-foreground">{money(row.amount, row.currency)}</dd>
         </div>
         <div>
-          <dt className="text-xs font-bold uppercase tracking-wide text-rb-hare">Paid at</dt>
-          <dd className="text-rb-eel">{row.paidAt ? formatDateTime(row.paidAt) : "—"}</dd>
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Paid at</dt>
+          <dd className="text-foreground">{row.paidAt ? formatDateTime(row.paidAt) : "—"}</dd>
         </div>
         <div>
-          <dt className="text-xs font-bold uppercase tracking-wide text-rb-hare">
+          <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
             {row.active ? "Pro until" : "Reviewed"}
           </dt>
-          <dd className="text-rb-eel">
+          <dd className="text-foreground">
             {row.active
               ? row.currentPeriodEnd
                 ? formatDateTime(row.currentPeriodEnd)
@@ -126,9 +125,9 @@ function SubscriptionCard({ row }) {
       </dl>
 
       {row.checkoutReference ? (
-        <p className="mt-2 truncate text-xs text-rb-hare">PayMongo checkout · {row.checkoutReference}</p>
+        <p className="mt-2 truncate text-xs text-muted-foreground">PayMongo checkout · {row.checkoutReference}</p>
       ) : null}
-      {row.reviewNote ? <p className="mt-2 text-sm text-rb-wolf">Note: {row.reviewNote}</p> : null}
+      {row.reviewNote ? <p className="mt-2 text-sm text-muted-foreground">Note: {row.reviewNote}</p> : null}
       {row.status === "CANCELED" && row.reviewedAt && row.reviewNote !== undefined && !row.active ? (
         row.refundId ? (
           <p className="mt-1 text-xs text-rb-feather-lip">Refunded via PayMongo · {row.refundId}</p>
@@ -198,7 +197,7 @@ function PaymentStatus({ status }) {
         ? "text-rb-feather-lip"
         : status === "Rejected"
           ? "text-rb-cardinal-lip"
-          : "text-rb-wolf"
+          : "text-muted-foreground"
   return <span className={`text-xs font-bold ${tone}`}>{status}</span>
 }
 
@@ -217,28 +216,29 @@ function PaymentsTable({ rows, onlyKind }) {
 
   return (
     <div className="space-y-3">
+      <DirectoryResults title="Payment records" count={visible.length} filtered={Boolean(search)} onReset={() => setSearch("")} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search by learner, email, reference or item"
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
           aria-label="Search payments"
         />
-        <span className="text-xs text-rb-wolf">
+        <span className="text-xs text-muted-foreground">
           {visible.length.toLocaleString()} of {scoped.length.toLocaleString()}
         </span>
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-rb-card border-2 border-dashed border-rb-swan p-8 text-center text-sm text-rb-wolf">
+        <p className="rounded-rb-card border-2 border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           {search ? "No payments match that search." : "No paid purchases or Pro subscriptions yet."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)]">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--comic-shadow-sm)]">
           <Table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b-2 border-rb-swan text-left text-xs font-bold uppercase tracking-wide text-rb-hare">
+              <tr className="border-b-2 border-border text-left text-xs font-bold uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3">Learner</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Item</th>
@@ -250,10 +250,10 @@ function PaymentsTable({ rows, onlyKind }) {
             </thead>
             <tbody>
               {visible.map((row) => (
-                <tr key={row.key} className="border-b border-rb-swan/60 last:border-b-0">
+                <tr key={row.key} className="border-b border-border/60 last:border-b-0">
                   <td className="px-4 py-3">
-                    <p className="font-bold text-rb-eel">{row.learnerName}</p>
-                    <p className="text-xs text-rb-wolf">{row.email ?? "No email"}</p>
+                    <p className="font-bold text-foreground">{row.learnerName}</p>
+                    <p className="text-xs text-muted-foreground">{row.email ?? "No email"}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -264,12 +264,12 @@ function PaymentsTable({ rows, onlyKind }) {
                       {row.kind}
                     </span>
                   </td>
-                  <td className="max-w-[16rem] truncate px-4 py-3 text-rb-eel" title={row.item ?? ""}>
+                  <td className="max-w-[16rem] truncate px-4 py-3 text-foreground" title={row.item ?? ""}>
                     {row.item ?? "—"}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-rb-wolf">{row.reference}</td>
-                  <td className="px-4 py-3 text-right font-bold tabular-nums text-rb-eel">{money(row.amount)}</td>
-                  <td className="px-4 py-3 text-rb-eel">{row.paidAt ? formatDateTime(row.paidAt) : "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{row.reference}</td>
+                  <td className="px-4 py-3 text-right font-bold tabular-nums text-foreground">{money(row.amount)}</td>
+                  <td className="px-4 py-3 text-foreground">{row.paidAt ? formatDateTime(row.paidAt) : "—"}</td>
                   <td className="px-4 py-3">
                     <PaymentStatus status={row.status} />
                   </td>
@@ -372,11 +372,20 @@ export default function AdminSubscriptionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <InstitutionPageHeader
+    <div className="admin-directory space-y-6">
+      {paymentsQuery.isError ? (
+        <InstitutionErrorState title="Payment totals could not be loaded" description="Totals are unavailable until the ledger reloads." onRetry={() => paymentsQuery.refetch()} />
+      ) : null}
+      <DirectoryHeader
         title="Payments"
-        subtitle="Everyone who has paid — certification purchases and Pro subscriptions — plus test-mode PayMongo payments waiting for review."
-        actions={
+        description="Review Pro subscriptions, track certification purchases, and find payment records. PayMongo payments are in test mode."
+        stats={[
+          { label: "Learners who paid", value: ledger.payers ?? "—", hint: paymentsQuery.isError || paymentsQuery.isLoading ? "Ledger unavailable" : `${ledger.certificationOrders ?? 0} orders · ${ledger.proPayments ?? 0} Pro payments` },
+          { label: "Certification sales", value: money(ledger.certificationRevenue), hint: "Completed, paid orders" },
+          { label: "Approved Pro revenue (test)", value: money(ledger.proRevenue), hint: `${counts.active} active subscriptions` },
+          { label: "Awaiting approval", value: counts.awaiting, hint: "Paid, waiting for review", onSelect: () => setTab("awaiting"), active: tab === "awaiting" },
+        ]}
+      >
           <ExportButton
             filename="rebyu-payments"
             report="Payments"
@@ -385,38 +394,11 @@ export default function AdminSubscriptionsPage() {
             disabled={paymentsQuery.isLoading}
             size="default"
           />
-        }
-      />
+      </DirectoryHeader>
 
-      <BentoGrid>
-        <BentoStat
-          tone="macaw"
-          col={2}
-          icon={UsersIcon}
-          label="Learners who paid"
-          value={ledger.payers == null ? "—" : Number(ledger.payers).toLocaleString()}
-          hint={`${Number(ledger.certificationOrders ?? 0).toLocaleString()} orders · ${Number(ledger.proPayments ?? 0).toLocaleString()} Pro payments`}
-        />
-        <BentoStat
-          tone="macaw"
-          col={2}
-          icon={CreditCard}
-          label="Certification sales"
-          value={money(ledger.certificationRevenue)}
-          hint="Completed, paid orders"
-        />
-        <BentoStat
-          tone="feather"
-          col={2}
-          icon={CheckIcon}
-          label="Approved Pro revenue (test)"
-          value={money(ledger.proRevenue)}
-          hint={`${counts.active.toLocaleString()} on Pro right now`}
-        />
-        <BentoStat tone="bee" col={2} icon={Clock} label="Awaiting approval" value={counts.awaiting.toLocaleString()} hint="Paid, not yet Pro" />
-      </BentoGrid>
 
-      <div className="flex flex-wrap gap-2" role="tablist">
+
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="tablist" aria-label="Payment categories">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -424,10 +406,10 @@ export default function AdminSubscriptionsPage() {
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
-            className={`rounded-full border-2 px-4 py-1.5 text-sm font-bold transition-colors ${
+            className={`min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
               tab === item.id
-                ? "border-rb-feather bg-rb-feather-wash text-rb-feather-lip"
-                : "border-rb-swan bg-rb-snow text-rb-wolf hover:bg-rb-polar"
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-accent"
             }`}
           >
             {item.label}
@@ -451,7 +433,7 @@ export default function AdminSubscriptionsPage() {
           <PaymentsTable rows={payments} onlyKind={tab === "certifications" ? "Certification" : null} />
         )
       ) : proRows.length === 0 ? (
-        <p className="rounded-rb-card border-2 border-dashed border-rb-swan p-8 text-center text-sm text-rb-wolf">
+        <p className="rounded-rb-card border-2 border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           {tab === "awaiting" ? "No payments are waiting for approval." : "No Pro subscriptions yet."}
         </p>
       ) : (

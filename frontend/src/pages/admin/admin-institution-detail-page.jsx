@@ -183,7 +183,7 @@ export default function AdminInstitutionDetail() {
   const enrolments = useMemo(
     () =>
       asArray(institutionCertLearnersQuery.data).filter((row) =>
-        institutionCertIds.has(row.institutionCertId)
+        institutionCertIds.has(row.institutionCertId) && ["active", "completed"].includes(String(row.status).toLowerCase())
       ),
     [institutionCertLearnersQuery.data, institutionCertIds]
   )
@@ -284,10 +284,10 @@ export default function AdminInstitutionDetail() {
 
   if (isLoading) return <InstitutionLoadingSkeleton />
 
-  if (institutionQuery.isError || !institution) {
+  if (institutionQuery.isError || institutionCertsQuery.isError || institutionCertLearnersQuery.isError || certificationsQuery.isError || !institution) {
     return (
       <div className="space-y-6">
-        <InstitutionErrorState onRetry={institutionQuery.refetch} />
+        <InstitutionErrorState onRetry={() => { institutionQuery.refetch(); institutionCertsQuery.refetch(); institutionCertLearnersQuery.refetch(); certificationsQuery.refetch() }} />
       </div>
     )
   }
@@ -317,7 +317,7 @@ export default function AdminInstitutionDetail() {
           label="Learners enrolled"
           value={stats.learners}
           hint={
-            pendingInvitations > 0
+            organisationQuery.isError ? "Pending invitations unavailable" : organisationQuery.isLoading ? "Loading invitations…" : pendingInvitations > 0
               ? `${pendingInvitations} invitation${pendingInvitations === 1 ? "" : "s"} still pending`
               : `${enrolments.length} enrolment${enrolments.length === 1 ? "" : "s"} across certifications`
           }
@@ -326,7 +326,7 @@ export default function AdminInstitutionDetail() {
           icon={AwardIcon}
           label="Seat utilisation"
           value={`${percent(stats.usedSeats, stats.totalSeats)}%`}
-          hint={`${stats.usedSeats} of ${stats.totalSeats} purchased seats in use · ${institutionCerts.length} certification${institutionCerts.length === 1 ? "" : "s"}`}
+          hint={`${stats.usedSeats} of ${stats.totalSeats} seats occupied or reserved · ${institutionCerts.length} certification${institutionCerts.length === 1 ? "" : "s"}`}
         />
         <InstitutionStatCard
           icon={TrendingUp}
@@ -444,7 +444,7 @@ export default function AdminInstitutionDetail() {
           <CardHeader>
             <CardTitle>Progress distribution</CardTitle>
             <CardDescription>
-              How far enrolments have got, across all certifications.
+              Lesson progress for active and completed enrolments; revoked memberships are excluded.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -461,7 +461,7 @@ export default function AdminInstitutionDetail() {
         <Card className={TABLE_SURFACE}>
           <CardHeader>
             <CardTitle>New enrolments</CardTitle>
-            <CardDescription>Learners added per month, last six months.</CardDescription>
+            <CardDescription>Certification enrolments assigned per month, last six months. A learner can have several enrolments.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {stats.months.map((month) => (
@@ -474,7 +474,7 @@ export default function AdminInstitutionDetail() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card className={TABLE_SURFACE}>
           <CardHeader>
-            <CardTitle>Departments ({departments.length})</CardTitle>
+            <CardTitle>Departments ({organisationQuery.isError || organisationQuery.isLoading ? "—" : departments.length})</CardTitle>
             <CardDescription>How the institution has divided its seats.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -482,7 +482,7 @@ export default function AdminInstitutionDetail() {
               <p className="px-6 pb-6 text-sm text-muted-foreground">
                 Departments could not be loaded.
               </p>
-            ) : departments.length === 0 ? (
+            ) : organisationQuery.isLoading ? (<p className="px-6 pb-6 text-sm text-muted-foreground">Loading departments…</p>) : departments.length === 0 ? (
               <InstitutionEmptyState
                 icon={Layers}
                 title="No departments"
@@ -543,7 +543,7 @@ export default function AdminInstitutionDetail() {
               {formatDate(institution.joinedAt)}
             </DetailRow>
             <DetailRow icon={Send} label="Pending invitations">
-              {organisationQuery.isError ? "Unavailable" : String(pendingInvitations)}
+              {organisationQuery.isError ? "Unavailable" : organisationQuery.isLoading ? "Loading…" : String(pendingInvitations)}
             </DetailRow>
           </CardContent>
         </Card>

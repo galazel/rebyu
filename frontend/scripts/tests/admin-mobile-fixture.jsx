@@ -12,6 +12,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "../../src/compone
 import { ai, live, certification, directoryLearners, directoryInstitutions, directoryRequests } from "./admin-mobile-data.mjs"
 import CertificationQuestionBankPage from "../../src/pages/admin/certification-question-bank-page.jsx"
 import { InstitutionQuestionBankPanel } from "../../src/pages/institution/certifications/institution-question-bank-page.jsx"
+import Payments from "../../src/pages/admin/subscriptions-page.jsx"
 import Institutions from "../../src/pages/admin/institutions-page.jsx"
 import AdminInstitutionDetail from "../../src/pages/admin/admin-institution-detail-page.jsx"
 import Learners from "../../src/pages/admin/learners-page.jsx"
@@ -33,17 +34,22 @@ client.setQueryData(["admin-institutions"], directoryInstitutions)
 client.setQueryDefaults(["admin-institution"], { staleTime: Infinity })
 client.setQueryData(["admin-institution", 1], directoryInstitutions[0])
 client.setQueryData(["admin-institution-certificates"], [{ institutionCertId: 1, institutionId: 1, certificationId: 1, totalSlots: 100, usedSlots: 1, status: "ACTIVE", accessExpiryDate: "2027-12-01" }])
-client.setQueryData(["admin-institution-certification-learners"], [{ institutionCertId: 1, learnerId: 1, status: "active", progressPercentage: 50 }])
+client.setQueryData(["admin-institution-certification-learners"], [{ institutionCertId: 1, learnerId: 1, status: "active", progressPercentage: 50 }, { institutionCertId: 1, learnerId: 2, status: "revoked", progressPercentage: 100, completedAt: "2026-01-01" }])
 client.setQueryData(["admin-institution-organisation", 1], { departments: [], pendingInvitations: 0 })
 client.setQueryDefaults(["admin-partnership-requests"], { staleTime: Infinity })
 client.setQueryData(["admin-partnership-requests", "ALL"], directoryRequests)
 function InstitutionContext() { return <Outlet context={{ institution: { institutionId: 1 } }} /> }
+client.setQueryDefaults(["admin-subscriptions"], { staleTime: Infinity })
+client.setQueryDefaults(["admin-payments"], { staleTime: Infinity })
+client.setQueryData(["admin-subscriptions"], [{ learnerSubscriptionId: 1, learnerId: 1, learnerName: "Test learner", email: "long.email@example.test", active: true, status: "ACTIVE", amount: 199, planName: "Pro", currentPeriodEnd: "2027-01-01" }])
+client.setQueryData(["admin-payments"], { payers: 1, certificationOrders: 0, proPayments: 1, proRevenue: 199, certificationRevenue: 0, payments: [{ key: "pro-1", learnerName: "Test learner", email: "long.email@example.test", kind: "Pro", item: "Pro monthly", reference: "checkout-123", amount: 199, status: "Active" }] })
 const route = new URLSearchParams(location.search).get("page") || "ai-settings"
 createRoot(document.getElementById("root")).render(<QueryClientProvider client={client}><ThemeProvider defaultTheme="light" storageKey="admin-mobile-fixture-theme"><TooltipProvider><MemoryRouter initialEntries={[`/admin/${route}`]}><Routes>
   <Route path="/admin" element={<DashboardLayout />}>
     <Route path="ai-settings" element={<AiSettings />} />
     <Route path="rewards" element={<Rewards />} />
     <Route path="certification/:id/question-bank" element={<CertificationQuestionBankPage />} />
+    <Route path="subscriptions" element={<Payments />} />
     <Route path="institutions" element={<Institutions />} />
     <Route path="institutions/:id" element={<AdminInstitutionDetail />} />
     <Route path="learners" element={<Learners />} />

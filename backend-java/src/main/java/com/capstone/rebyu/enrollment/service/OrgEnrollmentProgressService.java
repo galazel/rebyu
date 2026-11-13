@@ -63,10 +63,10 @@ public class OrgEnrollmentProgressService {
     }
 
     private void apply(List<InstitutionCertificationLearner> rows, Long learnerId, Long certificationId) {
-        int total = lessonRepository.findOfficialLessonIdsByCertificationId(certificationId).size();
-        long done = completedLessonRepository
-                .countByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
-                        learnerId, certificationId);
+        var officialIds = new java.util.HashSet<>(lessonRepository.findCatalogLessonIdsByCertificationId(certificationId));
+        int total = officialIds.size();
+        long done = completedLessonRepository.completedLessonIds(learnerId, certificationId)
+                .stream().filter(officialIds::contains).distinct().count();
         BigDecimal percent = total == 0 ? BigDecimal.ZERO
                 : BigDecimal.valueOf(Math.min(100.0, done * 100.0 / total)).setScale(2, RoundingMode.HALF_UP);
         boolean finished = total > 0 && done >= total;

@@ -19,15 +19,23 @@ import java.util.List;
 public class InstitutionCertificateService {
     private final InstitutionCertificateRepository institutionCertificateRepository;
     private final InstitutionCertificateMapper institutionCertificateMapper;
+    private final SeatLedgerService seatLedger;
+
+    private InstitutionCertificateDto liveDto(InstitutionCertificate entity) {
+        InstitutionCertificateDto dto = institutionCertificateMapper.toDto(entity);
+        dto.setUsedSlots(seatLedger.usedSeats(entity.getInstitutionCertId()));
+        dto.setRemainingSlots(Math.max(0, dto.getTotalSlots() - dto.getUsedSlots()));
+        return dto;
+    }
 
     public List<InstitutionCertificateDto> getAll() {
         log.debug("Fetching all institution certificates");
-        return institutionCertificateRepository.findAll().stream().map(institutionCertificateMapper::toDto).toList();
+        return institutionCertificateRepository.findAll().stream().map(this::liveDto).toList();
     }
 
     public InstitutionCertificateDto getById(Long id) {
         log.debug("Fetching institution certificate id: {}", id);
-        return institutionCertificateMapper.toDto(findEntity(id));
+        return liveDto(findEntity(id));
     }
 
     public InstitutionCertificateDto create(InstitutionCertificateDto dto) {
