@@ -172,42 +172,6 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
 
     return (
         <section className="space-y-3">
-            <div>
-                <h3 className="text-sm font-semibold text-foreground">Exam papers and answer keys</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Name each file after its exam, ending in <b>Questions</b> or <b>Answer Key</b> --{" "}
-                    <span className="font-mono">Midterm Exam Questions.pdf</span> and{" "}
-                    <span className="font-mono">Midterm Exam Answer Key.pdf</span>. Files with the same title are paired; AM/PM
-                    labels are optional. You check the pairs before anything is read. Any layout works.
-                </p>
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-2" aria-label="Accepted document layouts">
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
-                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                        <FileText className="size-4 text-primary" /> Accepted question papers
-                    </p>
-                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
-                        <li><b className="text-foreground">Numbered MCQ:</b> Q1 with a–d choices, across one or many pages.</li>
-                        <li><b className="text-foreground">Multi-part papers:</b> Q1-A, Q1-2, blanks, answer groups and PM-style sections.</li>
-                        <li><b className="text-foreground">Visual papers:</b> tables, diagrams, figures, scans and image-only pages.</li>
-                    </ul>
-                </div>
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                    <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                        <KeyRound className="size-4 text-amber-700 dark:text-amber-400" /> Accepted answer keys
-                    </p>
-                    <ul className="mt-2 space-y-1 text-xs leading-4 text-muted-foreground">
-                        <li><b className="text-foreground">Answer lists:</b> 1 a, 2 c, or Question 1 — B.</li>
-                        <li><b className="text-foreground">Answer tables:</b> Question · Subquestion · Choice · Correct answer.</li>
-                        <li><b className="text-foreground">Matching IDs:</b> 1-A, 2-2-A and similar subquestion labels are supported.</li>
-                    </ul>
-                </div>
-                <p className="sm:col-span-2 rounded-lg border border-dashed border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
-                    Every page is read by AI vision (OpenRouter) from the original page image, so any layout works. If the AI cannot read a file, the import stops and tells you why. You always approve the result before saving.
-                </p>
-            </div>
-
             <div
                 className={cn(
                     "relative flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed p-3 transition-colors has-[input:focus]:ring-2",

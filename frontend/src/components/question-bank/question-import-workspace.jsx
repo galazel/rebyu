@@ -409,41 +409,28 @@ function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
         <section className="mb-5 overflow-hidden rounded-2xl border border-primary/20 bg-background shadow-sm">
-            <div className="grid gap-4 border-b bg-muted/20 px-5 py-4 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
+            <div className="grid gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)] lg:items-center">
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Question bank · import administration</p>
-                    <h1 className="mt-1.5 font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Question bank import</h1>
-                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Submit examination papers and answer keys for extraction, validation and controlled publication to this certification&apos;s question bank.</p>
+                    <h1 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">Import questions</h1>
+                    <p className="mt-1.5 max-w-2xl text-sm leading-5 text-muted-foreground">Upload question papers and answer keys, review the extracted questions, then publish them to this certification&apos;s question bank.</p>
                 </div>
-                <div className="grid grid-cols-3 divide-x rounded-xl border bg-background px-2 py-3 text-center">
+                <ol className="grid grid-cols-3 divide-x rounded-xl border bg-muted/20 px-2 py-3 text-center" aria-label="Import steps">
                     {[["1", "Submit"], ["2", "Validate"], ["3", "Publish"]].map(([number, label]) => (
-                        <div key={number} className="px-2">
+                        <li key={number} className="px-2">
                             <span className="mx-auto grid size-7 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{number}</span>
                             <p className="mt-1.5 text-xs font-semibold text-foreground">{label}</p>
-                        </div>
+                        </li>
                     ))}
-                </div>
+                </ol>
             </div>
-            <div className="grid gap-2 bg-background px-5 py-3 sm:grid-cols-3 sm:px-6">
-                {[
-                    ["File matching", "Files sharing an examination title are paired. AM/PM labels are optional."],
-                    ["Review requirement", "Verify extracted questions, answer mappings and figures before publication."],
-                    ["Classification", "Assign lesson and difficulty metadata after validation is complete."],
-                ].map(([title, body]) => (
-                    <div key={title} className="min-w-0 rounded-lg px-1 py-0.5">
-                        <p className="text-xs font-semibold text-foreground">{title}</p>
-                        <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{body}</p>
-                    </div>
-                ))}
-            </div>
-            <div className="border-t bg-muted/30 px-5 py-2.5 sm:px-6">
+            <div className="border-t bg-muted/20 px-5 py-2.5 sm:px-6">
                 <button type="button" onClick={() => setShowNaming((o) => !o)} className="text-xs font-semibold text-primary underline-offset-2 hover:underline">
-                    {showNaming ? "Hide file-naming requirements" : "View file-naming requirements"}
+                    {showNaming ? "Hide file requirements" : "View file requirements"}
                 </button>
             </div>
             {showNaming ? (
-                <div className="border-t bg-primary/[0.035] px-5 py-4 sm:px-6">
-                    <div className="rounded-xl border border-primary/20 bg-background p-3">
+                <div className="border-t bg-muted/10 px-5 py-4 sm:px-6">
+                    <div className="rounded-xl border bg-background p-3">
                     <p className="text-xs text-muted-foreground">
                         <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter. AM/PM, morning and afternoon are optional labels, not required parts of the title.
                     </p>
@@ -457,7 +444,7 @@ function ImportGuide() {
                             </tbody>
                         </table>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">A file with no key is allowed when answers are printed inside it.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">PDF and Word files are accepted. A file with no key is allowed when answers are printed inside it.</p>
                     </div>
                 </div>
             ) : null}
@@ -1771,10 +1758,9 @@ export default function QuestionImportWorkspace({ certificationId, ownerDepartme
     return (
         <div className="flex h-full w-full flex-col overflow-hidden bg-gradient-to-b from-primary/[0.035] via-muted/20 to-muted/30">
             <header className="flex shrink-0 items-center gap-3 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
-                <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-sm font-bold text-primary">QB</div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-primary">Question bank · import workspace</p>
-                    <p className="truncate text-sm font-semibold sm:text-base">{certification?.title ?? "Question bank"}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Question bank</p>
+                    <p className="truncate text-sm font-semibold text-foreground sm:text-base">{certification?.title ?? "Certification"}</p>
                 </div>
                 {papers.length ? (
                     <div className="flex items-center gap-1.5 sm:gap-2">
