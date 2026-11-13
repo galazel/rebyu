@@ -25,6 +25,7 @@ import {
 import { createKnowledgeCheck } from "@/services/knowledgeCheckService.js"
 import { answerAdaptiveItems, startAssessmentAttempt, submitAssessmentAttempt } from "@/services/assessmentService.js"
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 
 export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain, onComplete }) {
@@ -151,6 +152,12 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const verdict = revealed ? localVerdict(current, currentAnswer, currentKey) : null
   const awaitingNext = adaptive && revealed && !last && !questions[index + 1]
 
+  // Image-based questions need their secured media before the learner reaches them.
+  // This also keeps the modal responsive when all answer choices are diagrams.
+  useEffect(() => {
+    prefetchAuthedMedia(questions.flatMap(questionMediaKeys))
+  }, [questions])
+
   function setAnswer(patch) {
     if (revealed) return
     setAnswers((existing) => ({
@@ -245,9 +252,9 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       <AlertDialogContent
         data-no-snip
         className={cn(
-          "tg-cat-explain max-h-[calc(100dvh-2rem)] border border-[var(--tg-line)] bg-card text-foreground",
+          "tg-cat-explain max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1rem)] border border-[var(--tg-line)] bg-card text-foreground sm:w-[min(92vw,66rem)]",
           phase === "playing" || phase === "submitting" || phase === "result"
-            ? "flex h-[min(36rem,calc(100dvh-2rem))] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-rb-snow p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_90px_-24px_rgba(0,0,0,0.75)] sm:max-w-[46rem]"
+            ? "flex h-[min(48rem,calc(100dvh-1.5rem))] max-w-[66rem] flex-col overflow-hidden rounded-[26px] border-rb-swan/90 bg-rb-snow p-0 shadow-[0_28px_90px_-32px_rgba(16,62,48,0.62)] dark:shadow-[0_28px_90px_-24px_rgba(0,0,0,0.75)]"
             : "rounded-[24px] p-6 shadow-[0_24px_64px_-24px_rgba(16,62,48,0.45)] dark:shadow-[0_28px_80px_-20px_rgba(0,0,0,0.75)]",
         )}
         onEscapeKeyDown={(event) => event.preventDefault()}
@@ -300,9 +307,16 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
 
             {current ? (
               <div key={current.attemptQuestionId} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-7">
-                <div className="max-h-[26dvh] overflow-y-auto overscroll-contain pr-2 sm:max-h-56">
+                <div className="max-h-[38dvh] overflow-y-auto overscroll-contain pr-2 sm:max-h-96">
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-rb-wolf">Choose the best answer</p>
                   <p className="text-base font-semibold leading-7 tracking-[-0.008em] text-rb-eel sm:text-lg sm:leading-8">{current.question}</p>
+                  <AuthedImage
+                    imageKey={current.questionImageKey ?? current.imageKey}
+                    alt="Question reference"
+                    zoomable
+                    className="tg-media-img-paper mx-auto mt-4 max-h-80 w-auto max-w-full rounded-xl border border-rb-swan object-contain dark:p-1"
+                    placeholderClassName="mx-auto mt-4 h-28 w-full max-w-md"
+                  />
                 </div>
 
                 {isMultipleChoice(current) ? (
@@ -317,6 +331,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                       const selected = currentAnswer?.selectedChoiceId === choice.choiceId
                       const isRight = revealed && currentKey?.correctChoiceId === choice.choiceId
                       const isWrong = revealed && selected && !isRight
+                      const hasImage = Boolean(choice.imageKey)
                       return (
                         <button
                           key={choice.choiceId ?? choiceIndex}
@@ -325,7 +340,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           aria-pressed={selected}
                           disabled={revealed}
                           className={cn(
-                            "group flex min-h-[78px] items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-6 transition duration-200 sm:text-base",
+                            "group flex min-h-[78px] items-start gap-3.5 rounded-2xl border px-4 py-3.5 text-left text-[15px] leading-6 transition duration-200 sm:text-base",
                             !revealed && "hover:-translate-y-px hover:shadow-[0_12px_24px_-20px_rgba(19,70,52,0.65)] active:translate-y-0",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
@@ -345,7 +360,15 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           >
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
                           </span>
-                          <span className="min-w-0">{choice.choiceText}</span>
+                          <span className="min-w-0 flex-1">
+                            {choice.choiceText ? <span className={hasImage ? "block" : undefined}>{choice.choiceText}</span> : null}
+                            <AuthedImage
+                              imageKey={choice.imageKey}
+                              alt={choice.choiceText ? `Answer choice ${String.fromCharCode(65 + choiceIndex)}` : `Answer choice ${String.fromCharCode(65 + choiceIndex)} diagram`}
+                              className="tg-media-img-paper mt-2 max-h-56 w-auto max-w-full rounded-lg border border-rb-swan object-contain dark:p-1"
+                              placeholderClassName="mt-2 h-24 w-full max-w-[14rem]"
+                            />
+                          </span>
                         </button>
                       )
                     })}
@@ -399,7 +422,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                       </p>
                     ) : null}
                     {currentKey?.explanation ? (
-                      <p className="mt-1 text-xs leading-5 text-rb-wolf">{currentKey.explanation}</p>
+                      <div className="mt-3 border-t border-current/15 pt-3">
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-rb-wolf">Explanation</p>
+                        <p className="mt-1 text-sm leading-6 text-rb-eel">{currentKey.explanation}</p>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -535,7 +561,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
         </div>
       </AlertDialogHeader>
 
-      <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
+      <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6">
         {answers.map((answer, position) => {
           const state = answer.pendingManualEvaluation ? "pending" : answer.isCorrect ? "correct" : "incorrect"
           return (
@@ -557,17 +583,20 @@ function ResultScreen({ result, onDone, onReadAgain }) {
                   <Loader2 className="mt-0.5 size-4 shrink-0 text-rb-fox-lip" aria-hidden="true" />
                 )}
                 <div className="min-w-0 space-y-1">
-                  <p className="font-medium leading-5 text-rb-eel">{answer.question}</p>
-                  <p className="text-xs text-rb-wolf">
+                  <p className="font-medium leading-6 text-rb-eel">{answer.question}</p>
+                  <p className="text-sm text-rb-wolf">
                     You answered: <span className="font-medium text-rb-eel">{answer.selectedChoiceText ?? answer.learnerAnswer ?? "—"}</span>
                   </p>
                   {state === "incorrect" && answer.correctChoiceText ? (
-                    <p className="text-xs text-rb-wolf">
+                    <p className="text-sm text-rb-wolf">
                       Correct: <span className="font-medium text-rb-leaf-lip">{answer.correctChoiceText}</span>
                     </p>
                   ) : null}
                   {answer.explanation ? (
-                    <p className="text-xs leading-5 text-rb-wolf">{answer.explanation}</p>
+                    <div className="border-t border-current/10 pt-2">
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-rb-wolf">Explanation</p>
+                      <p className="mt-1 text-sm leading-6 text-rb-eel">{answer.explanation}</p>
+                    </div>
                   ) : null}
                 </div>
               </div>

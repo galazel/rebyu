@@ -32,13 +32,22 @@ export function useDashboardLayout(board, defaultLayout = []) {
   const saveLayoutMutation = useMutation({
     mutationFn: (tiles) => saveBoardLayout(board, tiles),
 
-    onSuccess: (saved) => {
+    onSuccess: (saved, submittedLayout) => {
       queryClient.setQueryData(queryKey, saved)
-      setLocalLayout(null)
+      // A later edit can start while an earlier save is still in flight. Only
+      // clear the local copy when this response belongs to the layout currently
+      // shown, otherwise an old response would make the board jump backwards.
+      setLocalLayout((current) =>
+        JSON.stringify(current) === JSON.stringify(submittedLayout) ? null : current,
+      )
     },
 
-    onError: (error) => {
-      setLocalLayout(null)
+    onError: (error, submittedLayout) => {
+      // Restore the last confirmed server layout, but do not discard a newer
+      // rearrangement the learner may already be making.
+      setLocalLayout((current) =>
+        JSON.stringify(current) === JSON.stringify(submittedLayout) ? null : current,
+      )
       console.warn("Saving the dashboard layout failed.", error)
       toast.error("Could not save your layout", {
         description:
@@ -50,17 +59,16 @@ export function useDashboardLayout(board, defaultLayout = []) {
   })
 
   const handleLayoutChange = (nextLayout) => {
+    // Rearrange mode is a draft. Dragging should be instant and Cancel should
+    // truly cancel, so the server is only updated after the learner presses Done.
     setLocalLayout(nextLayout)
-    saveLayoutMutation.mutate(nextLayout)
   }
 
   const resetLayout = () => {
-    setRearranging(false)
-    setLayoutBeforeEdit(null)
+    // Keep reset inside the current editing session; it can still be cancelled
+    // or confirmed with Done just like a drag.
     setLocalLayout(fallbackLayout)
-    queryClient.setQueryData(queryKey, { tiles: fallbackLayout })
-    saveLayoutMutation.mutate(fallbackLayout)
-    toast.success("Layout reset to default")
+    toast.success("Default layout ready to apply")
   }
 
   const startRearranging = () => {
@@ -71,17 +79,19 @@ export function useDashboardLayout(board, defaultLayout = []) {
   }
 
   const finishRearranging = () => {
+    const nextLayout = localLayout ?? tileLayout
+    const changed = JSON.stringify(nextLayout) !== JSON.stringify(layoutBeforeEdit)
     setLayoutBeforeEdit(null)
     setRearranging(false)
+    if (changed) saveLayoutMutation.mutate(nextLayout)
   }
 
   const cancelRearranging = () => {
-    const previous = layoutBeforeEdit
-    finishRearranging()
-    if (previous != null && JSON.stringify(previous) !== JSON.stringify(tileLayout)) {
-      setLocalLayout(previous)
-      saveLayoutMutation.mutate(previous)
-    }
+    // No request has been made while editing, so cancelling is immediate and
+    // cannot race a delayed save from a previous drag.
+    setLayoutBeforeEdit(null)
+    setRearranging(false)
+    setLocalLayout(null)
   }
 
   return {
