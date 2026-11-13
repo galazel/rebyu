@@ -279,7 +279,7 @@ function FormInput({ label, value, onChange, type = "text", min, max, error, dis
                         : disabled
                             ? "border-slate-200 bg-slate-200/80 text-slate-500 opacity-100 dark:border-slate-700 dark:bg-slate-700/60 dark:text-slate-400"
                             : ""
-                }`}
+                } ${disabled ? "" : "[color-scheme:light]"}`}
             />
 
             {error ? (
