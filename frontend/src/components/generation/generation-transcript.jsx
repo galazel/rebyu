@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "@/components/icons"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { buildTranscript } from "@/hooks/workflow-timeline-model"
@@ -25,7 +17,6 @@ export function GenerationTranscript({
   const endRef = useRef(null)
   const pinnedToBottom = useRef(true)
   const hasTail = Boolean(children)
-  const [output, setOutput] = useState(null)
 
   useEffect(() => {
     if (pinnedToBottom.current) {
@@ -49,7 +40,6 @@ export function GenerationTranscript({
             group={group}
             currentTaskId={currentTaskId}
             defaultOpen={index === groups.length - 1}
-            onViewOutput={(step) => setOutput(step)}
           />
         ))}
 
@@ -62,24 +52,11 @@ export function GenerationTranscript({
         <div ref={endRef} className="h-px" />
       </div>
 
-      <Dialog open={Boolean(output)} onOpenChange={(open) => !open && setOutput(null)}>
-        <DialogContent className="flex h-[88vh] w-[96vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] lg:w-[84vw] xl:w-[72rem]">
-          <DialogHeader className="gap-1.5 border-b border-border px-6 py-4 pr-14 text-left">
-            <DialogTitle>{output ? stageLabel(output.stage) : "Generated output"}</DialogTitle>
-            <DialogDescription>
-              Generated output retained for this completed step.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
-            {output ? <ArtifactViewer payload={output.artifact} /> : null}
-          </div>
-        </DialogContent>
-      </Dialog>
     </ScrollArea>
   )
 }
 
-function TranscriptGroup({ group, currentTaskId, defaultOpen, onViewOutput }) {
+function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen)
 
   const wasDefaultOpen = useRef(defaultOpen)
@@ -136,7 +113,6 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen, onViewOutput }) {
               key={step.id}
               step={step}
               isCurrent={step.id === currentTaskId}
-              onViewOutput={onViewOutput}
             />
           ))}
         </ol>
@@ -145,8 +121,9 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen, onViewOutput }) {
   )
 }
 
-function TranscriptStep({ step, isCurrent, onViewOutput }) {
+function TranscriptStep({ step, isCurrent }) {
   const failed = step.status === "FAILED"
+  const hasCreatedArtifact = step.status === "COMPLETED" && step.artifact !== undefined
 
   return (
     <li className="py-1">
@@ -183,18 +160,11 @@ function TranscriptStep({ step, isCurrent, onViewOutput }) {
           {step.durationMs != null ? formatDuration(step.durationMs) : taskStatusLabel(step.status)}
         </span>
 
-        {step.artifact !== undefined ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-6 shrink-0 px-1.5 text-xs"
-            onClick={() => onViewOutput?.(step)}
-          >
-            View output
-          </Button>
-        ) : null}
       </div>
+
+      {hasCreatedArtifact ? (
+        <CreatedArtifactCard step={step} />
+      ) : null}
 
       {step.error ? (
         <p className="mt-1 ml-4 rounded-md bg-destructive/10 px-2 py-1 font-mono text-[11px] leading-relaxed break-words text-destructive">
@@ -203,6 +173,77 @@ function TranscriptStep({ step, isCurrent, onViewOutput }) {
       ) : null}
     </li>
   )
+}
+
+function CreatedArtifactCard({ step }) {
+  const name = artifactName(step.stage)
+  const detail = artifactDetail(step.artifact)
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05]">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-emerald-500/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <span
+          aria-hidden="true"
+          className="grid size-7 shrink-0 place-items-center rounded-md bg-emerald-500/15 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          ✓
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-semibold text-foreground">Created {name}</span>
+          <span className="block truncate text-[11px] leading-5 text-muted-foreground">
+            {detail} · {open ? "showing generated content" : "expand to inspect"}
+          </span>
+        </span>
+
+        <span className="shrink-0 text-xs font-medium text-foreground">{open ? "Hide" : "Show"}</span>
+      </button>
+
+      {open ? (
+        <div className="border-t border-emerald-500/20 bg-background px-3 py-3">
+          <ArtifactViewer payload={step.artifact} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function artifactName(stage) {
+  const names = {
+    CURRICULUM: "curriculum",
+    LESSON: "lesson and quiz",
+    MIDDLE: "middle-category assessment",
+    MAJOR: "major-category assessment",
+    DIAGNOSTIC_EXAM: "diagnostic exam",
+    MOCK_EXAM: "mock exam",
+    QUESTION_BANK: "question bank",
+    QUESTION_BATCH: "question batch",
+  }
+  return names[stage] ?? stageLabel(stage).toLowerCase()
+}
+
+function artifactDetail(artifact) {
+  const questions = Array.isArray(artifact)
+    ? artifact
+    : artifact?.questions ?? artifact?.quiz?.questions ?? null
+  if (Array.isArray(questions)) {
+    return `${questions.length} question${questions.length === 1 ? "" : "s"}`
+  }
+
+  const majors = artifact?.majorCategories ?? artifact?.major_categories
+  if (Array.isArray(majors)) {
+    return `${majors.length} major categor${majors.length === 1 ? "y" : "ies"}`
+  }
+
+  const lesson = artifact?.lesson ?? artifact
+  if (lesson?.title || lesson?.name) return lesson.title ?? lesson.name
+  return "Generated in this step"
 }
 
 export function GenerationStatusBar({
