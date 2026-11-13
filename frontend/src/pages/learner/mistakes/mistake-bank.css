@@ -1,0 +1,23 @@
+.mistake-bank { min-width: 0; width: 100%; max-width: 1440px; margin-inline: auto; }
+.mistake-bank :is(.mistake-summary, .mistake-priorities, .mistake-browser, .mistake-group) {
+  min-width: 0; border: 1px solid var(--border); border-radius: 16px;
+  padding: clamp(16px, 2vw, 24px); background: var(--card);
+}
+.mistake-bank .mistake-summary { background: linear-gradient(120deg, var(--tg-softer), var(--card) 70%); }
+.mistake-summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.mistake-summary-heading > div { min-width: 0; max-width: 640px; }
+.mistake-summary-heading > button { flex-shrink: 0; }
+.mistake-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-block: 24px; }
+.mistake-stats > div { min-width: 0; border-left: 2px solid var(--tg-line); padding-left: 16px; }
+.mistake-stats dt, .mistake-stats p { font-size: 12px; line-height: 1.6; color: var(--muted-foreground); }
+.mistake-stats dd { margin-block: 6px; font-size: 28px; line-height: 1.2; font-weight: 800; color: var(--foreground); font-variant-numeric: tabular-nums; }
+.mistake-bank .mistake-group > ol > li { box-shadow: none; border-radius: 12px; }
+.mistake-bank .mistake-group > ol > li > button { border-radius: 12px; }
+.mistake-bank :is(pre, code) { overflow-wrap: anywhere; white-space: pre-wrap; }
+@media (max-width: 767px) {
+  .mistake-summary-heading { align-items: stretch; flex-direction: column; gap: 16px; }
+  .mistake-summary-heading > button { width: 100%; }
+  .mistake-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+  .mistake-stats > div { padding-left: 10px; }
+  .mistake-bank .mistake-group > ol > li > button { gap: 8px; padding: 12px; }
+}

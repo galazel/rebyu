@@ -1,0 +1,32 @@
+.certificate-page { min-width: 0; }
+.credential-overview, .credential-preview { border: 1px solid var(--border); border-radius: 16px; padding: clamp(16px, 2.4vw, 28px); background: var(--card); }
+.credential-overview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; }
+.credential-identity { display: flex; gap: 20px; align-items: center; min-width: 0; }
+.credential-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.credential-actions > :first-child { grid-column: 1 / -1; }
+.credential-button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 600; background: var(--card); color: var(--foreground); }
+.credential-button:hover { background: var(--accent); }
+.credential-button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.credential-primary, .credential-primary:hover { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.credential-metadata { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; border-top: 1px solid var(--border); padding-top: 20px; }
+.credential-metadata dt, .credential-stats dt, .credential-stats p { font-size: 12px; color: var(--muted-foreground); line-height: 1.6; }
+.credential-metadata dd { margin-top: 4px; color: var(--foreground); font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.credential-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 24px; }
+.credential-stats > div { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--card); min-width: 0; }
+.credential-stats dd { margin-block: 8px; color: var(--foreground); font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.certificate-page :is(h1,h2,h3):not(#rb-certificate *) { font-family: var(--font-sans), sans-serif !important; letter-spacing: normal; }
+.certificate-page .tg-frame { border: 1px solid var(--border); border-radius: 12px; box-shadow: none; background: var(--card); }
+.certificate-page .tg-badge-icon { background: var(--muted); color: var(--foreground); box-shadow: none; border: 0; }
+.certificate-page .tg-kicker { color: var(--foreground); font-size: 13px; letter-spacing: normal; text-transform: none; }
+.certificate-page #rb-certificate { max-width: 1000px; margin-inline: auto; overflow-wrap: anywhere; color-scheme: light; }
+@media (max-width: 767px) {
+  .credential-overview { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .credential-identity { gap: 12px; }
+  .credential-actions { grid-template-columns: 1fr 1fr; }
+  .credential-metadata { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .credential-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .credential-stats > div { padding: 12px; }
+  .credential-stats dd { font-size: 20px; }
+  .certificate-signatures { grid-template-columns: minmax(0,1fr) !important; justify-items: center; gap: 16px !important; margin-top: 20px; }
+}
+@media print { .certificate-page #rb-certificate { max-width: none; } .certificate-signatures { grid-template-columns: 1fr auto 1fr !important; } }

@@ -1,3 +1,4 @@
+import "./learner-certificate.css"
 import React, { useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -73,10 +74,10 @@ function deriveMockExamSummary(scoreTrend) {
 }
 
 function priorityLabel(tag) {
-  if (!tag) return { text: "Medium", cls: "text-yellow-700 bg-yellow-50 border-yellow-200" }
-  if (tag.includes("CRITICAL")) return { text: "Critical", cls: "text-red-700 bg-red-50 border-red-200" }
-  if (tag.includes("HIGH")) return { text: "High", cls: "text-orange-700 bg-orange-50 border-orange-200" }
-  return { text: "Medium", cls: "text-yellow-700 bg-yellow-50 border-yellow-200" }
+  if (!tag) return { text: "Medium", cls: "text-yellow-800 bg-yellow-50 border-yellow-200 dark:text-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30" }
+  if (tag.includes("CRITICAL")) return { text: "Critical", cls: "text-red-700 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-500/10 dark:border-red-500/30" }
+  if (tag.includes("HIGH")) return { text: "High", cls: "text-orange-800 bg-orange-50 border-orange-200 dark:text-orange-200 dark:bg-orange-500/10 dark:border-orange-500/30" }
+  return { text: "Medium", cls: "text-yellow-800 bg-yellow-50 border-yellow-200 dark:text-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30" }
 }
 
 function deriveAssessmentInsights(scoreTrend) {
@@ -166,8 +167,8 @@ function InsightCard({ icon: Icon, iconColor, label, title, subtitle, badge }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-bold text-foreground">{title ?? "—"}</p>
-        {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+        <p className="mt-0.5 break-words text-sm font-bold text-foreground">{title ?? "—"}</p>
+        {subtitle && <p className="break-words text-xs text-muted-foreground">{subtitle}</p>}
       </div>
       {badge != null && (
         <p className="shrink-0 text-sm font-extrabold" style={{ color: bandColor(badge) }}>{badge}%</p>
@@ -288,78 +289,36 @@ export default function LearnerCertificatePage() {
   ]
 
   return (
-    <div className="tg-cat-explain mx-auto w-full max-w-7xl pb-10">
+    <div className="certificate-page tg-cat-explain mx-auto w-full max-w-7xl pb-10">
       <button type="button" onClick={() => navigate("/learner/certifications")} className="tg-btn mb-6">
         <ArrowLeft className="size-4" aria-hidden="true" /> Certifications
       </button>
 
-      {/* Profile layout, GitHub-style: who and what on the left, the work on the right. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-10">
-        <aside className="lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="mx-auto aspect-square w-48 lg:mx-0 lg:w-44">
-            {awardLoading ? (
-              <div className="size-full animate-pulse rounded-full bg-muted/30" />
-            ) : (
-              <CertStamp certificationId={certificationId} award={award} />
-            )}
+      <header className="credential-overview">
+        <div className="credential-identity">
+          <div className="size-20 shrink-0 sm:size-24"><CertStamp certificationId={certificationId} award={award} /></div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your credential</p>
+            <h1 className="mt-2 break-words text-2xl font-bold leading-tight text-foreground sm:text-3xl">{certTitle}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Awarded to <span className="font-semibold text-foreground">{learnerName}</span></p>
           </div>
-
-          <h1 className="mt-4 font-rb-display text-3xl font-extrabold leading-tight text-foreground">{certTitle}</h1>
-          <p className="mt-1 text-lg text-muted-foreground">{learnerName}</p>
-
-          <p className="mt-3 text-sm leading-6 text-foreground">
-            This credential was awarded on {fmtDate(certDate)}. Later mock-exam attempts and mastery
-            estimates can change, while the credential record remains available to print or share.
-          </p>
-
-          <div className="mt-5 space-y-2">
-            <button type="button" className="tg-btn tg-btn-primary w-full !py-2.5" onClick={() => window.print()}>
-              <Download className="size-4" aria-hidden="true" />
-              Print or save PDF
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" className="tg-btn w-full" onClick={() => navigate(`/learner/learning/${certificationId}`)}>
-                <BookOpen className="size-4" aria-hidden="true" />
-                Curriculum
-              </button>
-              <button type="button" className="tg-btn w-full" onClick={() => navigate(`/learner/certifications/${certificationId}`)}>
-                <GraduationCap className="size-4" aria-hidden="true" />
-                Details
-              </button>
-            </div>
-          </div>
-
-          <dl className="mt-6 space-y-2.5 border-t border-[var(--tg-line)] pt-5 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">{credentialDateLabel}</dt>
-              <dd className="font-semibold text-foreground">{fmtDate(certDate)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Certificate no.</dt>
-              <dd className="truncate font-semibold tabular-nums text-foreground">{award?.certificateNumber ?? "—"}</dd>
-            </div>
-          </dl>
-
-          <div className="mt-6 border-t border-[var(--tg-line)] pt-5">
-            <p className="tg-kicker">At a glance</p>
-            <ul className="mt-3 space-y-2">
-              {stats.map((stat) => (
-                <li key={stat.label} className="flex items-center justify-between gap-3 rounded-xl bg-[var(--tg-softer)] px-3 py-2 ring-1 ring-[var(--tg-line)]">
-                  <span className="text-xs font-semibold text-muted-foreground">{stat.label}</span>
-                  <span className="text-sm font-black tabular-nums text-[var(--tg-ink)]">
-                    {isLoading ? <span className="inline-block h-4 w-12 animate-pulse rounded bg-muted/40" /> : stat.value}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs leading-5 text-muted-foreground">
-              Current learning data updates with each submitted assessment; the credential date does not.
-            </p>
-          </div>
-        </aside>
-
-        <main className="min-w-0 space-y-10">
-          <section aria-labelledby="certificate-heading">
+        </div>
+        <div className="credential-actions">
+          <button type="button" className="credential-button credential-primary" onClick={() => window.print()} disabled={awardLoading}>
+            <Download className="size-4" aria-hidden="true" /> Print or save PDF
+          </button>
+          <button type="button" className="credential-button" onClick={() => navigate(`/learner/learning/${certificationId}`)}><BookOpen className="size-4" aria-hidden="true" />Curriculum</button>
+          <button type="button" className="credential-button" onClick={() => navigate(`/learner/certifications/${certificationId}`)}><GraduationCap className="size-4" aria-hidden="true" />Details</button>
+        </div>
+        <dl className="credential-metadata">
+          <div><dt>Recipient</dt><dd>{learnerName}</dd></div>
+          <div><dt>{credentialDateLabel}</dt><dd>{fmtDate(certDate)}</dd></div>
+          <div><dt>Certificate number</dt><dd>{award?.certificateNumber ?? "—"}</dd></div>
+        </dl>
+      </header>
+      <div className="mt-6">
+        <div className="min-w-0 space-y-8">
+          <section className="credential-preview" aria-labelledby="certificate-heading">
             <div className="mb-3 flex items-center gap-2.5 border-b border-[var(--tg-line)] pb-3">
               <span className="tg-badge-icon !size-8 !rounded-lg"><GraduationCap className="size-4" aria-hidden="true" /></span>
               <h2 id="certificate-heading" className="text-lg font-bold text-foreground">Certificate of completion</h2>
@@ -433,26 +392,9 @@ export default function LearnerCertificatePage() {
                   </p>
                 </section>
 
-                <dl
-                  className="grid w-full grid-cols-2 sm:grid-cols-4"
-                  style={{ borderTop: "1px solid #dce8e2", borderBottom: "1px solid #dce8e2", padding: "0.9cqw 0", background: "rgba(244,249,245,0.6)" }}
-                >
-                  {stats.map((s, i) => (
-                    <div key={s.label} className="px-2 py-1" style={{ borderLeft: i % 4 ? "1px solid #eef2ef" : "none" }}>
-                      <dt className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>
-                        {s.label}
-                      </dt>
-                      <dd style={{ fontFamily: SERIF, fontSize: sz(1.65, 13), color: GREEN, fontWeight: 700, marginTop: "0.3cqw" }}>
-                        {isLoading ? <span className="inline-block h-4 w-16 animate-pulse rounded bg-muted/40" /> : s.value}
-                        {!isLoading && s.note ? (
-                          <span className="block italic" style={{ fontSize: sz(0.95, 10), color: "#6b7280", fontWeight: 400 }}>{s.note}</span>
-                        ) : null}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
 
-                <footer className="grid w-full grid-cols-[1fr_auto_1fr] items-end" style={{ gap: "4cqw" }}>
+
+                <footer className="certificate-signatures grid w-full grid-cols-[1fr_auto_1fr] items-end" style={{ gap: "4cqw" }}>
                   <div>
                     <p style={{ fontFamily: SERIF, fontSize: sz(1.4, 12), color: "#111827" }}>{fmtDate(certDate)}</p>
                     <div style={{ height: 1, background: "#374151", opacity: 0.5, margin: "0.5cqw 0" }} />
@@ -481,11 +423,15 @@ export default function LearnerCertificatePage() {
             </div>
           </section>
 
-          <section aria-labelledby="summary-heading">
+          <section className="credential-performance" aria-labelledby="summary-heading">
             <div className="mb-3 flex items-center gap-2.5 border-b border-[var(--tg-line)] pb-3">
               <span className="tg-badge-icon !size-8 !rounded-lg"><TrendingUp className="size-4" aria-hidden="true" /></span>
               <h2 id="summary-heading" className="text-lg font-bold text-foreground">Performance summary</h2>
             </div>
+            <p className="mb-5 text-sm leading-6 text-muted-foreground">These are your current learning results. Later assessments may change them; the credential issue date remains the same.</p>
+            <dl className="credential-stats">
+              {stats.map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{isLoading ? "…" : stat.value}</dd><p>{stat.note}</p></div>)}
+            </dl>
         <div>
       {isLoading ? (
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
@@ -584,7 +530,7 @@ export default function LearnerCertificatePage() {
                       <div key={i} className="flex items-center gap-2.5 py-2.5 first:pt-0 last:pb-0">
                         <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-extrabold text-muted-foreground">{i + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{t.lessonTitle}</p>
+                          <p className="break-words text-sm font-semibold text-foreground">{t.lessonTitle}</p>
                           <p className="truncate text-[11px] text-muted-foreground">{t.categoryTitle ?? ""}</p>
                         </div>
                         <div className="shrink-0 text-right">
@@ -626,7 +572,7 @@ export default function LearnerCertificatePage() {
       )}
         </div>
           </section>
-        </main>
+        </div>
       </div>
     </div>
   )

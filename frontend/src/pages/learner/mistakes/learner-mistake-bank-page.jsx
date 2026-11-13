@@ -1,3 +1,4 @@
+import "./mistake-bank.css"
 import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
@@ -23,7 +24,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { LearnerEmptyState, LearnerErrorState, LearnerPageHeader } from "@/components/learner/learner-ui.jsx"
+import { LearnerEmptyState, LearnerErrorState } from "@/components/learner/learner-ui.jsx"
 import { Celebration, Confidence, ProgressBar } from "@/components/learner/tutor-game-kit.jsx"
 import { getMistakes, setMistakeReviewed } from "@/services/learnerToolsService"
 import ProGate from "@/components/learner/pro-gate.jsx"
@@ -62,7 +63,7 @@ function AnswerPair({ mistake }) {
           <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-rose-600 dark:text-rose-300">
             <XCircle className="size-3.5" aria-hidden="true" /> You answered
           </p>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+          <p className="mt-1 break-words whitespace-pre-wrap text-sm text-foreground">
             {mistake.learnerAnswer?.trim() || "No answer submitted"}
           </p>
         </div>
@@ -70,7 +71,7 @@ function AnswerPair({ mistake }) {
           <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 className="size-3.5" aria-hidden="true" /> Correct answer
           </p>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{mistake.correctAnswer}</p>
+          <p className="mt-1 break-words whitespace-pre-wrap text-sm text-foreground">{mistake.correctAnswer}</p>
         </div>
       </div>
       {mistake.explanation ? (
@@ -321,8 +322,8 @@ function MistakeBankContent() {
   const groups = useMemo(() => {
     const byLesson = new Map()
     for (const mistake of shown) {
-      const key = lessonOf(mistake)
-      if (!byLesson.has(key)) byLesson.set(key, { title: key, certification: mistake.certificationTitle, items: [] })
+      const key = JSON.stringify([mistake.certificationTitle, lessonOf(mistake)])
+      if (!byLesson.has(key)) byLesson.set(key, { key, title: lessonOf(mistake), certification: mistake.certificationTitle, items: [] })
       byLesson.get(key).items.push(mistake)
     }
     return [...byLesson.values()]
@@ -348,10 +349,8 @@ function MistakeBankContent() {
   const learnedPct = stats.questions ? Math.round((stats.reviewed / stats.questions) * 100) : 0
 
   return (
-    <div className={`rb-hub space-y-6 ${ACCENT}`}>
-      <LearnerPageHeader
-        title="Mistake bank"
-      />
+    <div className={`rb-hub mistake-bank space-y-6 ${ACCENT}`}>
+      <header><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Learning tools</p><h1 className="mt-2 text-2xl font-bold text-foreground sm:text-3xl">Mistake bank</h1><p className="mt-2 text-sm text-muted-foreground">Review what you missed and build confidence, one question at a time.</p></header>
 
       {mistakesQuery.isLoading ? (
         <MistakeBankSkeleton />
@@ -369,38 +368,32 @@ function MistakeBankContent() {
         />
       ) : (
         <>
-          <section className="tg-frame">
-            <div className="tg-head flex flex-wrap items-center gap-x-6 gap-y-4 px-5 py-5 sm:px-6">
-              <div className="min-w-[14rem] flex-1">
-                <p className="tg-kicker">Learned</p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-foreground">
-                  {stats.reviewed}<span className="text-lg font-bold text-muted-foreground"> / {stats.questions}</span>
-                </p>
-                <div className="mt-2 max-w-md"><ProgressBar value={stats.reviewed} total={stats.questions} label="Mistakes learned" /></div>
-                <p className="mt-1.5 text-xs font-semibold text-muted-foreground">
-                  {learnedPct}% gone over · {stats.totalMisses} wrong answers in total
-                </p>
+          <section className="mistake-summary" aria-label="Review progress">
+            <div className="mistake-summary-heading">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your review progress</p>
+                <h2 className="mt-2 text-xl font-bold text-foreground">Turn mistakes into understanding</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">Revisit a question, compare your answer, and mark it learned when you feel confident.</p>
               </div>
-              <div className="flex gap-3">
-                <div className="rounded-2xl bg-card px-4 py-3 ring-1 ring-[var(--tg-line)]">
-                  <p className="text-2xl font-black tabular-nums text-rose-600 dark:text-rose-300">{stats.repeated}</p>
-                  <p className="text-xs font-semibold text-muted-foreground">missed twice+</p>
-                </div>
-                <div className="rounded-2xl bg-card px-4 py-3 ring-1 ring-[var(--tg-line)]">
-                  <p className="text-2xl font-black tabular-nums text-foreground">{stats.todo}</p>
-                  <p className="text-xs font-semibold text-muted-foreground">to review</p>
-                </div>
-              </div>
-              <button type="button" className="tg-btn tg-btn-primary !px-5 !py-3 !text-base" onClick={startReview} disabled={!stats.todo}>
-                <Target className="size-4" aria-hidden="true" /> Review my mistakes
+              <button type="button" className="tg-btn tg-btn-primary !min-h-11 !px-5 !py-3" onClick={startReview} disabled={!visible.some(m => !m.reviewed)}>
+                <Target className="size-4" aria-hidden="true" /> Start a review
               </button>
             </div>
+            <dl className="mistake-stats">
+              {[
+                { label: "Questions saved", value: stats.questions, hint: `${stats.totalMisses.toLocaleString()} wrong answers recorded` },
+                { label: "To review", value: stats.todo, hint: "Ready to practise" },
+                { label: "Missed twice or more", value: stats.repeated, hint: "Worth another look" },
+                { label: "Marked learned", value: stats.reviewed, hint: `${learnedPct}% of saved questions` },
+              ].map(stat => <div key={stat.label}><dt>{stat.label}</dt><dd>{stat.value.toLocaleString()}</dd><p>{stat.hint}</p></div>)}
+            </dl>
+            <ProgressBar value={stats.reviewed} total={stats.questions} label="Mistakes learned" />
           </section>
 
           {weakLessons.length > 1 ? (
-            <div>
-              <p className="tg-kicker mb-2">Weakest lessons</p>
-              <div className="flex flex-wrap gap-2">
+            <section className="mistake-priorities">
+              <div className="mb-3"><h2 className="text-base font-bold text-foreground">Lessons to focus on</h2><p className="mt-1 text-xs text-muted-foreground">Choose a lesson to filter the questions below. Counts show recorded wrong answers.</p></div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {weakLessons.map((entry) => {
                   const active = lesson === entry.title
                   return (
@@ -410,21 +403,22 @@ function MistakeBankContent() {
                       aria-pressed={active}
                       onClick={() => { setLesson(active ? null : entry.title); resetPaging() }}
                       className={cn(
-                        "inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)]",
+                        "inline-flex min-h-14 min-w-0 max-w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tg)]",
                         active ? "border-[var(--tg)] bg-[var(--tg)] text-white" : "border-[var(--tg-line)] bg-card text-foreground hover:bg-[var(--tg-softer)]"
                       )}
                     >
-                      <span className="truncate">{entry.title}</span>
+                      <span className="min-w-0 break-words leading-5">{entry.title}</span>
                       <span className={cn("shrink-0 rounded-full px-1.5 text-xs tabular-nums", active ? "bg-white/25" : "bg-[var(--tg-soft)] text-[var(--tg-ink)]")}>{entry.wrong}</span>
                     </button>
                   )
                 })}
               </div>
-            </div>
+            </section>
           ) : null}
 
-          <div className="space-y-3">
-            <div role="tablist" aria-label="Mistake filters" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <section className="mistake-browser space-y-4" aria-label="Find mistakes">
+            <h2 className="text-base font-bold text-foreground">Your questions</h2>
+            <div role="tablist" aria-label="Mistake filters" className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
               {FILTERS.map((option) => {
                 const active = filter === option.value
                 return (
@@ -435,7 +429,7 @@ function MistakeBankContent() {
                     aria-selected={active}
                     onClick={() => { setFilter(option.value); resetPaging() }}
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "inline-flex min-h-11 items-center justify-between gap-2 rounded-lg border px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -446,8 +440,8 @@ function MistakeBankContent() {
               })}
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px_180px]">
-              <label className="relative">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_220px_200px]">
+              <label className="relative min-w-0 sm:col-span-2 xl:col-span-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
                   value={search}
@@ -458,14 +452,14 @@ function MistakeBankContent() {
                 />
               </label>
               <Select value={certification} onValueChange={(value) => { setCertification(value); resetPaging() }}>
-                <SelectTrigger aria-label="Filter by certification"><SelectValue placeholder="All certifications" /></SelectTrigger>
+                <SelectTrigger className="!w-full min-w-0" aria-label="Filter by certification"><SelectValue placeholder="All certifications" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_VALUE}>All certifications</SelectItem>
                   {certifications.map((title) => <SelectItem key={title} value={title}>{title}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger aria-label="Sort mistakes"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="!w-full min-w-0" aria-label="Sort mistakes"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="recent">Most recent first</SelectItem>
                   <SelectItem value="missed">Most missed first</SelectItem>
@@ -474,7 +468,7 @@ function MistakeBankContent() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
+              <p role="status" className="text-xs text-muted-foreground">
                 Showing {shown.length} of {visible.length}
                 {visible.length === mistakes.length ? "" : ` (${mistakes.length} in the bank)`}
               </p>
@@ -484,16 +478,17 @@ function MistakeBankContent() {
                 </button>
               ) : null}
             </div>
-          </div>
+            {(search || certification !== ALL_VALUE || lesson || filter !== ALL_VALUE) ? <button type="button" className="min-h-11 text-sm font-semibold text-primary" onClick={() => { setSearch(""); setCertification(ALL_VALUE); setLesson(null); setFilter(ALL_VALUE); resetPaging() }}>Clear all filters</button> : null}
+          </section>
 
           {visible.length === 0 ? (
             <LearnerEmptyState icon={Search} title="Nothing matches" description="No mistake matches this filter. Widen the search or switch back to All." />
           ) : (
             <div className="space-y-6">
               {groups.map((group) => (
-                <section key={group.title} aria-label={group.title}>
-                  <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-border pb-1.5">
-                    <h2 className="rb-form-heading truncate text-base font-semibold text-foreground">{group.title}</h2>
+                <section key={group.key} className="mistake-group" aria-label={group.title}>
+                  <div className="mb-4 flex flex-col gap-1 border-b border-border pb-3 sm:flex-row sm:items-start sm:justify-between">
+                    <h2 className="rb-form-heading min-w-0 break-words text-base font-semibold text-foreground">{group.title}</h2>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {[group.certification, `${group.items.length} shown`].filter(Boolean).join(" · ")}
                     </span>
