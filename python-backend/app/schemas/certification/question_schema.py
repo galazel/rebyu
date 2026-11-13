@@ -524,6 +524,33 @@ class QuestionBatch(BaseModel):
     scope: str
     questions: List[QuestionDraft]
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_invalid_questions(cls, data):
+        """Keeps a batch's valid questions and drops only the broken ones.
+
+        Without this, one bad item failed the whole batch and the model rewrote
+        every question, re-sending the full prompt each time (a 10-question quiz
+        cost ten calls). Callers that need an exact count top up the shortfall
+        (see `invoke_question_agent`). A batch with no valid question still
+        fails, so the model is told what was wrong and tries again.
+        """
+        if not isinstance(data, dict) or not isinstance(data.get("questions"), list):
+            return data
+        kept, errors = [], []
+        for item in data["questions"]:
+            try:
+                kept.append(QuestionDraft.model_validate(item))
+            except Exception as error:  # noqa: BLE001 -- any invalid item is simply dropped
+                errors.append(str(error).splitlines()[0][:200])
+        if errors and kept:
+            logging.getLogger(__name__).info(
+                "Dropped %d invalid question(s) of %d: %s",
+                len(errors), len(errors) + len(kept), "; ".join(errors[:3]),
+            )
+            return {**data, "questions": kept}
+        return data
+
     @model_validator(mode="after")
     def _spread_programming_languages(self) -> "QuestionBatch":
         """Three or more coding items in one batch must not all be in one language.

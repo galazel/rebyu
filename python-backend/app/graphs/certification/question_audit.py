@@ -56,7 +56,7 @@ BANK = "question_bank"
 KEEP_PRIORITY = {STORED: 0, MOCK: 1, DIAGNOSTIC: 2, MAJOR: 3, MIDDLE: 4, LESSON: 5, BANK: 6}
 
 AUDIT_SLICE = 40
-AUDIT_CONCURRENCY = 4
+AUDIT_CONCURRENCY = 8
 MAX_ROUNDS = 2
 
 
@@ -436,12 +436,18 @@ async def audit_questions_node(state: CertificationState):
         working = dict(working, **update)  # type: ignore[assignment]
 
         all_stems = [i.stem for i in collect_items(working, stored)]
-        for (source, entry), lost in shortfalls(resolution.dropped).items():
-            try:
-                fresh = await _top_up(working, update, source, entry, lost, all_stems)
-            except Exception:
+        # Each assessment's replacements are independent, so they are written at
+        # once; the next audit round catches any overlap between them.
+        gaps = list(shortfalls(resolution.dropped).items())
+        results = await asyncio.gather(
+            *(_top_up(working, update, source, entry, lost, list(all_stems))
+              for (source, entry), lost in gaps),
+            return_exceptions=True,
+        )
+        for ((source, _entry), lost), fresh in zip(gaps, results):
+            if isinstance(fresh, BaseException):
                 logger.warning("Could not replace %d question(s) dropped from %s; it stays shorter",
-                               len(lost), source, exc_info=True)
+                               len(lost), source, exc_info=fresh)
                 continue
             summary["replaced"] += len(fresh)
             all_stems.extend(str(q.get("question") or "") for q in fresh)

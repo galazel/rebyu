@@ -163,6 +163,8 @@ def instrument(node: Callable, stage: str) -> Callable:
         async def async_wrapper(state: dict, *args: Any, **kwargs: Any):
             thread_id = state.get("thread_id")
             _halt_if_cancelled(thread_id, stage)
+            from app.graphs.cancellation import current_thread
+            current_thread.set(thread_id)
             _emit(
                 thread_id, registry.EVT_NODE_STARTED, stage=stage,
                 task_status=registry.TASK_RUNNING, payload=_progress_context(state, stage),

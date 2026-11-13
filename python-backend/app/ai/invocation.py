@@ -46,6 +46,16 @@ logger = logging.getLogger(__name__)
 
 _DEDUPE_TOPUP_ROUNDS = 2
 
+def _accepts_config(agent: Any) -> bool:
+    """Real LangGraph agents take a config (the step cap); simple stand-ins may not."""
+    import inspect
+
+    try:
+        return len(inspect.signature(agent.ainvoke).parameters) >= 2
+    except (TypeError, ValueError, AttributeError):
+        return True
+
+
 class MissingStructuredResponse(KeyError):
     """The agent finished without calling its structured-output tool.
 
@@ -87,7 +97,7 @@ class _StructuredAgent:
 
     async def ainvoke(self, payload: dict, config: dict | None = None) -> Any:
         try:
-            if config is None:
+            if config is None or not _accepts_config(self._agent):
                 response = await self._agent.ainvoke(payload)
             else:
                 response = await self._agent.ainvoke(payload, config)

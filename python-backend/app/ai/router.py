@@ -19,6 +19,7 @@ same way -- see `no_credit_remaining` below.
 from __future__ import annotations
 
 import logging
+import inspect
 import time
 from typing import Any, Callable
 
@@ -84,6 +85,9 @@ def model_chain(task: str = "question") -> list[str]:
     return profile_for(task).chain
 
 
+_MAX_AGENT_STEPS = 8
+
+
 @retry_llm_call
 async def _ainvoke_once(agent, payload: dict, config: dict | None) -> Any:
     """One model's attempt, with the shared backoff policy applied.
@@ -93,9 +97,19 @@ async def _ainvoke_once(agent, payload: dict, config: dict | None) -> Any:
     propagates immediately to the fallback loop below instead of burning five
     attempts on a budget that will not return for hours.
     """
-    if config is None:
+    # A structured-output agent re-asks the model every time its answer fails
+    # validation, and nothing else bounds that loop: one question the model
+    # kept getting wrong spun for minutes per model, then started over on each
+    # fallback. Cap it at a few attempts; the caller decides what to do next.
+    # Callers that pass their own config (the tutor, with its tool loop) keep it as is.
+    merged = config if config is not None else {"recursion_limit": _MAX_AGENT_STEPS}
+    try:
+        accepts_config = len(inspect.signature(agent.ainvoke).parameters) >= 2
+    except (TypeError, ValueError):
+        accepts_config = True
+    if not accepts_config:
         return await agent.ainvoke(payload)
-    return await agent.ainvoke(payload, config)
+    return await agent.ainvoke(payload, merged)
 
 
 def _provider_of(model: str, profile) -> str:
@@ -148,6 +162,8 @@ async def ainvoke_with_fallback(
     for model in available:
         if model in ruled_out:
             continue
+        from app.graphs.cancellation import halt_if_current_run_cancelled
+        halt_if_current_run_cancelled()
         started = time.monotonic()
         try:
             result = await _ainvoke_once(build_agent(model), payload, config)
@@ -155,6 +171,10 @@ async def ainvoke_with_fallback(
             return result
         except Exception as exc:
             health.record_failure(model, task, exc, time.monotonic() - started)
+            if type(exc).__name__ == "GraphRecursionError":
+                # The model answered, just never validly. Another model would
+                # rerun the same doomed loop; let the caller top up instead.
+                raise
             if (is_account_daily_cap(exc) or is_out_of_credits(exc)) and _provider_of(model, profile) == "openrouter":
                 free_cap = is_account_daily_cap(exc)
                 sharing = [

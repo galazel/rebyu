@@ -62,9 +62,33 @@ def is_cancel_requested(thread_id: str | None) -> bool:
     try:
         with SessionLocal() as session:
             run = registry.get_run_by_thread(session, thread_id)
-            return run is not None and run.status == registry.CANCELLED
+            # A run whose row is gone was deleted with its certification
+            # (purge marks it cancelled, then removes the row): stop it too.
+            return run is None or run.status == registry.CANCELLED
     except Exception:
         logger.exception(
             "Cancellation check failed for thread %s; continuing generation", thread_id
         )
         return False
+
+
+# The thread of the graph node currently running, so code deep inside a node
+# (every model call) can stop a cancelled run without being handed the state.
+import contextvars as _contextvars
+
+current_thread: _contextvars.ContextVar[str | None] = _contextvars.ContextVar(
+    "rebyu_current_thread", default=None
+)
+
+
+def halt_if_current_run_cancelled() -> None:
+    """Raises RunCancelled when the run this call belongs to was cancelled or deleted.
+
+    Checked before each model call, so a cancel or delete stops a long step
+    (a 20-question assessment, a retry loop) within one call instead of
+    running it to the end.
+    """
+    thread_id = current_thread.get()
+    if thread_id and is_cancel_requested(thread_id):
+        logger.info("Stopping run %s mid-step: cancelled or deleted", thread_id)
+        raise RunCancelled()
