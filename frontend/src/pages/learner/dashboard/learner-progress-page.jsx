@@ -1384,7 +1384,7 @@ export default function LearnerProgressPage() {
     // Ensure every tile is at least 2 columns wide
     const sanitized = nextLayout.map((tile) => ({
       ...tile,
-      w: Math.max(2, tile.w ?? 2),
+      w: Math.max(1, tile.w ?? 2),
     }))
     setLocalLayout(sanitized)
     saveLayoutMutation.mutate(sanitized)

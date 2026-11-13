@@ -109,7 +109,25 @@ export function DashboardBoard({
       }))
   }, [rawTiles, defaultOrder, defaultCols, defaultRows])
   // With nothing saved, the board's preset (a full default arrangement) stands in for it.
-  const layout = savedLayout?.length ? savedLayout : preset ?? savedLayout
+  // A saved arrangement is tidied before use: overlapping cards are pushed apart
+  // and everything slides up into gaps, so a layout can never render on top of
+  // itself (an older drag could save overlaps).
+  const layout = useMemo(() => {
+    const raw = savedLayout?.length ? savedLayout : preset ?? savedLayout
+    if (!raw?.length) return raw
+    const placed = raw.filter((item) => [item.x, item.y, item.w, item.h].every(Number.isInteger))
+    if (placed.length !== raw.length) return raw
+    const packed = gridUtils.compact(
+      placed.map((item) => ({ i: item.id ?? item.i, x: Math.min(item.x, COLS.lg - 1), y: item.y, w: Math.min(item.w, COLS.lg), h: item.h })),
+      "vertical",
+      COLS.lg,
+    )
+    const byKey = new Map(packed.map((item) => [item.i, item]))
+    return raw.map((item) => {
+      const p = byKey.get(item.id ?? item.i)
+      return p ? { ...item, x: p.x, y: p.y, w: p.w, h: p.h } : item
+    })
+  }, [savedLayout, preset])
   const [containerRef, width] = useContainerWidth()
   // From the measured board width (re-renders on resize), not a one-off window read.
   const isDesktop = (width || (typeof window !== "undefined" ? window.innerWidth : 0)) >= BREAKPOINTS.lg
@@ -356,7 +374,7 @@ export function DashboardBoard({
         >
           {flowOrder.map((tile) => {
             const saved = savedById.get(tile.id)
-            const span = Math.min(6, Math.max(2, Number(saved?.w ?? tile.col ?? 3)))
+            const span = Math.min(6, Math.max(1, Number(saved?.w ?? tile.col ?? 3)))
             const isCollapsed = Boolean(collapsedTiles[tile.id])
             const alignClass = isCollapsed ? "self-start" : "h-full flex flex-col"
             const savedRows = Number.isInteger(saved?.h) && saved.h > 0 ? saved.h : Math.max(1, tile.row ?? 3)
