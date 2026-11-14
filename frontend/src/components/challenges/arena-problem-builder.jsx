@@ -387,7 +387,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           </div>
 
           <span className="ml-auto text-xs font-semibold text-muted-foreground">
-            Question {index + 1} · {problem.typeName}
+            {arena.weekly ? "Question" : "Stage"} {index + 1} · {problem.typeName}
           </span>
         </div>
 

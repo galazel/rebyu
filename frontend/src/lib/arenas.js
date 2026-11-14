@@ -11,7 +11,7 @@ export const ARENAS = [
       "Nine coding problems back to back, each judged on exactly what your program prints and scored on speed and run time as well as correctness.",
     questionTypes: ["PROGRAMMING"],
     tracked: false,
-    questionsPerNode: 10,
+    questionsPerNode: null,
     fields: [
       {
         key: "entryXp",
@@ -56,7 +56,7 @@ export const ARENAS = [
       "Ten UML and system design problems on a drag-and-drop canvas, checked against structural rules rather than opinion.",
     questionTypes: ["DIAGRAM"],
     tracked: false,
-    questionsPerNode: 10,
+    questionsPerNode: null,
     fields: [
       {
         key: "entryXp",
