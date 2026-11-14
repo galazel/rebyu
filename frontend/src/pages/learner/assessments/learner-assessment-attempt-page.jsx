@@ -727,11 +727,16 @@ export default function LearnerAssessmentAttemptPage() {
     // Warn only when the clock CROSSES a mark while the learner is working: a quiz
     // that starts with 10 minutes or less (or is resumed late) must not open with a
     // "10 minutes remaining" warning.
+    // A mark must also sit well below where the clock started: a 10-minute challenge
+    // stage reaches 10:00 a second in (clock skew), which is not "running low".
     let previous = null
-    const crossed = (left, mark) => previous != null && previous > mark && left <= mark
+    let started = null
+    const crossed = (left, mark) =>
+      previous != null && previous > mark && left <= mark && started - mark >= 60
     const tick = () => {
       const left = Math.max(0, Math.round((endAt - Date.now()) / 1000))
       setRemainingSeconds(left)
+      if (started == null) started = left
       if (crossed(left, 600) && !warnedRef.current.ten) {
         warnedRef.current.ten = true
         toast.warning("10 minutes remaining.")
