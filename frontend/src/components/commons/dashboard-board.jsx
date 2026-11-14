@@ -402,8 +402,8 @@ export function DashboardBoard({
                 id={tile.id}
                 data-tile-id={tile.id}
                 style={style ?? flowStyle}
-                className={`${colSpanClass} min-w-0 w-full transition-all duration-300 ease-out ${alignClass} ${
-                  placed ? "overflow-y-auto [&>*]:min-h-full" : ""
+                className={`${colSpanClass} rebyu-tile-cell min-w-0 w-full transition-all duration-300 ease-out ${alignClass} ${
+                  placed ? "is-sized" : ""
                 }`}
               >
                 {tile.element}
@@ -450,7 +450,7 @@ export function DashboardBoard({
           if (!tile) return null
 
           return (
-            <div key={item.i} id={item.i} className={`min-w-0 ${editing ? "cursor-grab active:cursor-grabbing select-none" : ""}`}>
+            <div key={item.i} id={item.i} className={`rebyu-tile-cell is-sized min-w-0 ${editing ? "cursor-grab active:cursor-grabbing select-none" : ""}`}>
               {tile.element}
 
               {editing ? (

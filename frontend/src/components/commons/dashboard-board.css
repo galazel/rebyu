@@ -1,7 +1,64 @@
-.rebyu-board .react-grid-item > section {
-  height: 100%;
+/* Every card is a container, so its contents follow the card's own size (not the
+   window's) and reflow live while it is resized. */
+.rebyu-tile-cell {
+  container: tile / inline-size;
+  display: flex;
+  flex-direction: column;
+}
+
+.rebyu-tile-cell > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
-  overflow: hidden;
+}
+
+/* A card with a set size (rearranged, or placed from a saved layout): its content
+   fills that height, and scrolls instead of being cut off when the card is small. */
+.rebyu-tile-cell.is-sized > :first-child {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Lists and panels that grow to fill the card drop their fixed caps, so a taller
+   card shows more rows instead of a short list in a big empty box. */
+.rebyu-tile-cell.is-sized .flex-1[class*="max-h-["] {
+  max-height: none;
+}
+
+/* Headline numbers scale with the card's width. */
+.rebyu-tile-cell .font-rb-display:is([class*="text-4xl"], [class*="text-5xl"], [class*="text-6xl"], [class*="text-7xl"]) {
+  font-size: clamp(1.75rem, 14cqi, 4rem);
+}
+
+/* Narrow cards: tighter padding, rows wrap instead of overflowing, and secondary
+   hints give way to the content. */
+@container tile (max-width: 360px) {
+  .rb-bento-tile {
+    padding: 0.75rem;
+  }
+
+  .rb-bento-heading {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .rb-bento-heading > div > div > p {
+    display: none;
+  }
+
+  .rb-bento-tile .flex:not(.flex-col):not(.flex-nowrap) {
+    flex-wrap: wrap;
+  }
+}
+
+/* Wide cards get a little more breathing room. */
+@container tile (min-width: 720px) {
+  .rb-bento-tile {
+    padding: 1.75rem;
+  }
 }
 
 .rebyu-board .react-grid-item {
