@@ -530,7 +530,11 @@ public class AssessmentAttemptService {
                 || Boolean.TRUE.equals(attempt.getForfeited())) {
             return getResult(attemptId, request.learnerId());
         }
-        if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
+        // A CodeStrike/Blueprint stage that ran out (or was closed by reopening the stage)
+        // is still handed in and graded on its answers: time-up submits, it never discards.
+        boolean expiredStage = attempt.getStatus() == AssessmentAttempt.Status.EXPIRED
+                && isStagedArena(attempt.getExam());
+        if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS && !expiredStage) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
         settlePause(attempt);
