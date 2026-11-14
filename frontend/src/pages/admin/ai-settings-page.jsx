@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { apiMessage } from "@/services/base.js"
 import { chooseAiModel, getAiSettings, resetAiModel } from "@/services/aiSettingsService.js"
 import { LiveTutorSettingsCard } from "@/components/admin/live-tutor-settings.jsx"
+import { ReadingGuardSettingsCard } from "@/components/admin/reading-guard-settings.jsx"
 
 const money = (value) =>
   value === null || value === undefined ? "—" : `$${Number(value).toFixed(2)}`
@@ -45,6 +46,7 @@ export default function AiSettingsPage() {
       </div>
 
       <LiveTutorSettingsCard />
+      <ReadingGuardSettingsCard />
       {query.isLoading ? (
         <div className="grid gap-4">
           <Skeleton className="h-36 w-full" />

@@ -65,6 +65,8 @@ public class ChallengeArenaService {
           new SettingSpec(ENTRY_XP, 0, 0, 1_000_000),
           new SettingSpec("problems", 10, 1, 50),
           new SettingSpec("timeLimit", 45, 0, 600),
+          new SettingSpec("timePerProblem", 10, 1, 180),
+          new SettingSpec("pointsPerProblem", 10, 1, 1000),
           new SettingSpec("weightCorrect", 60, 0, 100),
           new SettingSpec("weightSpeed", 20, 0, 100),
           new SettingSpec("weightBigO", 20, 0, 100)),
@@ -72,6 +74,8 @@ public class ChallengeArenaService {
           new SettingSpec(ENTRY_XP, 0, 0, 1_000_000),
           new SettingSpec("problems", 10, 1, 50),
           new SettingSpec("timeLimit", 60, 0, 600),
+          new SettingSpec("timePerProblem", 10, 1, 180),
+          new SettingSpec("pointsPerProblem", 10, 1, 1000),
           new SettingSpec("passRules", 80, 1, 100),
           new SettingSpec("components", 8, 1, 50)),
       "worldcup", List.of(

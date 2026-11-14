@@ -3,6 +3,7 @@ import { toast } from "sonner"
 
 import { createKnowledgeCheck, getKnowledgeCheckKey } from "@/services/knowledgeCheckService.js"
 import { startAssessmentAttempt } from "@/services/assessmentService.js"
+import { getReadingGuardSettings } from "@/services/aiSettingsService.js"
 
 const challengeSessionKey = (learnerId, lessonId) => `rebyu:skim-challenge:v1:${learnerId}:${lessonId}`
 const handledSessionKey = (learnerId, lessonId) => `rebyu:skim-challenge:handled:v1:${learnerId}:${lessonId}`
@@ -45,6 +46,39 @@ function markHandled(learnerId, lessonId) {
   }
 }
 
+// After a challenge (or the "slow down" reminder) is shown, stay quiet for a while across
+// every lesson so fast scrolling does not raise it again and again. Admins set the length
+// (AI settings page); 3 minutes until it loads or if it cannot be read.
+let cooldownMs = 3 * 60 * 1000
+let cooldownLoaded = false
+function loadCooldown() {
+  if (cooldownLoaded) return
+  cooldownLoaded = true
+  getReadingGuardSettings()
+    .then((settings) => {
+      const seconds = Number(settings?.skimCooldownSeconds)
+      if (Number.isFinite(seconds) && seconds >= 0) cooldownMs = seconds * 1000
+    })
+    .catch(() => { cooldownLoaded = false })
+}
+const cooldownKey = (learnerId) => `rebyu:skim-challenge:cooldown:v2:${learnerId}`
+
+function inCooldown(learnerId) {
+  try {
+    const shownAt = Number(localStorage.getItem(cooldownKey(learnerId)) ?? 0)
+    return Date.now() < shownAt + cooldownMs
+  } catch {
+    return false
+  }
+}
+
+function startCooldown(learnerId) {
+  try {
+    localStorage.setItem(cooldownKey(learnerId), String(Date.now()))
+  } catch {
+  }
+}
+
 export function useSkimChallenge({ learnerId, lessonId, enabled }) {
   const [offer, setOffer] = useState(null)
   const [warningOpen, setWarningOpen] = useState(false)
@@ -59,6 +93,8 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
   }
   lessonRef.current = lessonId
   learnerRef.current = learnerId
+
+  useEffect(() => { if (enabled) loadCooldown() }, [enabled])
 
   useEffect(() => {
     askedRef.current = false
@@ -83,8 +119,12 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
 
   const trigger = useCallback(({ force = false } = {}) => {
     if (!enabled || !learnerId || !lessonRef.current) return
+    if (!force && inCooldown(learnerId)) return
     if (askedRef.current || busyRef.current) {
-      if (!busyRef.current) setWarningOpen(true)
+      if (!busyRef.current) {
+        startCooldown(learnerId)
+        setWarningOpen(true)
+      }
       return
     }
 
@@ -115,6 +155,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
         const nextOffer = { ...check, currentLessonOnly: true, attempt, answerKey }
         writeOffer(learnerId, lesson, nextOffer)
         markHandled(learnerId, lesson)
+        startCooldown(learnerId)
         setOffer(nextOffer)
       })
       .catch((error) => {

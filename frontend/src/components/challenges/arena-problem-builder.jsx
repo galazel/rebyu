@@ -53,13 +53,8 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
   const questionsPerNode = Number(arena.questionsPerNode) || 0
   const isRoadmap = questionsPerNode > 0
 
-  const targetNodes = isRoadmap
-    ? Number(
-        settings?.problems ??
-          arena.fields.find((field) => field.key === "problems")?.value ??
-          0,
-      )
-    : 0
+  // The learner path shows one stage per problem, so there is no node cap to fill.
+  const targetNodes = 0
 
   const savedQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY, arena.id, "problems"],
@@ -148,6 +143,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           typeId: questionType.id,
           typeName: questionType.title,
           ...DEFAULT_REWARD,
+          ...(Number(settings?.pointsPerProblem) > 0 ? { points: String(settings.pointsPerProblem) } : {}),
           data: cloneQuestionData(questionType.data),
         },
       ],

@@ -387,8 +387,8 @@ public class AssessmentAttemptService {
                 .attemptNumber(nextAttemptNumber)
                 .status(AssessmentAttempt.Status.IN_PROGRESS)
                 .startedAt(now)
-                .expiresAt(exam.getDurationMinutes() != null
-                        ? now.plusMinutes(exam.getDurationMinutes())
+                .expiresAt(timeLimitMinutes(exam) != null
+                        ? now.plusMinutes(timeLimitMinutes(exam))
                         : null)
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey
@@ -979,7 +979,7 @@ public class AssessmentAttemptService {
                     "codestrike".equals(exam.getTargetScope())
                             ? ChallengeArenaService.settingsOf("codestrike", arenaConfigRepository.findById("codestrike"))
                             : Map.of(),
-                    attempt.getStartedAt(), attempt.getSubmittedAt(), exam.getDurationMinutes(), objectMapper);
+                    attempt.getStartedAt(), attempt.getSubmittedAt(), timeLimitMinutes(exam), objectMapper);
         }
         return new AssessmentAttemptResultDto(
                 attempt.getAssessmentAttemptId(),
@@ -2108,6 +2108,25 @@ public class AssessmentAttemptService {
         }
     }
 
+    /**
+     * The clock for one attempt. CodeStrike and Blueprint are played one stage per
+     * attempt, so each runs on the arena's "time per problem" setting, not the whole
+     * run's limit; every other exam uses its own duration.
+     */
+    private Integer timeLimitMinutes(Exam exam) {
+        if (exam != null && exam.getExamType() != null
+                && TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && CAPPED_ARENAS.contains(exam.getTargetScope())) {
+            Integer perProblem = ChallengeArenaService
+                    .settingsOf(exam.getTargetScope(), arenaConfigRepository.findById(exam.getTargetScope()))
+                    .get("timePerProblem");
+            if (perProblem != null && perProblem > 0) {
+                return perProblem;
+            }
+        }
+        return exam == null ? null : exam.getDurationMinutes();
+    }
+
     private void applyCodeStrikeWeights(
             AssessmentAttemptQuestion attemptQuestion, AssessmentAttemptAnswer answer,
             BigDecimal points, int passed, int total, Long maxTimeMs) {
@@ -2123,7 +2142,7 @@ public class AssessmentAttemptService {
                 "codestrike", arenaConfigRepository.findById("codestrike"));
         ArenaScoring.Breakdown breakdown = ArenaScoring.codeStrike(
                 settings, passed, total, maxTimeMs,
-                attempt.getStartedAt(), LocalDateTime.now(), exam.getDurationMinutes());
+                attempt.getStartedAt(), LocalDateTime.now(), timeLimitMinutes(exam));
 
         answer.setCredit(points.multiply(breakdown.fraction()).setScale(4, RoundingMode.HALF_UP));
         String existing = answer.getFeedback();

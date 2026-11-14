@@ -4,6 +4,9 @@ import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.aigateway.service.ElevenLabsSettingsService;
 import com.capstone.rebyu.aigateway.entity.LiveTutorSettings;
+import com.capstone.rebyu.aigateway.entity.ReadingGuardSettings;
+import com.capstone.rebyu.aigateway.repository.ReadingGuardSettingsRepository;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -43,6 +46,30 @@ public class AiSettingsController {
     private final @Qualifier("aiWebClient") WebClient aiWebClient;
     private final CognitoAuthService auth;
     private final ElevenLabsSettingsService liveTutor;
+    private final ReadingGuardSettingsRepository readingGuard;
+
+    public record ReadingGuardUpdate(Integer skimCooldownSeconds) {}
+
+    /** Any signed-in learner reads this; the lesson page needs the cooldown. */
+    @GetMapping("/reading-guard")
+    public ReadingGuardSettings readingGuard(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
+        return readingGuard.findById(1L).orElseGet(ReadingGuardSettings::new);
+    }
+
+    @PutMapping("/reading-guard")
+    public ReadingGuardSettings updateReadingGuard(@AuthenticationPrincipal Jwt jwt, @RequestBody ReadingGuardUpdate request) {
+        var user = requireAdmin(jwt);
+        Integer seconds = request == null ? null : request.skimCooldownSeconds();
+        if (seconds == null || seconds < 0 || seconds > 86_400) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Skim cooldown must be between 0 seconds and 24 hours.");
+        }
+        var current = readingGuard.findById(1L).orElseGet(ReadingGuardSettings::new);
+        current.setSkimCooldownSeconds(seconds);
+        current.setUpdatedAt(Instant.now());
+        current.setUpdatedBy(user.email());
+        return readingGuard.save(current);
+    }
 
     @GetMapping("/live-tutor")
     public Map<String, Object> liveTutor(@AuthenticationPrincipal Jwt jwt) {

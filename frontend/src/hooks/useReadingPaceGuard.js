@@ -85,6 +85,10 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     }
     const onKeyDown = (event) => {
       if (SCROLL_KEYS.has(event.key)) gesture(event)
+      else if (event.key === "Enter") {
+        pause(3000)
+        lastGesture.current = 0
+      }
     }
 
     const onMouseDown = (event) => {
@@ -96,6 +100,11 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
       if (rightEdge) {
         draggingBar.current = true
         gesture()
+      } else {
+        // A click elsewhere (sidebar section, quiz link, jump button) can start a long
+        // programmatic scroll. That is navigation, not skimming, so ignore the next few seconds.
+        pause(3000)
+        lastGesture.current = 0
       }
     }
     const endScrollbar = () => {
@@ -142,7 +151,7 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
       window.removeEventListener("blur", endScrollbar)
       window.removeEventListener("scroll", onScroll)
     }
-  }, [enabled, measure, lessonRootRef])
+  }, [enabled, measure, pause, lessonRootRef])
 
   return { isRushing, pause }
 }

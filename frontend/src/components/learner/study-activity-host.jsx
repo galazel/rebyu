@@ -156,7 +156,7 @@ export function StudyActivityHost() {
     <Dialog
       open
       onOpenChange={(next) => {
-        if (!next) finishTask(null)
+        if (!next) finishTask("SKIPPED")
       }}
     >
       <DialogContent
@@ -190,21 +190,21 @@ export function StudyActivityHost() {
           <PomodoroStart
             task={activeTask}
             onStarted={() => finishTask(null)}
-            onDismiss={() => finishTask(null)}
+            onDismiss={() => finishTask("SKIPPED")}
           />
         ) : technique === "active-recall" ? (
           <RecallSession
             task={activeTask.event}
             certificationId={activeTask.certificationId}
             onStarted={() => finishTask("COMPLETED")}
-            onDismiss={() => finishTask(null)}
+            onDismiss={() => finishTask("SKIPPED")}
           />
         ) : technique === "spaced-repetition" ? (
           <SpacedRepetitionSession
             task={activeTask.event}
             certificationId={activeTask.certificationId}
             onComplete={() => finishTask("COMPLETED")}
-            onDismiss={() => finishTask(null)}
+            onDismiss={() => finishTask("SKIPPED")}
           />
         ) : (
           <div className="space-y-3 py-2">

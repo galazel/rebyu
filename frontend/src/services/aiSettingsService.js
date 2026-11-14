@@ -17,3 +17,5 @@ export function chooseAiModel(task, model) {
 export function resetAiModel(task) {
   return base(`ai/settings/${encodeURIComponent(task)}`, { method: "DELETE" })
 }
+export function getReadingGuardSettings() { return base("ai/settings/reading-guard") }
+export function updateReadingGuardSettings(data) { return base("ai/settings/reading-guard", { method: "PUT", data }) }
