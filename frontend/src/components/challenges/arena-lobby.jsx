@@ -482,7 +482,7 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
 
       <NodeTag
         {...(locked
-          ? { role: "img", title: `Finish stage ${index} to unlock this one` }
+          ? { role: "img", title: `Pass stage ${index} to unlock this one` }
           : { to })}
         aria-label={`Stage ${index + 1}, ${difficulty.label}, ${points} points${
           locked ? " (locked)" : state === "done" ? " (done)" : ""
@@ -528,7 +528,7 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
           <PointsPill amount={points} />
         </div>
         {locked ? (
-          <p className="mt-1 text-[11px] font-bold text-rb-wolf">Finish stage {index} to unlock</p>
+          <p className="mt-1 text-[11px] font-bold text-rb-wolf">Pass stage {index} to unlock</p>
         ) : state === "done" ? (
           <p className="mt-1 text-[11px] font-bold text-rb-leaf">Done · play again any time</p>
         ) : null}

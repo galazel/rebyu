@@ -30,6 +30,18 @@ public interface AssessmentAttemptQuestionRepository
             """)
     List<Long> findSubmittedSourceQuestionIds(@Param("learnerId") Long learnerId, @Param("examId") Long examId);
 
+    /** Questions the learner has handed in with at least this score (an arena stage cleared). */
+    @Query("""
+            SELECT DISTINCT q.sourceQuestionId
+            FROM AssessmentAttemptQuestion q JOIN q.attempt a
+            WHERE a.learnerId = :learnerId
+              AND a.exam.examId = :examId
+              AND a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
+              AND a.percentage >= :minPercent
+            """)
+    List<Long> findPassedSourceQuestionIds(@Param("learnerId") Long learnerId, @Param("examId") Long examId,
+            @Param("minPercent") java.math.BigDecimal minPercent);
+
     /** One row per handed-in challenge problem: who, which arena exam, which problem, the run's score. */
     @Query("""
             SELECT a.learnerId AS learnerId, a.exam.examId AS examId, a.exam.targetScope AS arenaId,

@@ -34,7 +34,7 @@ const SETTING_GROUPS = [
     keys: ["timeLimit", "timePerProblem", "roundSeconds", "countdown", "queueTimeout"],
   },
   { title: "Path & lobby", hint: "How the challenge is laid out.", keys: ["problems", "lobbySize"] },
-  { title: "Scoring", hint: "How a run is marked.", keys: ["pointsPerProblem", ...WEIGHT_KEYS] },
+  { title: "Scoring", hint: "How a run is marked.", keys: ["pointsPerProblem", "passScore", ...WEIGHT_KEYS] },
 ]
 
 function updateStatus(queryClient, arenaId, next) {

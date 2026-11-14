@@ -359,9 +359,12 @@ public class AssessmentAttemptService {
                 && questionIndex != null
                 && questionIndex > 0 && questionIndex < questionsToUse.size()) {
             Long previous = questionsToUse.get(questionIndex - 1).getQuestionId();
-            if (!attemptQuestionRepository.findSubmittedSourceQuestionIds(learnerId, exam.getExamId()).contains(previous)) {
+            java.math.BigDecimal pass = ChallengeArenaService.passScore(
+                    exam.getTargetScope(), arenaConfigRepository.findById(exam.getTargetScope()));
+            if (!attemptQuestionRepository.findPassedSourceQuestionIds(learnerId, exam.getExamId(), pass).contains(previous)) {
                 throw new IllegalArgumentException(
-                        "Finish problem " + questionIndex + " first to unlock problem " + (questionIndex + 1) + ".");
+                        "Score at least " + pass.stripTrailingZeros().toPlainString() + "% on stage " + questionIndex
+                                + " to unlock stage " + (questionIndex + 1) + ".");
             }
         }
 

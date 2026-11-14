@@ -31,6 +31,12 @@ export const ARENAS = [
         value: "10",
         hint: "Starting points for a new problem; each problem's own points are set on the Problems tab",
       },
+      {
+        key: "passScore",
+        label: "Score to clear a stage (%)",
+        value: "70",
+        hint: "A stage opens the next one only once it is passed with at least this score",
+      },
       { key: "weightCorrect", label: "Weight — correctness (%)", value: "60", hint: "Tests passed" },
       {
         key: "weightSpeed",
@@ -75,6 +81,12 @@ export const ARENAS = [
         label: "Default points per stage",
         value: "10",
         hint: "Starting points for a new problem; each problem's own points are set on the Problems tab",
+      },
+      {
+        key: "passScore",
+        label: "Score to clear a stage (%)",
+        value: "70",
+        hint: "A stage opens the next one only once it is passed with at least this score",
       },
       {
         key: "passRules",

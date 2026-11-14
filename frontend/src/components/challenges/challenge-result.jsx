@@ -8,7 +8,7 @@ import { PathBackdrop, Plinth } from "@/components/challenges/arena-lobby.jsx"
 import { ArenaPodium } from "@/components/challenges/arena-podium.jsx"
 import { ScoreBreakdown } from "@/components/challenges/score-breakdown.jsx"
 import { getLearnerPortalData } from "@/services/learnerService.js"
-import { getWorldCupBracketForMatch } from "@/services/challengeService.js"
+import { CHALLENGE_ARENAS_KEY, getChallengeArenas, getWorldCupBracketForMatch } from "@/services/challengeService.js"
 import { isArenaHidden } from "@/lib/arenas.js"
 import { cn } from "@/lib/utils"
 
@@ -253,7 +253,14 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
   const nextTo = hasNext
     ? `/learner/assessments/${result.assessmentId}?q=${index + 1}&total=${stageCount}&arena=${arenaId}`
     : null
-  const solved = percentage >= 50
+  const arenasQuery = useQuery({ queryKey: [CHALLENGE_ARENAS_KEY], queryFn: getChallengeArenas, staleTime: 60_000 })
+  const passScore = Number(
+    (arenasQuery.data ?? []).find((row) => row.arenaId === arenaId)?.settings?.passScore ?? 70
+  )
+  // A stage is cleared (and opens the next) only at the pass mark; a lower score is
+  // still recorded, but the next stage stays locked until this one is passed.
+  const solved = !marking && Number(percentage) >= passScore
+  const nextOpen = solved && nextTo
 
   return (
     <>
@@ -263,11 +270,13 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
         sub={
           marking
             ? "Your answer is being graded. This usually takes under a minute."
-            : hasNext
-              ? `Stage ${stageNo + 1} is unlocked.`
-              : stageCount != null
-                ? "That was the last stage. Every stage is open to replay."
-                : null
+            : !solved
+              ? `Score at least ${passScore}% to clear this stage${hasNext ? ` and unlock stage ${stageNo + 1}` : ""}.`
+              : hasNext
+                ? `Stage ${stageNo + 1} is unlocked.`
+                : stageCount != null
+                  ? "That was the last stage. Every stage is open to replay."
+                  : null
         }
         arena={arena}
         reduceMotion={reduceMotion}
@@ -305,14 +314,14 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
         </StatChip>
         <StatChip icon={Clock}>{formatDuration(result.durationSeconds)}</StatChip>
         {stageCount != null ? (
-          <StatChip icon={hasNext ? Zap : Lock}>
+          <StatChip icon={nextOpen ? Zap : Lock}>
             {stageNo} of {stageCount} stages
           </StatChip>
         ) : null}
       </div>
 
       <div className="mt-6 flex flex-wrap justify-center gap-3">
-        {nextTo ? (
+        {nextOpen ? (
           <TactileButton asChild>
             <Link replace to={nextTo}>
               stage {stageNo + 1}
@@ -320,7 +329,7 @@ function StageRound({ arena, arenaId, result, state, percentage, correct, total,
             </Link>
           </TactileButton>
         ) : null}
-        <TactileButton asChild variant={nextTo ? "ghost" : "feather"}>
+        <TactileButton asChild variant={nextOpen ? "ghost" : "feather"}>
           <Link replace to={arena.lobby}>back to stages</Link>
         </TactileButton>
         <TactileButton asChild variant="ghost">

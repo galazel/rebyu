@@ -67,6 +67,7 @@ public class ChallengeArenaService {
           new SettingSpec("timeLimit", 45, 0, 600),
           new SettingSpec("timePerProblem", 10, 1, 180),
           new SettingSpec("pointsPerProblem", 10, 1, 1000),
+          new SettingSpec("passScore", 70, 0, 100),
           new SettingSpec("weightCorrect", 60, 0, 100),
           new SettingSpec("weightSpeed", 20, 0, 100),
           new SettingSpec("weightBigO", 20, 0, 100)),
@@ -76,6 +77,7 @@ public class ChallengeArenaService {
           new SettingSpec("timeLimit", 60, 0, 600),
           new SettingSpec("timePerProblem", 10, 1, 180),
           new SettingSpec("pointsPerProblem", 10, 1, 1000),
+          new SettingSpec("passScore", 70, 0, 100),
           new SettingSpec("passRules", 80, 1, 100),
           new SettingSpec("components", 8, 1, 50)),
       "worldcup", List.of(
@@ -206,7 +208,13 @@ public class ChallengeArenaService {
         .toList();
   }
 
-  /** Which of an arena's problems this learner has handed in (they unlock in order). */
+  /** The score (%) a stage needs to count as cleared and open the next one. */
+  public static java.math.BigDecimal passScore(String arenaId, Optional<ChallengeArenaConfig> config) {
+    Integer pass = settingsOf(arenaId, config).get("passScore");
+    return java.math.BigDecimal.valueOf(pass == null ? 70 : pass);
+  }
+
+  /** Which of an arena's problems this learner has cleared (passed); they unlock in order. */
   @Transactional(readOnly = true)
   public List<Long> completedProblemIds(String arenaId, Long learnerId) {
     requireKnownArena(arenaId);
@@ -214,7 +222,8 @@ public class ChallengeArenaService {
     if (exam == null || learnerId == null) {
       return List.of();
     }
-    return attemptQuestions.findSubmittedSourceQuestionIds(learnerId, exam.getExamId());
+    return attemptQuestions.findPassedSourceQuestionIds(
+        learnerId, exam.getExamId(), passScore(arenaId, arenaConfigs.findById(arenaId)));
   }
 
   /**
