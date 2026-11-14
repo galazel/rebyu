@@ -1354,7 +1354,6 @@ export default function LearnerProgressPage() {
   const savedLayout = useMemo(() => {
     const migrated = migrateLearnerLayout(localLayout ?? layoutQuery.data?.tiles ?? null)
     if (!migrated || !migrated.length) return migrated
-    if (migrated.some((tile) => Number(tile.w) < 2)) return null
     return migrated
   }, [localLayout, layoutQuery.data?.tiles])
   const tileLayout = savedLayout ?? []

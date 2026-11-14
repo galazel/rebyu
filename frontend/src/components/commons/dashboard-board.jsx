@@ -144,6 +144,11 @@ export function DashboardBoard({
   // Becomes true once a tile is dragged or resized in this rearrange session.
   const movedRef = useRef(false)
   if (!editing) movedRef.current = false
+  // Bumped on every drop/resize so the grid remounts from the committed layout. The
+  // grid otherwise keeps its own copy of the arrangement, and any re-render of the page
+  // (live data, timers) after a drop made it show that stale copy: cards landed in the
+  // wrong place, overlapped, or snapped back.
+  const [gridVersion, setGridVersion] = useState(0)
   useLayoutEffect(() => {
     if (editing) return
     const grid = viewGridRef.current
@@ -233,7 +238,7 @@ export function DashboardBoard({
           const tileId = item.id
           const isCollapsed = Boolean(collapsedTiles[tileId])
           const tile = byId.get(tileId)
-          const targetH = isCollapsed ? 1 : Math.max(item.h, tile?.row ?? 4)
+          const targetH = isCollapsed ? 1 : Math.max(1, item.h ?? tile?.row ?? 4)
           return { i: tileId, id: tileId, x: item.x, y: item.y, w: item.w, h: targetH }
         }),
         ...fallback.map((item) => {
@@ -316,6 +321,7 @@ export function DashboardBoard({
   const handleLayoutChange = (dropped) => {
     if (!editing) return
     movedRef.current = true
+    setGridVersion((version) => version + 1)
     // The dropped card keeps the spot it was dropped on (cards under it moved
     // down); then everything slides up into the gaps that left behind. Packing
     // during the drag is off because it sent a card dropped beside one in the same
@@ -415,7 +421,7 @@ export function DashboardBoard({
         <div className="h-96" aria-hidden="true" />
       ) : (
       <Responsive
-        key={JSON.stringify(collapsedTiles)}
+        key={`${JSON.stringify(collapsedTiles)}:${gridVersion}`}
         width={width}
         className={`rebyu-board ${editing ? "is-editing" : ""}`}
         layouts={layouts}
