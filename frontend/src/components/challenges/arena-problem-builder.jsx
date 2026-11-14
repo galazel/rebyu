@@ -190,7 +190,10 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
     const nextErrors = {}
 
     for (const problem of allProblems) {
-      const problemErrors = validateQuestionData(problem.typeId, problem.data)
+      // An unedited saved question is not re-saved (only its points/time/order are), so its
+      // content is not re-checked: seeded questions may predate the editor's rules.
+      const problemErrors =
+        problem.existingQuestionId && !problem.edited ? {} : validateQuestionData(problem.typeId, problem.data)
 
       if (!(Number(problem.points) > 0)) {
         problemErrors.points = "Points must be greater than zero."
