@@ -243,8 +243,18 @@ public class AssessmentAttemptService {
                     || LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
                 return buildStartResponse(attempt, true);
             }
-            attempt.setStatus(AssessmentAttempt.Status.EXPIRED);
-            attemptRepository.save(attempt);
+            // Its time ran out while the learner was away: hand it in on the answers it
+            // has (autosaved as they worked) instead of throwing them away.
+            try {
+                submitAttempt(attempt.getAssessmentAttemptId(),
+                        new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos
+                                .SubmitAssessmentAttemptRequestDto(learnerId, List.of()));
+            } catch (RuntimeException e) {
+                log.warn("Could not hand in timed-out attempt {}: {}",
+                        attempt.getAssessmentAttemptId(), e.getMessage());
+                attempt.setStatus(AssessmentAttempt.Status.EXPIRED);
+                attemptRepository.save(attempt);
+            }
         }
 
         int nextAttemptNumber = attemptRepository
