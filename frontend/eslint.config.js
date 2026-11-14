@@ -37,6 +37,10 @@ export default defineConfig([
     languageOptions: { globals: { ...globals.browser, ...globals.node, ...VITEST_GLOBALS } },
   },
   {
+    files: ['src/__test__/support/**/*.{js,jsx,mjs}'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,

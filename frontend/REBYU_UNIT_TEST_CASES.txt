@@ -1,0 +1,3253 @@
+REBYU CAPSTONE - UNIT TEST CASE CATALOG
+Prepared for: Cortes, Ivan Justine
+Repository reviewed: D:\capstone
+Prepared: November 12, 2026
+Total planned cases: 206
+Execution status: NOT EXECUTED. Every action result and result is pending.
+
+PURPOSE AND SCOPE
+This is a repository-informed baseline for the identified frontend, Java service
+and Python logic units. It includes success, invalid input, boundaries, ownership,
+duplicate requests, failure handling and recovery. It is not a claim that every
+possible input or branch is covered. Expand data-driven cases for each supported
+question type, account role, certification, diagram format and activity schema.
+
+This catalog supersedes the earlier chat's sample numbering. TC identifiers here
+are local to this file; they do not map to docs/TC-001_to_TC-010_Test_Cases.txt.
+
+Only this document was created, inside frontend/, in accordance with AGENTS.md.
+Backend code was read to plan tests; it was not changed. Backend implementations
+and test changes remain outside the authorized frontend editing boundary.
+
+WHAT NEEDS UNIT TESTING
+P1: Access control, authentication state, attempt ownership, grading, duplicate
+submission, payment verification, entitlements, reward accounting, mastery math,
+institution isolation, AI error handling and generation recovery.
+P2: Date/time formatting, exports, notifications, file-preview cleanup, dashboard
+state and administrative component interactions.
+
+Each case tests ONE function, service or component with collaborators mocked.
+Rows naming both frontend and backend describe a unit at the applicable layer:
+choose the named component OR service, not a live end-to-end chain.
+For a row with multiple independent inputs, run one assertion set per input.
+Use the source's configured thresholds, schemas and scoring rules rather than
+inventing product requirements. A requirement that is ambiguous should be
+clarified before marking that case Passed.
+
+TEST SETUP
+Frontend: mock API modules, auth session, navigation, local storage, browser file
+APIs and speech/media providers as needed. Use fake timers for countdowns,
+Pomodoro and streaming coordination. Restore mocks and storage between tests.
+Java: instantiate the service with mocked repositories, payment verifier, AI
+client, Judge0 client and reward/event collaborators. Verify returned values,
+exceptions and collaborator calls. Repository mocks cannot prove DB rollback.
+Python: use deterministic fixtures and monkeypatch AI, vector retrieval, messaging,
+storage and time dependencies. No paid model calls or production writes.
+Use synthetic learners and organizations. Freeze random sources for sampling
+tests and time for date-sensitive tests. Never place real credentials in tests.
+
+HOW TO RECORD RESULTS
+1. Arrange the stated inputs and mocks.
+2. Invoke the target function, service method or component action.
+3. Assert the exact result, state change, exception or collaborator interaction.
+4. Replace Action Result with the actual observed behavior.
+5. Enter the actual test date using MM/DD/YY.
+6. Set Result to Passed, Failed or Blocked. Attach failure evidence in Action Result.
+For a grouped case, mark Passed only when every specified input passes.
+
+EXISTING AUTOMATED TESTS TO REVIEW AND EXTEND
+Frontend: frontend/scripts/tests/*.test.mjs and
+frontend/src/hooks/workflow-timeline-model.test.js, plus the existing .check.mjs
+utilities. The package has build/lint/typecheck commands but no general npm test
+script, so do not assume npm test is configured.
+Java: backend-java/src/test/java/com/capstone/rebyu/ includes service tests for
+assessment attempts, enrollment, rewards, institutions, departments, invitations,
+community, analytics and others. Files ending IT or LiveIT must not automatically
+be counted as isolated unit tests.
+Python: python-backend/tests/ includes BKT math, grading, tutor, schemas, RAG,
+workflow recovery, quota fallback and related tests. Some tests require services
+or live providers; inspect their fixtures and markers before running.
+A pre-existing test file does not mean its cases were executed or passed here.
+
+SEPARATE INTEGRATION / SYSTEM CHECKS (NOT UNIT-TEST PASSES)
+- Real account registration, verification email delivery and session refresh.
+- Actual database commits, rollback, unique constraints and concurrent requests.
+- Actual Judge0 execution, code sandbox behavior and diagram execution pipeline.
+- Live AI quality, grounded document answers, voice latency and provider quotas.
+- RabbitMQ delivery, Redis state, outbox dispatch and workflow restart recovery.
+- Real file storage, signed URLs and upload/download permissions.
+- Real PayMongo checkout, webhook signature verification and payment settlement.
+- Browser navigation, responsive appearance, keyboard access and complete journeys.
+- Load, security and cross-service deployment testing.
+These require separate procedures and an appropriate test environment. Mocked
+unit results must not be reported as evidence that these integrations work.
+
+KNOWN LIMITATIONS AND REQUIREMENTS TO CONFIRM
+The business-transactions documentation identifies simulated certification
+payment verification and an unverified payment-provider webhook. Live payment
+security remains a separate review requirement; do not mark it Passed from a mock.
+The standalone Upload and Learn tutor currently returns an interface-only notice.
+Other tutor services exist; do not confuse those with that particular screen.
+Some cases below are proposed acceptance criteria, not assertions that the
+current implementation already satisfies them. A failed case may identify a bug
+or an unresolved requirement. Do not change backend code under the current rule.
+
+MODULE INDEX
+Account Registration: TC-001 to TC-012 (12 cases)
+Authentication and Authorization: TC-013 to TC-024 (12 cases)
+API Client: TC-025 to TC-034 (10 cases)
+Curriculum and Lesson Progress: TC-035 to TC-045 (11 cases)
+Assessment Attempt and Grading: TC-046 to TC-070 (25 cases)
+Assessment Navigation and Timers: TC-071 to TC-077 (7 cases)
+Study Planning and Pomodoro: TC-078 to TC-089 (12 cases)
+Practice, Library and Mistake Bank: TC-090 to TC-099 (10 cases)
+AI Tutor and Live Teaching: TC-100 to TC-115 (16 cases)
+Adaptive Mastery and Analytics: TC-116 to TC-127 (12 cases)
+AI Content Generation and PDF Import: TC-128 to TC-145 (18 cases)
+Institutions, Departments and Invitations: TC-146 to TC-157 (12 cases)
+Enrollment, Billing and Entitlements: TC-158 to TC-167 (10 cases)
+Rewards, Challenges and Community: TC-168 to TC-183 (16 cases)
+Notifications, Exports and File Handling: TC-184 to TC-196 (13 cases)
+Dashboard and Administrative UI: TC-197 to TC-206 (10 cases)
+
+DETAILED TEST CASES
+
+================================================================================
+ACCOUNT REGISTRATION
+================================================================================
+
+Test Case: TC-001
+Proponent: Cortes, Ivan Justine
+Unit Name: Signup validation
+Test Case Description: Submit valid learner details and mock successful registration.
+Expected Results: The handler submits the intended registration payload and follows the success flow.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-002
+Proponent: Cortes, Ivan Justine
+Unit Name: Required fields
+Test Case Description: Submit with each required field empty in turn.
+Expected Results: Submission is blocked and the missing field is identified.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-003
+Proponent: Cortes, Ivan Justine
+Unit Name: Password length
+Test Case Description: Use a seven-character password containing uppercase, lowercase, digit and symbol.
+Expected Results: Password validation rejects the value.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-004
+Proponent: Cortes, Ivan Justine
+Unit Name: Password composition
+Test Case Description: Omit uppercase, lowercase, digit or symbol in separate inputs of at least eight characters.
+Expected Results: Each incomplete password is rejected.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-005
+Proponent: Cortes, Ivan Justine
+Unit Name: Password minimum boundary
+Test Case Description: Use Abcdef1! with matching confirmation and otherwise valid details.
+Expected Results: Password passes the minimum length and composition checks.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-006
+Proponent: Cortes, Ivan Justine
+Unit Name: Password confirmation
+Test Case Description: Use different password and confirmation values.
+Expected Results: Submission is blocked with a mismatch message.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-007
+Proponent: Cortes, Ivan Justine
+Unit Name: Duplicate email handling
+Test Case Description: Mock an account-already-exists registration error.
+Expected Results: The safe authentication error is shown and pending state clears.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-008
+Proponent: Cortes, Ivan Justine
+Unit Name: Institution reference format
+Test Case Description: Enter a malformed partnership reference.
+Expected Results: The reference lookup is not called until its expected format is complete.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-009
+Proponent: Cortes, Ivan Justine
+Unit Name: Institution reference lookup
+Test Case Description: Mock a successful lookup for PR-ABCDEFG1.
+Expected Results: Returned request information is associated with that reference.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-010
+Proponent: Cortes, Ivan Justine
+Unit Name: Unrecognized partnership reference
+Test Case Description: Enter a correctly formatted partnership reference that does not exist, such as PR-ZZZZZZZZ after confirming it is unused.
+Expected Results: A reference-not-found error appears, no institution details are loaded, and registration cannot proceed using that reference.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-011
+Proponent: Cortes, Ivan Justine
+Unit Name: Department code format
+Test Case Description: Enter a malformed department code.
+Expected Results: Lookup is withheld until a complete DH-XXXXXXXX code is supplied.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-012
+Proponent: Cortes, Ivan Justine
+Unit Name: Registration failure recovery
+Test Case Description: Mock a failed registration and then correct the input.
+Expected Results: The error is shown and the form becomes available for a retry.
+Action Result: Not yet tested
+Module Name: Account Registration
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/pages/auth/register-page.jsx
+
+
+================================================================================
+AUTHENTICATION AND AUTHORIZATION
+================================================================================
+
+Test Case: TC-013
+Proponent: Cortes, Ivan Justine
+Unit Name: Login success
+Test Case Description: Mock a successful sign-in response.
+Expected Results: The authenticated account state is set using the returned account information.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-014
+Proponent: Cortes, Ivan Justine
+Unit Name: Login failure
+Test Case Description: Mock invalid credentials.
+Expected Results: No authenticated state is created and an appropriate error is shown.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-015
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty login
+Test Case Description: Submit the login form with empty required credentials.
+Expected Results: Required-field validation prevents the authentication request.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-016
+Proponent: Cortes, Ivan Justine
+Unit Name: Email verification
+Test Case Description: Mock successful verification of a supplied code.
+Expected Results: The success flow is used without treating the account as verified before the response.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-017
+Proponent: Cortes, Ivan Justine
+Unit Name: Invalid verification
+Test Case Description: Mock an invalid or expired verification code.
+Expected Results: The error is displayed and verification remains incomplete.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-018
+Proponent: Cortes, Ivan Justine
+Unit Name: Password reset request
+Test Case Description: Mock a successful password-reset request for a valid email.
+Expected Results: The reset-request success state appears.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-019
+Proponent: Cortes, Ivan Justine
+Unit Name: Password reset error
+Test Case Description: Mock a failed reset request.
+Expected Results: The safe error is shown and the user can retry.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-020
+Proponent: Cortes, Ivan Justine
+Unit Name: New password mismatch
+Test Case Description: Submit a new password with a different confirmation.
+Expected Results: Reset submission is blocked.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-021
+Proponent: Cortes, Ivan Justine
+Unit Name: Session restoration
+Test Case Description: Mock a stored authenticated session during initialization.
+Expected Results: Account state is restored after initialization.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-022
+Proponent: Cortes, Ivan Justine
+Unit Name: Unauthenticated route
+Test Case Description: Render a protected route with no session.
+Expected Results: Protected content is not exposed and the login flow is used.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-023
+Proponent: Cortes, Ivan Justine
+Unit Name: Role mismatch
+Test Case Description: Render an administrator route using a learner account.
+Expected Results: Administrator content is denied by the frontend guard.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-024
+Proponent: Cortes, Ivan Justine
+Unit Name: Logout
+Test Case Description: Mock successful sign-out from an authenticated state.
+Expected Results: Account-specific client state is cleared and the logged-out flow is used.
+Action Result: Not yet tested
+Module Name: Authentication and Authorization
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/authService.js; frontend/src/context/auth-context.jsx; frontend/src/pages/auth/
+
+
+================================================================================
+API CLIENT
+================================================================================
+
+Test Case: TC-025
+Proponent: Cortes, Ivan Justine
+Unit Name: Bearer token injection
+Test Case Description: Mock a session access token and send a request without Authorization.
+Expected Results: The outgoing request includes that bearer token.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-026
+Proponent: Cortes, Ivan Justine
+Unit Name: Explicit authorization
+Test Case Description: Send a request with a caller-supplied Authorization header.
+Expected Results: The explicit header is preserved.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-027
+Proponent: Cortes, Ivan Justine
+Unit Name: No session token
+Test Case Description: Mock an absent session.
+Expected Results: No fabricated bearer token is attached.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-028
+Proponent: Cortes, Ivan Justine
+Unit Name: Concurrent GET deduplication
+Test Case Description: Make two concurrent GET calls for the same endpoint and authorization.
+Expected Results: One underlying request supplies both callers.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-029
+Proponent: Cortes, Ivan Justine
+Unit Name: GET account isolation
+Test Case Description: Make concurrent GET calls with different authorization values.
+Expected Results: The calls are not merged across accounts.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-030
+Proponent: Cortes, Ivan Justine
+Unit Name: Mutation requests
+Test Case Description: Make two POST calls to the same endpoint.
+Expected Results: The client does not apply GET deduplication to the mutations.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-031
+Proponent: Cortes, Ivan Justine
+Unit Name: Failed GET cleanup
+Test Case Description: Reject a GET and then request the same endpoint again.
+Expected Results: The later call can issue a new request.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-032
+Proponent: Cortes, Ivan Justine
+Unit Name: API message selection
+Test Case Description: Provide a nonblank server message and then a missing or blank message.
+Expected Results: The helper selects the server message when valid and the fallback otherwise.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-033
+Proponent: Cortes, Ivan Justine
+Unit Name: Tutor lock response
+Test Case Description: Mock status 423 with the configured tutor-lock code.
+Expected Results: The client announces the lock with the returned lock information.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-034
+Proponent: Cortes, Ivan Justine
+Unit Name: Request option forwarding
+Test Case Description: Supply responseType, timeout and upload progress options.
+Expected Results: The request adapter receives those options unchanged.
+Action Result: Not yet tested
+Module Name: API Client
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/services/base.js
+
+
+================================================================================
+CURRICULUM AND LESSON PROGRESS
+================================================================================
+
+Test Case: TC-035
+Proponent: Cortes, Ivan Justine
+Unit Name: Combined progress
+Test Case Description: Provide 2 completed of 4 lessons and 1 passed of 2 assessments.
+Expected Results: certificationProgressPercent returns 50.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-036
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty progress
+Test Case Description: Provide zero lessons and zero assessments.
+Expected Results: Progress returns 0 without division by zero.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-037
+Proponent: Cortes, Ivan Justine
+Unit Name: Progress limits
+Test Case Description: Provide negative completion counts and completion counts above totals in separate calls.
+Expected Results: Calculated completion is bounded from 0 to 100.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-038
+Proponent: Cortes, Ivan Justine
+Unit Name: Certification identity
+Test Case Description: Find certification 7 in a row whose certificationId is the string '7'.
+Expected Results: The matching row is returned.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-039
+Proponent: Cortes, Ivan Justine
+Unit Name: Missing certification
+Test Case Description: Provide missing rows or an unknown certification ID.
+Expected Results: The finder returns null.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-040
+Proponent: Cortes, Ivan Justine
+Unit Name: Remember completion
+Test Case Description: Remember lesson 7 and query with string ID '7'.
+Expected Results: The lesson is reported completed for this session.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-041
+Proponent: Cortes, Ivan Justine
+Unit Name: Forget completion
+Test Case Description: Remember a lesson, then forget it.
+Expected Results: The lesson is no longer reported completed.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-042
+Proponent: Cortes, Ivan Justine
+Unit Name: Null lesson identity
+Test Case Description: Remember, query and forget a null lesson ID.
+Expected Results: No exception occurs and querying returns false.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-043
+Proponent: Cortes, Ivan Justine
+Unit Name: Lesson block rendering
+Test Case Description: Render representative heading, text, image, tabs and accordion fixtures individually.
+Expected Results: Each supported block renders its expected content and controls.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-044
+Proponent: Cortes, Ivan Justine
+Unit Name: Lesson loading failure
+Test Case Description: Mock a rejected lesson query.
+Expected Results: The error state appears without a false completion state.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-045
+Proponent: Cortes, Ivan Justine
+Unit Name: Knowledge-check feedback
+Test Case Description: Mock a correct and an incorrect knowledge-check response separately.
+Expected Results: The component shows the corresponding feedback from each response.
+Action Result: Not yet tested
+Module Name: Curriculum and Lesson Progress
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/certification-progress.js; frontend/src/lib/lesson-completion.js; frontend/src/pages/learner/learning/
+
+
+================================================================================
+ASSESSMENT ATTEMPT AND GRADING
+================================================================================
+
+Test Case: TC-046
+Proponent: Cortes, Ivan Justine
+Unit Name: Attempt initialization
+Test Case Description: Supply an eligible enrolled learner, an exam and mocked question repositories.
+Expected Results: The service builds the attempt and its question snapshots.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-047
+Proponent: Cortes, Ivan Justine
+Unit Name: Ineligible learner
+Test Case Description: Supply a learner without required assessment access.
+Expected Results: The service rejects the attempt before saving it.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-048
+Proponent: Cortes, Ivan Justine
+Unit Name: Attempt ownership
+Test Case Description: Request another learner's attempt through the service.
+Expected Results: Access is rejected.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-049
+Proponent: Cortes, Ivan Justine
+Unit Name: Question snapshot
+Test Case Description: Change the source question after constructing the attempt fixture.
+Expected Results: The attempt's stored question text remains the original snapshot.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-050
+Proponent: Cortes, Ivan Justine
+Unit Name: Correct multiple choice
+Test Case Description: Submit the configured correct choice for a question.
+Expected Results: The grader awards the configured full points.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-051
+Proponent: Cortes, Ivan Justine
+Unit Name: Incorrect multiple choice
+Test Case Description: Submit a different choice.
+Expected Results: The grader awards zero for the item.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-052
+Proponent: Cortes, Ivan Justine
+Unit Name: Accepted short answer
+Test Case Description: Submit a configured accepted answer variation.
+Expected Results: The answer receives the configured correct-answer score.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-053
+Proponent: Cortes, Ivan Justine
+Unit Name: Unaccepted short answer
+Test Case Description: Submit a value outside accepted variations.
+Expected Results: The grader does not mark it correct by exact accepted-variation matching.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-054
+Proponent: Cortes, Ivan Justine
+Unit Name: Descriptive grading
+Test Case Description: Mock an AI rubric response with known criterion scores.
+Expected Results: The service converts the rubric response to the expected bounded item score.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-055
+Proponent: Cortes, Ivan Justine
+Unit Name: Grading provider failure
+Test Case Description: Mock exhausted AI grading retries.
+Expected Results: The failure follows the service error policy without inventing a successful grade.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-056
+Proponent: Cortes, Ivan Justine
+Unit Name: Programming success
+Test Case Description: Mock code execution with all configured test cases passing.
+Expected Results: The programming item receives full configured points.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-057
+Proponent: Cortes, Ivan Justine
+Unit Name: Programming failure
+Test Case Description: Mock a compilation error or failed test result.
+Expected Results: The result is represented as failure and is not awarded full points.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-058
+Proponent: Cortes, Ivan Justine
+Unit Name: Programming timeout
+Test Case Description: Mock a time-limit-exceeded execution.
+Expected Results: Timeout feedback is preserved and execution is not marked successful.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-059
+Proponent: Cortes, Ivan Justine
+Unit Name: Equivalent diagram
+Test Case Description: Provide structurally equivalent reference and answer graphs.
+Expected Results: The structural grader recognizes the expected equivalence.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-060
+Proponent: Cortes, Ivan Justine
+Unit Name: Incorrect diagram
+Test Case Description: Remove a required relationship from the answer graph.
+Expected Results: The grader detects the mismatch.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-061
+Proponent: Cortes, Ivan Justine
+Unit Name: Malformed diagram
+Test Case Description: Provide an invalid diagram payload.
+Expected Results: The parser or validation layer reports failure without an unhandled crash.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-062
+Proponent: Cortes, Ivan Justine
+Unit Name: Score percentage
+Test Case Description: Use a fixture earning 8 of 10 available points.
+Expected Results: The calculated percentage equals 80.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-063
+Proponent: Cortes, Ivan Justine
+Unit Name: Repeated submission
+Test Case Description: Submit an already finalized attempt a second time.
+Expected Results: The existing result is returned without duplicate rewards or mastery events.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-064
+Proponent: Cortes, Ivan Justine
+Unit Name: Submission side effects
+Test Case Description: Mock a first successful final submission.
+Expected Results: Result, rewards and mastery-event collaborators are invoked with the correct attempt identity.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-065
+Proponent: Cortes, Ivan Justine
+Unit Name: Adaptive retake selection
+Test Case Description: Provide fixed weak and strong lesson-difficulty cells and a controlled random source.
+Expected Results: The selector follows its configured weak-cell weighting.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-066
+Proponent: Cortes, Ivan Justine
+Unit Name: Arena retake selection
+Test Case Description: Supply a challenge-arena attempt fixture.
+Expected Results: The arena retains its configured problem set rather than normal adaptive retake selection.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-067
+Proponent: Cortes, Ivan Justine
+Unit Name: Position-dependent choices
+Test Case Description: Pass choices containing 'All of the above'.
+Expected Results: choicesCanShuffle returns false.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-068
+Proponent: Cortes, Ivan Justine
+Unit Name: Independent choices
+Test Case Description: Pass choices that do not refer to each other's positions.
+Expected Results: choicesCanShuffle returns true.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-069
+Proponent: Cortes, Ivan Justine
+Unit Name: Unsaved answer state
+Test Case Description: Change one answer in the attempt component with mocked persistence.
+Expected Results: Only the intended question's local answer changes and the correct save payload is produced.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-070
+Proponent: Cortes, Ivan Justine
+Unit Name: Submit pending state
+Test Case Description: Keep the mocked submit request unresolved.
+Expected Results: The component prevents duplicate submission while pending.
+Action Result: Not yet tested
+Module Name: Assessment Attempt and Grading
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/assessment/service/AssessmentAttemptServiceTest.java; frontend/src/components/assessments/attempt/; frontend/src/lib/choice-shuffle.js
+
+
+================================================================================
+ASSESSMENT NAVIGATION AND TIMERS
+================================================================================
+
+Test Case: TC-071
+Proponent: Cortes, Ivan Justine
+Unit Name: Safe return path
+Test Case Description: Provide returnTo '/learner/assessments?tab=history'.
+Expected Results: returnPath returns the internal path.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-072
+Proponent: Cortes, Ivan Justine
+Unit Name: External return path
+Test Case Description: Provide an https URL and a protocol-relative //host URL separately.
+Expected Results: returnPath returns null for both.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-073
+Proponent: Cortes, Ivan Justine
+Unit Name: Return state preservation
+Test Case Description: Supply pathname, query and hash.
+Expected Results: returnState preserves all three in returnTo.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-074
+Proponent: Cortes, Ivan Justine
+Unit Name: Minute countdown
+Test Case Description: Format 65 seconds.
+Expected Results: formatCountdown returns 01:05.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-075
+Proponent: Cortes, Ivan Justine
+Unit Name: Hour countdown
+Test Case Description: Format 3661 seconds.
+Expected Results: formatCountdown returns 1:01:01.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-076
+Proponent: Cortes, Ivan Justine
+Unit Name: Invalid countdown
+Test Case Description: Format negative, undefined and nonnumeric inputs separately.
+Expected Results: Each value formats as 00:00.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-077
+Proponent: Cortes, Ivan Justine
+Unit Name: Countdown description
+Test Case Description: Describe one second and two seconds.
+Expected Results: The descriptions use '1 second remaining' and '2 seconds remaining'.
+Action Result: Not yet tested
+Module Name: Assessment Navigation and Timers
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/lib/assessment-return.js; frontend/src/lib/countdown.js
+
+
+================================================================================
+STUDY PLANNING AND POMODORO
+================================================================================
+
+Test Case: TC-078
+Proponent: Cortes, Ivan Justine
+Unit Name: Time parsing
+Test Case Description: Parse 00:00 and 23:59.
+Expected Results: minutesOfDay returns 0 and 1439 respectively.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-079
+Proponent: Cortes, Ivan Justine
+Unit Name: Invalid schedule time
+Test Case Description: Parse 24:00, 12:60 and an empty value.
+Expected Results: minutesOfDay returns null.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-080
+Proponent: Cortes, Ivan Justine
+Unit Name: Local date key
+Test Case Description: Convert a fixed local calendar date.
+Expected Results: toDateKey returns its local YYYY-MM-DD value without a UTC date shift.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-081
+Proponent: Cortes, Ivan Justine
+Unit Name: Due activity
+Test Case Description: Supply a triggerable activity scheduled earlier today.
+Expected Results: isDue returns true.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-082
+Proponent: Cortes, Ivan Justine
+Unit Name: Future activity
+Test Case Description: Supply a triggerable activity later today or on another date.
+Expected Results: isDue returns false.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-083
+Proponent: Cortes, Ivan Justine
+Unit Name: Nontriggerable activity
+Test Case Description: Omit technique or use an unsupported activity type.
+Expected Results: isTriggerable returns false.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-084
+Proponent: Cortes, Ivan Justine
+Unit Name: Stale activity boundary
+Test Case Description: Provide activities just inside and just outside the three-hour window.
+Expected Results: Only the activity beyond the window is stale by elapsed time.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-085
+Proponent: Cortes, Ivan Justine
+Unit Name: Plan generation boundary
+Test Case Description: Provide an activity due before its plan's generatedAt timestamp.
+Expected Results: isStale returns true.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-086
+Proponent: Cortes, Ivan Justine
+Unit Name: Study plan response
+Test Case Description: Mock a successful plan-generation response for selected certifications.
+Expected Results: The hook stores or exposes the returned plan using the intended selections.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-087
+Proponent: Cortes, Ivan Justine
+Unit Name: Study plan error
+Test Case Description: Reject the plan-generation request.
+Expected Results: The hook exposes failure and clears pending state.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-088
+Proponent: Cortes, Ivan Justine
+Unit Name: Pomodoro start and pause
+Test Case Description: Use fake time to start, advance and pause a timer.
+Expected Results: Remaining time decreases while running and stays fixed while paused.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-089
+Proponent: Cortes, Ivan Justine
+Unit Name: Pomodoro reset
+Test Case Description: Reset a partially elapsed timer.
+Expected Results: The timer returns to the configured starting duration.
+Action Result: Not yet tested
+Module Name: Study Planning and Pomodoro
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/lib/study-schedule.js; frontend/src/lib/pomodoro-store.js; frontend/src/hooks/useStudyPlan.js; backend-java/src/main/java/com/capstone/rebyu/gamification/
+
+
+================================================================================
+PRACTICE, LIBRARY AND MISTAKE BANK
+================================================================================
+
+Test Case: TC-090
+Proponent: Cortes, Ivan Justine
+Unit Name: Practice scoring
+Test Case Description: Supply a fixed practice set with known correct and incorrect answers.
+Expected Results: The practice scorer returns the expected result for that fixture.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-091
+Proponent: Cortes, Ivan Justine
+Unit Name: Practice duplicate completion
+Test Case Description: Complete the same practice attempt twice with mocked repositories.
+Expected Results: The second completion does not duplicate rewards.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-092
+Proponent: Cortes, Ivan Justine
+Unit Name: Practice analytics isolation
+Test Case Description: Provide formal assessment and practice fixtures to the relevant analytics calculation.
+Expected Results: Practice does not inflate formal assessment scores.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-093
+Proponent: Cortes, Ivan Justine
+Unit Name: Flashcard next card
+Test Case Description: Advance from the first card in a multi-card set.
+Expected Results: The active card changes to the next valid card.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-094
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty flashcard set
+Test Case Description: Render an empty flashcard fixture.
+Expected Results: An empty state appears without indexing a missing card.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-095
+Proponent: Cortes, Ivan Justine
+Unit Name: Library save
+Test Case Description: Mock a successful library-item save.
+Expected Results: The submitted content is represented by the returned saved item.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-096
+Proponent: Cortes, Ivan Justine
+Unit Name: Library ownership
+Test Case Description: Request another learner's library item through its service.
+Expected Results: Access is denied.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-097
+Proponent: Cortes, Ivan Justine
+Unit Name: Mistake reviewed state
+Test Case Description: Mock a successful mark-reviewed request.
+Expected Results: Only the targeted mistake changes review status.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-098
+Proponent: Cortes, Ivan Justine
+Unit Name: Activity progress ownership
+Test Case Description: Load or save a progress key belonging to another learner.
+Expected Results: The service does not expose or alter the other learner's state.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-099
+Proponent: Cortes, Ivan Justine
+Unit Name: Saved widget progress
+Test Case Description: Restore a known activity-progress fixture.
+Expected Results: The widget resumes the recorded answers or moves without awarding completion again.
+Action Result: Not yet tested
+Module Name: Practice, Library and Mistake Bank
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/services/learnerToolsService.js; frontend/src/services/practiceService.js; backend-java/src/test/java/com/capstone/rebyu/learningtools/service/
+
+
+================================================================================
+AI TUTOR AND LIVE TEACHING
+================================================================================
+
+Test Case: TC-100
+Proponent: Cortes, Ivan Justine
+Unit Name: Tutor answer success
+Test Case Description: Mock a nonempty successful tutor response.
+Expected Results: The answer is added once and pending state clears.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-101
+Proponent: Cortes, Ivan Justine
+Unit Name: Blank tutor message
+Test Case Description: Submit an empty or whitespace-only message.
+Expected Results: No tutor request is sent.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-102
+Proponent: Cortes, Ivan Justine
+Unit Name: Tutor request failure
+Test Case Description: Reject the mocked tutor request.
+Expected Results: The error is surfaced and pending state clears.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-103
+Proponent: Cortes, Ivan Justine
+Unit Name: Stale streamed turn
+Test Case Description: Deliver a previous turn's event after a newer turn has started.
+Expected Results: The stale event does not replace the current turn.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-104
+Proponent: Cortes, Ivan Justine
+Unit Name: Turn cancellation
+Test Case Description: Cancel an active turn and then deliver remaining events.
+Expected Results: Canceled output does not mutate the active conversation.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-105
+Proponent: Cortes, Ivan Justine
+Unit Name: Split stream chunks
+Test Case Description: Split one logical event across transport chunks.
+Expected Results: The stream parser reconstructs the event once.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-106
+Proponent: Cortes, Ivan Justine
+Unit Name: Repeated progress event
+Test Case Description: Deliver the same identifiable widget-progress event twice.
+Expected Results: The progress reducer does not duplicate the activity.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-107
+Proponent: Cortes, Ivan Justine
+Unit Name: Guided dialogue action
+Test Case Description: Submit an action outside start, reply and summary.
+Expected Results: The dialogue handler rejects it.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-108
+Proponent: Cortes, Ivan Justine
+Unit Name: Dialogue history limit
+Test Case Description: Provide more than 40 history messages.
+Expected Results: Only the permitted recent history is forwarded.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-109
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty AI answer
+Test Case Description: Mock a response without a valid reply or summary.
+Expected Results: The service treats the response as unsuccessful rather than a chargeable answer.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-110
+Proponent: Cortes, Ivan Justine
+Unit Name: Tutor entitlement
+Test Case Description: Mock a learner without tutor entitlement.
+Expected Results: The handler rejects access before invoking the AI client.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-111
+Proponent: Cortes, Ivan Justine
+Unit Name: Grounded context
+Test Case Description: Supply a tutor query and mocked retrieved lesson passages.
+Expected Results: The prompt/context builder uses the relevant supplied context.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-112
+Proponent: Cortes, Ivan Justine
+Unit Name: Conduct lock
+Test Case Description: Provide a locked-tutor response fixture.
+Expected Results: The UI exposes the lock and does not treat it as a normal answer.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-113
+Proponent: Cortes, Ivan Justine
+Unit Name: Tutor study-set conversion
+Test Case Description: Supply a supported structured tutor quiz or flashcard fixture.
+Expected Results: The mapper retains the intended questions, answers and type.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-114
+Proponent: Cortes, Ivan Justine
+Unit Name: Learning-game validation
+Test Case Description: Provide an invalid game payload missing required fields.
+Expected Results: Validation rejects it instead of rendering a broken playable game.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-115
+Proponent: Cortes, Ivan Justine
+Unit Name: Game completion scoring
+Test Case Description: Provide known answers or moves to a learning-game scoring function.
+Expected Results: The result matches the game's specified scoring rules.
+Action Result: Not yet tested
+Module Name: AI Tutor and Live Teaching
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Frontend / Java service / Python function)
+Source Reference: frontend/src/lib/live-turn-coordinator.js; frontend/src/lib/live-teaching-controller.js; frontend/src/lib/tutor-study-set.js; frontend/src/lib/tutor-widget-progress.js; python-backend/tests/test_tutor_*.py
+
+
+================================================================================
+ADAPTIVE MASTERY AND ANALYTICS
+================================================================================
+
+Test Case: TC-116
+Proponent: Cortes, Ivan Justine
+Unit Name: Correct-answer mastery
+Test Case Description: Call update_mastery with prior .30, learn .20, guess .25, slip .10 and forget 0 for a correct answer.
+Expected Results: Predicted correctness is .445 and mastery_after is greater than .30.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-117
+Proponent: Cortes, Ivan Justine
+Unit Name: Incorrect-answer posterior
+Test Case Description: Use prior .75, learn .10, guess .20, slip .10 and forget 0 for an incorrect answer.
+Expected Results: mastery_posterior is below .75 and mastery_after remains between 0 and 1.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-118
+Proponent: Cortes, Ivan Justine
+Unit Name: Partial-credit posterior
+Test Case Description: Use a score of .5 alongside equivalent binary correct and incorrect fixtures.
+Expected Results: Its posterior lies between the binary posteriors and equals their midpoint.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-119
+Proponent: Cortes, Ivan Justine
+Unit Name: Explicit zero score
+Test Case Description: Pass is_correct true with explicit score 0.
+Expected Results: The result equals the corresponding wrong-answer update.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-120
+Proponent: Cortes, Ivan Justine
+Unit Name: Explicit full score
+Test Case Description: Pass is_correct false with explicit score 1.
+Expected Results: The result equals the corresponding correct-answer update.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-121
+Proponent: Cortes, Ivan Justine
+Unit Name: Mastery labels
+Test Case Description: Use developing .40, good .70 and mastered .85 thresholds with values .20, .50, .75 and .90.
+Expected Results: Labels are weak, developing, good and mastered respectively.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-122
+Proponent: Cortes, Ivan Justine
+Unit Name: Mastery threshold boundaries
+Test Case Description: Test values exactly at and immediately below each configured threshold.
+Expected Results: Classification follows the threshold comparator in the implementation.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-123
+Proponent: Cortes, Ivan Justine
+Unit Name: Lesson-reading isolation
+Test Case Description: Mark a lesson read without supplying an answered-question event.
+Expected Results: Reading alone does not create an answer-driven mastery update.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-124
+Proponent: Cortes, Ivan Justine
+Unit Name: Mastery event idempotency
+Test Case Description: Process the same identifiable answer event twice with mocked storage.
+Expected Results: The duplicate does not apply a second mastery change.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-125
+Proponent: Cortes, Ivan Justine
+Unit Name: Cross-certification isolation
+Test Case Description: Provide results from two certifications and request analytics for one.
+Expected Results: Only the selected certification contributes to its figures.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-126
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty analytics
+Test Case Description: Provide a learner with no relevant assessment results.
+Expected Results: The service returns its defined empty or zero values without invalid division.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-127
+Proponent: Cortes, Ivan Justine
+Unit Name: Distinct assessment count
+Test Case Description: Provide multiple attempts for one assessment.
+Expected Results: The analytics count follows the distinct-assessment definition rather than inflating it by attempts.
+Action Result: Not yet tested
+Module Name: Adaptive Mastery and Analytics
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Java service)
+Source Reference: python-backend/tests/test_bkt_math.py; python-backend/tests/test_mastery_history.py; backend-java/src/test/java/com/capstone/rebyu/progress/analytics/service/
+
+
+================================================================================
+AI CONTENT GENERATION AND PDF IMPORT
+================================================================================
+
+Test Case: TC-128
+Proponent: Cortes, Ivan Justine
+Unit Name: Curriculum schema
+Test Case Description: Validate a complete generated curriculum fixture.
+Expected Results: Required nested curriculum fields are accepted and retained.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-129
+Proponent: Cortes, Ivan Justine
+Unit Name: Invalid curriculum
+Test Case Description: Omit required curriculum fields.
+Expected Results: Schema validation rejects the output.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-130
+Proponent: Cortes, Ivan Justine
+Unit Name: Lesson schema
+Test Case Description: Validate a complete lesson fixture and one missing required content.
+Expected Results: The valid fixture passes and the incomplete fixture fails.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-131
+Proponent: Cortes, Ivan Justine
+Unit Name: Question answer integrity
+Test Case Description: Provide a generated multiple-choice item whose correct answer is absent from its choices.
+Expected Results: The audit rejects or flags the inconsistency.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-132
+Proponent: Cortes, Ivan Justine
+Unit Name: Duplicate question audit
+Test Case Description: Provide duplicate or near-duplicate generated stems.
+Expected Results: The audit flags duplicates according to its configured rule.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-133
+Proponent: Cortes, Ivan Justine
+Unit Name: Question draft mapping
+Test Case Description: Map a representative generated question fixture.
+Expected Results: Question type, choices, answer and lesson association are preserved.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-134
+Proponent: Cortes, Ivan Justine
+Unit Name: Lesson draft mapping
+Test Case Description: Map a generated lesson fixture.
+Expected Results: Supported content blocks and lesson metadata are preserved.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-135
+Proponent: Cortes, Ivan Justine
+Unit Name: PDF extraction
+Test Case Description: Supply a text fixture with known numbered questions and answer choices.
+Expected Results: The extractor returns the expected separated draft items.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-136
+Proponent: Cortes, Ivan Justine
+Unit Name: PDF empty content
+Test Case Description: Supply empty extracted text.
+Expected Results: The parser returns a safe empty/error result rather than fabricated questions.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-137
+Proponent: Cortes, Ivan Justine
+Unit Name: Generation order
+Test Case Description: Use mocked curriculum, lesson and question generation stages.
+Expected Results: Dependent stages are invoked only after their prerequisites are available.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-138
+Proponent: Cortes, Ivan Justine
+Unit Name: Partial output recovery
+Test Case Description: Fail a later stage after earlier valid content has been produced.
+Expected Results: Valid earlier output is retained according to the recovery policy.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-139
+Proponent: Cortes, Ivan Justine
+Unit Name: Redelivered generation
+Test Case Description: Deliver the same generation request identity twice.
+Expected Results: The registry/recovery logic avoids creating duplicate completed content.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-140
+Proponent: Cortes, Ivan Justine
+Unit Name: Quota fallback
+Test Case Description: Mock daily exhaustion for the first model and success for the next eligible model.
+Expected Results: The next eligible model is used.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-141
+Proponent: Cortes, Ivan Justine
+Unit Name: Nonquota provider error
+Test Case Description: Mock an ordinary validation or unrelated provider error.
+Expected Results: The error is not misclassified as quota exhaustion.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-142
+Proponent: Cortes, Ivan Justine
+Unit Name: All models exhausted
+Test Case Description: Mock exhaustion of all eligible models.
+Expected Results: A clear exhaustion failure is returned without an infinite retry loop.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-143
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty structured output
+Test Case Description: Mock an empty structured generation response.
+Expected Results: It is not accepted as successful generated content.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-144
+Proponent: Cortes, Ivan Justine
+Unit Name: Oversized request
+Test Case Description: Mock a recognized request-size failure.
+Expected Results: The configured size/fallback policy applies without retrying indefinitely.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-145
+Proponent: Cortes, Ivan Justine
+Unit Name: Generation timeline
+Test Case Description: Feed running, completed and failed event fixtures to the timeline model.
+Expected Results: Each stage receives the corresponding status without regressing completed stages on stale events.
+Action Result: Not yet tested
+Module Name: AI Content Generation and PDF Import
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Python function / Frontend mapper)
+Source Reference: python-backend/tests/test_curriculum_schema.py; python-backend/tests/test_lesson_schema.py; python-backend/tests/test_question_audit.py; python-backend/tests/test_quota_fallback.py; frontend/src/utils/
+
+
+================================================================================
+INSTITUTIONS, DEPARTMENTS AND INVITATIONS
+================================================================================
+
+Test Case: TC-146
+Proponent: Cortes, Ivan Justine
+Unit Name: Institution data isolation
+Test Case Description: Request another institution's learners with a mocked account membership.
+Expected Results: The service rejects access.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-147
+Proponent: Cortes, Ivan Justine
+Unit Name: Valid learner invitation
+Test Case Description: Supply an authorized inviter, available seat and valid learner details.
+Expected Results: The service constructs the invitation with the intended certification and group.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-148
+Proponent: Cortes, Ivan Justine
+Unit Name: Seat exhaustion
+Test Case Description: Supply zero available seats.
+Expected Results: The invitation is rejected without allocating an extra seat.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-149
+Proponent: Cortes, Ivan Justine
+Unit Name: Expired invitation
+Test Case Description: Provide an expired invitation token.
+Expected Results: Acceptance is rejected.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-150
+Proponent: Cortes, Ivan Justine
+Unit Name: Consumed invitation
+Test Case Description: Provide an already-used invitation token.
+Expected Results: Acceptance is rejected without a second allocation.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-151
+Proponent: Cortes, Ivan Justine
+Unit Name: Valid invitation acceptance
+Test Case Description: Provide a valid unused token and mocked learner repositories.
+Expected Results: The intended learner, seat and group associations are created and the token is consumed.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-152
+Proponent: Cortes, Ivan Justine
+Unit Name: Department authorization
+Test Case Description: Attempt a department change with an account outside its institution.
+Expected Results: The operation is rejected.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-153
+Proponent: Cortes, Ivan Justine
+Unit Name: Department-head assignment
+Test Case Description: Supply a valid authorized assignment fixture.
+Expected Results: The assignment links the intended account and department.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-154
+Proponent: Cortes, Ivan Justine
+Unit Name: Learner transfer
+Test Case Description: Move a learner between sections through the service with mocked repositories.
+Expected Results: Membership is updated to the intended section without duplicate active membership.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-155
+Proponent: Cortes, Ivan Justine
+Unit Name: Institution dashboard aggregation
+Test Case Description: Provide a fixed set of section and learner results.
+Expected Results: The aggregator returns the expected totals for that institution.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-156
+Proponent: Cortes, Ivan Justine
+Unit Name: Assessment builder validation
+Test Case Description: Submit an assessment without required question selections.
+Expected Results: The component blocks invalid submission.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-157
+Proponent: Cortes, Ivan Justine
+Unit Name: Announcement save failure
+Test Case Description: Mock a rejected announcement-save request.
+Expected Results: An error appears and no false successful announcement is added.
+Action Result: Not yet tested
+Module Name: Institutions, Departments and Invitations
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/institution/service/; backend-java/src/test/java/com/capstone/rebyu/department/service/; backend-java/src/test/java/com/capstone/rebyu/user/service/LearnerServiceAcceptInvitationTest.java; frontend/src/pages/institution/
+
+
+================================================================================
+ENROLLMENT, BILLING AND ENTITLEMENTS
+================================================================================
+
+Test Case: TC-158
+Proponent: Cortes, Ivan Justine
+Unit Name: Free enrollment
+Test Case Description: Supply an eligible free certification with mocked repositories.
+Expected Results: A completed transaction and active enrollment are constructed once.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-159
+Proponent: Cortes, Ivan Justine
+Unit Name: Existing enrollment
+Test Case Description: Attempt to enroll an already actively enrolled learner.
+Expected Results: Duplicate active enrollment is rejected.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-160
+Proponent: Cortes, Ivan Justine
+Unit Name: Purchase idempotency
+Test Case Description: Repeat a purchase using the same idempotency key.
+Expected Results: The existing transaction is returned without a duplicate order.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-161
+Proponent: Cortes, Ivan Justine
+Unit Name: Unverified payment
+Test Case Description: Mock failed payment verification.
+Expected Results: No enrollment is granted and payment is not treated as confirmed.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-162
+Proponent: Cortes, Ivan Justine
+Unit Name: Order ownership
+Test Case Description: Confirm another learner's order.
+Expected Results: The service rejects the operation.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-163
+Proponent: Cortes, Ivan Justine
+Unit Name: Verified payment
+Test Case Description: Mock an accepted verification response for the learner's own pending order.
+Expected Results: The order is marked paid and the intended access is granted.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-164
+Proponent: Cortes, Ivan Justine
+Unit Name: Checkout cancellation
+Test Case Description: Supply a canceled checkout-result fixture.
+Expected Results: The frontend does not claim successful paid access.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-165
+Proponent: Cortes, Ivan Justine
+Unit Name: Subscription entitlement
+Test Case Description: Provide allowed and disallowed plan-feature fixtures.
+Expected Results: The entitlement helper grants only the features allowed by the fixture.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-166
+Proponent: Cortes, Ivan Justine
+Unit Name: AI allowance exhausted
+Test Case Description: Provide a request whose applicable quota is exhausted.
+Expected Results: The authorization layer refuses the metered request according to its policy.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-167
+Proponent: Cortes, Ivan Justine
+Unit Name: Payment simulation boundary
+Test Case Description: Use the configured development payment verifier with its documented simulated reference.
+Expected Results: The verifier reports a simulated result; the test does not claim a live provider payment succeeded.
+Action Result: Not yet tested
+Module Name: Enrollment, Billing and Entitlements
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/enrollment/service/EnrollmentTransactionServiceTest.java; backend-java/src/main/java/com/capstone/rebyu/billing/; frontend/src/pages/learner/subscription/
+
+
+================================================================================
+REWARDS, CHALLENGES AND COMMUNITY
+================================================================================
+
+Test Case: TC-168
+Proponent: Cortes, Ivan Justine
+Unit Name: Fresh practice reward
+Test Case Description: Award a completed practice attempt using a new reward identity.
+Expected Results: The expected reward ledger and balance update are requested.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-169
+Proponent: Cortes, Ivan Justine
+Unit Name: Duplicate reward
+Test Case Description: Award the same completed practice identity again.
+Expected Results: No duplicate balance credit occurs.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-170
+Proponent: Cortes, Ivan Justine
+Unit Name: Insufficient coins
+Test Case Description: Request an AI-credit conversion above the coin balance.
+Expected Results: The service rejects the conversion.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-171
+Proponent: Cortes, Ivan Justine
+Unit Name: Repeated conversion
+Test Case Description: Repeat conversion using the same idempotency key.
+Expected Results: The balance is not deducted twice.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-172
+Proponent: Cortes, Ivan Justine
+Unit Name: Insufficient AI credits
+Test Case Description: Attempt to spend an AI credit with no available credits.
+Expected Results: The service rejects the spend.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-173
+Proponent: Cortes, Ivan Justine
+Unit Name: Duplicate AI spend
+Test Case Description: Repeat an AI-credit spend with the same request key.
+Expected Results: No second credit is deducted.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-174
+Proponent: Cortes, Ivan Justine
+Unit Name: Refund without charge
+Test Case Description: Request a refund without a matching original charge.
+Expected Results: The balance is not credited.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-175
+Proponent: Cortes, Ivan Justine
+Unit Name: Refund with charge
+Test Case Description: Supply a matching refundable original charge.
+Expected Results: The expected credit is restored.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-176
+Proponent: Cortes, Ivan Justine
+Unit Name: Monthly grant idempotency
+Test Case Description: Run the monthly Pro credit grant twice for the same month.
+Expected Results: Only the first eligible grant credits the account.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-177
+Proponent: Cortes, Ivan Justine
+Unit Name: Non-Pro monthly grant
+Test Case Description: Run the Pro monthly grant for a non-Pro learner.
+Expected Results: No Pro reward entry is created.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-178
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty arena lock
+Test Case Description: Provide an arena configuration containing no problems.
+Expected Results: The learner availability rule keeps the arena locked.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-179
+Proponent: Cortes, Ivan Justine
+Unit Name: Arena eligibility
+Test Case Description: Provide a learner outside the arena's configured allowed industries.
+Expected Results: The availability check denies entry.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-180
+Proponent: Cortes, Ivan Justine
+Unit Name: Arena scoring
+Test Case Description: Provide a fixed arena result fixture.
+Expected Results: The scoring helper returns the score dictated by configured scoring rules.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-181
+Proponent: Cortes, Ivan Justine
+Unit Name: Community ownership
+Test Case Description: Attempt to edit another learner's post without moderation permission.
+Expected Results: The service rejects the change.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-182
+Proponent: Cortes, Ivan Justine
+Unit Name: Community sharing
+Test Case Description: Share a valid owned study item with mocked repositories.
+Expected Results: The post and linked shared item reference the intended content.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-183
+Proponent: Cortes, Ivan Justine
+Unit Name: Moderation authorization
+Test Case Description: Attempt a moderation action with an ordinary learner account.
+Expected Results: The service refuses the privileged action.
+Action Result: Not yet tested
+Module Name: Rewards, Challenges and Community
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P1
+Test Level: Isolated unit/component test (Java service / Frontend component)
+Source Reference: backend-java/src/test/java/com/capstone/rebyu/gamification/RewardServiceTest.java; backend-java/src/test/java/com/capstone/rebyu/challenge/service/; backend-java/src/test/java/com/capstone/rebyu/community/CommunityServiceTest.java
+
+
+================================================================================
+NOTIFICATIONS, EXPORTS AND FILE HANDLING
+================================================================================
+
+Test Case: TC-184
+Proponent: Cortes, Ivan Justine
+Unit Name: Notification read state
+Test Case Description: Mock successful marking of one notification as read.
+Expected Results: The target updates without marking unrelated notifications read.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-185
+Proponent: Cortes, Ivan Justine
+Unit Name: Notification failure
+Test Case Description: Reject a notification update.
+Expected Results: Failure is surfaced without leaving a false persisted success state.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-186
+Proponent: Cortes, Ivan Justine
+Unit Name: Preference payload
+Test Case Description: Change one notification preference with mocked persistence.
+Expected Results: The request contains the intended setting and preserves unrelated preferences.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-187
+Proponent: Cortes, Ivan Justine
+Unit Name: CSV quoting
+Test Case Description: Export a cell containing a comma, quote and newline.
+Expected Results: The cell is quoted and embedded quotes are doubled.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-188
+Proponent: Cortes, Ivan Justine
+Unit Name: CSV empty values
+Test Case Description: Export null and undefined cells.
+Expected Results: They produce empty CSV cells.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-189
+Proponent: Cortes, Ivan Justine
+Unit Name: CSV sections
+Test Case Description: Export two nonempty sections.
+Expected Results: Sections are separated by the defined blank line.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-190
+Proponent: Cortes, Ivan Justine
+Unit Name: Export date filename
+Test Case Description: Freeze local time to 2026-11-12 and use prefix learners.
+Expected Results: timestampedFilename returns learners-2026-11-12.csv.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-191
+Proponent: Cortes, Ivan Justine
+Unit Name: CSV download cleanup
+Test Case Description: Mock Blob, object URLs and anchor download operations.
+Expected Results: The link is removed and its object URL is revoked after download.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-192
+Proponent: Cortes, Ivan Justine
+Unit Name: Portal content search
+Test Case Description: Search a known indexed fixture using its title text.
+Expected Results: The expected authorized content appears in the results.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-193
+Proponent: Cortes, Ivan Justine
+Unit Name: Search empty state
+Test Case Description: Search with no matching fixture.
+Expected Results: The result is empty without unrelated fabricated matches.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-194
+Proponent: Cortes, Ivan Justine
+Unit Name: Upload success
+Test Case Description: Mock a successful file-upload response.
+Expected Results: The hook exposes the returned file reference and clears uploading state.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-195
+Proponent: Cortes, Ivan Justine
+Unit Name: Upload failure
+Test Case Description: Reject the mocked file request.
+Expected Results: The hook exposes the failure and clears uploading state.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-196
+Proponent: Cortes, Ivan Justine
+Unit Name: Upload cleanup
+Test Case Description: Unmount a component with a generated local preview URL.
+Expected Results: Owned temporary preview resources are released by the cleanup path.
+Action Result: Not yet tested
+Module Name: Notifications, Exports and File Handling
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend / Java service)
+Source Reference: frontend/src/hooks/use-notifications.js; frontend/src/hooks/useNotificationPreferences.js; frontend/src/lib/csv.js; frontend/src/lib/portal-content-search.js; frontend/src/hooks/use-file-upload.ts; frontend/src/services/fileService.js
+
+
+================================================================================
+DASHBOARD AND ADMINISTRATIVE UI
+================================================================================
+
+Test Case: TC-197
+Proponent: Cortes, Ivan Justine
+Unit Name: Dashboard layout save
+Test Case Description: Change a layout and mock successful persistence.
+Expected Results: The saved payload represents the intended widget arrangement.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-198
+Proponent: Cortes, Ivan Justine
+Unit Name: Dashboard layout failure
+Test Case Description: Mock a rejected layout-save request.
+Expected Results: The UI exposes the error rather than claiming persistence.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-199
+Proponent: Cortes, Ivan Justine
+Unit Name: Date-range filter
+Test Case Description: Supply a fixed valid range to a dashboard query hook.
+Expected Results: The query uses the intended date boundaries.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-200
+Proponent: Cortes, Ivan Justine
+Unit Name: Empty dashboard
+Test Case Description: Provide an empty successful dashboard response.
+Expected Results: The page shows an appropriate empty state without crashing.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-201
+Proponent: Cortes, Ivan Justine
+Unit Name: Admin save failure
+Test Case Description: Reject a certification or question editor save.
+Expected Results: The editor retains recoverable input and shows the error.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-202
+Proponent: Cortes, Ivan Justine
+Unit Name: Delete cancellation
+Test Case Description: Cancel a destructive confirmation in an editor.
+Expected Results: The delete API is not called.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-203
+Proponent: Cortes, Ivan Justine
+Unit Name: Delete confirmation
+Test Case Description: Confirm deletion with a mocked successful API.
+Expected Results: The intended item is removed from local displayed state.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-204
+Proponent: Cortes, Ivan Justine
+Unit Name: Reference-list lookup
+Test Case Description: Mock known reference options for an editor.
+Expected Results: The expected option IDs and labels are available without rewriting the values.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-205
+Proponent: Cortes, Ivan Justine
+Unit Name: Upload-and-learn placeholder
+Test Case Description: Send a tutor question on the current standalone Upload and Learn screen.
+Expected Results: The existing interface-only notice appears; the test does not claim document-grounded tutoring works.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+--------------------------------------------------------------------------------
+
+Test Case: TC-206
+Proponent: Cortes, Ivan Justine
+Unit Name: Responsive navigation state
+Test Case Description: Open and close the mobile navigation with component events.
+Expected Results: The menu's open state and accessible expanded state follow the interaction.
+Action Result: Not yet tested
+Module Name: Dashboard and Administrative UI
+Date Tested: Not yet tested (MM/DD/YY)
+Result: Pending
+Priority: P2
+Test Level: Isolated unit/component test (Frontend)
+Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+END OF CATALOG
+

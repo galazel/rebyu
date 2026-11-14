@@ -1,0 +1,341 @@
+REBYU AUTOMATED TEST RESULTS
+Proponent: Cortes, Ivan Justine
+Run date: November 12, 2026
+Command: npm.cmd test -- --reporter=default --reporter=json --outputFile=src/__test__/test-results.json
+
+Numbered case files: 206 (TC-001 through TC-206)
+Runner assertion totals: 123 passed, 1 failed, 82 skipped.
+Additional runner errors: 1 unhandled rejection, originating in TC-031.
+Overall command exit status: 1 (NOT a clean successful run).
+
+The 82 skips comprise 64 Java adapters, 17 Python/pytest adapters, and blocked
+TC-179. Native code was not compiled/executed during this task. Existing native
+source files and named test selectors were checked for existence, which does
+not establish that the tests pass.
+
+FAILURES / BLOCKERS
+TC-031: Its retry assertions pass, but services/base.js uses an ignored
+Promise.finally return value. The rejection from the failed request propagates
+through that extra promise and is reported as an unhandled rejection. Do not
+record this case as a clean Passed.
+TC-196: useFileUpload creates blob:preview, but unmounting the hook never invokes
+URL.revokeObjectURL for that preview. The enabled cleanup assertion fails.
+TC-179: The earlier catalog's learner-industry eligibility rule has no identified
+current unit in the inspected arena code. Its test is explicitly blocked.
+
+Production code was not changed to make the tests pass. Some broad catalog cases
+have narrower assertions; those scope notes appear in the individual test files
+and TESTING_README.txt. "ASSERTIONS PASSED" below is not a claim of complete
+acceptance coverage for a broader case.
+
+VALIDATION
+- All 206 unique numbered files exist, with no missing or extra case IDs.
+- ESLint passed for src/__test__ and vitest.config.js.
+- Standalone Python mastery tests invoke actual bkt_math.py, not a JS reimplementation.
+- Native selectors were checked against existing Java/Python test sources.
+- No live-payment, live-AI, database deployment or end-to-end claim is made.
+- Native tests and production changes outside frontend were not performed.
+
+PER-CASE OBSERVED STATUS
+TC-001 | ASSERTIONS PASSED | Signup validation
+  Scope: Learner signup currently renders email/password/confirmation; name inputs are rendered for department accounts.
+TC-002 | ASSERTIONS PASSED | Required fields
+  Scope: Checks the required fields actually rendered for learner signup; department name fields are a different account flow.
+TC-003 | ASSERTIONS PASSED | Password length
+TC-004 | ASSERTIONS PASSED | Password composition
+TC-005 | ASSERTIONS PASSED | Password minimum boundary
+TC-006 | ASSERTIONS PASSED | Password confirmation
+TC-007 | ASSERTIONS PASSED | Duplicate email handling
+TC-008 | ASSERTIONS PASSED | Institution reference format
+TC-009 | ASSERTIONS PASSED | Institution reference lookup
+TC-010 | REVISED ASSERTIONS PASSED (follow-up: npm.cmd test -- TC-010, 1 passed) | Unrecognized partnership reference
+TC-011 | ASSERTIONS PASSED | Department code format
+TC-012 | ASSERTIONS PASSED | Registration failure recovery
+TC-013 | ASSERTIONS PASSED | Login success
+TC-014 | ASSERTIONS PASSED | Login failure
+TC-015 | ASSERTIONS PASSED | Empty login
+TC-016 | ASSERTIONS PASSED | Email verification
+TC-017 | ASSERTIONS PASSED | Invalid verification
+TC-018 | ASSERTIONS PASSED | Password reset request
+TC-019 | ASSERTIONS PASSED | Password reset error
+TC-020 | ASSERTIONS PASSED | New password mismatch
+TC-021 | ASSERTIONS PASSED | Session restoration
+TC-022 | ASSERTIONS PASSED | Unauthenticated route
+TC-023 | ASSERTIONS PASSED | Role mismatch
+TC-024 | ASSERTIONS PASSED | Logout
+TC-025 | ASSERTIONS PASSED | Bearer token injection
+TC-026 | ASSERTIONS PASSED | Explicit authorization
+TC-027 | ASSERTIONS PASSED | No session token
+TC-028 | ASSERTIONS PASSED | Concurrent GET deduplication
+TC-029 | ASSERTIONS PASSED | GET account isolation
+TC-030 | ASSERTIONS PASSED | Mutation requests
+TC-031 | ASSERTIONS PASSED; UNHANDLED REJECTION (RUN ERROR) | Failed GET cleanup
+TC-032 | ASSERTIONS PASSED | API message selection
+TC-033 | ASSERTIONS PASSED | Tutor lock response
+TC-034 | ASSERTIONS PASSED | Request option forwarding
+TC-035 | ASSERTIONS PASSED | Combined progress
+TC-036 | ASSERTIONS PASSED | Empty progress
+TC-037 | ASSERTIONS PASSED | Progress limits
+TC-038 | ASSERTIONS PASSED | Certification identity
+TC-039 | ASSERTIONS PASSED | Missing certification
+TC-040 | ASSERTIONS PASSED | Remember completion
+TC-041 | ASSERTIONS PASSED | Forget completion
+TC-042 | ASSERTIONS PASSED | Null lesson identity
+TC-043 | ASSERTIONS PASSED | Lesson block rendering
+  Scope: Covers heading, description and list block rendering. Media, tabs and accordion variants still need fixtures.
+TC-044 | ASSERTIONS PASSED | Lesson loading failure
+  Scope: Tests lesson completion failure via useLesson, not lesson-query rendering; the catalog's broader loading-error UI remains uncovered.
+TC-045 | ASSERTIONS PASSED | Knowledge-check feedback
+TC-046 | SKIPPED / NOT EXECUTED | Attempt initialization
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-047 | SKIPPED / NOT EXECUTED | Ineligible learner
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-048 | SKIPPED / NOT EXECUTED | Attempt ownership
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-049 | SKIPPED / NOT EXECUTED | Question snapshot
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-050 | SKIPPED / NOT EXECUTED | Correct multiple choice
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-051 | SKIPPED / NOT EXECUTED | Incorrect multiple choice
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-052 | SKIPPED / NOT EXECUTED | Accepted short answer
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-053 | SKIPPED / NOT EXECUTED | Unaccepted short answer
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-054 | SKIPPED / NOT EXECUTED | Descriptive grading
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-055 | SKIPPED / NOT EXECUTED | Grading provider failure
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-056 | SKIPPED / NOT EXECUTED | Programming success
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-057 | SKIPPED / NOT EXECUTED | Programming failure
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-058 | SKIPPED / NOT EXECUTED | Programming timeout
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-059 | SKIPPED / NOT EXECUTED | Equivalent diagram
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-060 | SKIPPED / NOT EXECUTED | Incorrect diagram
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-061 | SKIPPED / NOT EXECUTED | Malformed diagram
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-062 | SKIPPED / NOT EXECUTED | Score percentage
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-063 | SKIPPED / NOT EXECUTED | Repeated submission
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-064 | SKIPPED / NOT EXECUTED | Submission side effects
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-065 | SKIPPED / NOT EXECUTED | Adaptive retake selection
+  Scope: Native service unit-test assertions; opt-in Java execution.
+TC-066 | SKIPPED / NOT EXECUTED | Arena retake selection
+  Scope: Verifies arena problem-set preservation in configuration; a full retake-path assertion remains additional coverage.
+TC-067 | ASSERTIONS PASSED | Position-dependent choices
+TC-068 | ASSERTIONS PASSED | Independent choices
+TC-069 | ASSERTIONS PASSED | Unsaved answer state
+TC-070 | ASSERTIONS PASSED | Submit pending state
+TC-071 | ASSERTIONS PASSED | Safe return path
+TC-072 | ASSERTIONS PASSED | External return path
+TC-073 | ASSERTIONS PASSED | Return state preservation
+TC-074 | ASSERTIONS PASSED | Minute countdown
+TC-075 | ASSERTIONS PASSED | Hour countdown
+TC-076 | ASSERTIONS PASSED | Invalid countdown
+TC-077 | ASSERTIONS PASSED | Countdown description
+TC-078 | ASSERTIONS PASSED | Time parsing
+TC-079 | ASSERTIONS PASSED | Invalid schedule time
+TC-080 | ASSERTIONS PASSED | Local date key
+TC-081 | ASSERTIONS PASSED | Due activity
+TC-082 | ASSERTIONS PASSED | Future activity
+TC-083 | ASSERTIONS PASSED | Nontriggerable activity
+TC-084 | ASSERTIONS PASSED | Stale activity boundary
+TC-085 | ASSERTIONS PASSED | Plan generation boundary
+TC-086 | ASSERTIONS PASSED | Study plan response
+TC-087 | ASSERTIONS PASSED | Study plan error
+TC-088 | ASSERTIONS PASSED | Pomodoro start and pause
+TC-089 | ASSERTIONS PASSED | Pomodoro reset
+TC-090 | SKIPPED / NOT EXECUTED | Practice scoring
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-091 | SKIPPED / NOT EXECUTED | Practice duplicate completion
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-092 | SKIPPED / NOT EXECUTED | Practice analytics isolation
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-093 | ASSERTIONS PASSED | Flashcard next card
+TC-094 | ASSERTIONS PASSED | Empty flashcard set
+TC-095 | ASSERTIONS PASSED | Library save
+  Scope: Client save contract; page cache/render update is not covered.
+TC-096 | SKIPPED / NOT EXECUTED | Library ownership
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-097 | ASSERTIONS PASSED | Mistake reviewed state
+  Scope: Client request isolation; mistake-bank component state is not covered.
+TC-098 | SKIPPED / NOT EXECUTED | Activity progress ownership
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-099 | ASSERTIONS PASSED | Saved widget progress
+TC-100 | ASSERTIONS PASSED | Tutor answer success
+TC-101 | ASSERTIONS PASSED | Blank tutor message
+TC-102 | ASSERTIONS PASSED | Tutor request failure
+TC-103 | ASSERTIONS PASSED | Stale streamed turn
+TC-104 | ASSERTIONS PASSED | Turn cancellation
+  Scope: Covers cancellation in the live-teaching controller; streamed chat cancellation is a separate transport path.
+TC-105 | ASSERTIONS PASSED | Split stream chunks
+TC-106 | ASSERTIONS PASSED | Repeated progress event
+TC-107 | SKIPPED / NOT EXECUTED | Guided dialogue action
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-108 | SKIPPED / NOT EXECUTED | Dialogue history limit
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-109 | SKIPPED / NOT EXECUTED | Empty AI answer
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-110 | SKIPPED / NOT EXECUTED | Tutor entitlement
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-111 | SKIPPED / NOT EXECUTED | Grounded context
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-112 | ASSERTIONS PASSED | Conduct lock
+TC-113 | ASSERTIONS PASSED | Tutor study-set conversion
+TC-114 | SKIPPED / NOT EXECUTED | Learning-game validation
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-115 | ASSERTIONS PASSED | Game completion scoring
+TC-116 | ASSERTIONS PASSED | Correct-answer mastery
+TC-117 | ASSERTIONS PASSED | Incorrect-answer posterior
+TC-118 | ASSERTIONS PASSED | Partial-credit posterior
+TC-119 | ASSERTIONS PASSED | Explicit zero score
+TC-120 | ASSERTIONS PASSED | Explicit full score
+TC-121 | ASSERTIONS PASSED | Mastery labels
+TC-122 | ASSERTIONS PASSED | Mastery threshold boundaries
+TC-123 | SKIPPED / NOT EXECUTED | Lesson-reading isolation
+  Scope: Tests read/completion bookkeeping at its actual service boundary. Cross-service absence of a mastery event needs a separate integration assertion.
+TC-124 | SKIPPED / NOT EXECUTED | Mastery event idempotency
+  Scope: Existing in-memory API/database integration test, not a pure unit test; retained under its catalog ID with the level correction.
+TC-125 | SKIPPED / NOT EXECUTED | Cross-certification isolation
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-126 | SKIPPED / NOT EXECUTED | Empty analytics
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-127 | SKIPPED / NOT EXECUTED | Distinct assessment count
+TC-128 | SKIPPED / NOT EXECUTED | Curriculum schema
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-129 | SKIPPED / NOT EXECUTED | Invalid curriculum
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-130 | SKIPPED / NOT EXECUTED | Lesson schema
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-131 | SKIPPED / NOT EXECUTED | Question answer integrity
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-132 | SKIPPED / NOT EXECUTED | Duplicate question audit
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-133 | ASSERTIONS PASSED | Question draft mapping
+TC-134 | ASSERTIONS PASSED | Lesson draft mapping
+TC-135 | ASSERTIONS PASSED | PDF extraction
+  Scope: Current PDF import uses AI page reading. This tests normalization of a mocked page-reader result, not a legacy local text parser or a live AI model.
+TC-136 | ASSERTIONS PASSED | PDF empty content
+  Scope: Tests empty normalized page-reader output; the outer readExamPdf function separately rejects papers with no questions or answers.
+TC-137 | SKIPPED / NOT EXECUTED | Generation order
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-138 | SKIPPED / NOT EXECUTED | Partial output recovery
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-139 | SKIPPED / NOT EXECUTED | Redelivered generation
+  Scope: Existing isolated registry/database test; verifies run identity reuse, not message-broker redelivery end to end.
+TC-140 | SKIPPED / NOT EXECUTED | Quota fallback
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-141 | SKIPPED / NOT EXECUTED | Nonquota provider error
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-142 | SKIPPED / NOT EXECUTED | All models exhausted
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-143 | SKIPPED / NOT EXECUTED | Empty structured output
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-144 | SKIPPED / NOT EXECUTED | Oversized request
+  Scope: Delegates to existing Python assertions with mocked provider dependencies; execution is opt-in.
+TC-145 | ASSERTIONS PASSED | Generation timeline
+TC-146 | SKIPPED / NOT EXECUTED | Institution data isolation
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-147 | SKIPPED / NOT EXECUTED | Valid learner invitation
+TC-148 | SKIPPED / NOT EXECUTED | Seat exhaustion
+TC-149 | SKIPPED / NOT EXECUTED | Expired invitation
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-150 | SKIPPED / NOT EXECUTED | Consumed invitation
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-151 | SKIPPED / NOT EXECUTED | Valid invitation acceptance
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-152 | SKIPPED / NOT EXECUTED | Department authorization
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-153 | SKIPPED / NOT EXECUTED | Department-head assignment
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-154 | ASSERTIONS PASSED | Learner transfer
+  Scope: Client transfer payload only. Persistence, authorization and absence of duplicate membership require native controller/repository coverage.
+TC-155 | ASSERTIONS PASSED | Institution dashboard aggregation
+  Scope: Covers frontend institution data derivation, not backend dashboard aggregate calculations.
+TC-156 | ASSERTIONS PASSED | Assessment builder validation
+TC-157 | ASSERTIONS PASSED | Announcement save failure
+  Scope: Client error propagation only; announcement editor error rendering and local list retention need a component fixture.
+TC-158 | SKIPPED / NOT EXECUTED | Free enrollment
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-159 | SKIPPED / NOT EXECUTED | Existing enrollment
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-160 | SKIPPED / NOT EXECUTED | Purchase idempotency
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-161 | SKIPPED / NOT EXECUTED | Unverified payment
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-162 | SKIPPED / NOT EXECUTED | Order ownership
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-163 | SKIPPED / NOT EXECUTED | Verified payment
+  Scope: Native JUnit assertions; generated fixture overlays remain inside frontend.
+TC-164 | ASSERTIONS PASSED | Checkout cancellation
+TC-165 | ASSERTIONS PASSED | Subscription entitlement
+TC-166 | SKIPPED / NOT EXECUTED | AI allowance exhausted
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-167 | SKIPPED / NOT EXECUTED | Payment simulation boundary
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-168 | SKIPPED / NOT EXECUTED | Fresh practice reward
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-169 | SKIPPED / NOT EXECUTED | Duplicate reward
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-170 | SKIPPED / NOT EXECUTED | Insufficient coins
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-171 | SKIPPED / NOT EXECUTED | Repeated conversion
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-172 | SKIPPED / NOT EXECUTED | Insufficient AI credits
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-173 | SKIPPED / NOT EXECUTED | Duplicate AI spend
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-174 | SKIPPED / NOT EXECUTED | Refund without charge
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-175 | SKIPPED / NOT EXECUTED | Refund with charge
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-176 | SKIPPED / NOT EXECUTED | Monthly grant idempotency
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-177 | SKIPPED / NOT EXECUTED | Non-Pro monthly grant
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-178 | SKIPPED / NOT EXECUTED | Empty arena lock
+  Scope: Native JUnit test; all generated fixture overlays are written under frontend/.native-test-output.
+TC-179 | BLOCKED / REQUIREMENT OR IMPLEMENTATION NOT IDENTIFIED | Arena eligibility
+TC-180 | SKIPPED / NOT EXECUTED | Arena scoring
+  Scope: Delegates to existing production-service JUnit assertions; execution is opt-in and is not a frontend mock test.
+TC-181 | SKIPPED / NOT EXECUTED | Community ownership
+  Scope: Native service unit-test assertions; opt-in Java execution.
+TC-182 | SKIPPED / NOT EXECUTED | Community sharing
+  Scope: Native service unit-test assertions; opt-in Java execution.
+TC-183 | SKIPPED / NOT EXECUTED | Moderation authorization
+  Scope: Native service unit-test assertions; opt-in Java execution.
+TC-184 | ASSERTIONS PASSED | Notification read state
+TC-185 | ASSERTIONS PASSED | Notification failure
+  Scope: Verifies no false read state on failure. The hook currently has no single-item markRead error toast; that catalog requirement is additional uncovered behavior.
+TC-186 | ASSERTIONS PASSED | Preference payload
+TC-187 | ASSERTIONS PASSED | CSV quoting
+TC-188 | ASSERTIONS PASSED | CSV empty values
+TC-189 | ASSERTIONS PASSED | CSV sections
+TC-190 | ASSERTIONS PASSED | Export date filename
+TC-191 | ASSERTIONS PASSED | CSV download cleanup
+TC-192 | ASSERTIONS PASSED | Portal content search
+TC-193 | ASSERTIONS PASSED | Search empty state
+TC-194 | ASSERTIONS PASSED | Upload success
+  Scope: Actual hook useFileUpload is a local selection/validation hook, not a server upload hook. This tests uploadLibraryFile; server-upload loading UI is not covered.
+TC-195 | ASSERTIONS PASSED | Upload failure
+  Scope: Actual hook useFileUpload is a local selection/validation hook, not a server upload hook. This tests uploadLibraryFile; server-upload loading UI is not covered.
+TC-196 | FAILED | Upload cleanup
+TC-197 | ASSERTIONS PASSED | Dashboard layout save
+TC-198 | ASSERTIONS PASSED | Dashboard layout failure
+TC-199 | ASSERTIONS PASSED | Date-range filter
+TC-200 | ASSERTIONS PASSED | Empty dashboard
+  Scope: Covers the dashboard data hook's empty response, not the complete dashboard page rendering.
+TC-201 | ASSERTIONS PASSED | Admin save failure
+  Scope: Uses the shared administrative reference editor to verify failed-save input retention; certification/question editor variants need additional fixtures.
+TC-202 | ASSERTIONS PASSED | Delete cancellation
+TC-203 | ASSERTIONS PASSED | Delete confirmation
+TC-204 | ASSERTIONS PASSED | Reference-list lookup
+TC-205 | ASSERTIONS PASSED | Upload-and-learn placeholder
+TC-206 | ASSERTIONS PASSED | Responsive navigation state
+

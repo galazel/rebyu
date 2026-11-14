@@ -1,0 +1,128 @@
+REBYU CAPSTONE TEST CASES
+TC-001 to TC-010
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Authentication and Learner Access
+Unit Name: Sign Up
+Test Case: TC-001
+Test Case Description: Valid entries should allow the learner to create a new account successfully.
+Expected Results: Registration successful, confirmation message appears, and user can proceed to login.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Authentication and Learner Access
+Unit Name: Login
+Test Case: TC-002
+Test Case Description: Valid username and password should allow access to the learner dashboard.
+Expected Results: User is redirected to the dashboard and receives a successful login session.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Learner Dashboard
+Unit Name: Dashboard Overview
+Test Case: TC-003
+Test Case Description: The learner dashboard should display progress, active lessons, and study recommendations correctly.
+Expected Results: Dashboard widgets load successfully and show learner progress, alerts, and recommended next tasks.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Curriculum
+Unit Name: Enrollment and Curriculum View
+Test Case: TC-004
+Test Case Description: Enrolled learner should be able to view available certifications, modules, and lessons.
+Expected Results: Certification list and module breakdown are visible with accurate status and completion progress.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Lesson Delivery
+Unit Name: Lesson Content Rendering
+Test Case: TC-005
+Test Case Description: Lesson content should display all supported elements including headings, text, media, tabs, and accordions without errors.
+Expected Results: Lesson page loads correctly and all content blocks render properly without broken layouts or missing media.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Assessment Engine
+Unit Name: Multiple Choice Grading
+Test Case: TC-006
+Test Case Description: Multiple choice questions should grade correctly based on exact answer matching.
+Expected Results: Correct answer receives full marks; incorrect answer receives zero for the item.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Assessment Engine
+Unit Name: Short Answer Grading
+Test Case: TC-007
+Test Case Description: Short answer questions should accept valid variations of the expected answer.
+Expected Results: Accepted equivalent answers are marked correct according to the defined validation rules.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Assessment Engine
+Unit Name: Descriptive / Rubric Grading
+Test Case: TC-008
+Test Case Description: Descriptive responses should be evaluated using rubric-based scoring.
+Expected Results: Student answer receives a score based on rubric criteria and the total assessment score updates correctly.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Programming Assessment
+Unit Name: Code Submission and Execution
+Test Case: TC-009
+Test Case Description: Programming questions should allow code submission and execute against test cases using the evaluation system.
+Expected Results: Code runs successfully, output is validated against the expected cases, and pass/fail status is shown.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Proponent: <Your Name>
+Module Name: Adaptive Learning
+Unit Name: Mastery and Study Recommendation
+Test Case: TC-010
+Test Case Description: Learner mastery should update after answer attempts and should influence the study recommendation or priority list.
+Expected Results: Mastery score changes according to performance, and the next recommended activity is relevant to the learner's weakest area.
+Date Tested: <MM/DD/YY>
+Action Result: Performed as expected
+Result: Passed
+--------------------------------------------------------------------------------
+
+Notes:
+- Replace <Your Name> with the actual proponent name.
+- Replace <MM/DD/YY> with the exact date of testing.
+- Use the same format when capturing actual test results for screenshot documentation.
+- For failed tests, update Action Result to "Not as expected" and Result to "Failed".

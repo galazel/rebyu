@@ -12,7 +12,10 @@
     "preview": "vite preview",
     "icons": "node scripts/gen-icons.mjs",
     "icons:check": "node scripts/gen-icons.mjs --check",
-    "shoot:attempt": "node scripts/shoot-attempt-screenshots.mjs"
+    "shoot:attempt": "node scripts/shoot-attempt-screenshots.mjs",
+    "test": "vitest run --config vitest.config.js",
+    "test:watch": "vitest --config vitest.config.js",
+    "test:native": "node src/__test__/support/run-native.mjs"
   },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
@@ -102,6 +105,9 @@
   "devDependencies": {
     "@eslint/js": "^10",
     "@tanstack/eslint-plugin-query": "^5.101.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.9",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -110,12 +116,14 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17",
+    "jsdom": "^29.1.1",
     "playwright": "^1.64.1",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "puppeteer-core": "^25.4.0",
     "typescript": "~6",
     "typescript-eslint": "^8",
-    "vite": "^8"
+    "vite": "^8",
+    "vitest": "^5.1.0"
   }
 }

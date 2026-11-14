@@ -1,0 +1,444 @@
+[
+  {
+    "id": "TC-046",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#startSnapshotsQuestionsWithoutAnswerKeys"
+  },
+  {
+    "id": "TC-047",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-048",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitRejectsAnswersFromAnotherLearner"
+  },
+  {
+    "id": "TC-049",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#startSnapshotsQuestionsWithoutAnswerKeys"
+  },
+  {
+    "id": "TC-050",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitScoresMcqServerSideAndIsIdempotent"
+  },
+  {
+    "id": "TC-051",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitScoresMcqServerSideAndIsIdempotent"
+  },
+  {
+    "id": "TC-052",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-053",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-054",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitGradesDescriptiveAnswerWithAiAndAppliesPartialCredit"
+  },
+  {
+    "id": "TC-055",
+    "native": "python",
+    "selectors": [
+      "tests/test_answer_grading.py::test_a_failed_judgement_is_raised_not_scored_as_zero"
+    ]
+  },
+  {
+    "id": "TC-056",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-057",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-058",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-059",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitGradesDiagramStructurallyWithNoAiAndFinalizesTheScore"
+  },
+  {
+    "id": "TC-060",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitReportsMissingDiagramElementsWhenTheLearnerOmitsARequiredNode"
+  },
+  {
+    "id": "TC-061",
+    "native": "java",
+    "selector": "DiagramGraphExtractorTest#malformedXmlThrowsRatherThanReturningGarbage"
+  },
+  {
+    "id": "TC-062",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-063",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#submitScoresMcqServerSideAndIsIdempotent"
+  },
+  {
+    "id": "TC-064",
+    "native": "java",
+    "selector": "AssessmentAttemptServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-065",
+    "native": "java",
+    "selector": "AdaptiveFocusPlanTest#weakLessonsShareHalfThePaperAndTheRestSplitByBank+withNoWeakLessonTheWeakestIsTheFocus"
+  },
+  {
+    "id": "TC-066",
+    "native": "java",
+    "selector": "ChallengeArenaConfigTest#problemsKeepTheirNodeAndPoints"
+  },
+  {
+    "id": "TC-090",
+    "native": "java",
+    "selector": "StudyPracticeServiceTest#completeAttempt_allCorrect_scoresFullMarksAndAwardsReward+completeAttempt_halfCorrect_scoresFiftyPercent"
+  },
+  {
+    "id": "TC-091",
+    "native": "java",
+    "selector": "StudyPracticeServiceTest#completeAttempt_alreadyCompleted_throws"
+  },
+  {
+    "id": "TC-092",
+    "native": "java",
+    "selector": "ProgressAnalyticsAssessmentCountTest#excludesAPracticeDeckThatBelongsToOneLearner+excludesAPracticeDeckByItsTargetScope+excludesAPracticeDeckByItsExamType"
+  },
+  {
+    "id": "TC-096",
+    "native": "java",
+    "selector": "TutorLibraryServiceTest#retrievalRequiresTheOwningLearner"
+  },
+  {
+    "id": "TC-098",
+    "native": "java",
+    "selector": "ActivityProgressServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-107",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-108",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-109",
+    "native": "java",
+    "selector": "AiChatServiceTest#emptySynchronousReplyIsAnErrorInsteadOfChargedSuccess"
+  },
+  {
+    "id": "TC-110",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-111",
+    "native": "python",
+    "selectors": [
+      "tests/test_rag.py::test_retrieve_returns_scoped_results",
+      "tests/test_rag.py::test_format_context_includes_provenance_and_respects_budget"
+    ]
+  },
+  {
+    "id": "TC-114",
+    "native": "python",
+    "selectors": [
+      "tests/test_tutor_widgets.py::test_quiz_widget_rejects_less_than_ten_valid_questions"
+    ]
+  },
+  {
+    "id": "TC-123",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-124",
+    "native": "python",
+    "selectors": [
+      "tests/test_mastery_api.py::test_mastery_event_is_processed_and_idempotent"
+    ]
+  },
+  {
+    "id": "TC-125",
+    "native": "java",
+    "selector": "ProgressAnalyticsServiceTest#differentCertificationId_returnsIsolatedDataPerCertification"
+  },
+  {
+    "id": "TC-126",
+    "native": "java",
+    "selector": "ProgressAnalyticsServiceTest#noAssessmentsNoChallenges_returnsZerosNotFakeData+zeroAttemptsAndZeroLessons_neverThrowsDivisionByZero"
+  },
+  {
+    "id": "TC-127",
+    "native": "java",
+    "selector": "ProgressAnalyticsServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-128",
+    "native": "python",
+    "selectors": [
+      "tests/test_curriculum_schema.py::test_a_wellformed_curriculum_is_left_untouched"
+    ]
+  },
+  {
+    "id": "TC-129",
+    "native": "python",
+    "selectors": [
+      "tests/test_curriculum_schema.py::test_a_curriculum_with_no_lessons_anywhere_is_rejected_for_resampling"
+    ]
+  },
+  {
+    "id": "TC-130",
+    "native": "python",
+    "selectors": [
+      "tests/test_lesson_schema.py::test_valid_lesson_is_accepted",
+      "tests/test_lesson_schema.py::test_missing_introduction_is_rejected",
+      "tests/test_lesson_schema.py::test_empty_content_is_rejected"
+    ]
+  },
+  {
+    "id": "TC-131",
+    "native": "python",
+    "selectors": [
+      "tests/test_validation.py::test_mcq_rejects_out_of_range_index"
+    ]
+  },
+  {
+    "id": "TC-132",
+    "native": "python",
+    "selectors": [
+      "tests/test_validation.py::test_detects_near_duplicate_rephrasings"
+    ]
+  },
+  {
+    "id": "TC-137",
+    "native": "python",
+    "selectors": [
+      "tests/test_generation_order.py::test_the_walk_is_bottom_up_and_interleaved"
+    ]
+  },
+  {
+    "id": "TC-138",
+    "native": "python",
+    "selectors": [
+      "tests/test_generation_survives_redelivery.py::test_cancellation_saves_what_was_generated"
+    ]
+  },
+  {
+    "id": "TC-139",
+    "native": "python",
+    "selectors": [
+      "tests/test_workflow_registry.py::test_start_run_twice_for_same_thread_opens_an_attempt_instead_of_duplicating"
+    ]
+  },
+  {
+    "id": "TC-140",
+    "native": "python",
+    "selectors": [
+      "tests/test_quota_fallback.py::test_falls_back_to_the_next_model_when_the_daily_budget_is_spent"
+    ]
+  },
+  {
+    "id": "TC-141",
+    "native": "python",
+    "selectors": [
+      "tests/test_quota_fallback.py::test_non_quota_errors_propagate_without_burning_the_chain"
+    ]
+  },
+  {
+    "id": "TC-142",
+    "native": "python",
+    "selectors": [
+      "tests/test_quota_fallback.py::test_raises_all_models_exhausted_when_the_chain_runs_out"
+    ]
+  },
+  {
+    "id": "TC-143",
+    "native": "python",
+    "selectors": [
+      "tests/test_quota_fallback.py::test_an_empty_structured_response_is_not_a_success"
+    ]
+  },
+  {
+    "id": "TC-144",
+    "native": "python",
+    "selectors": [
+      "tests/test_quota_fallback.py::test_an_oversized_request_moves_to_the_next_model"
+    ]
+  },
+  {
+    "id": "TC-146",
+    "native": "java",
+    "selector": "InstitutionPortalServiceTest#learnerExamResults_learnerNotInInstitution_throwsNotFoundWithoutReadingResults+overview_usesInstitutionScopedRepositoryQueries_notGlobalFindAll"
+  },
+  {
+    "id": "TC-147",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-148",
+    "native": "java",
+    "selector": "AiChatServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-149",
+    "native": "java",
+    "selector": "LearnerServiceAcceptInvitationTest#pendingButOverdueExpiresAndRestoresSlot"
+  },
+  {
+    "id": "TC-150",
+    "native": "java",
+    "selector": "LearnerServiceAcceptInvitationTest#alreadyAcceptedRejected"
+  },
+  {
+    "id": "TC-151",
+    "native": "java",
+    "selector": "LearnerServiceAcceptInvitationTest#validAcceptanceEnrollsAndMarksAccepted"
+  },
+  {
+    "id": "TC-152",
+    "native": "java",
+    "selector": "DepartmentServiceTest#update_differentInstitution_throwsNotFoundAndDoesNotSave"
+  },
+  {
+    "id": "TC-153",
+    "native": "java",
+    "selector": "DepartmentHeadAssignmentServiceTest#create_newAssignment_insertsFreshActiveRow"
+  },
+  {
+    "id": "TC-158",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#freeEnrollmentCreatesOneCompletedTransactionAndActiveEnrollment"
+  },
+  {
+    "id": "TC-159",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#duplicateActiveEnrollmentIsRejected"
+  },
+  {
+    "id": "TC-160",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#idempotencyKeyReturnsExistingTransactionWithoutDuplicating"
+  },
+  {
+    "id": "TC-161",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#unverifiedPaymentIsRejectedAndEnrollsNobody"
+  },
+  {
+    "id": "TC-162",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#confirmingAnotherLearnersOrderIsRefused"
+  },
+  {
+    "id": "TC-163",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-166",
+    "native": "java",
+    "selector": "AiGenerationQuotaServiceTest#allModesAreBlockedWhenDailySharedAllowanceIsExhausted+weeklyLimitBlocksLiveEvenWhenDailyHasRoom"
+  },
+  {
+    "id": "TC-167",
+    "native": "java",
+    "selector": "EnrollmentTransactionServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-168",
+    "native": "java",
+    "selector": "RewardServiceTest#awardCompletedPractice_freshAward_creditsBalance"
+  },
+  {
+    "id": "TC-169",
+    "native": "java",
+    "selector": "RewardServiceTest#awardCompletedPractice_duplicateAward_isNoOpAndDoesNotTouchBalance"
+  },
+  {
+    "id": "TC-170",
+    "native": "java",
+    "selector": "RewardServiceTest#convertCoinsToAiCredits_insufficientBalance_throws"
+  },
+  {
+    "id": "TC-171",
+    "native": "java",
+    "selector": "RewardServiceTest#convertCoinsToAiCredits_duplicateIdempotencyKey_returnsUnconverted"
+  },
+  {
+    "id": "TC-172",
+    "native": "java",
+    "selector": "RewardServiceTest#spendAiCredit_insufficientCredits_throws"
+  },
+  {
+    "id": "TC-173",
+    "native": "java",
+    "selector": "RewardServiceTest#spendAiCredit_duplicateRequestKey_returnsFalseWithoutDeducting"
+  },
+  {
+    "id": "TC-174",
+    "native": "java",
+    "selector": "RewardServiceTest#refundAiCredit_noMatchingOriginalCharge_doesNotCreditBalance"
+  },
+  {
+    "id": "TC-175",
+    "native": "java",
+    "selector": "RewardServiceTest#refundAiCredit_matchingOriginalCharge_creditsOneAiCredit"
+  },
+  {
+    "id": "TC-176",
+    "native": "java",
+    "selector": "RewardServiceTest#grantMonthlyProAiCredits_secondCallSameMonth_isNoOp"
+  },
+  {
+    "id": "TC-177",
+    "native": "java",
+    "selector": "RewardServiceTest#grantMonthlyProAiCredits_nonProLearner_neverInsertsLedgerRow"
+  },
+  {
+    "id": "TC-178",
+    "native": "java",
+    "selector": "ChallengeArenaConfigTest#catalogCase"
+  },
+  {
+    "id": "TC-180",
+    "native": "java",
+    "selector": "ArenaScoringTest#aFastQuickFullPassIsFullMarks+speedAndEfficiencyOnlyCountForWhatPassed+theWeightsDecideTheMix"
+  },
+  {
+    "id": "TC-181",
+    "native": "java",
+    "selector": "CommunityServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-182",
+    "native": "java",
+    "selector": "CommunityServiceTest#catalogCase"
+  },
+  {
+    "id": "TC-183",
+    "native": "java",
+    "selector": "CommunityServiceTest#catalogCase"
+  }
+]
