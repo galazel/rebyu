@@ -36,7 +36,7 @@ class ChallengeArenaServiceIT {
             45,
             CODESTRIKE_QUESTIONS.stream()
                 .map(id -> new ChallengeArenaService.ArenaProblemRequest(
-                    id, 1, new BigDecimal("10")))
+                    id, 1, new BigDecimal("10"), null))
                 .toList()));
 
     System.out.println("[arena] codestrike after:  " + after);
@@ -90,7 +90,7 @@ class ChallengeArenaServiceIT {
         BLUEPRINT_CERTIFICATION,
         60,
         questionIds.stream()
-            .map(id -> new ChallengeArenaService.ArenaProblemRequest(id, 1, new BigDecimal("10")))
+            .map(id -> new ChallengeArenaService.ArenaProblemRequest(id, 1, new BigDecimal("10"), null))
             .toList());
   }
 }

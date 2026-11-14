@@ -69,6 +69,7 @@ export async function arenaQuestionFromSaved(row) {
     typeName: questionType?.title ?? rebuilt.typeId,
     ...DEFAULT_REWARD,
     points: row.points != null ? String(Number(row.points)) : DEFAULT_REWARD.points,
+    minutes: row.minutes != null ? String(row.minutes) : "",
     data: rebuilt.data,
     existingQuestionId: row.questionId,
     lessonId: row.question?.lessonId ?? null,

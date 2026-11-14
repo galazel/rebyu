@@ -20,6 +20,10 @@ public class ChallengeArenaConfig {
   @Column(name = "node_layout_json", columnDefinition = "TEXT")
   private String nodeLayoutJson;
 
+  /** Minutes on the clock for each stage, in arena order (JSON list; null = the arena default). */
+  @Column(name = "stage_minutes_json", columnDefinition = "TEXT")
+  private String stageMinutesJson;
+
   @Column(name = "live")
   private Boolean live;
 

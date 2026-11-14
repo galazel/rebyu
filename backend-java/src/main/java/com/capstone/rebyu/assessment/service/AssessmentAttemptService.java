@@ -184,7 +184,8 @@ public class AssessmentAttemptService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<AssessmentAttempt> byKey = attemptRepository.findByIdempotencyKey(idempotencyKey);
             if (byKey.isPresent()
-                    && byKey.get().getStatus() == AssessmentAttempt.Status.IN_PROGRESS) {
+                    && byKey.get().getStatus() == AssessmentAttempt.Status.IN_PROGRESS
+                    && !stageClockOverrun(byKey.get())) {
                 return buildStartResponse(byKey.get(), true);
             }
             if (byKey.isPresent()) {
@@ -219,6 +220,7 @@ public class AssessmentAttemptService {
         if (inProgress.isPresent()) {
             AssessmentAttempt attempt = inProgress.get();
             settlePause(attempt);
+            capStageClock(attempt, exam);
             if (attempt.getExpiresAt() == null
                     || LocalDateTime.now().isBefore(attempt.getExpiresAt())) {
                 return buildStartResponse(attempt, true);
@@ -387,8 +389,8 @@ public class AssessmentAttemptService {
                 .attemptNumber(nextAttemptNumber)
                 .status(AssessmentAttempt.Status.IN_PROGRESS)
                 .startedAt(now)
-                .expiresAt(timeLimitMinutes(exam) != null
-                        ? now.plusMinutes(timeLimitMinutes(exam))
+                .expiresAt(timeLimitMinutes(exam, questionsToUse) != null
+                        ? now.plusMinutes(timeLimitMinutes(exam, questionsToUse))
                         : null)
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey
@@ -979,7 +981,7 @@ public class AssessmentAttemptService {
                     "codestrike".equals(exam.getTargetScope())
                             ? ChallengeArenaService.settingsOf("codestrike", arenaConfigRepository.findById("codestrike"))
                             : Map.of(),
-                    attempt.getStartedAt(), attempt.getSubmittedAt(), timeLimitMinutes(exam), objectMapper);
+                    attempt.getStartedAt(), attempt.getSubmittedAt(), timeLimitMinutes(attempt), objectMapper);
         }
         return new AssessmentAttemptResultDto(
                 attempt.getAssessmentAttemptId(),
@@ -2113,18 +2115,66 @@ public class AssessmentAttemptService {
      * attempt, so each runs on the arena's "time per problem" setting, not the whole
      * run's limit; every other exam uses its own duration.
      */
-    private Integer timeLimitMinutes(Exam exam) {
-        if (exam != null && exam.getExamType() != null
+    private boolean isStagedArena(Exam exam) {
+        return exam != null && exam.getExamType() != null
                 && TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
-                && CAPPED_ARENAS.contains(exam.getTargetScope())) {
-            Integer perProblem = ChallengeArenaService
-                    .settingsOf(exam.getTargetScope(), arenaConfigRepository.findById(exam.getTargetScope()))
-                    .get("timePerProblem");
-            if (perProblem != null && perProblem > 0) {
-                return perProblem;
+                && CAPPED_ARENAS.contains(exam.getTargetScope());
+    }
+
+    /** The clock for a stage holding these questions (a single stage per arena attempt). */
+    private Integer timeLimitMinutes(Exam exam, List<Question> stageQuestions) {
+        if (!isStagedArena(exam)) return exam == null ? null : exam.getDurationMinutes();
+        Long questionId = stageQuestions == null || stageQuestions.size() != 1
+                ? null : stageQuestions.get(0).getQuestionId();
+        return stageMinutesFor(exam, questionId);
+    }
+
+    private Integer timeLimitMinutes(AssessmentAttempt attempt) {
+        Exam exam = attempt.getExam();
+        if (!isStagedArena(exam)) return exam == null ? null : exam.getDurationMinutes();
+        List<AssessmentAttemptQuestion> rows = attemptQuestionRepository
+                .findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(attempt.getAssessmentAttemptId());
+        Long questionId = rows.size() == 1 ? rows.get(0).getSourceQuestionId() : null;
+        return stageMinutesFor(exam, questionId);
+    }
+
+    private Integer stageMinutesFor(Exam exam, Long questionId) {
+        int index = -1;
+        if (questionId != null) {
+            List<ExamQuestion> order = examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId());
+            for (int i = 0; i < order.size(); i++) {
+                if (questionId.equals(order.get(i).getQuestion().getQuestionId())) { index = i; break; }
             }
         }
-        return exam == null ? null : exam.getDurationMinutes();
+        Integer minutes = ChallengeArenaService.stageMinutes(
+                exam.getTargetScope(), arenaConfigRepository.findById(exam.getTargetScope()), index);
+        return minutes != null ? minutes : exam.getDurationMinutes();
+    }
+
+    /**
+     * A resumed CodeStrike/Blueprint stage never has more left than one stage's time.
+     * Attempts started under an older, longer limit (the whole run's) are pulled back.
+     */
+    /** True when a challenge stage's clock, once capped, has already run out. */
+    private boolean stageClockOverrun(AssessmentAttempt attempt) {
+        capStageClock(attempt, attempt.getExam());
+        return attempt.getExpiresAt() != null && LocalDateTime.now().isAfter(attempt.getExpiresAt());
+    }
+
+    private void capStageClock(AssessmentAttempt attempt, Exam exam) {
+        if (exam == null || exam.getExamType() == null
+                || !TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                || !CAPPED_ARENAS.contains(exam.getTargetScope())) {
+            return;
+        }
+        Integer minutes = timeLimitMinutes(attempt);
+        if (minutes == null) return;
+        LocalDateTime start = attempt.getStartedAt() != null ? attempt.getStartedAt() : LocalDateTime.now();
+        LocalDateTime cap = start.plusMinutes(minutes);
+        if (attempt.getExpiresAt() == null || attempt.getExpiresAt().isAfter(cap)) {
+            attempt.setExpiresAt(cap);
+            attemptRepository.save(attempt);
+        }
     }
 
     private void applyCodeStrikeWeights(
@@ -2142,7 +2192,7 @@ public class AssessmentAttemptService {
                 "codestrike", arenaConfigRepository.findById("codestrike"));
         ArenaScoring.Breakdown breakdown = ArenaScoring.codeStrike(
                 settings, passed, total, maxTimeMs,
-                attempt.getStartedAt(), LocalDateTime.now(), timeLimitMinutes(exam));
+                attempt.getStartedAt(), LocalDateTime.now(), timeLimitMinutes(attempt));
 
         answer.setCredit(points.multiply(breakdown.fraction()).setScale(4, RoundingMode.HALF_UP));
         String existing = answer.getFeedback();

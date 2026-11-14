@@ -152,9 +152,9 @@ class ChallengeArenaConfigTest {
     when(examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(anyLong())).thenAnswer(inv -> rows);
 
     arenas.saveProblems("codestrike", new ChallengeArenaService.SaveArenaProblemsRequest(1L, null, List.of(
-        new ChallengeArenaService.ArenaProblemRequest(11L, 1, new BigDecimal("10")),
-        new ChallengeArenaService.ArenaProblemRequest(12L, 1, new BigDecimal("15")),
-        new ChallengeArenaService.ArenaProblemRequest(13L, 2, new BigDecimal("20")))));
+        new ChallengeArenaService.ArenaProblemRequest(11L, 1, new BigDecimal("10"), null),
+        new ChallengeArenaService.ArenaProblemRequest(12L, 1, new BigDecimal("15"), null),
+        new ChallengeArenaService.ArenaProblemRequest(13L, 2, new BigDecimal("20"), null))));
 
     assertEquals(45, exam.getDurationMinutes(), "no limit in the request uses the saved setting");
     assertEquals(new BigDecimal("15"), rows.get(1).getPoints());

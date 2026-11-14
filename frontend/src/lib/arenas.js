@@ -21,9 +21,9 @@ export const ARENAS = [
       },
       {
         key: "timePerProblem",
-        label: "Time per stage (min)",
+        label: "Default time per stage (min)",
         value: "10",
-        hint: "Each stage's countdown; the answer is handed in when it runs out",
+        hint: "Used by any stage without its own time (set per problem on the Problems tab)",
       },
       {
         key: "pointsPerProblem",
@@ -66,9 +66,9 @@ export const ARENAS = [
       },
       {
         key: "timePerProblem",
-        label: "Time per stage (min)",
+        label: "Default time per stage (min)",
         value: "10",
-        hint: "Each stage's countdown; the answer is handed in when it runs out",
+        hint: "Used by any stage without its own time (set per problem on the Problems tab)",
       },
       {
         key: "pointsPerProblem",

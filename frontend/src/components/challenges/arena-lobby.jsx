@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
@@ -44,11 +44,37 @@ const DIFFICULTY = {
 
 const LANGUAGE_LABELS = { PYTHON: "Python", JAVA: "Java", "C++": "C++", C: "C", JAVASCRIPT: "JavaScript", "C#": "C#" }
 
-/* Plinth sizes (the exported Plinth is shared with other pages). */
+/* Plinth sizes follow the learning path's nodes, a little smaller. */
 const PLINTH_W = 128
 const PLINTH_H = 64
 const PLINTH_D = 20
 const LIFT = 30
+const NODE_H = LIFT + PLINTH_H + PLINTH_D
+
+/* Sideways trail (tablet and up). */
+const COL = 240
+const PAD_X = 160
+const TOP_HIGH = 130
+const TOP_LOW = 210
+const MAP_H = 470
+
+/* Top-to-bottom trail (phones). */
+const V_WIDTH = 320
+const V_OFFSET = 52
+const V_TOP = 64
+const V_ROW = 248
+
+function useWideScreen() {
+  const query = "(min-width: 768px)"
+  const [wide, setWide] = useState(() => (typeof window === "undefined" ? true : window.matchMedia(query).matches))
+  useEffect(() => {
+    const media = window.matchMedia(query)
+    const onChange = () => setWide(media.matches)
+    media.addEventListener("change", onChange)
+    return () => media.removeEventListener("change", onChange)
+  }, [])
+  return wide
+}
 
 export function ArenaLobby({ arenaId, name, blurb }) {
   const tone = TONES[arenaId] ?? TONES.codestrike
@@ -89,7 +115,12 @@ export function ArenaLobby({ arenaId, name, blurb }) {
   const problemCount = arena?.problemCount ?? problems.length
   const pointsPerProblem = Number(settings.pointsPerProblem) || 10
   const stages = problems.length ? problems : Array.from({ length: problemCount }, () => null)
-  const totalPoints = stages.reduce((sum, p) => sum + Number(p?.points ?? pointsPerProblem), 0)
+  const stageMinutes = arena?.stageMinutes ?? []
+  const stagePoints = arena?.stagePoints ?? []
+  const minutesAt = (i) => Number(stageMinutes[i]) || timePerProblem
+  const pointsAt = (i, p) => Number(p?.points ?? stagePoints[i] ?? pointsPerProblem)
+  const totalPoints = stages.reduce((sum, p, i) => sum + pointsAt(i, p), 0)
+  const sameTime = stages.every((_, i) => minutesAt(i) === minutesAt(0))
   const locked = !configured && arenasQuery.isSuccess
   const [aboutOpen, setAboutOpen] = useState(false)
 
@@ -140,7 +171,10 @@ export function ArenaLobby({ arenaId, name, blurb }) {
               </li>
               <li className="flex gap-2.5">
                 <Clock className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
-                <span>{timePerProblem} minutes per stage. When the timer runs out, your answer is handed in as it is.</span>
+                <span>
+                  {sameTime ? `${minutesAt(0)} minutes per stage` : "Each stage has its own time limit"}. When the timer
+                  runs out, your answer is handed in as it is.
+                </span>
               </li>
               <li className="flex gap-2.5">
                 <Zap className="mt-1 size-4 shrink-0 text-rb-wolf" aria-hidden="true" />
@@ -175,7 +209,7 @@ export function ArenaLobby({ arenaId, name, blurb }) {
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-rb-swan bg-rb-snow px-2.5 py-1">
                   <Clock className="size-3.5" aria-hidden="true" />
-                  {timePerProblem} min each
+                  {sameTime ? `${minutesAt(0)} min each` : "timed stages"}
                 </span>
                 <PointsPill amount={totalPoints} />
               </div>
@@ -208,8 +242,8 @@ export function ArenaLobby({ arenaId, name, blurb }) {
             tone={tone}
             arenaId={arenaId}
             examId={arena.examId}
-            timePerProblem={timePerProblem}
-            pointsPerProblem={pointsPerProblem}
+            minutesAt={minutesAt}
+            pointsAt={pointsAt}
             totalPoints={totalPoints}
           />
         )}
@@ -229,6 +263,22 @@ function PointsPill({ amount }) {
   )
 }
 
+/* Where each node sits: its centre x, the top of its box and which side its label is on. */
+function trailLayout(count, wide) {
+  const nodes = []
+  for (let i = 0; i <= count; i++) {
+    if (wide) {
+      nodes.push({ cx: PAD_X + i * COL, top: i % 2 === 0 ? TOP_LOW : TOP_HIGH, labelBelow: i % 2 === 0 })
+    } else {
+      const offset = i === count ? 0 : i % 2 === 0 ? -V_OFFSET : V_OFFSET
+      nodes.push({ cx: V_WIDTH / 2 + offset, top: V_TOP + i * V_ROW, labelBelow: true })
+    }
+  }
+  const width = wide ? PAD_X * 2 + count * COL : V_WIDTH
+  const height = wide ? MAP_H : V_TOP + count * V_ROW + NODE_H + 110
+  return { nodes, width, height }
+}
+
 function stageStates(stages, completed) {
   // Learners never get the problem list (it is admin-only: it carries answers), so their
   // stages are placeholders and are matched by position; admins match by question id.
@@ -240,153 +290,132 @@ function stageStates(stages, completed) {
   return stages.map((_, i) => (done[i] ? "done" : i === currentIndex ? "current" : unlocked[i] ? "open" : "locked"))
 }
 
-function stageKind(arenaId, problem) {
-  if (arenaId === "blueprint") return "Diagram"
-  const language = problem?.question?.programmingQuestionConfig?.language
-  return language ? LANGUAGE_LABELS[language.toUpperCase()] ?? language : "Coding"
-}
-
-function StageTrail({ stages, completed, tone, arenaId, examId, timePerProblem, pointsPerProblem, totalPoints }) {
+function StageTrail({ stages, completed, tone, arenaId, examId, minutesAt, pointsAt, totalPoints }) {
+  const wide = useWideScreen()
+  const reduceMotion = useReducedMotion()
+  const scrollerRef = useRef(null)
+  const [edges, setEdges] = useState({ start: true, end: false })
   const count = stages.length
+  const { nodes, width, height } = trailLayout(count, wide)
   const states = stageStates(stages, completed)
   const doneCount = states.filter((s) => s === "done").length
-  const nextIndex = states.indexOf("current")
-  const cleared = count > 0 && doneCount === count
-  const linkFor = (i) => `/learner/assessments/${examId}?q=${i}&total=${count}&arena=${arenaId}`
-  const percent = count ? Math.round((doneCount / count) * 100) : 0
+
+  const points = nodes.map(({ cx, top }) => [cx, top + LIFT + PLINTH_H / 2])
+  const d = points
+    .map(([x, y], i) => {
+      if (i === 0) return `M ${x} ${y}`
+      const [px, py] = points[i - 1]
+      if (wide) {
+        const mid = (px + x) / 2
+        return `C ${mid} ${py}, ${mid} ${y}, ${x} ${y}`
+      }
+      const mid = (py + y) / 2
+      return `C ${px} ${mid}, ${x} ${mid}, ${x} ${y}`
+    })
+    .join(" ")
+
+  const updateEdges = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    setEdges({ start: el.scrollLeft < 8, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 8 })
+  }, [])
+  useEffect(() => {
+    if (!wide) return undefined
+    updateEdges()
+    window.addEventListener("resize", updateEdges)
+    return () => window.removeEventListener("resize", updateEdges)
+  }, [count, wide, updateEdges])
+
+  const scrollBy = (dir) =>
+    scrollerRef.current?.scrollBy({ left: dir * COL * 2, behavior: reduceMotion ? "auto" : "smooth" })
+
+  const map = (
+    <div className={cn("relative", !wide && "mx-auto")} style={{ width, height }}>
+      <svg className="pointer-events-none absolute inset-0" width={width} height={height} aria-hidden="true">
+        <path
+          d={d}
+          fill="none"
+          stroke="color-mix(in oklab, var(--color-rb-hare) 55%, var(--color-rb-swan))"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+
+      {stages.map((problem, i) => (
+        <StageNode
+          key={problem?.questionId ?? i}
+          index={i}
+          {...nodes[i]}
+          state={states[i]}
+          tone={tone}
+          problem={problem}
+          arenaId={arenaId}
+          to={`/learner/assessments/${examId}?q=${i}&total=${count}&arena=${arenaId}`}
+          timePerProblem={minutesAt(i)}
+          points={pointsAt(i, problem)}
+          reduceMotion={reduceMotion}
+        />
+      ))}
+
+      <FinishNode {...nodes[count]} totalPoints={totalPoints} cleared={count > 0 && doneCount === count} />
+    </div>
+  )
 
   return (
-    <section className="mt-10 space-y-8">
-      <div className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 sm:p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">your run</p>
-            <p className="mt-0.5 font-rb-display text-2xl font-extrabold text-rb-eel">
-              {cleared ? "Every stage cleared" : `${doneCount} of ${count} stages done`}
-            </p>
-            <div
-              className="mt-3 h-3 overflow-hidden rounded-full bg-rb-swan"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={percent}
-              aria-label="Stages done"
-            >
-              <div className={cn("h-full rounded-full transition-[width] duration-500", tone.face)} style={{ width: `${percent}%` }} />
-            </div>
-            <p className="mt-2 text-xs font-bold text-rb-wolf">
-              Each stage unlocks the next · {timePerProblem} min per stage · up to {totalPoints} pts
-            </p>
-          </div>
-          {nextIndex >= 0 ? (
-            <TactileButton asChild size="lg" className="shrink-0">
-              <Link to={linkFor(nextIndex)}>
-                {doneCount === 0 ? "Start stage 1" : `Continue: stage ${nextIndex + 1}`}
-                <ChevronRight className="ml-1.5 size-4" aria-hidden="true" />
-              </Link>
-            </TactileButton>
-          ) : cleared ? (
-            <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-rb-fox-wash px-4 py-2 font-rb-display text-sm font-extrabold text-rb-fox-lip">
-              <Trophy className="size-4" aria-hidden="true" />
-              Replay any stage to beat your best
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div>
-        <div className="border-b-2 border-rb-swan pb-2">
+    <section className="mt-12">
+      <div className="flex items-end justify-between gap-3 border-b-2 border-rb-swan pb-2">
+        <div>
           <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">stages</p>
           <h2 className="font-rb-display text-2xl font-extrabold text-rb-eel">Clear them in order</h2>
+          <p className="mt-0.5 text-xs font-bold text-rb-wolf">
+            {doneCount} of {count} done · each stage unlocks the next
+          </p>
         </div>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {stages.map((problem, i) => (
-            <StageCard
-              key={problem?.questionId ?? i}
-              index={i}
-              state={states[i]}
-              tone={tone}
-              kind={stageKind(arenaId, problem)}
-              difficulty={DIFFICULTY[problem?.question?.difficultyLevel] ?? null}
-              Icon={arenaId === "blueprint" ? Network : Code2}
-              to={linkFor(i)}
-              timePerProblem={timePerProblem}
-              points={Number(problem?.points ?? pointsPerProblem)}
-            />
-          ))}
-        </ol>
+        {wide ? (
+          <div className="flex gap-2">
+            <ScrollButton label="Scroll left" onClick={() => scrollBy(-1)} disabled={edges.start} flip />
+            <ScrollButton label="Scroll right" onClick={() => scrollBy(1)} disabled={edges.end} />
+          </div>
+        ) : null}
       </div>
+
+      {wide ? (
+        <div className="relative">
+          <div
+            ref={scrollerRef}
+            onScroll={updateEdges}
+            className="snap-x overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {map}
+          </div>
+          <div
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-rb-polar to-transparent transition-opacity",
+              edges.end ? "opacity-0" : "opacity-100"
+            )}
+          />
+        </div>
+      ) : (
+        <div className="mt-2">{map}</div>
+      )}
     </section>
   )
 }
 
-function StageCard({ index, state, tone, kind, difficulty, Icon, to, timePerProblem, points }) {
-  const locked = state === "locked"
-  const done = state === "done"
-  const current = state === "current"
-  const Tag = locked ? "div" : Link
+function ScrollButton({ label, onClick, disabled, flip = false }) {
   return (
-    <li>
-      <Tag
-        {...(locked ? { "aria-disabled": true, title: `Finish stage ${index} to unlock this one` } : { to })}
-        aria-label={`Stage ${index + 1}, ${kind}, ${timePerProblem} minutes, ${points} points${
-          locked ? " (locked)" : done ? " (done)" : current ? " (next up)" : ""
-        }`}
-        className={cn(
-          "group flex h-full items-center gap-3 rounded-rb-card border-2 bg-rb-snow p-3 transition",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw",
-          locked
-            ? "cursor-not-allowed border-rb-swan opacity-60"
-            : current
-              ? "border-rb-hare shadow-[0_4px_0_var(--color-rb-swan)] hover:-translate-y-0.5"
-              : "border-rb-swan hover:-translate-y-0.5 hover:border-rb-hare"
-        )}
-      >
-        <span
-          className={cn(
-            "relative grid size-12 shrink-0 place-items-center rounded-rb-control",
-            locked ? "bg-rb-swan text-rb-hare" : done || current ? cn(tone.face, "text-white") : "bg-rb-polar text-rb-wolf"
-          )}
-        >
-          {locked ? <Lock className="size-5" aria-hidden="true" /> : <Icon className="size-5" aria-hidden="true" />}
-          {done ? (
-            <span className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-rb-snow text-rb-leaf shadow">
-              <Check className="size-3" aria-hidden="true" />
-            </span>
-          ) : null}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="font-rb-display text-base font-extrabold text-rb-eel">Stage {index + 1}</span>
-            {current ? (
-              <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase text-white", tone.face)}>next</span>
-            ) : null}
-          </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-bold text-rb-wolf">
-            <span>{kind}</span>
-            <span className="inline-flex items-center gap-1">
-              <Clock className="size-3" aria-hidden="true" />
-              {timePerProblem} min
-            </span>
-            {difficulty ? (
-              <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-extrabold uppercase", difficulty.chip)}>
-                {difficulty.label}
-              </span>
-            ) : null}
-          </span>
-          <span className="mt-1 block text-[11px] font-bold">
-            {locked ? (
-              <span className="text-rb-wolf">Finish stage {index} to unlock</span>
-            ) : done ? (
-              <span className="text-rb-leaf">Done · replay to beat your best</span>
-            ) : (
-              <span className="text-rb-wolf">Ready to play</span>
-            )}
-          </span>
-        </span>
-        <PointsPill amount={points} />
-      </Tag>
-    </li>
+    <TactileButton
+      variant="ghost"
+      size="sm"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="rb-btn-icon disabled:opacity-40"
+    >
+      <ChevronRight className={cn("size-4", flip && "rotate-180")} aria-hidden="true" />
+    </TactileButton>
   )
 }
 
@@ -397,6 +426,171 @@ export function Plinth({ top, face, lip, w = PLINTH_W, h = PLINTH_H, d = PLINTH_
       <path d={`M ${w} ${h / 2} L ${w / 2} ${h} L ${w / 2} ${h + d} L ${w} ${h / 2 + d} Z`} fill={face} />
       <path d={`M ${w / 2} 0 L ${w} ${h / 2} L ${w / 2} ${h} L 0 ${h / 2} Z`} fill={top} />
     </svg>
+  )
+}
+
+function NodeLabel({ labelBelow, children }) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-none absolute left-1/2 w-[176px] -translate-x-1/2 text-center",
+        labelBelow ? "top-full mt-2" : "bottom-full mb-1"
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* The first stage is drawn as the path's "current" node (filled, start bubble);
+   the rest as open nodes, exactly like an unstarted topic on the learning path. */
+function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, to, timePerProblem, points, reduceMotion }) {
+  const q = problem?.question
+  const difficulty = DIFFICULTY[q?.difficultyLevel] ?? DIFFICULTY.AVERAGE
+  const language = q?.programmingQuestionConfig?.language
+  const Icon = arenaId === "blueprint" ? Network : Code2
+  // Same faces as the learning path: filled when done or current, open when
+  // playable, grey when locked.
+  const current = state === "current"
+  const locked = state === "locked"
+  const filled = state === "done" || current
+  const faces = locked
+    ? {
+        top: "var(--color-rb-swan)",
+        face: "color-mix(in oklab, var(--color-rb-swan) 78%, var(--color-rb-hare))",
+        lip: "var(--color-rb-hare)",
+      }
+    : filled
+      ? { top: `color-mix(in oklab, ${tone.faceVar} 84%, white)`, face: tone.faceVar, lip: tone.lipVar }
+      : { top: "var(--color-rb-snow)", face: "var(--color-rb-polar)", lip: "var(--color-rb-swan)" }
+  const NodeTag = locked ? "div" : Link
+  const kind =
+    arenaId === "blueprint" ? "Diagram" : language ? LANGUAGE_LABELS[language.toUpperCase()] ?? language : "Coding"
+
+  return (
+    <div className="absolute snap-center" style={{ left: cx - PLINTH_W / 2, top, width: PLINTH_W, height: NODE_H }}>
+      {current ? <StartBubble tone={tone} reduceMotion={reduceMotion} /> : null}
+      {current && !reduceMotion ? (
+        <motion.span
+          aria-hidden="true"
+          className={cn("pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[50%] opacity-25", tone.face)}
+          style={{ top: LIFT - 6, width: PLINTH_W + 24, height: PLINTH_H + 18 }}
+          animate={{ scale: [1, 1.14, 1], opacity: [0.3, 0, 0.3] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ) : null}
+
+      <NodeTag
+        {...(locked
+          ? { role: "img", title: `Finish stage ${index} to unlock this one` }
+          : { to })}
+        aria-label={`Stage ${index + 1}, ${difficulty.label}, ${points} points${
+          locked ? " (locked)" : state === "done" ? " (done)" : ""
+        }`}
+        className={cn(
+          "group absolute inset-0 block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw",
+          locked ? "cursor-not-allowed" : "transition-transform duration-100 active:translate-y-[5px]"
+        )}
+      >
+        <Plinth {...faces} />
+        <span
+          className={cn(
+            "absolute left-0 grid place-items-center drop-shadow-[0_6px_3px_rgb(0_0_0/0.18)]",
+            !locked && "transition-transform duration-200 group-hover:-translate-y-1",
+            locked ? "text-rb-hare" : filled ? "text-white" : tone.ink
+          )}
+          style={{ top: 0, width: PLINTH_W, height: LIFT + PLINTH_H / 2 }}
+        >
+          {locked ? <Lock className="size-10" aria-hidden="true" /> : <Icon className="size-10" aria-hidden="true" />}
+        </span>
+        {state === "done" ? (
+          <span
+            className="absolute right-3 grid size-8 place-items-center rounded-full bg-rb-snow text-rb-leaf shadow-[0_2px_4px_rgb(0_0_0/0.18)]"
+            style={{ top: LIFT - 10 }}
+            title="Done"
+          >
+            <Check className="size-4" aria-hidden="true" />
+          </span>
+        ) : null}
+      </NodeTag>
+
+      <NodeLabel labelBelow={labelBelow}>
+        <p className={cn("font-rb-display text-[15px] font-extrabold leading-tight", locked ? "text-rb-wolf" : "text-rb-eel")}>
+          Stage {index + 1}
+        </p>
+        <p className="mt-0.5 text-[12px] font-bold text-rb-wolf">
+          {kind} · {String(timePerProblem).padStart(2, "0")}:00
+        </p>
+        <div className="mt-1 flex items-center justify-center gap-1.5">
+          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase", difficulty.chip)}>
+            {difficulty.label}
+          </span>
+          <PointsPill amount={points} />
+        </div>
+        {locked ? (
+          <p className="mt-1 text-[11px] font-bold text-rb-wolf">Finish stage {index} to unlock</p>
+        ) : state === "done" ? (
+          <p className="mt-1 text-[11px] font-bold text-rb-leaf">Done · play again any time</p>
+        ) : null}
+      </NodeLabel>
+    </div>
+  )
+}
+
+function StartBubble({ tone, reduceMotion }) {
+  return (
+    <motion.span
+      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2"
+      animate={reduceMotion ? undefined : { y: [0, -4, 0] }}
+      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+      aria-hidden="true"
+    >
+      <span
+        className={cn(
+          "block whitespace-nowrap rounded-rb-control px-4 py-1.5 font-rb-display text-sm font-extrabold lowercase text-white",
+          tone.face
+        )}
+        style={{ boxShadow: `0 3px 0 ${tone.lipVar}` }}
+      >
+        start
+      </span>
+      <span
+        className="absolute left-1/2 top-full size-0 -translate-x-1/2 border-x-8 border-t-8 border-x-transparent"
+        style={{ borderTopColor: tone.lipVar }}
+      />
+    </motion.span>
+  )
+}
+
+function FinishNode({ cx, top, labelBelow, totalPoints, cleared }) {
+  return (
+    <div className="absolute snap-center" style={{ left: cx - PLINTH_W / 2, top, width: PLINTH_W, height: NODE_H }}>
+      {cleared ? (
+        <Plinth
+          top="color-mix(in oklab, var(--color-rb-fox) 84%, white)"
+          face="var(--color-rb-fox)"
+          lip="var(--color-rb-fox-lip)"
+        />
+      ) : (
+        <Plinth top="var(--color-rb-snow)" face="var(--color-rb-polar)" lip="var(--color-rb-swan)" />
+      )}
+      <span
+        className={cn(
+          "absolute left-0 grid place-items-center drop-shadow-[0_6px_3px_rgb(0_0_0/0.18)]",
+          cleared ? "text-white" : "text-rb-fox-lip"
+        )}
+        style={{ top: 0, width: PLINTH_W, height: LIFT + PLINTH_H / 2 }}
+      >
+        <Trophy className="size-10" aria-hidden="true" />
+      </span>
+      <NodeLabel labelBelow={labelBelow}>
+        <p className="font-rb-display text-[15px] font-extrabold leading-tight text-rb-eel">Finish</p>
+        <p className="mt-0.5 text-[12px] font-bold text-rb-wolf">{cleared ? "Every stage cleared" : "Clear every stage"}</p>
+        <div className="mt-1 flex justify-center">
+          <PointsPill amount={totalPoints} />
+        </div>
+      </NodeLabel>
+    </div>
   )
 }
 

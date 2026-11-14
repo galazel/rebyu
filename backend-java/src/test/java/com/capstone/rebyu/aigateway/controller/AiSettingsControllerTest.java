@@ -12,7 +12,7 @@ import static org.mockito.Mockito.*;
 class AiSettingsControllerTest {
     private final CognitoAuthService auth = mock(CognitoAuthService.class);
     private final ElevenLabsSettingsService provider = mock(ElevenLabsSettingsService.class);
-    private final AiSettingsController controller = new AiSettingsController(null, auth, provider);
+    private final AiSettingsController controller = new AiSettingsController(null, auth, provider, null);
     @Test void unauthenticatedCannotReadAccountBalance() {
         assertEquals(401, assertThrows(ResponseStatusException.class, () -> controller.liveTutor(null)).getStatusCode().value()); verifyNoInteractions(provider);
     }

@@ -155,7 +155,7 @@ public class WorldCupEditionService {
     List<ChallengeArenaService.ArenaProblemRequest> problems = new ArrayList<>();
     for (int stageIndex = 0; stageIndex < STAGE_IDS.size(); stageIndex++) {
       for (Long questionId : stages.get(STAGE_IDS.get(stageIndex))) {
-        problems.add(new ChallengeArenaService.ArenaProblemRequest(questionId, stageIndex + 1, null));
+        problems.add(new ChallengeArenaService.ArenaProblemRequest(questionId, stageIndex + 1, null, null));
       }
     }
 

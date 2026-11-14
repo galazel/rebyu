@@ -94,9 +94,11 @@ public class ChallengeArenaService {
       Long certificationId,
       Map<String, Integer> settings,
       List<Long> disabledTrackIds,
-      List<Long> assignedCertificationIds) {}
+      List<Long> assignedCertificationIds,
+      List<Integer> stageMinutes,
+      List<BigDecimal> stagePoints) {}
 
-  public record ArenaProblemRequest(Long questionId, Integer nodeIndex, BigDecimal points) {}
+  public record ArenaProblemRequest(Long questionId, Integer nodeIndex, BigDecimal points, Integer minutes) {}
 
   public record SaveArenaProblemsRequest(
       Long certificationId, Integer timeLimitMinutes, List<ArenaProblemRequest> problems) {}
@@ -106,6 +108,7 @@ public class ChallengeArenaService {
       Integer nodeIndex,
       Integer displayOrder,
       BigDecimal points,
+      Integer minutes,
       QuestionDto question,
       List<QuestionDto> subQuestions) {}
 
@@ -130,10 +133,17 @@ public class ChallengeArenaService {
 
     Exam exam = findArenaExam(arenaId);
     if (exam == null) {
-      return new ArenaStatus(arenaId, false, live, 0, null, null, settings, disabledTracks, assigned);
+      return new ArenaStatus(arenaId, false, live, 0, null, null, settings, disabledTracks, assigned, List.of(), List.of());
     }
 
-    int count = examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId()).size();
+    List<ExamQuestion> rows = examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId());
+    int count = rows.size();
+    List<Integer> stageMinutes = new ArrayList<>();
+    List<BigDecimal> stagePoints = new ArrayList<>();
+    for (int i = 0; i < count; i++) {
+      stageMinutes.add(stageMinutes(arenaId, config, i));
+      stagePoints.add(rows.get(i).getPoints());
+    }
     return new ArenaStatus(
         arenaId,
         live && count > 0,
@@ -143,7 +153,22 @@ public class ChallengeArenaService {
         exam.getCertification() == null ? null : exam.getCertification().getCertificationId(),
         settings,
         disabledTracks,
-        assigned);
+        assigned,
+        stageMinutes,
+        stagePoints);
+  }
+
+  /** Minutes on the clock for one stage: its own time if set, else the arena's time per stage. */
+  public static Integer stageMinutes(String arenaId, Optional<ChallengeArenaConfig> config, int index) {
+    List<Integer> own = config
+        .map(ChallengeArenaConfig::getStageMinutesJson)
+        .map(ChallengeArenaService::readLayout)
+        .orElse(List.of());
+    if (index >= 0 && index < own.size() && own.get(index) != null && own.get(index) > 0) {
+      return own.get(index);
+    }
+    Integer fallback = settingsOf(arenaId, config).get("timePerProblem");
+    return fallback == null || fallback <= 0 ? null : fallback;
   }
 
   /** The certifications this challenge shows on (on their learners' learning paths). */
@@ -347,9 +372,15 @@ public class ChallengeArenaService {
         .map(ChallengeArenaService::readLayout)
         .orElse(List.of());
 
+    Optional<ChallengeArenaConfig> config = arenaConfigs.findById(arenaId);
+    List<Integer> own = config
+        .map(ChallengeArenaConfig::getStageMinutesJson)
+        .map(ChallengeArenaService::readLayout)
+        .orElse(List.of());
     return viewsOf(rows.stream().map(ExamQuestion::getQuestion).toList(),
         index -> index < layout.size() ? layout.get(index) : 1,
-        index -> rows.get(index).getPoints());
+        index -> rows.get(index).getPoints(),
+        index -> index < own.size() ? own.get(index) : null);
   }
 
   @Transactional(readOnly = true)
@@ -357,6 +388,15 @@ public class ChallengeArenaService {
       List<Question> parents,
       java.util.function.IntFunction<Integer> nodeIndexAt,
       java.util.function.IntFunction<BigDecimal> pointsAt) {
+    return viewsOf(parents, nodeIndexAt, pointsAt, index -> null);
+  }
+
+  @Transactional(readOnly = true)
+  public List<ArenaProblemView> viewsOf(
+      List<Question> parents,
+      java.util.function.IntFunction<Integer> nodeIndexAt,
+      java.util.function.IntFunction<BigDecimal> pointsAt,
+      java.util.function.IntFunction<Integer> minutesAt) {
     if (parents.isEmpty()) {
       return List.of();
     }
@@ -376,6 +416,7 @@ public class ChallengeArenaService {
           nodeIndexAt.apply(index),
           index + 1,
           pointsAt.apply(index),
+          minutesAt.apply(index),
           questionMapper.toDto(question),
           partsByParent.getOrDefault(question.getQuestionId(), List.of())));
     }
@@ -439,7 +480,12 @@ public class ChallengeArenaService {
 
     int order = 1;
     List<Integer> layout = new ArrayList<>();
+    List<Integer> minutes = new ArrayList<>();
     for (ArenaProblemRequest problem : request.problems()) {
+      if (problem.minutes() != null && (problem.minutes() < 1 || problem.minutes() > 180)) {
+        throw new IllegalArgumentException("A stage's time must be between 1 and 180 minutes");
+      }
+      minutes.add(problem.minutes());
       Question question = byId.get(problem.questionId());
       if (question == null) {
         throw new EntityNotFoundException("Question not found: " + problem.questionId());
@@ -456,6 +502,7 @@ public class ChallengeArenaService {
 
     ChallengeArenaConfig config = configFor(arenaId);
     config.setNodeLayoutJson(writeJson(layout));
+    config.setStageMinutesJson(writeJson(minutes));
     config.setUpdatedAt(now);
     arenaConfigs.save(config);
 

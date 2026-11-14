@@ -195,6 +195,12 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       if (!(Number(problem.points) > 0)) {
         problemErrors.points = "Points must be greater than zero."
       }
+      if (arena.id !== "worldcup" && String(problem.minutes ?? "").trim() !== "") {
+        const m = Number(problem.minutes)
+        if (!Number.isInteger(m) || m < 1 || m > 180) {
+          problemErrors.minutes = "Time must be a whole number of minutes, 1 to 180."
+        }
+      }
       if (!(Number(problem.xp) >= 0)) {
         problemErrors.xp = "XP cannot be negative."
       }
@@ -266,6 +272,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
               questionId,
               nodeIndex,
               points: Number(problem.points) || 1,
+              minutes: String(problem.minutes ?? "").trim() === "" ? null : Number(problem.minutes),
             })
           }
         }
@@ -341,6 +348,25 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
             />
           </div>
 
+          {arena.id !== "worldcup" ? (
+            <div className="w-28">
+              <Label htmlFor={`${problem.id}-minutes`} className="text-xs font-bold">
+                Time (min)
+              </Label>
+              <Input
+                id={`${problem.id}-minutes`}
+                value={problem.minutes ?? ""}
+                placeholder={String(settings?.timePerProblem ?? 10)}
+                inputMode="numeric"
+                className="mt-1 h-9"
+                aria-invalid={Boolean(problemErrors.minutes)}
+                onChange={(event) =>
+                  updateProblemField(node.id, problem.id, "minutes", event.target.value)
+                }
+              />
+            </div>
+          ) : null}
+
           <div className="w-24">
             <Label htmlFor={`${problem.id}-xp`} className="text-xs font-bold">
               XP
@@ -362,9 +388,9 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           </span>
         </div>
 
-        {problemErrors.points || problemErrors.xp ? (
+        {problemErrors.points || problemErrors.minutes || problemErrors.xp ? (
           <p className="px-1 text-xs text-destructive">
-            {problemErrors.points ?? problemErrors.xp}
+            {problemErrors.points ?? problemErrors.minutes ?? problemErrors.xp}
           </p>
         ) : null}
 
