@@ -171,6 +171,9 @@ class Settings(BaseSettings):
     # between them are dropped afterwards and topped up in the next wave.
     question_concurrency: int = 4
 
+    # Slices of the duplicate-question audit compared at once.
+    audit_concurrency: int = 8
+
     auto_review_min_quality_score: int = 70
 
     mock_exam_max_questions: int = 0

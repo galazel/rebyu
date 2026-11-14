@@ -12,6 +12,20 @@ export default function CertificationQuestionBankPage() {
   const [searchParams] = useSearchParams()
   const openBuilder = searchParams.get("tab") === "question-builder"
   const initialBuilderMode = searchParams.get("mode") === "generate" ? "generate" : "manual"
+  // One assessment to build questions for (from the publishing checklist):
+  // ?target=LESSON_QUIZ|MIDDLE_EXAM|MAJOR_EXAM|DIAGNOSTIC|MOCK_EXAM&scope=<id>,
+  // or ?exam=<examId> for one that already exists.
+  const target = useMemo(() => {
+    const type = searchParams.get("target")
+    const examId = searchParams.get("exam")
+    if (!type && !examId) return null
+    return {
+      type,
+      scopeId: searchParams.get("scope"),
+      examId: examId ? Number(examId) : null,
+      title: searchParams.get("for") ?? "",
+    }
+  }, [searchParams])
 
   const { data: certifications = [], isLoading: certificationsLoading } = useQuery({
     queryKey: ["admin-certifications", "question-bank-page"],
@@ -51,6 +65,9 @@ export default function CertificationQuestionBankPage() {
           certificationId={Number(certificationId)}
           initialTab={openBuilder ? "question-builder" : "all-questions"}
           initialBuilderMode={openBuilder ? initialBuilderMode : ""}
+          focusTitle={openBuilder && !target ? searchParams.get("for") ?? "" : ""}
+          target={target}
+          focusNeeded={Number(searchParams.get("needed")) || null}
         />
       </div>
     </div>

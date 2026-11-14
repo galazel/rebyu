@@ -174,6 +174,7 @@ def _run(curriculum: dict) -> None:
 
 def test_the_walk_is_bottom_up_and_interleaved(trace):
     _run(_curriculum(majors=2, middles=2, lessons=2))
+    trace, final = trace[:-3], trace[-3:]
 
     assert trace == [
         "lesson:M0.m0.L0", "lesson_quiz:M0.m0.L0",
@@ -190,10 +191,10 @@ def test_the_walk_is_bottom_up_and_interleaved(trace):
         "lesson:M1.m1.L1", "lesson_quiz:M1.m1.L1",
         "middle_quiz:M1.m1[2]",
         "major_quiz:M1[4]",
-        "bank",
-        "diagnostic",
-        "mock",
     ]
+    # The bank and both exams are drafted at the same time, after every
+    # category assessment, so their order among themselves is not fixed.
+    assert sorted(final) == ["bank", "diagnostic", "mock"]
 
 
 def test_a_middle_quiz_sees_only_its_own_lessons(trace):
@@ -216,12 +217,13 @@ def test_the_single_lesson_test_configuration_still_walks_every_stage(trace):
     """The 1/1/1 configuration exists to exercise the whole workflow cheaply,
     so it must still produce every assessment -- not skip the category ones."""
     _run(_curriculum(majors=1, middles=1, lessons=1))
+    trace, final = trace[:-3], trace[-3:]
 
     assert trace == [
         "lesson:M0.m0.L0", "lesson_quiz:M0.m0.L0",
         "middle_quiz:M0.m0[1]",
         "major_quiz:M0[1]",
-        "bank",
-        "diagnostic",
-        "mock",
     ]
+    # The bank and both exams are drafted at the same time, after every
+    # category assessment, so their order among themselves is not fixed.
+    assert sorted(final) == ["bank", "diagnostic", "mock"]

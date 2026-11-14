@@ -912,14 +912,19 @@ def context_for(run) -> RunContext:
 def _guard(run, action: str) -> None:
     if run.kind != "CERTIFICATION":
         raise RecoveryError(f"Run {run.run_id} is a {run.kind} run, not a certification run.")
-    if run.status == registry.CANCELLED:
+    # A run the admin stopped may be resumed by hand from its checkpoint (the
+    # card's "Resume generation"). Retrying flips the registry back to RUNNING,
+    # which is also what clears the cooperative cancel flag. The recovery sweep
+    # only ever picks up FAILED runs, so a stopped run never restarts on its own.
+    resuming_cancelled = run.status == registry.CANCELLED and action == "retried"
+    if run.status == registry.CANCELLED and not resuming_cancelled:
         raise RecoveryError(f"Run {run.run_id} was cancelled and cannot be {action}.")
     if is_being_driven(run.thread_id):
         raise RecoveryError(
             f"Run {run.run_id} is executing right now and cannot be {action}. "
             "Stop it first if you want it to stop."
         )
-    if not is_recoverable(run):
+    if not resuming_cancelled and not is_recoverable(run):
         if run.status == registry.RUNNING:
             raise RecoveryError(
                 f"Run {run.run_id} is still executing. It becomes recoverable "
@@ -971,6 +976,14 @@ async def prepare_retry(run) -> tuple[RunContext, str | None]:
 
     graph = await get_certification_graph()
     snapshot = await graph.aget_state(_thread_config(run.thread_id))
+    # A checkpoint read through the pooler occasionally comes back without its
+    # pending step (seen live: the same thread read "nothing pending", then
+    # "generate_mock_exam" a moment later). Re-read before refusing a resume.
+    for _ in range(3):
+        if snapshot is not None and snapshot.values and snapshot.next:
+            break
+        await asyncio.sleep(0.5)
+        snapshot = await graph.aget_state(_thread_config(run.thread_id))
     if snapshot is None or not snapshot.values:
         raise RecoveryError(
             f"Run {run.run_id} has no checkpoint to retry from. Restart it instead."

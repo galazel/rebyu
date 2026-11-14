@@ -80,6 +80,7 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification, 
   const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates, reviewMode)
   const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"
   const notEnoughCredit = hasEnoughCredit(credits.data, estimate.cost) === false
+    const [confirmedLowCredit, setConfirmedLowCredit] = useState(false)
 
   const certificationId = certification?.certificationId ?? certification?.id
   const majorCount = certification?.majorCategory?.length ?? 0
@@ -126,11 +127,12 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification, 
       setSubmissionError("Enter how many new questions to add, between 10 and 5000.")
       return
     }
-    if (notEnoughCredit) {
-      setSubmissionError(
-        "Your OpenRouter balance is below this run's estimated cost. Top up, or lower the lessons or question count."
-      )
-      return
+    if (notEnoughCredit && !confirmedLowCredit) {
+        setConfirmedLowCredit(true)
+        setSubmissionError(
+            "Your OpenRouter balance is below this run's estimated cost. It will pause when the credit runs out — top up, then press Continue on its progress panel and it picks up where it stopped. Press again to start anyway."
+        )
+        return
     }
     if (isLargeRun && !confirmedLarge) {
       setConfirmedLarge(true)
@@ -379,8 +381,8 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification, 
             <Button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || !hasInput || notEnoughCredit}
-              title={notEnoughCredit ? "Not enough OpenRouter credit for this run" : undefined}
+              disabled={isSubmitting || !hasInput}
+              title={notEnoughCredit ? "Balance is below the estimate — the run will pause when credit runs out" : undefined}
               className="min-w-[170px] gap-2"
             >
               {isSubmitting ? (

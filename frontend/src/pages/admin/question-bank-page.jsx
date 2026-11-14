@@ -72,6 +72,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LessonPicker } from "@/components/question-bank/lesson-picker.jsx";
 
 import { getAllCertifications } from "../../services/certificationService.js";
+import { getExamById } from "../../services/assessmentService.js";
 import { getFileViewUrl, uploadQuestionImage } from "../../services/fileService.js";
 import { choicesCanShuffle } from "@/lib/choice-shuffle.js";
 import DiagramArea from "../../components/challenges/diagram-area.jsx";
@@ -876,6 +877,38 @@ function DiagramTypeSelect({ questionKey, value, onValueChange }) {
 }
 
 
+// The lessons a new question may be filed under, provided by the builder.
+// Each question card picks its own lesson from these.
+const BuilderLessonsContext = React.createContext([]);
+
+function QuestionLessonSelect({ questionKey, value, onChange }) {
+    const lessons = React.useContext(BuilderLessonsContext);
+    if (!lessons.length) return null;
+    const id = `${questionKey}-lesson`;
+    return (
+        <div className="mb-4 space-y-2">
+            <Label htmlFor={id} className="text-sm font-medium">
+                Lesson <span className="text-destructive">*</span>
+            </Label>
+            <select
+                id={id}
+                value={value == null ? "" : String(value)}
+                onChange={(event) => onChange(event.target.value)}
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
+            >
+                <option value="" disabled>
+                    Choose the lesson this question belongs to
+                </option>
+                {lessons.map((lesson) => (
+                    <option key={lesson.id} value={String(lesson.id)}>
+                        {lesson.majorCategoryTitle} / {lesson.middleCategoryTitle} / {lesson.name}
+                    </option>
+                ))}
+            </select>
+        </div>
+    );
+}
+
 function QuestionMetaFields({ questionKey, data, onFieldChange }) {
     return (
         <div className="border-t border-border pt-4">
@@ -893,11 +926,14 @@ function QuestionMetaFields({ questionKey, data, onFieldChange }) {
                 />
             </div>
 
-            {(data.suggestedLessonTitle || data.lessonId) && (
-                <p className="mb-3 text-xs leading-5 text-muted-foreground">
-                    {data.suggestedLessonTitle
-                        ? `Suggested lesson: ${data.suggestedLessonTitle}`
-                        : `Lesson ID: ${data.lessonId}`}
+            <QuestionLessonSelect
+                questionKey={questionKey}
+                value={data.lessonId}
+                onChange={(value) => onFieldChange("lessonId", value)}
+            />
+            {data.suggestedLessonTitle && (
+                <p className="-mt-2 mb-3 text-xs leading-5 text-muted-foreground">
+                    Suggested lesson: {data.suggestedLessonTitle}
                 </p>
             )}
 
@@ -2603,6 +2639,8 @@ function getCertificationLessons(certification) {
                             `${majorIndex}-${middleIndex}-${lessonIndex}`,
                         ),
                         numericId: lesson.lessonId ?? lesson.id ?? null,
+                        majorId: majorCategory.majorCategoryId ?? majorCategory.id ?? null,
+                        middleId: middleCategory.middleCategoryId ?? middleCategory.id ?? null,
                         name: lesson.name ?? lesson.title ?? "Untitled Lesson",
                         majorCategoryTitle: majorCategory.title ?? "Untitled Category",
                         middleCategoryTitle: middleCategory.title ?? "Untitled Category",
@@ -2617,6 +2655,81 @@ function getQuestionTypeLabel(questionType) {
 
 function getDifficultyLabel(difficulty) {
     return difficultyLabels[difficulty] ?? difficulty ?? "Unknown";
+}
+
+// A saved bank question in the builder's draft shape, so it renders with the
+// same question card as a new one. The list endpoint carries the stem, choices
+// (text, key, explanation), type and difficulty; answer keys of other types
+// (short answer, rubric, code, reference diagram) are not part of it and show
+// empty.
+function savedQuestionAsDraft(question) {
+    const type = String(question.questionType ?? "MCQ").toUpperCase();
+    const critical = String(question.criticalThinkingType ?? "").toUpperCase();
+    const typeId =
+        type === "CRITICAL_THINKING"
+            ? (critical === "DIAGRAM" ? "DIAGRAM" : "PROGRAMMING")
+            : questionTypes.some((item) => item.id === type) ? type : "MCQ";
+    const template = questionTypes.find((item) => item.id === typeId);
+    const choices = (question.choices ?? []).map((choice) => ({
+        choiceText: choice.choiceText ?? "",
+        image: null,
+        explanation: choice.explanation ?? "",
+        isCorrect: Boolean(choice.correct ?? choice.isCorrect),
+    }));
+    const correctIndex = choices.findIndex((choice) => choice.isCorrect);
+    return {
+        id: `saved-${question.questionId}`,
+        typeId,
+        data: {
+            ...cloneQuestionData(template.data),
+            question: question.questionText ?? "",
+            difficulty: String(question.difficultyLevel ?? "average").toLowerCase(),
+            explanation: question.explanation ?? "",
+            ...(choices.length
+                ? { choices, correctChoiceIndex: correctIndex >= 0 ? correctIndex : null }
+                : {}),
+            lessonId: question.lessonId ?? "",
+        },
+    };
+}
+
+const noop = () => {};
+
+function ExistingLessonQuestions({ questions }) {
+    const [open, setOpen] = useState(true);
+    const drafts = useMemo(() => questions.map(savedQuestionAsDraft), [questions]);
+    return (
+        <div className="rounded-lg border border-border bg-muted/20">
+            <button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={open}
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm font-semibold text-foreground"
+            >
+                <span>Already in the bank ({questions.length})</span>
+                <span className="text-xs font-normal text-muted-foreground">{open ? "Hide" : "Show"}</span>
+            </button>
+            {open ? (
+                // Read-only: a disabled fieldset locks every input and button in
+                // the cards. Edit saved questions from All Questions.
+                <fieldset disabled className="space-y-4 border-t border-border p-3 opacity-90">
+                    <p className="text-xs text-muted-foreground">
+                        Saved questions, shown read-only. Edit them from All Questions.
+                    </p>
+                    {drafts.map((draft, index) => (
+                        <QuestionCardWrapper
+                            key={draft.id}
+                            question={draft}
+                            index={index}
+                            validationErrors={{}}
+                            onRemove={noop}
+                            onDataChange={noop}
+                        />
+                    ))}
+                </fieldset>
+            ) : null}
+        </div>
+    );
 }
 
 const QuestionCardWrapper = React.memo(function QuestionCardWrapper({
@@ -2651,6 +2764,9 @@ function QuestionBank({
     embedded = false,
     initialTab = "all-questions",
     initialBuilderMode = "",
+    focusTitle = "",
+    focusNeeded = null,
+    target = null,
 }) {
     const navigate = useNavigate();
     const lockedCertificationId = certificationId ? String(certificationId) : "";
@@ -2681,6 +2797,10 @@ function QuestionBank({
     const [selectedLesson, setSelectedLesson] = useState(null);
 
     const [lessonSearch, setLessonSearch] = useState("");
+    // Opened from a publishing check ("question bank too small") for one
+    // assessment: name it, and narrow the outline to its category when the
+    // assessment is named after one.
+    const [focus, setFocus] = useState(focusTitle);
 
     const [questions, setQuestions] = useState([]);
 
@@ -2770,6 +2890,90 @@ function QuestionBank({
             ),
         [filterLessons],
     );
+
+    // Builder opened for ONE assessment (from the publishing checklist): no
+    // course sidebar; the assessment's lessons are its whole world. An exam that
+    // already exists is resolved to its scope from the exam itself.
+    const targetExam = useQuery({
+        queryKey: ["exam", "builder-target", target?.examId ?? null],
+        queryFn: () => getExamById(target.examId),
+        enabled: Boolean(target?.examId),
+        staleTime: 60_000,
+    });
+
+    const scopeLessons = useMemo(() => {
+        if (!target) return null;
+        let type = String(target.type ?? "").toUpperCase();
+        let scopeId = target.scopeId;
+        const exam = targetExam.data;
+        if (target.examId) {
+            if (!exam) return [];
+            if (exam.lessonId) [type, scopeId] = ["LESSON_QUIZ", exam.lessonId];
+            else if (exam.middleCategoryId) [type, scopeId] = ["MIDDLE_EXAM", exam.middleCategoryId];
+            else if (exam.majorCategoryId) [type, scopeId] = ["MAJOR_EXAM", exam.majorCategoryId];
+            else type = "ALL";
+        }
+        const same = (a, b) => a != null && b != null && String(a) === String(b);
+        if (type === "LESSON_QUIZ") return builderLessons.filter((lesson) => same(lesson.numericId, scopeId));
+        if (type === "MIDDLE_EXAM") return builderLessons.filter((lesson) => same(lesson.middleId, scopeId));
+        if (type === "MAJOR_EXAM") return builderLessons.filter((lesson) => same(lesson.majorId, scopeId));
+        return builderLessons;
+    }, [target, targetExam.data, builderLessons]);
+
+    function chooseTargetLesson(lessonId) {
+        const lesson = (scopeLessons ?? []).find((item) => String(item.id) === String(lessonId));
+        if (!lesson) return;
+        // Drafts keep the lesson they were added under, so switching here only
+        // changes where the NEXT new question goes.
+        setSelectedLesson({
+            id: lesson.id,
+            name: lesson.name,
+            majorCategoryTitle: lesson.majorCategoryTitle,
+            middleCategoryTitle: lesson.middleCategoryTitle,
+        });
+    }
+
+    // Lessons a card may choose from: the assessment's scope when building for
+    // one, otherwise the whole certification.
+    const pickableLessons = scopeLessons ?? builderLessons;
+
+    useEffect(() => {
+        if (!pickableLessons.length) return;
+        if (selectedLesson && pickableLessons.some((lesson) => String(lesson.id) === String(selectedLesson.id))) return;
+        const first = pickableLessons[0];
+        setSelectedLesson({
+            id: first.id,
+            name: first.name,
+            majorCategoryTitle: first.majorCategoryTitle,
+            middleCategoryTitle: first.middleCategoryTitle,
+        });
+    }, [pickableLessons, selectedLesson]);
+
+    // Questions already in the bank for the lesson open in the builder, so an
+    // admin topping up a scope sees what is there before adding more.
+    const existingLessonQuestions = useMemo(() => {
+        if (scopeLessons) {
+            const ids = new Set(
+                scopeLessons.flatMap((lesson) => [lesson.id, lesson.numericId]).filter((v) => v != null).map(String),
+            );
+            return allQuestions.filter(
+                (question) => question.parentQuestionId == null && ids.has(String(question.lessonId ?? "")),
+            );
+        }
+        if (!selectedLesson) return [];
+        const lesson = builderLessons.find(
+            (item) => String(item.id) === String(selectedLesson.id)
+                || String(item.numericId) === String(selectedLesson.id),
+        );
+        const ids = new Set(
+            [selectedLesson.id, lesson?.id, lesson?.numericId]
+                .filter((value) => value != null)
+                .map(String),
+        );
+        return allQuestions.filter(
+            (question) => question.parentQuestionId == null && ids.has(String(question.lessonId ?? "")),
+        );
+    }, [allQuestions, builderLessons, selectedLesson, scopeLessons]);
 
     const filteredQuestions = useMemo(() => {
         if (!selectedFilterCertification) {
@@ -2883,12 +3087,23 @@ function QuestionBank({
 
     const normalizedLessonSearch = lessonSearch.trim().toLowerCase();
 
+    const focusMajorTitle = useMemo(() => {
+        const wanted = focus.trim().toLowerCase();
+        if (!wanted || !selectedCertification) return null;
+        const match = (selectedCertification.majorCategory ?? [])
+            .map((major) => major.title ?? "")
+            .filter((title) => title && wanted.includes(title.toLowerCase()))
+            .sort((a, b) => b.length - a.length)[0];
+        return match ?? null;
+    }, [focus, selectedCertification]);
+
     const visibleStructure = useMemo(() => {
         if (!selectedCertification) {
             return [];
         }
 
         return (selectedCertification.majorCategory ?? [])
+            .filter((majorCategory) => !focusMajorTitle || majorCategory.title === focusMajorTitle)
             .map((majorCategory, majorIndex) => ({
                 ...majorCategory,
                 key: `major-${majorIndex}`,
@@ -2907,7 +3122,7 @@ function QuestionBank({
             .filter(
                 (majorCategory) => majorCategory.visibleMiddleCategories.length > 0,
             );
-    }, [selectedCertification, normalizedLessonSearch]);
+    }, [selectedCertification, normalizedLessonSearch, focusMajorTitle]);
 
     const hasMatchingLesson = visibleStructure.length > 0;
 
@@ -3179,7 +3394,10 @@ function QuestionBank({
                 questionTypeName: questionType.title,
                 data: {
                     ...cloneQuestionData(questionType.data),
-                    lessonId: selectedLesson?.id ?? "",
+                    lessonId:
+                        previousQuestions[previousQuestions.length - 1]?.data?.lessonId ??
+                        selectedLesson?.id ??
+                        "",
                 },
             },
         ]);
@@ -3606,6 +3824,7 @@ OUTPUT RULES:
     }
 
     return (
+        <BuilderLessonsContext.Provider value={pickableLessons}>
         <section
             className={
                 embedded
@@ -4112,6 +4331,50 @@ OUTPUT RULES:
                     value="question-builder"
                     className="m-0 min-h-0 flex-1 overflow-visible py-5 md:overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
                 >
+                    {target ? (
+                        <div className="mx-4 mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                            <span className="min-w-0 flex-1">
+                                Building questions for{" "}
+                                <span className="font-semibold text-foreground">{target.title || "this assessment"}</span>
+                                {focusNeeded ? (
+                                    <span className="text-muted-foreground"> · add {focusNeeded} more</span>
+                                ) : null}
+                                <span className="text-muted-foreground"> · {existingLessonQuestions.length} in its scope</span>
+                            </span>
+                            {scopeLessons && scopeLessons.length > 1 ? (
+                                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    New questions go to
+                                    <select
+                                        className="h-8 max-w-[22rem] rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                                        value={selectedLesson?.id ?? ""}
+                                        onChange={(event) => chooseTargetLesson(event.target.value)}
+                                    >
+                                        {scopeLessons.map((lesson) => (
+                                            <option key={lesson.id} value={lesson.id}>
+                                                {lesson.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            ) : null}
+                        </div>
+                    ) : focus ? (
+                        <div className="mx-4 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-2 text-sm dark:border-amber-700 dark:bg-amber-950/30">
+                            <span className="min-w-0 flex-1">
+                                Adding questions for{" "}
+                                <span className="font-semibold text-foreground">{focus}</span>
+                                {focusNeeded ? (
+                                    <span className="text-muted-foreground"> · add {focusNeeded} more to its scope</span>
+                                ) : null}
+                                {focusMajorTitle ? (
+                                    <span className="text-muted-foreground"> · showing {focusMajorTitle} lessons</span>
+                                ) : null}
+                            </span>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setFocus("")}>
+                                Show all
+                            </Button>
+                        </div>
+                    ) : null}
                     {builderMode === "" ? (
                         <div className="flex flex-1 items-center justify-center p-6">
                             <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-br from-background via-background to-primary/5 p-8 text-center shadow-lg shadow-primary/5">
@@ -4292,7 +4555,10 @@ OUTPUT RULES:
                                     </div>
                                 </div>
                             ) : (
-                            <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)_280px]">
+                            <div className={true
+                                ? "grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:overflow-hidden xl:grid-cols-[minmax(0,1fr)_280px]"
+                                : "grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)_280px]"}>
+                        {false && (
                         <div className="space-y-2 border-b border-border p-3 md:hidden">
                             {!isLockedToCertification ? <Select value={selectedCertificationId} onValueChange={handleBuilderCertificationChange} disabled={isPending}><SelectTrigger className="w-full min-w-0" aria-label="Builder certification"><SelectValue placeholder="Select a certification" /></SelectTrigger><SelectContent position="popper" className="max-w-[calc(100vw-2rem)]">{certifications.map((certification) => <SelectItem key={getCertificationValue(certification)} value={getCertificationValue(certification)} className="whitespace-normal">{getCertificationTitle(certification)}</SelectItem>)}</SelectContent></Select> : null}
                             <LessonPicker options={builderLessons.map((lesson) => ({ value: lesson.id, label: lesson.name, description: `${lesson.majorCategoryTitle} / ${lesson.middleCategoryTitle}` }))} value={selectedLesson?.id ?? ""} disabled={!selectedCertification} onValueChange={(value) => {
@@ -4300,6 +4566,8 @@ OUTPUT RULES:
                                 return lesson ? handleLessonSelect({ lesson, lessonId: lesson.id, majorCategoryTitle: lesson.majorCategoryTitle, middleCategoryTitle: lesson.middleCategoryTitle }) : false;
                             }} />
                         </div>
+                        )}
+                        {false && (
                         <aside className="hidden min-h-0 border-border bg-background/95 md:block md:overflow-y-auto md:border-r">
                             <div className="space-y-4 p-4">
                                 <div>
@@ -4491,6 +4759,7 @@ OUTPUT RULES:
                                 )}
                             </div>
                         </aside>
+                        )}
 
                         <main className="min-h-0 min-w-0 bg-muted/30 md:overflow-y-auto">
                             <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-3 sm:p-6">
@@ -4504,19 +4773,17 @@ OUTPUT RULES:
                                     <>
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                                    {selectedLesson.majorCategoryTitle} /{" "}
-                                                    {selectedLesson.middleCategoryTitle}
-                                                </p>
-
-                                                <h2 className="mt-1 break-words text-base font-bold text-foreground sm:text-lg">
-                                                    {selectedLesson.name}
+                                                <h2 className="break-words text-base font-bold text-foreground sm:text-lg">
+                                                    {target ? target.title || "New questions" : "New questions"}
                                                 </h2>
+                                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                                    Choose each question's lesson on its card.
+                                                </p>
                                             </div>
 
                                             <p className="shrink-0 text-sm text-muted-foreground">
-                                                {questions.length}{" "}
-                                                {questions.length === 1 ? "question" : "questions"}
+                                                {target ? `${existingLessonQuestions.length} in its scope · ` : ""}
+                                                {questions.length} new
                                             </p>
                                         </div>
 
@@ -4558,11 +4825,15 @@ OUTPUT RULES:
                                             </div>
                                         )}
 
+                                        {target && existingLessonQuestions.length > 0 ? (
+                                            <ExistingLessonQuestions questions={existingLessonQuestions} />
+                                        ) : null}
+
                                         {questions.length === 0 ? (
                                             <EmptyState
                                                 icon={FileQuestion}
-                                                title="No questions added yet"
-                                                description="Pick a question type from the Add question panel to start."
+                                                title={existingLessonQuestions.length ? "No new questions yet" : "No questions added yet"}
+                                                description="Pick a question type from the Add question panel to add one."
                                             />
                                         ) : (
                                             questions.map((question, index) => {
@@ -4601,8 +4872,8 @@ OUTPUT RULES:
                                 </p>
                                 <p className="mb-3 truncate text-xs text-muted-foreground">
                                     {selectedLesson
-                                        ? `Adding to: ${selectedLesson.name}`
-                                        : "Select a lesson first."}
+                                        ? "Pick a type; set its lesson on the card."
+                                        : "Loading lessons..."}
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
                                     {questionTypes.map((questionType) => {
@@ -4930,6 +5201,7 @@ OUTPUT RULES:
                 onClose={closeFeedbackDialog}
             />
         </section>
+        </BuilderLessonsContext.Provider>
     );
 }
 

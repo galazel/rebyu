@@ -1,6 +1,7 @@
 services:
 
   rabbitmq:
+    restart: unless-stopped
     image: rabbitmq:3-management-alpine
     environment:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit consumer_timeout 86400000"
@@ -18,6 +19,7 @@ services:
       - rebyu-net
 
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -31,6 +33,7 @@ services:
 
 
   backend:
+    restart: unless-stopped
     build:
       context: backend-java
       dockerfile: Dockerfile
@@ -118,6 +121,7 @@ services:
 
 
   frontend:
+    restart: unless-stopped
     build:
       context: frontend
       dockerfile: Dockerfile

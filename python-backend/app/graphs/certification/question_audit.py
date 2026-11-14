@@ -40,6 +40,7 @@ from app.agents.certification.auditor_question_agent import get_auditor_question
 from app.ai import tasks
 from app.ai.invocation import invoke_agent, invoke_question_agent, questions_as_dicts
 from app.ai.prompts.certification import build_question_audit_prompt
+from app.core.config import get_settings
 from app.graphs.certification.state import CertificationState
 from app.schemas.certification.question_audit import QuestionAuditResult
 
@@ -56,7 +57,7 @@ BANK = "question_bank"
 KEEP_PRIORITY = {STORED: 0, MOCK: 1, DIAGNOSTIC: 2, MAJOR: 3, MIDDLE: 4, LESSON: 5, BANK: 6}
 
 AUDIT_SLICE = 40
-AUDIT_CONCURRENCY = 8
+AUDIT_CONCURRENCY = 8  # default; the live value is settings.audit_concurrency (AUDIT_CONCURRENCY in .env)
 MAX_ROUNDS = 2
 
 
@@ -290,7 +291,7 @@ async def find_duplicates(
     jobs = [(lesson, part) for lesson, group in group_by_lesson(items).items() for part in slices(group)]
     if not jobs:
         return resolution
-    gate = asyncio.Semaphore(AUDIT_CONCURRENCY)
+    gate = asyncio.Semaphore(max(1, get_settings().audit_concurrency))
 
     async def run(lesson, part):
         async with gate:

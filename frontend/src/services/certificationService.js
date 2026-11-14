@@ -94,6 +94,11 @@ export async function getCertificationPublishingRequirements(id) {
     })
 }
 
+/** How many bank questions an adaptive exam can draw on, and how many it needs. */
+export async function getExamBankSize(examId) {
+    return await base(`admin/adaptive/bank-size/${examId}`, { method: "GET" })
+}
+
 export async function getCertificationExamFormat(id) {
     return await base(`certifications/${id}/exam-format`, { method: "GET" })
 }
