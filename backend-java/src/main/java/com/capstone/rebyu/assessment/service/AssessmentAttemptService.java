@@ -185,6 +185,11 @@ public class AssessmentAttemptService {
             Optional<AssessmentAttempt> byKey = attemptRepository.findByIdempotencyKey(idempotencyKey);
             if (byKey.isPresent()
                     && byKey.get().getStatus() == AssessmentAttempt.Status.IN_PROGRESS
+                    // A challenge stage is never resumed, but the same open request repeated
+                    // within seconds (double mount, retry) still gets the attempt it just made.
+                    && (!isStagedArena(byKey.get().getExam())
+                        || (byKey.get().getStartedAt() != null
+                            && byKey.get().getStartedAt().isAfter(LocalDateTime.now().minusSeconds(20))))
                     && !stageClockOverrun(byKey.get())) {
                 return buildStartResponse(byKey.get(), true);
             }
@@ -217,6 +222,19 @@ public class AssessmentAttemptService {
         Optional<AssessmentAttempt> inProgress = attemptRepository
                 .findFirstByExam_ExamIdAndLearnerIdAndStatus(
                         examId, learnerId, AssessmentAttempt.Status.IN_PROGRESS);
+        if (inProgress.isPresent() && isStagedArena(exam)
+                && (inProgress.get().getStartedAt() == null
+                    || inProgress.get().getStartedAt().isBefore(LocalDateTime.now().minusSeconds(20)))) {
+            // CodeStrike/Blueprint never resume: opening a stage always starts it fresh,
+            // and an unfinished earlier try is closed out.
+            AssessmentAttempt stale = inProgress.get();
+            stale.setStatus(AssessmentAttempt.Status.EXPIRED);
+            attemptRepository.save(stale);
+            inProgress = Optional.empty();
+            if (idempotencyKey != null && idempotencyKey.equals(stale.getIdempotencyKey())) {
+                idempotencyKey = null;
+            }
+        }
         if (inProgress.isPresent()) {
             AssessmentAttempt attempt = inProgress.get();
             settlePause(attempt);
