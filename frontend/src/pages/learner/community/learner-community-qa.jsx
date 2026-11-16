@@ -772,6 +772,9 @@ export default function Community() {
     const [attachedFile, setAttachedFile] = useState(null)
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
+    const [confirmPublishOpen, setConfirmPublishOpen] = useState(false)
+    const [confirmDeletePostId, setConfirmDeletePostId] = useState(null)
+    const [isDeletingPost, setIsDeletingPost] = useState(false)
     const fileInputRef = useRef(null)
 
     const [createCircleOpen, setCreateCircleOpen] = useState(false)
@@ -872,6 +875,23 @@ export default function Community() {
         () => circles.find((circle) => circle.circleId === activeCircleId) ?? null,
         [circles, activeCircleId]
     )
+
+    const postToDelete = useMemo(
+        () => posts.find((p) => p.postId === confirmDeletePostId) ?? null,
+        [posts, confirmDeletePostId]
+    )
+
+    const selectedLibraryItemTitle = useMemo(() => {
+        if (!selectedStudyItemId) return ""
+        const item = studyItems.find((it) => String(it.id) === String(selectedStudyItemId))
+        return item ? String(item.title || "").replace(/^[a-z ]+:\s*/, "") : ""
+    }, [selectedStudyItemId, studyItems])
+
+    const publishDestinationLabel = useMemo(() => {
+        if (shareCommunity === OPEN_FEED) return "Community (everyone)"
+        const circle = joinedCircles.find((c) => String(c.circleId) === String(shareCommunity))
+        return circle ? circle.name : "Community (everyone)"
+    }, [shareCommunity, joinedCircles])
 
     const visiblePosts = useMemo(() => {
         const query = searchValue.trim().toLowerCase()
@@ -1095,6 +1115,25 @@ export default function Community() {
         }
     }
 
+    function handleRequestPublish() {
+        if (LIBRARY_SHARE_TYPES.includes(shareType)) {
+            if (!selectedStudyItemId) {
+                toast.error("Choose something from your Library to share.")
+                return
+            }
+        } else {
+            if (!shareTitle.trim() || !shareDescription.trim()) {
+                toast.error("Add a title and description.")
+                return
+            }
+            if (shareType === "reviewer" && !attachedFile) {
+                toast.error("Attach the PDF, Word, text or image file you want to share.")
+                return
+            }
+        }
+        setConfirmPublishOpen(true)
+    }
+
     async function publishPost() {
         if (pendingActions.current.has("publish")) return
         pendingActions.current.add("publish")
@@ -1118,6 +1157,7 @@ export default function Community() {
                 setPosts((current) => [nextPost, ...current])
                 setSelectedStudyItemId("")
                 setComposerOpen(false)
+                setConfirmPublishOpen(false)
                 toast.success("Shared with the community.")
             } catch (error) {
                 toast.error(apiMessage(error, "The study item could not be shared."))
@@ -1155,6 +1195,7 @@ export default function Community() {
             setShareDescription("")
             setAttachedFile(null)
             setComposerOpen(false)
+            setConfirmPublishOpen(false)
             toast.success(
                 shareType === "discussion" ? "Discussion posted." : "Reviewer shared with the community."
             )
@@ -1164,12 +1205,17 @@ export default function Community() {
     }
 
     async function removePost(postId) {
+        if (!postId) return
+        setIsDeletingPost(true)
         try {
             await deleteCommunityPost(postId)
             setPosts((current) => current.filter((post) => post.postId !== postId))
             toast.success("Post deleted.")
+            setConfirmDeletePostId(null)
         } catch (error) {
             toast.error(apiMessage(error, "The post could not be deleted."))
+        } finally {
+            setIsDeletingPost(false)
         }
     }
 
@@ -1478,7 +1524,7 @@ export default function Community() {
 
                             <div className="mt-4 flex justify-end gap-2 border-t border-[var(--tg-line)] pt-4">
                                 <button type="button" className="tg-btn" onClick={() => { setComposerOpen(false); setAttachedFile(null) }}>Cancel</button>
-                                <button type="button" className="tg-btn tg-btn-primary" onClick={publishPost} disabled={isPublishing || isUploadingAttachment || (LIBRARY_SHARE_TYPES.includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="size-4" aria-hidden="true" />Post</button>
+                                <button type="button" className="tg-btn tg-btn-primary" onClick={handleRequestPublish} disabled={isPublishing || isUploadingAttachment || (LIBRARY_SHARE_TYPES.includes(shareType) ? !selectedStudyItemId : !shareTitle.trim() || !shareDescription.trim() || (shareType === "reviewer" && !attachedFile))}><Send className="size-4" aria-hidden="true" />Post</button>
                             </div>
                             </div>
                         </section>
@@ -1561,7 +1607,7 @@ export default function Community() {
                                     onToggleSave={toggleSave}
                                     onJoinCircle={toggleJoinCircle}
                                     onToggleComments={toggleComments}
-                                    onDelete={removePost}
+                                    onDelete={setConfirmDeletePostId}
                                     onStartPractice={startPractice}
                                     onOpenShared={openShared}
                                     onReport={setReportPostId}
@@ -1829,6 +1875,133 @@ export default function Community() {
                             }}
                         >
                             Delete circle
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmDeletePostId != null} onOpenChange={(open) => { if (!open && !isDeletingPost) setConfirmDeletePostId(null) }}>
+                <DialogContent className="community-dialog sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Delete this post?</DialogTitle>
+                        <DialogDescription>
+                            This post and all of its comments will be permanently removed. This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {postToDelete ? (
+                        <div className="rounded-xl border border-destructive/20 bg-destructive/5 dark:bg-destructive/10 p-3.5 space-y-1">
+                            <p className="text-sm font-semibold text-foreground line-clamp-2">
+                                {postToDelete.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {postToDelete.authorName || "You"} · {postToDelete.comments?.length ?? 0} {postToDelete.comments?.length === 1 ? "comment" : "comments"}
+                            </p>
+                        </div>
+                    ) : null}
+
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isDeletingPost}
+                            onClick={() => setConfirmDeletePostId(null)}
+                            className="w-full sm:w-auto"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            disabled={isDeletingPost}
+                            onClick={() => removePost(confirmDeletePostId)}
+                            className="w-full sm:w-auto gap-1.5"
+                        >
+                            {isDeletingPost ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="size-4" aria-hidden="true" />
+                                    Delete post
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmPublishOpen} onOpenChange={(open) => { if (!open && !isPublishing) setConfirmPublishOpen(false) }}>
+                <DialogContent className="community-dialog sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Publish to community?</DialogTitle>
+                        <DialogDescription>
+                            Your post will be visible to learners in {publishDestinationLabel}.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 p-3.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center rounded-full bg-primary/10 dark:bg-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary capitalize">
+                                {shareType}
+                            </span>
+                            <span className="text-[11px] font-medium text-muted-foreground truncate max-w-[200px]">
+                                {publishDestinationLabel}
+                            </span>
+                        </div>
+
+                        <p className="text-sm font-semibold text-foreground line-clamp-2">
+                            {LIBRARY_SHARE_TYPES.includes(shareType)
+                                ? (selectedLibraryItemTitle || "Shared library resource")
+                                : (shareTitle.trim() || "Untitled post")}
+                        </p>
+
+                        {!LIBRARY_SHARE_TYPES.includes(shareType) && shareDescription.trim() ? (
+                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                {shareDescription.trim()}
+                            </p>
+                        ) : null}
+
+                        {attachedFile ? (
+                            <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs text-muted-foreground">
+                                <FileText className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                                <span className="truncate flex-1">{attachedFile.name}</span>
+                                {attachedFile.size ? (
+                                    <span className="shrink-0 font-medium">({formatBytes(attachedFile.size)})</span>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isPublishing}
+                            onClick={() => setConfirmPublishOpen(false)}
+                            className="w-full sm:w-auto"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={isPublishing}
+                            onClick={publishPost}
+                            className="tg-btn-primary w-full sm:w-auto gap-1.5"
+                        >
+                            {isPublishing ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                                    Publishing...
+                                </>
+                            ) : (
+                                <>
+                                    <Send className="size-4" aria-hidden="true" />
+                                    Publish post
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

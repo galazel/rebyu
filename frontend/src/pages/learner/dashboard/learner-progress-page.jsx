@@ -253,6 +253,12 @@ function migrateLearnerLayout(layout) {
     }
     next = next.filter((item) => idOf(item) !== goneId)
   }
+  for (const item of next) {
+    const id = idOf(item)
+    if ((id === "player-card" || id === "todays-plan") && item.h > 3) {
+      item.h = 3
+    }
+  }
   return next
 }
 
@@ -919,7 +925,7 @@ export default function LearnerProgressPage() {
       x: 0,
       y: 0,
       col: 3,
-      row: 4,
+      row: 3,
       element: (
         <TodaysPlanTile
           certificationId={selectedCertificationId}
@@ -933,7 +939,7 @@ export default function LearnerProgressPage() {
       x: 3,
       y: 0,
       col: 3,
-      row: 4,
+      row: 3,
       element: <PlayerCardTile portalData={data} />,
     },
     {
