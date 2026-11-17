@@ -22,7 +22,9 @@ public class LearnerQuestionHistoryService {
         JOIN assessment_attempt_questions aq ON aq.attempt_question_id = ans.attempt_question_id
         JOIN assessment_attempts a ON a.assessment_attempt_id = ans.assessment_attempt_id
         JOIN exams e ON e.exam_id = a.exam_id
-        LEFT JOIN questions q ON q.question_id = aq.source_question_id
+        -- Inner join: attempt snapshots keep the ids of questions deleted since, and every
+        -- caller builds a new exam or session from these ids, which must not reference them.
+        JOIN questions q ON q.question_id = aq.source_question_id
         WHERE a.learner_id = ? AND a.status = 'SUBMITTED' AND ans.is_correct = false
           AND aq.source_question_id IS NOT NULL
         """);

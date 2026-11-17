@@ -301,6 +301,10 @@ public class RecallExamService {
     List<Long> distinct = new ArrayList<>(ids.size());
     List<Set<String>> keptTokens = new ArrayList<>();
     for (Long id : ids) {
+      // A question deleted since it was picked has no row; linking it would break the exam's FK.
+      if (!textById.containsKey(id)) {
+        continue;
+      }
       String questionText = textById.get(id);
       Set<String> candidate = QuestionStem.tokens(questionText);
       if (candidate.isEmpty() || !isCopy(candidate, keptTokens)) {
