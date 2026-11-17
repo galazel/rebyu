@@ -1,11 +1,11 @@
-REBYU AUTOMATED TESTS - TC-001 THROUGH TC-206
+REBYU AUTOMATED TESTS - TC-001 THROUGH TC-222
 Proponent: Cortes, Ivan Justine
 
 Each numbered case has its own file in this directory:
   TC-001.test.jsx
   TC-002.test.jsx
   ...
-  TC-206.test.jsx
+  TC-222.test.jsx
 
 The test title and opening comment retain the catalog ID. Read the test's
 Arrange/Act/Assert code and any Scope note before using it as capstone evidence.
@@ -26,7 +26,7 @@ used instead of npm.cmd. Dependencies are recorded in package.json/package-lock.
 For a fresh checkout, install the frontend dependencies before running tests.
 
 WHAT THE DEFAULT COMMAND RUNS
-124 frontend/component or standalone Python-math cases are enabled by default.
+140 frontend/component or standalone Python-math cases are enabled by default.
 The seven mastery-math cases TC-116 through TC-122 invoke the ACTUAL bkt_math.py
 module with Python's standard library. Python must be available as 'python', or
 set REBYU_PYTHON to your interpreter path. They do not require pytest.

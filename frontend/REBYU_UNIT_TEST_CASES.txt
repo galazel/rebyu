@@ -2,7 +2,7 @@ REBYU CAPSTONE - UNIT TEST CASE CATALOG
 Prepared for: Cortes, Ivan Justine
 Repository reviewed: D:\capstone
 Prepared: November 12, 2026
-Total planned cases: 206
+Total planned cases: 222
 Execution status: NOT EXECUTED. Every action result and result is pending.
 
 PURPOSE AND SCOPE
@@ -109,6 +109,9 @@ Enrollment, Billing and Entitlements: TC-158 to TC-167 (10 cases)
 Rewards, Challenges and Community: TC-168 to TC-183 (16 cases)
 Notifications, Exports and File Handling: TC-184 to TC-196 (13 cases)
 Dashboard and Administrative UI: TC-197 to TC-206 (10 cases)
+Reading Guard and Skim Challenge: TC-207 to TC-214 (8 cases)
+Challenge Arena Stages: TC-215 to TC-221 (7 cases)
+Assessment Navigation and Timers (addition): TC-222 (1 case)
 
 DETAILED TEST CASES
 
@@ -3248,6 +3251,191 @@ Result: Pending
 Priority: P2
 Test Level: Isolated unit/component test (Frontend)
 Source Reference: frontend/src/hooks/use-dashboard-layout.js; frontend/src/pages/admin/; frontend/src/pages/institution/dashboard/; frontend/src/pages/learner/workspace/upload-and-learn-page.jsx
+
+
+================================================================================
+READING GUARD, CHALLENGE ARENA STAGES AND STAGE TIMER (TC-207 TO TC-222)
+================================================================================
+Added November 17, 2026 for frontend features changed after the original catalog:
+skim-challenge cooldown (admin setting and learner hook), arena stage pass score,
+per-stage time, lobby wording, and the stage-clock warning fix. TC-001 to TC-206
+are unchanged.
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim cooldown display			Test Case - TC-207
+Test Case Description: Load a saved skim-challenge cooldown of 180 seconds in the admin AI settings card.
+Expected Results: The cooldown field shows 3 minutes, the last-saved details are displayed and the save button stays disabled until the value is edited.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/admin/reading-guard-settings.jsx
+Test Code: frontend/src/__test__/TC-207.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim cooldown save			Test Case - TC-208
+Test Case Description: Change the cooldown to 5 minutes and save with a mocked successful API.
+Expected Results: The update is sent as 300 seconds and a success notice is shown.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/admin/reading-guard-settings.jsx
+Test Code: frontend/src/__test__/TC-208.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim cooldown save failure			Test Case - TC-209
+Test Case Description: Save a cooldown value while the mocked API rejects it with a server message.
+Expected Results: The server message is shown as an error, no success notice appears and the edited value stays in the field.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/admin/reading-guard-settings.jsx
+Test Code: frontend/src/__test__/TC-209.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim cooldown load failure			Test Case - TC-210
+Test Case Description: Open the settings card while the mocked settings request fails.
+Expected Results: A load-error alert is shown, the cooldown form is not rendered and no update is sent.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/admin/reading-guard-settings.jsx
+Test Code: frontend/src/__test__/TC-210.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim challenge cooldown			Test Case - TC-211
+Test Case Description: Trigger a skim challenge, then trigger again on a different lesson during the cooldown.
+Expected Results: The first trigger creates a challenge and starts the cooldown; the second creates nothing and shows no reminder.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/hooks/useSkimChallenge.js
+Test Code: frontend/src/__test__/TC-211.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Skim challenge after cooldown			Test Case - TC-212
+Test Case Description: Trigger a skim challenge when the last one was shown ten minutes ago.
+Expected Results: The cooldown has lapsed, so a challenge for the current lesson is created and a new cooldown starts.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/hooks/useSkimChallenge.js
+Test Code: frontend/src/__test__/TC-212.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Forced skim challenge during cooldown			Test Case - TC-213
+Test Case Description: Trigger a skim challenge normally and then with force while the cooldown is running.
+Expected Results: The normal trigger is ignored; the forced trigger bypasses the cooldown and creates the challenge.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/hooks/useSkimChallenge.js
+Test Code: frontend/src/__test__/TC-213.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Reading Guard and Skim Challenge
+Unit Name: Slow-down reminder cooldown			Test Case - TC-214
+Test Case Description: Skim again in a lesson that already had a challenge, once the cooldown has lapsed, then skim again right after dismissing the reminder.
+Expected Results: The slow-down reminder opens instead of a second challenge and restarts the cooldown; the next trigger stays quiet.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/hooks/useSkimChallenge.js
+Test Code: frontend/src/__test__/TC-214.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Arena stage settings			Test Case - TC-215
+Test Case Description: Read the CodeStrike and Blueprint arena setting definitions.
+Expected Results: Each arena has a 70% pass-score setting, default time and points per stage, and no fixed node count or total run limit.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/lib/arenas.js
+Test Code: frontend/src/__test__/TC-215.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Stage pass score met			Test Case - TC-216
+Test Case Description: Show the result of a stage scored exactly at the 70% default pass mark.
+Expected Results: The stage is shown as cleared and a link to the next stage is offered.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/challenge-result.jsx
+Test Code: frontend/src/__test__/TC-216.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Stage pass score missed			Test Case - TC-217
+Test Case Description: Show the result of a stage scored 69% against the 70% default pass mark.
+Expected Results: The stage is shown as handed in, the required score is stated and no link to the next stage appears.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/challenge-result.jsx
+Test Code: frontend/src/__test__/TC-217.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Custom stage pass score			Test Case - TC-218
+Test Case Description: Show a 75% stage result when the arena's configured pass score is 80%.
+Expected Results: The configured pass score replaces the default, so the stage is not cleared and the next stage stays locked.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/challenge-result.jsx
+Test Code: frontend/src/__test__/TC-218.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Final stage and grading state			Test Case - TC-219
+Test Case Description: Show a stage that is still being graded, then a passed final stage.
+Expected Results: A stage being graded is never cleared; a passed final stage reports that it was the last stage and offers no next stage.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/challenge-result.jsx
+Test Code: frontend/src/__test__/TC-219.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Arena lobby stage time			Test Case - TC-220
+Test Case Description: Load the arena lobby with every stage using the default time, then with stages that have their own times.
+Expected Results: One shared time is shown for the default; differing times show "timed stages" and a per-stage time-limit note.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/arena-lobby.jsx
+Test Code: frontend/src/__test__/TC-220.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Challenge Arena Stages
+Unit Name: Arena stage unlock wording			Test Case - TC-221
+Test Case Description: Load the arena lobby for a learner who has not completed any stage.
+Expected Results: Locked stages ask the learner to pass the previous stage, not merely finish it.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/components/challenges/arena-lobby.jsx
+Test Code: frontend/src/__test__/TC-221.test.jsx
+
+--------------------------------------------------------------------------------
+
+Proponent: Cortes, Ivan Justine G.			Module Name: Assessment Navigation and Timers
+Unit Name: Stage clock warning at start			Test Case - TC-222
+Test Case Description: Open a 10-minute stage whose clock reads 10:01 and ticks to 10:00, then a 15-minute attempt that counts down past 10:00.
+Expected Results: The 10-minute stage raises no 10-minute warning; the longer attempt warns once.
+Date Tested: 11/17/2026
+Action Result: Performed as Expected			Result: Passed
+Source Reference: frontend/src/pages/learner/assessments/learner-assessment-attempt-page.jsx
+Test Code: frontend/src/__test__/TC-222.test.jsx
+
+--------------------------------------------------------------------------------
 
 END OF CATALOG
 
