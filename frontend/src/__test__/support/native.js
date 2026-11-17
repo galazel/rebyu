@@ -126,6 +126,8 @@ export async function runJavaTests(selector, overlay = null) {
         cwd: project,
         timeout: 180000,
         maxBuffer: 8 * 1024 * 1024,
+        // Without this Node escapes the inner quotes and cmd reads the path as a UNC share.
+        windowsVerbatimArguments: true,
         env: {
           ...process.env,
           MAVEN_USER_HOME: path.join(output, "maven-home"),
