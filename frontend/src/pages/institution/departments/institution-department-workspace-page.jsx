@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon, Layers } from "@/components/icons"
 
 import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
@@ -103,6 +104,35 @@ export default function InstitutionDepartmentWorkspacePage() {
         title="Department not found"
         description="This department is unavailable or you no longer have access to it."
       />
+    )
+  }
+
+  if (programId != null && (programQuery.isError || (!programQuery.isLoading && !program))) {
+    return (
+      <div className="space-y-6">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Link
+            to={`/institution/departments?view=programs&department=${id}`}
+            className="inline-flex items-center gap-1.5 font-medium hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3.5" aria-hidden="true" />
+            {group?.departmentName || "Department"}
+          </Link>
+          <span aria-hidden="true">/</span>
+          <span className="truncate font-semibold text-foreground">Program</span>
+        </nav>
+        <InstitutionEmptyState
+          title="Program not found"
+          description="This program does not exist or has been removed from this department."
+          action={
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/institution/departments?view=programs&department=${id}`}>
+                Back to department programs
+              </Link>
+            </Button>
+          }
+        />
+      </div>
     )
   }
 

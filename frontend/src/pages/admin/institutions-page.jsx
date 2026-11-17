@@ -4,8 +4,13 @@ import { ExportButton, sectionsFromPayload, tableFromObjects } from "@/component
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
+  Award,
   Building2,
+  CalendarDays,
+  ChevronsUpDownIcon,
   Eye,
+  User,
+  Users,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
@@ -180,7 +185,7 @@ export default function Institutions() {
   const [statusFilter, setStatusFilter] = useState(ALL_FILTER_VALUE)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const { sort, toggle, sortRows } = useTableSort()
+  const { sort, toggle, sortRows, setSort } = useTableSort()
 
   const { data: fetchedInstitutions = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["admin-institutions"],
@@ -324,7 +329,7 @@ export default function Institutions() {
             filename="rebyu-admin-institutions"
             report="Institutions"
             details={() => [["Institutions in file", `${sortedInstitutions.length} of ${list.length}`], ["Filters", "As set on the page; every page of results"]]}
-            className="order-last ml-auto self-center"
+            className="w-full sm:w-auto"
             disabled={sortedInstitutions.length === 0}
             sections={() => [{
               title: "Institutions",
@@ -351,22 +356,211 @@ export default function Institutions() {
                 onSearchChange={setSearchQuery}
                 searchPlaceholder="Search institution, contact, or email"
             >
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-36">
-                  <SelectValue placeholder="All statuses" />
-                </SelectTrigger>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 flex-1 sm:w-36">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  <SelectItem value={ALL_FILTER_VALUE}>All statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>All statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={
+                    sort?.key
+                      ? `${sort.key}-${sort.direction}`
+                      : "default"
+                  }
+                  onValueChange={(val) => {
+                    if (val === "default") {
+                      setSort(null)
+                    } else {
+                      const [key, direction] = val.split("-")
+                      setSort({ key, direction })
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-9 flex-1 sm:w-40 md:hidden" aria-label="Sort institutions">
+                    <ChevronsUpDownIcon className="mr-1.5 size-3.5 shrink-0 text-muted-foreground" />
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Default order</SelectItem>
+                    <SelectItem value="institution-asc">Institution (A–Z)</SelectItem>
+                    <SelectItem value="institution-desc">Institution (Z–A)</SelectItem>
+                    <SelectItem value="learners-desc">Learners (High to Low)</SelectItem>
+                    <SelectItem value="learners-asc">Learners (Low to High)</SelectItem>
+                    <SelectItem value="certifications-desc">Certifications (High to Low)</SelectItem>
+                    <SelectItem value="added-desc">Date added (Newest)</SelectItem>
+                    <SelectItem value="added-asc">Date added (Oldest)</SelectItem>
+                    <SelectItem value="status-asc">Status</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </TableToolbar>
 
-            <div className="min-h-0 flex-1 overflow-auto">
-              <Table>
+            {/* Mobile Cards View */}
+            <div className="divide-y divide-border/60 md:hidden">
+              {isLoading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div key={`mobile-loading-${index}`} className="space-y-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-muted" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+                      </div>
+                      <div className="h-6 w-16 animate-pulse rounded-full bg-muted" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="h-12 rounded-lg bg-muted/60 animate-pulse" />
+                      <div className="h-12 rounded-lg bg-muted/60 animate-pulse" />
+                      <div className="h-12 rounded-lg bg-muted/60 animate-pulse" />
+                    </div>
+                    <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
+                  </div>
+                ))
+              ) : paginatedInstitutions.length > 0 ? (
+                paginatedInstitutions.map((institution, index) => {
+                  const institutionName = getInstitutionName(institution)
+                  const institutionId = getInstitutionId(institution, index)
+                  const learnerCount = Number(
+                    institution.learnerCount ??
+                    institution.totalLearners ??
+                    institution.learnersCount ??
+                    0
+                  )
+                  const certificationCount = Number(
+                    institution.certificationCount ??
+                    institution.totalCertifications ??
+                    institution.certificationsCount ??
+                    0
+                  )
+                  const contactPerson =
+                    institution.primaryContactName ??
+                    institution.contactPerson ??
+                    institution.contactName
+                  const contactEmail =
+                    institution.primaryContactEmail ??
+                    institution.contactEmail ??
+                    institution.email
+                  const joinedDate = formatDate(
+                    institution.joinedAt ??
+                    institution.createdAt ??
+                    institution.dateCreated ??
+                    institution.createdDate
+                  )
+
+                  return (
+                    <article
+                      key={`mobile-card-${institutionId}`}
+                      className="p-4 transition-colors hover:bg-muted/20 focus-within:bg-muted/20"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-xs font-bold text-primary shadow-xs">
+                            {getInitials(institutionName)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="truncate text-sm font-bold text-foreground">
+                              {institutionName}
+                            </h3>
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              ID: {institutionId}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                          <InstitutionStatusBadge status={institution.status} />
+                        </div>
+                      </div>
+
+                      {(contactPerson || contactEmail) && (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs">
+                          <User className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          <div className="min-w-0 flex-1 truncate">
+                            <span className="font-semibold text-foreground">
+                              {contactPerson || "Not assigned"}
+                            </span>
+                            {contactEmail && (
+                              <span className="text-muted-foreground">
+                                {" "}&bull;{" "}{contactEmail}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                            <Users className="size-3 text-muted-foreground" aria-hidden="true" />
+                            <span>Learners</span>
+                          </div>
+                          <p className="mt-1 text-sm font-bold text-foreground tabular-nums">
+                            {learnerCount.toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                            <Award className="size-3 text-muted-foreground" aria-hidden="true" />
+                            <span>Certs</span>
+                          </div>
+                          <p className="mt-1 text-sm font-bold text-foreground tabular-nums">
+                            {certificationCount}
+                          </p>
+                        </div>
+
+                        <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5 text-center">
+                          <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                            <CalendarDays className="size-3 text-muted-foreground" aria-hidden="true" />
+                            <span>Added</span>
+                          </div>
+                          <p className="mt-1 truncate text-xs font-semibold text-foreground">
+                            {joinedDate}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 w-full justify-center gap-2 rounded-lg border-border/70 text-xs font-semibold text-foreground shadow-xs hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                          aria-label={`View details for ${institutionName}`}
+                          onClick={() => navigate(`/admin/institutions/${institutionId}`)}
+                        >
+                          <Eye className="size-3.5" />
+                          <span>View details</span>
+                        </Button>
+                      </div>
+                    </article>
+                  )
+                })
+              ) : (
+                <div className="px-4 py-12 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-foreground">
+                    {isError ? "Institutions could not be loaded" : "No institutions found"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {isError ? "Try loading the directory again." : "Try changing the search or clearing the filters."}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table mobileLayout="scroll">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <SortableHead

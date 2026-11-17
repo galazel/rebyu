@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { AlertCircle, AlertTriangle, Loader2, LogIn } from "@/components/icons"
+import { AlertCircle, AlertTriangle, Check, Loader2, LogIn } from "@/components/icons"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -50,12 +50,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState(null)
   const [pending, setPending] = useState(false)
+  const [signedInUser, setSignedInUser] = useState(null)
 
   useEffect(() => {
-    if (status === "authenticated" && user?.role) {
+    if (status === "authenticated" && user?.role && !signedInUser) {
       navigate(roleHomePath(user.role), { replace: true })
     }
-  }, [navigate, status, user?.role])
+  }, [navigate, status, user?.role, signedInUser])
 
   useEffect(() => {
     if (sessionStorage.getItem("rebyu_session_expired")) {
@@ -113,23 +114,38 @@ export default function LoginPage() {
         return
       }
 
-      const user = result?.user
+      const loggedUser = result?.user
 
-      if (!user) {
+      if (!loggedUser) {
         setError({ tone: "error", title: "Unable to load your account", message: "Please try again." })
         return
       }
 
-      const pendingToken = sessionStorage.getItem("rebyu_pending_invitation_token")
-      if (pendingToken) {
-        sessionStorage.removeItem("rebyu_pending_invitation_token")
-        navigate(`/invitations/accept?token=${encodeURIComponent(pendingToken)}`, {
-          replace: true,
-        })
-        return
-      }
+      setSignedInUser(loggedUser)
 
-      navigate(roleHomePath(user.role), { replace: true })
+      const displayName =
+        loggedUser.name ||
+        loggedUser.firstName ||
+        loggedUser.email?.split("@")[0] ||
+        "there"
+
+      toast.success(`Welcome back, ${displayName}!`, {
+        description: "Signed in successfully. Taking you to your dashboard...",
+        duration: 3500,
+      })
+
+      setTimeout(() => {
+        const pendingToken = sessionStorage.getItem("rebyu_pending_invitation_token")
+        if (pendingToken) {
+          sessionStorage.removeItem("rebyu_pending_invitation_token")
+          navigate(`/invitations/accept?token=${encodeURIComponent(pendingToken)}`, {
+            replace: true,
+          })
+          return
+        }
+
+        navigate(roleHomePath(loggedUser.role), { replace: true })
+      }, 700)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("Login failed:", err?.name, err?.message)
@@ -174,7 +190,7 @@ export default function LoginPage() {
     }
   }
 
-  if (status === "loading" || status === "authenticated") {
+  if ((status === "loading" || status === "authenticated") && !signedInUser) {
     return null
   }
 
@@ -206,6 +222,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
+                disabled={pending || Boolean(signedInUser)}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
@@ -229,11 +246,28 @@ export default function LoginPage() {
                 id="login-password"
                 autoComplete="current-password"
                 required
+                disabled={pending || Boolean(signedInUser)}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="h-10"
             />
           </div>
+
+          {signedInUser ? (
+            <div className="flex items-center gap-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/15 p-3.5 text-sm animate-in fade-in zoom-in-95 duration-300">
+              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white shadow-sm dark:bg-emerald-500">
+                <Check className="size-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-emerald-950 dark:text-emerald-200">
+                  Welcome back, {signedInUser.name || signedInUser.firstName || signedInUser.email?.split("@")[0] || "there"}!
+                </p>
+                <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+                  Signed in successfully. Redirecting to your dashboard...
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           {error ? (
               <Alert
@@ -258,15 +292,28 @@ export default function LoginPage() {
               </Alert>
           ) : null}
 
-          <Button type="submit" className="h-10 w-full" disabled={pending}>
-            {pending ? (
+          <Button
+            type="submit"
+            className={`h-10 w-full transition-all duration-300 ${
+              signedInUser
+                ? "!bg-emerald-600 hover:!bg-emerald-600 !text-white dark:!bg-emerald-500 shadow-sm"
+                : ""
+            }`}
+            disabled={pending || Boolean(signedInUser)}
+          >
+            {signedInUser ? (
+              <span className="flex items-center justify-center gap-2 font-semibold">
+                <Check className="size-4 animate-in zoom-in duration-200" aria-hidden="true" />
+                Signed in! Redirecting...
+              </span>
+            ) : pending ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   Signing in...
                 </>
             ) : (
                 <>
-                  <LogIn className="size-4" />
+                  <LogIn className="size-4" aria-hidden="true" />
                   Sign in
                 </>
             )}

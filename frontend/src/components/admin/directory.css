@@ -1,4 +1,7 @@
 .admin-directory { min-width: 0; width: 100%; }
+.admin-directory :is([data-slot="card"], .rb-card, .table-card, [class*="TableCard"]) {
+  background-image: none !important;
+}
 .admin-directory > header [data-slot="button"] { margin: 0; }
 @media (max-width: 767px) {
   .admin-directory .rb-responsive-table[data-mobile-view="cards"] table[data-has-headings="true"] > tbody {

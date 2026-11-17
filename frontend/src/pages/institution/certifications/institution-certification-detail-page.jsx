@@ -1,9 +1,16 @@
 import { useMemo } from "react"
 import { Link, useOutletContext, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import {
+  Award,
+  CheckCircle,
+  ClipboardCheck,
+  Target,
+  TrendingUp,
+  Users,
+} from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
@@ -21,15 +28,44 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-function StatTile({ label, value, hint }) {
+function StatTile({ icon: Icon, label, shortLabel, value, hint, shortHint }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xl font-semibold tabular-nums">{value}</p>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
-      </CardContent>
-    </Card>
+    <div className="group relative rounded-xl border border-border/70 bg-card p-2.5 sm:p-4 shadow-2xs transition-all duration-200 hover:border-border dark:border-border/70 dark:bg-card">
+      <div className="flex items-start justify-between gap-1.5">
+        <span className="text-[11px] font-semibold text-muted-foreground truncate leading-tight sm:text-xs">
+          {shortLabel ? (
+            <>
+              <span className="sm:hidden">{shortLabel}</span>
+              <span className="hidden sm:inline">{label}</span>
+            </>
+          ) : (
+            label
+          )}
+        </span>
+        {Icon ? (
+          <div className="grid size-6 shrink-0 place-items-center rounded-md bg-muted/60 text-muted-foreground transition-colors group-hover:bg-emerald-500/15 group-hover:text-emerald-600 dark:bg-muted/40 dark:group-hover:bg-emerald-500/20 dark:group-hover:text-emerald-400">
+            <Icon className="size-3.5" aria-hidden="true" />
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <p className="font-mono text-base font-bold tracking-tight text-foreground tabular-nums sm:text-xl">
+          {value}
+        </p>
+      </div>
+      {hint ? (
+        <p className="mt-0.5 text-[10px] font-medium text-muted-foreground/80 truncate">
+          {shortHint ? (
+            <>
+              <span className="sm:hidden">{shortHint}</span>
+              <span className="hidden sm:inline">{hint}</span>
+            </>
+          ) : (
+            hint
+          )}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -101,7 +137,7 @@ export default function InstitutionCertificationDetailPage() {
   const show = (value, suffix = "") => (summary ? `${value}${suffix}` : "…")
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <InstitutionPageHeader
         title={certification.title}
         subtitle={certification.description || "No description available."}
@@ -111,13 +147,44 @@ export default function InstitutionCertificationDetailPage() {
       {analyticsQuery.isError ? (
         <InstitutionErrorState title="Unable to load the analytics" onRetry={analyticsQuery.refetch} />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          <StatTile label="Learners enrolled" value={show(summary?.enrolled)} hint={`${used} / ${total} slots used`} />
-          <StatTile label="Finished" value={show(summary?.finished)} />
-          <StatTile label="Average progress" value={show(summary?.averageProgress, "%")} />
-          <StatTile label="Passed a mock exam" value={show(summary?.mockPassed)} />
-          <StatTile label="Assessment attempts" value={show(summary?.assessmentAttempts)} />
-          <StatTile label="Average score" value={show(summary?.averageScore, "%")} />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 sm:gap-3">
+          <StatTile
+            icon={Users}
+            label="Learners enrolled"
+            shortLabel="Enrolled"
+            value={show(summary?.enrolled)}
+            hint={`${used} / ${total} slots used`}
+            shortHint={`${used}/${total} slots`}
+          />
+          <StatTile
+            icon={CheckCircle}
+            label="Finished"
+            value={show(summary?.finished)}
+          />
+          <StatTile
+            icon={TrendingUp}
+            label="Average progress"
+            shortLabel="Avg. progress"
+            value={show(summary?.averageProgress, "%")}
+          />
+          <StatTile
+            icon={Award}
+            label="Passed a mock exam"
+            shortLabel="Passed mock"
+            value={show(summary?.mockPassed)}
+          />
+          <StatTile
+            icon={ClipboardCheck}
+            label="Assessment attempts"
+            shortLabel="Attempts"
+            value={show(summary?.assessmentAttempts)}
+          />
+          <StatTile
+            icon={Target}
+            label="Average score"
+            shortLabel="Avg. score"
+            value={show(summary?.averageScore, "%")}
+          />
         </div>
       )}
 

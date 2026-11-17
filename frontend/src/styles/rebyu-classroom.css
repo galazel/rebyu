@@ -2738,6 +2738,10 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 .dark :is(.admin-portal, .institution-portal) :is(section, article).rounded-xl.border {
     background-color: var(--card);
 }
+.admin-portal :is([data-slot="card"], .rb-card, .table-card),
+.dark .admin-portal :is([data-slot="card"], .rb-card, .table-card) {
+    background-image: none !important;
+}
 .dark .netacad-portal .bg-white {
     background-color: var(--card);
 }
@@ -2755,7 +2759,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     color: var(--muted-foreground);
 }
 
-.dark .netacad-portal :is([data-slot="card"], .rb-card:not([class*="!p-0"])),
+.dark .netacad-portal:not(.admin-portal):not(.institution-portal) :is([data-slot="card"], .rb-card:not([class*="!p-0"])),
 .dark .rebyu-ds.rb-classroom-landing:not(.rb-light-only) .rb-card:not([class*="!p-0"]) {
     background-color: var(--rb-paper);
     background-image:
@@ -2902,8 +2906,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     background: linear-gradient(160deg, #6f5f45, #58492f);
 }
 
-.dark :is(.rb-sticky, .rb-graded-note, .rb-chalk-label, .rb-book-tag, .netacad-portal [data-slot="alert"]),
-.dark body:not(.learner-portal) :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+.dark :is(.rb-sticky, .rb-graded-note, .rb-chalk-label, .rb-book-tag, .netacad-portal [data-slot="alert"]) {
     --color-rb-eel: #2c3a33;
     --color-rb-wolf: #5b6b62;
     --color-rb-hare: #a3aca5;
@@ -2920,6 +2923,49 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     --input: #c9dfd3;
     --rb-paper: #ffffff;
     color-scheme: light;
+}
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+    background: var(--card, #232a26);
+    border: 1px solid var(--border, #343d38);
+    border-top: 6px solid var(--color-rb-feather, #5fa37f);
+    color: var(--foreground, #ece6d8);
+    box-shadow: 0 24px 56px rgb(0 0 0 / 0.55);
+}
+.dark :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"]) {
+    color: var(--foreground, #ece6d8);
+}
+.dark :is([data-slot="dialog-description"], [data-slot="alert-dialog-description"]) {
+    color: var(--color-rb-wolf, #b9b3a5);
+}
+.dark :is([data-slot="dialog-close"]) {
+    color: var(--color-rb-wolf, #b9b3a5);
+}
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]), [data-alert-dialog="cancel"]) {
+    background: var(--card, #232a26);
+    border: 1px solid var(--border, #343d38);
+    color: var(--foreground, #ece6d8);
+}
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]), [data-alert-dialog="cancel"]):hover {
+    background: var(--color-rb-polar, #1e2521);
+    color: var(--foreground, #ece6d8);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="destructive"]), [data-slot="button"].bg-destructive, [data-slot="button"]:is([class*="bg-destructive"])),
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="destructive"]), [data-slot="button"].bg-destructive, [data-slot="button"]:is([class*="bg-destructive"])) {
+    background: #dc2626 !important;
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border: 1px solid transparent !important;
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="destructive"]), [data-slot="button"].bg-destructive, [data-slot="button"]:is([class*="bg-destructive"])):hover,
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is([data-slot="button"]:is([data-variant="destructive"]), [data-slot="button"].bg-destructive, [data-slot="button"]:is([class*="bg-destructive"])):hover {
+    background: #b91c1c !important;
+    background-color: #b91c1c !important;
+    color: #ffffff !important;
+}
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="default"]):not(.bg-destructive, [class*="bg-destructive"]),
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:not(.rb-btn-ghost, .rb-btn-snow, .rb-btn-cardinal, .bg-destructive, [class*="bg-destructive"]) {
+    background: var(--color-rb-feather, #5fa37f);
+    color: #ffffff;
 }
 .dark body.learner-portal :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
     background: var(--card);
@@ -2957,6 +3003,22 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 .rb-index-card.is-selected {
     background-color: #f3f8ef;
     box-shadow: 0 0 0 3px var(--color-rb-feather), 0 10px 18px -10px rgb(18 49 38 / 0.4);
+}
+.dark .rb-index-card {
+    border-radius: 0.75rem;
+    background-color: hsl(var(--card));
+    background-image: none;
+    border: 1px solid hsl(var(--border) / 0.8);
+    box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.35);
+}
+.dark .rb-index-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -2px rgb(0 0 0 / 0.5);
+}
+.dark .rb-index-card.is-selected {
+    background-color: hsl(var(--card));
+    border-color: hsl(var(--primary, 142 71% 45%));
+    box-shadow: 0 0 0 2px hsl(var(--primary, 142 71% 45%) / 0.5), 0 6px 18px -3px rgb(0 0 0 / 0.4);
 }
 @media (prefers-reduced-motion: reduce) {
     .rb-index-card:hover {

@@ -1,10 +1,29 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
-import { AlertTriangle, CheckCircle2, ChevronDown, Circle, Clock, KeyRound, Loader2, XCircle } from "@/components/icons"
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Clock,
+  DollarSign,
+  Gauge,
+  KeyRound,
+  List,
+  Loader2,
+  Search,
+  Sparkles,
+  X,
+  XCircle,
+  Zap,
+} from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -30,6 +49,10 @@ function priceOf(model) {
 }
 
 export default function AiSettingsPage() {
+  const [activeSection, setActiveSection] = useState("section-live-tutor")
+  const [sidebarFilter, setSidebarFilter] = useState("")
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   const query = useQuery({
     queryKey: ["ai-settings"],
     queryFn: getAiSettings,
@@ -39,41 +62,405 @@ export default function AiSettingsPage() {
   const data = query.data
   const taskLabel = (name) => data?.tasks?.find((task) => task.task === name)?.label ?? name
 
+  // Navigation items index for each section of information
+  const sections = useMemo(() => {
+    const list = [
+      {
+        id: "section-live-tutor",
+        label: "Live Tutor & Voice Limits",
+        shortLabel: "Live Tutor",
+        group: "Core Services",
+        icon: Sparkles,
+        badge: "ElevenLabs",
+      },
+      {
+        id: "section-reading-guard",
+        label: "Lessons · Skim Challenge",
+        shortLabel: "Skim Guard",
+        group: "Core Services",
+        icon: BookOpen,
+        badge: "Cooldown",
+      },
+      {
+        id: "section-credits",
+        label: "OpenRouter Credits",
+        shortLabel: "Credits",
+        group: "Infrastructure",
+        icon: DollarSign,
+        badge: data?.credits?.remaining != null ? money(data.credits.remaining) : "Balance",
+      },
+      {
+        id: "section-health",
+        label: "Model Status & Health",
+        shortLabel: "Model Health",
+        group: "Infrastructure",
+        icon: Gauge,
+        badge: data?.modelHealth ? `${Object.keys(data.modelHealth).length} models` : "Status",
+      },
+    ]
+
+    if (Array.isArray(data?.tasks) && data.tasks.length > 0) {
+      data.tasks.forEach((task) => {
+        list.push({
+          id: `task-${task.task}`,
+          label: task.label,
+          shortLabel: task.label,
+          group: "Models by Feature",
+          icon: Zap,
+          badge: task.model ? task.model.split("/").pop() : "Model",
+          subtext: task.usedFor?.[0] ?? "",
+        })
+      })
+    }
+
+    return list
+  }, [data])
+
+  const filteredSections = useMemo(() => {
+    if (!sidebarFilter.trim()) return sections
+    const term = sidebarFilter.trim().toLowerCase()
+    return sections.filter(
+      (s) =>
+        s.label.toLowerCase().includes(term) ||
+        s.group.toLowerCase().includes(term) ||
+        (s.badge && s.badge.toLowerCase().includes(term))
+    )
+  }, [sections, sidebarFilter])
+
+  const groupedSections = useMemo(() => {
+    const map = {}
+    for (const item of filteredSections) {
+      if (!map[item.group]) map[item.group] = []
+      map[item.group].push(item)
+    }
+    return map
+  }, [filteredSections])
+
+  const scrollToSection = (id) => {
+    const el = document.getElementById(id)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" })
+      setActiveSection(id)
+      setMobileMenuOpen(false)
+    }
+  }
+
+  // Auto-track the current active section as the user scrolls
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const intersecting = entries.filter((e) => e.isIntersecting)
+        if (intersecting.length > 0) {
+          intersecting.sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top))
+          setActiveSection(intersecting[0].target.id)
+        }
+      },
+      {
+        rootMargin: "-80px 0px -55% 0px",
+        threshold: [0, 0.2],
+      }
+    )
+
+    sections.forEach((item) => {
+      const el = document.getElementById(item.id)
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [sections])
+
+  const currentActiveItem = sections.find((s) => s.id === activeSection)
+
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-5 [overflow-wrap:anywhere] sm:gap-8">
-      <div className="border-b border-border pb-4">
-        <h1 className="sr-only">AI settings</h1>
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-5 sm:gap-6 pb-12">
+      {/* Top Header */}
+      <div className="space-y-1">
+        <p className="text-xs font-bold uppercase tracking-wider text-primary">
+          Administration
+        </p>
+        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          AI Settings & Model Routing
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Configure multi-provider model routing, fallback chains, voice tutor limits, and health monitoring.
+        </p>
       </div>
 
-      <LiveTutorSettingsCard />
-      <ReadingGuardSettingsCard />
-      {query.isLoading ? (
-        <div className="grid gap-4">
-          <Skeleton className="h-36 w-full" />
-          <Skeleton className="h-64 w-full" />
+      {/* Sticky Mobile Quick-Jump Nav Bar (lg:hidden) */}
+      <div className="sticky top-14 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur-md border-b border-border/70 lg:hidden shadow-xs flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="size-2 rounded-full bg-primary shrink-0 animate-pulse" />
+            <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
+              {currentActiveItem?.shortLabel ?? "AI Settings"}
+            </span>
+          </div>
+          <Button
+            variant={mobileMenuOpen ? "default" : "outline"}
+            size="sm"
+            className="h-8 gap-1.5 text-xs font-medium shrink-0"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-expanded={mobileMenuOpen}
+            aria-label="Toggle Section Menu"
+          >
+            <List className="size-3.5" />
+            {mobileMenuOpen ? "Close Menu" : `Index (${sections.length})`}
+            <ChevronDown className={cn("size-3 transition-transform", mobileMenuOpen ? "rotate-180" : "")} />
+          </Button>
         </div>
-      ) : query.isError ? (
-        <p className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          {apiMessage(query.error, "The AI settings could not be loaded.")}
-        </p>
-      ) : (
-        <>
-          <CreditsCard credits={data.credits} providers={data.providers} />
-          {data.modelHealth ? (
-            <HealthOverview health={data.modelHealth} since={data.healthSince} tasks={data.tasks} taskLabel={taskLabel} />
-          ) : null}
-          {data.catalogueError ? (
-            <p className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{data.catalogueError}</p>
-          ) : null}
-          <section className="grid gap-4">
-            <h2 className="text-base font-semibold">Models by feature</h2>
-            {data.tasks.map((task) => (
-              <TaskCard key={task.task} task={task} models={data.models} health={data.modelHealth} taskLabel={taskLabel} />
-            ))}
-          </section>
-        </>
-      )}
+
+        {/* Horizontal Quick-Scroll Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+          {sections.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => scrollToSection(item.id)}
+              className={cn(
+                "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors shrink-0 whitespace-nowrap",
+                activeSection === item.id
+                  ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {item.shortLabel}
+            </button>
+          ))}
+        </div>
+
+        {/* Expandable Mobile Section Menu Drawer */}
+        {mobileMenuOpen ? (
+          <div className="rounded-xl border border-border/80 bg-card p-3 shadow-md space-y-3 max-h-80 overflow-y-auto overscroll-contain">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={sidebarFilter}
+                onChange={(e) => setSidebarFilter(e.target.value)}
+                placeholder="Search sections..."
+                className="h-8 pl-8 pr-7 text-xs"
+              />
+              {sidebarFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setSidebarFilter("")}
+                  className="absolute right-2 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              {Object.entries(groupedSections).map(([groupName, items]) => (
+                <div key={groupName} className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">
+                    {groupName} ({items.length})
+                  </p>
+                  <div className="space-y-0.5">
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => scrollToSection(item.id)}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                          activeSection === item.id
+                            ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        <span className="truncate">{item.label}</span>
+                        {item.badge ? (
+                          <span
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ml-2",
+                              activeSection === item.id
+                                ? "bg-primary-foreground/20 text-primary-foreground"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Main Grid: Sidebar + Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] gap-6 items-start">
+        {/* Desktop Sticky Sidebar Menu */}
+        <aside className="hidden lg:flex sticky top-20 max-h-[calc(100vh-6rem)] flex-col rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
+          <div className="p-3.5 border-b border-border/70 space-y-2.5 shrink-0 bg-muted/10">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Settings Navigation
+              </span>
+              <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0.5">
+                {sections.length} sections
+              </Badge>
+            </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={sidebarFilter}
+                onChange={(e) => setSidebarFilter(e.target.value)}
+                placeholder="Filter titles..."
+                className="h-8 pl-8 pr-7 text-xs"
+              />
+              {sidebarFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setSidebarFilter("")}
+                  className="absolute right-2 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-4">
+            {Object.keys(groupedSections).length === 0 ? (
+              <p className="p-4 text-center text-xs text-muted-foreground">
+                No sections match filter.
+              </p>
+            ) : (
+              Object.entries(groupedSections).map(([groupName, items]) => (
+                <div key={groupName} className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {groupName} ({items.length})
+                  </p>
+                  <div className="space-y-0.5">
+                    {items.map((item) => {
+                      const Icon = item.icon
+                      const isActive = activeSection === item.id
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => scrollToSection(item.id)}
+                          className={cn(
+                            "group flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-all",
+                            isActive
+                              ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Icon
+                              className={cn(
+                                "size-3.5 shrink-0 transition-colors",
+                                isActive ? "text-primary-foreground" : "text-primary/75 group-hover:text-primary"
+                              )}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.badge ? (
+                            <span
+                              className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ml-1.5 truncate max-w-[80px]",
+                                isActive
+                                ? "bg-primary-foreground/20 text-primary-foreground"
+                                : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                              )}
+                            >
+                              {item.badge}
+                            </span>
+                          ) : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {/* Main Content Sections */}
+        <div className="min-w-0 space-y-6">
+          {/* Section 1: Live Tutor */}
+          <div id="section-live-tutor" className="scroll-mt-28 sm:scroll-mt-20">
+            <LiveTutorSettingsCard />
+          </div>
+
+          {/* Section 2: Reading Guard */}
+          <div id="section-reading-guard" className="scroll-mt-28 sm:scroll-mt-20">
+            <ReadingGuardSettingsCard />
+          </div>
+
+          {query.isLoading ? (
+            <div className="grid gap-4">
+              <Skeleton className="h-44 w-full rounded-2xl" />
+              <Skeleton className="h-64 w-full rounded-2xl" />
+            </div>
+          ) : query.isError ? (
+            <p className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-5 text-sm text-destructive">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              {apiMessage(query.error, "The AI settings could not be loaded.")}
+            </p>
+          ) : (
+            <>
+              {/* Section 3: OpenRouter Credits */}
+              <div id="section-credits" className="scroll-mt-28 sm:scroll-mt-20">
+                <CreditsCard credits={data.credits} providers={data.providers} />
+              </div>
+
+              {/* Section 4: Model Health */}
+              {data.modelHealth ? (
+                <div id="section-health" className="scroll-mt-28 sm:scroll-mt-20">
+                  <HealthOverview
+                    health={data.modelHealth}
+                    since={data.healthSince}
+                    tasks={data.tasks}
+                    taskLabel={taskLabel}
+                  />
+                </div>
+              ) : null}
+
+              {data.catalogueError ? (
+                <p className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                  {data.catalogueError}
+                </p>
+              ) : null}
+
+              {/* Section 5: Feature Models */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b border-border/70 pb-3">
+                  <div>
+                    <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
+                      Models by Feature
+                    </h2>
+                    <p className="text-xs text-muted-foreground sm:text-sm">
+                      Assign primary AI models, customize fallback chains, and manage tool access per feature.
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-xs font-mono">
+                    {data.tasks?.length ?? 0} features
+                  </Badge>
+                </div>
+
+                {data.tasks.map((task) => (
+                  <div key={task.task} id={`task-${task.task}`} className="scroll-mt-28 sm:scroll-mt-20">
+                    <TaskCard
+                      task={task}
+                      models={data.models}
+                      health={data.modelHealth}
+                      taskLabel={taskLabel}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -82,19 +469,20 @@ function CreditsCard({ credits, providers }) {
   const empty = credits?.available && credits.remaining !== undefined && credits.remaining <= 0
   const key = credits?.key
   return (
-    <section className="rounded-xl border border-border bg-background p-4">
+    <section className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">OpenRouter credits</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Chat and content-generation features run through OpenRouter; Live Tutor uses ElevenLabs above. Paid models draw from this balance; free models do not, but are
-            often rate-limited.
+          <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
+            OpenRouter Credits & API Keys
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm max-w-2xl">
+            Chat, tutor analysis, and content-generation features run through OpenRouter. Paid models draw from this balance; free models do not, but may encounter rate limits.
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(providers ?? {}).map(([name, present]) => (
-            <Badge key={name} variant={present ? "secondary" : "outline"} className="gap-1 capitalize">
-              {present ? <CheckCircle2 className="size-3" /> : null}
+            <Badge key={name} variant={present ? "secondary" : "outline"} className="gap-1 capitalize text-xs">
+              {present ? <CheckCircle2 className="size-3 text-emerald-600" /> : null}
               {name} key {present ? "set" : "missing"}
             </Badge>
           ))}
@@ -102,25 +490,24 @@ function CreditsCard({ credits, providers }) {
       </div>
 
       {!credits?.available ? (
-        <p className="mt-3 text-sm text-destructive">{credits?.reason ?? "The balance could not be read."}</p>
+        <p className="mt-4 text-sm text-destructive">{credits?.reason ?? "The balance could not be read."}</p>
       ) : (
         <>
-          <dl className="mt-4 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Remaining" value={money(credits.remaining)} tone={empty ? "bad" : "good"} />
-            <Stat label="Bought" value={money(credits.totalCredits)} />
-            <Stat label="Used, all time" value={money(credits.totalUsage)} />
+          <dl className="mt-5 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 xl:grid-cols-4">
+            <Stat label="Remaining Balance" value={money(credits.remaining)} tone={empty ? "bad" : "good"} />
+            <Stat label="Total Purchased" value={money(credits.totalCredits)} />
+            <Stat label="Total Used (All-Time)" value={money(credits.totalUsage)} />
             <Stat
-              label="This key's limit left"
+              label="Key Allowance Left"
               value={key?.limit === null || key?.limit === undefined ? "No limit" : `${money(key.limitRemaining)} of ${money(key.limit)}`}
             />
-            <Stat label="Used today (this key)" value={money(key?.usageDaily)} />
-            <Stat label="Used this month (this key)" value={money(key?.usageMonthly)} />
+            <Stat label="Used Today (This Key)" value={money(key?.usageDaily)} />
+            <Stat label="Used This Month" value={money(key?.usageMonthly)} />
           </dl>
           {empty ? (
-            <p className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <p className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              The balance is used up, so every paid model is refused. Features fall back to free models, which are
-              often rate-limited. Add credit at openrouter.ai/settings/credits.
+              The balance is used up, so paid models are refused. Features fall back to free models, which are often rate-limited. Add credit at openrouter.ai/settings/credits.
             </p>
           ) : null}
         </>
@@ -131,9 +518,13 @@ function CreditsCard({ credits, providers }) {
 
 function Stat({ label, value, tone }) {
   return (
-    <div className="rounded-lg border border-border p-3">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={`mt-1 text-lg font-semibold ${tone === "bad" ? "text-destructive" : tone === "good" ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
+    <div className="rounded-xl border border-border/80 bg-muted/15 p-3.5">
+      <dt className="text-xs font-semibold text-muted-foreground truncate">{label}</dt>
+      <dd
+        className={`mt-1.5 text-xl font-bold tracking-tight tabular-nums ${
+          tone === "bad" ? "text-destructive" : tone === "good" ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+        }`}
+      >
         {value}
       </dd>
     </div>
@@ -172,41 +563,43 @@ function TaskCard({ task, models, health, taskLabel }) {
   })
 
   return (
-    <article className="rounded-xl border border-border bg-background p-4">
+    <article className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-semibold">{task.label}</h3>
-          <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <h3 className="font-heading text-base font-bold text-foreground sm:text-lg">
+              {task.label}
+            </h3>
+            {task.needsVision ? <Badge variant="outline" className="text-[10px]">Reads images</Badge> : null}
+            <Badge variant="outline" className="capitalize text-[10px]">{task.provider}</Badge>
+          </div>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-0.5">
             {task.usedFor.map((use) => (
               <li key={use}>{use}</li>
             ))}
           </ul>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {task.needsVision ? <Badge variant="outline">Reads images</Badge> : null}
-          <Badge variant="outline" className="capitalize">{task.provider}</Badge>
-        </div>
       </div>
 
-      <div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
+      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] border-t border-border/70 pt-4">
         <div className="text-sm">
           <p>
-            <span className="text-muted-foreground">Uses </span>
-            <b>{task.model}</b>
+            <span className="text-muted-foreground">Active model: </span>
+            <b className="font-semibold text-foreground">{task.model}</b>
             {task.overridden ? (
-              <Badge variant="secondary" className="ml-2">Chosen here</Badge>
+              <Badge variant="secondary" className="ml-2 text-[10px]">Custom selected</Badge>
             ) : (
-              <Badge variant="outline" className="ml-2">Deployment default</Badge>
+              <Badge variant="outline" className="ml-2 text-[10px]">Default</Badge>
             )}
           </p>
           {task.modelInfo ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{priceOf(task.modelInfo)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{priceOf(task.modelInfo)}</p>
           ) : null}
           {health ? (
             <TaskChain task={task} health={health} taskLabel={taskLabel} />
           ) : task.fallbacks.length ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              If it fails: {task.fallbacks.join(" → ")}
+              Fallbacks: {task.fallbacks.join(" → ")}
             </p>
           ) : null}
           {task.overridden ? (
@@ -217,20 +610,20 @@ function TaskCard({ task, models, health, taskLabel }) {
         {task.changeable ? (
           <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Select value={picked} onValueChange={setPicked}>
-              <SelectTrigger className="h-auto min-h-11 w-full min-w-0 sm:basis-full [&>span]:min-w-0 [&>span]:whitespace-normal [&>span]:break-all" aria-label={`Model for ${task.label}`}>
+              <SelectTrigger className="h-auto min-h-10 w-full min-w-0 sm:basis-full [&>span]:min-w-0 [&>span]:whitespace-normal [&>span]:break-all text-xs" aria-label={`Model for ${task.label}`}>
                 <SelectValue placeholder="Choose a different model…" />
               </SelectTrigger>
               <SelectContent className="max-h-96 w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[data-slot=select-item]]:whitespace-normal [&_[data-slot=select-item]]:break-words">
                 <SelectGroup>
-                  <SelectLabel>Recommended for this feature</SelectLabel>
+                  <SelectLabel className="text-xs">Recommended for this feature</SelectLabel>
                   {task.recommended.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
+                    <SelectItem key={model.id} value={model.id} className="text-xs">
                       <span className="flex flex-col">
-                        <span>
+                        <span className="font-medium">
                           {model.id}
                           {model.id === task.model ? " (current)" : ""}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[11px] text-muted-foreground">
                           {model.note} · {priceOf(model)}
                         </span>
                       </span>
@@ -238,34 +631,39 @@ function TaskCard({ task, models, health, taskLabel }) {
                   ))}
                 </SelectGroup>
                 <SelectGroup>
-                  <SelectLabel>Every other {task.needsVision ? "image-reading " : ""}model</SelectLabel>
+                  <SelectLabel className="text-xs">Every other {task.needsVision ? "image-reading " : ""}model</SelectLabel>
                   {others.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
+                    <SelectItem key={model.id} value={model.id} className="text-xs">
                       {model.id}
-                      <span className="ml-2 text-xs text-muted-foreground">{priceOf(model)}</span>
+                      <span className="ml-2 text-[11px] text-muted-foreground">{priceOf(model)}</span>
                     </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <Button type="button" disabled={!picked || picked === task.model || choose.isPending} onClick={() => choose.mutate(picked)}>
-              {choose.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              Use this model
+            <Button
+              type="button"
+              size="sm"
+              disabled={!picked || picked === task.model || choose.isPending}
+              onClick={() => choose.mutate(picked)}
+              className="gap-1.5 text-xs font-medium"
+            >
+              {choose.isPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              Use Selected Model
             </Button>
             {task.overridden ? (
-              <Button type="button" variant="outline" disabled={reset.isPending} onClick={() => reset.mutate()}>
+              <Button type="button" variant="outline" size="sm" disabled={reset.isPending} onClick={() => reset.mutate()} className="text-xs">
                 Reset
               </Button>
             ) : null}
             {task.blocked.length ? (
               <p className="w-full text-xs text-muted-foreground">
-                Not offered: {task.blocked.map((prefix) => `${prefix}…`).join(", ")} — they fail this feature&apos;s
-                multi-step tool calls.
+                Incompatible: {task.blocked.map((prefix) => `${prefix}…`).join(", ")} (unsupported tool calling format).
               </p>
             ) : null}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">Runs on {task.provider}; its model is set in the deployment.</p>
+          <p className="text-xs text-muted-foreground">Runs on {task.provider}; managed via deployment.</p>
         )}
       </div>
     </article>
@@ -273,11 +671,11 @@ function TaskCard({ task, models, health, taskLabel }) {
 }
 
 const STATE_META = {
-  ok: { label: "Working", icon: CheckCircle2, tone: "border-emerald-300 bg-emerald-50 text-emerald-800" },
-  cooling_down: { label: "Limit reached", icon: Clock, tone: "border-amber-300 bg-amber-50 text-amber-800" },
-  failing: { label: "Failing", icon: XCircle, tone: "border-destructive/40 bg-destructive/5 text-destructive" },
+  ok: { label: "Working", icon: CheckCircle2, tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  cooling_down: { label: "Limit reached", icon: Clock, tone: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  failing: { label: "Failing", icon: XCircle, tone: "border-destructive/40 bg-destructive/10 text-destructive" },
   no_key: { label: "No API key", icon: KeyRound, tone: "border-border bg-muted text-muted-foreground" },
-  unused: { label: "Not used yet", icon: Circle, tone: "border-border bg-background text-muted-foreground" },
+  unused: { label: "Not used yet", icon: Circle, tone: "border-border bg-muted/30 text-muted-foreground" },
 }
 const STATE_ORDER = ["failing", "cooling_down", "no_key", "ok", "unused"]
 
@@ -344,9 +742,9 @@ function ModelStatusBadge({ health }) {
 
 function MiniStat({ label, value, tone }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/70 px-2 py-1.5">
-      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={`mt-0.5 break-words font-semibold ${tone === "bad" ? "text-destructive" : ""}`}>{value}</dd>
+    <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 px-2.5 py-1.5">
+      <dt className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">{label}</dt>
+      <dd className={`mt-0.5 break-words font-semibold tabular-nums text-xs ${tone === "bad" ? "text-destructive" : ""}`}>{value}</dd>
     </div>
   )
 }
@@ -355,7 +753,7 @@ function ModelHealthDetails({ model, health, taskLabel }) {
   const error = health?.lastError
   const kinds = Object.entries(health?.failuresByKind ?? {}).sort((a, b) => b[1] - a[1])
   return (
-    <div className="grid gap-3 border-t border-border/70 px-3 pb-3 pt-3 text-xs">
+    <div className="grid gap-3 border-t border-border/70 px-4 pb-4 pt-3 text-xs bg-muted/10">
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <MiniStat label="Provider" value={providerOf(model)} />
         <MiniStat label="Answers" value={health?.successes ?? 0} />
@@ -368,24 +766,21 @@ function ModelHealthDetails({ model, health, taskLabel }) {
       </dl>
 
       {health?.state === "cooling_down" ? (
-        <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-amber-900">
+        <p className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
           <Clock className="mt-0.5 size-3.5 shrink-0" />
           Every feature skips this model for another {duration(health.availableInSeconds)}; requests go to the next
           model in each chain meanwhile.
-          {!health.lastError
-            ? ` It was not called itself: another ${providerOf(model)} model hit an account-wide wall (out of credit, or the shared free-model cap), which applies to this one too.`
-            : ""}
         </p>
       ) : null}
       {health?.state === "no_key" ? (
-        <p className="flex items-start gap-2 rounded-lg border border-border bg-muted p-2.5 text-muted-foreground">
+        <p className="flex items-start gap-2 rounded-xl border border-border bg-muted p-3 text-muted-foreground">
           <KeyRound className="mt-0.5 size-3.5 shrink-0" />
           The deployment has no {providerOf(model)} API key, so every feature skips this model.
         </p>
       ) : null}
 
       {error ? (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
           <p className="font-semibold text-destructive">
             Last error: {error.label}
             {error.status ? ` (HTTP ${error.status})` : ""}
@@ -394,12 +789,12 @@ function ModelHealthDetails({ model, health, taskLabel }) {
             </span>
           </p>
           <p className="mt-1 text-foreground">{error.advice}</p>
-          <p className="mt-1.5 break-words rounded bg-background/70 p-2 font-mono text-[11px] text-muted-foreground">
+          <p className="mt-1.5 break-words rounded bg-background/80 p-2 font-mono text-[11px] text-muted-foreground border border-border">
             {error.message}
           </p>
         </div>
       ) : (
-        <p className="text-muted-foreground">No errors since the AI service started.</p>
+        <p className="text-muted-foreground">No errors reported for this model.</p>
       )}
 
       {kinds.length ? (
@@ -407,7 +802,7 @@ function ModelHealthDetails({ model, health, taskLabel }) {
           <p className="mb-1 font-semibold text-muted-foreground">Failures by kind</p>
           <div className="flex flex-wrap gap-1.5">
             {kinds.map(([kind, count]) => (
-              <Badge key={kind} variant="outline">
+              <Badge key={kind} variant="outline" className="text-[10px]">
                 {KIND_LABELS[kind] ?? kind} × {count}
               </Badge>
             ))}
@@ -417,17 +812,17 @@ function ModelHealthDetails({ model, health, taskLabel }) {
 
       {health?.recent?.length ? (
         <div>
-          <p className="mb-1 font-semibold text-muted-foreground">Recent calls (newest first)</p>
-          <ol className="grid gap-0.5">
+          <p className="mb-1.5 font-semibold text-muted-foreground">Recent calls (newest first)</p>
+          <ol className="grid gap-1">
             {health.recent.map((event, index) => (
-              <li key={`${event.at}-${index}`} className="flex flex-wrap items-center gap-x-2">
+              <li key={`${event.at}-${index}`} className="flex flex-wrap items-center gap-x-2 text-xs">
                 {event.ok ? (
-                  <CheckCircle2 className="size-3 text-emerald-600" aria-label="Answered" />
+                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" aria-label="Answered" />
                 ) : (
-                  <XCircle className="size-3 text-destructive" aria-label="Failed" />
+                  <XCircle className="size-3 text-destructive shrink-0" aria-label="Failed" />
                 )}
                 <span className="tabular-nums text-muted-foreground">{new Date(event.at).toLocaleTimeString()}</span>
-                <span>{event.ok ? "Answered" : event.label}</span>
+                <span className="font-medium text-foreground">{event.ok ? "Answered" : event.label}</span>
                 <span className="text-muted-foreground">· {taskLabel(event.task)}</span>
                 {event.ms != null ? (
                   <span className="tabular-nums text-muted-foreground">· {(event.ms / 1000).toFixed(1)}s</span>
@@ -444,19 +839,19 @@ function ModelHealthDetails({ model, health, taskLabel }) {
 function ModelHealthRow({ model, label, health, note, taskLabel }) {
   const [open, setOpen] = useState(false)
   return (
-    <li className="rounded-lg border border-border bg-background">
+    <li className="rounded-xl border border-border/80 bg-card overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-left text-xs hover:bg-accent/50"
+        className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 p-3 text-left text-xs hover:bg-muted/30 transition-colors"
       >
         <ModelStatusBadge health={health} />
-        <span className="min-w-0 break-all font-medium text-foreground">{label ?? model}</span>
+        <span className="min-w-0 break-all font-semibold text-foreground">{label ?? model}</span>
         {note ? <Badge variant="secondary" className="max-w-full whitespace-normal break-words text-left text-[10px]">{note}</Badge> : null}
-        <span className="ml-auto text-muted-foreground">{statusDetail(model, health)}</span>
+        <span className="ml-auto text-muted-foreground text-[11px]">{statusDetail(model, health)}</span>
         <ChevronDown
-          className={`size-3 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden="true"
         />
       </button>
@@ -475,28 +870,28 @@ function HealthOverview({ health, since, tasks, taskLabel }) {
     tasks.filter((task) => task.model === model || task.fallbacks.includes(model)).map((task) => task.label)
 
   return (
-    <section className="rounded-xl border border-border bg-background p-4">
+    <section className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">Model status</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            What every model has been doing since the AI service started ({ago(since)}), refreshed every 15
-            seconds. Open a model for its last error in the provider&apos;s own words, what to do about it, and its
-            recent calls.
+          <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
+            Model Health & Status Monitor
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm max-w-2xl">
+            Real-time tracking since service launch ({ago(since)}), refreshed every 15 seconds. Expand any model for error details and recent calls.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {counts.map(([state, count]) =>
             count ? (
-              <span key={state} className="inline-flex items-center gap-1">
+              <span key={state} className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-0.5">
                 <ModelStatusBadge health={{ state }} />
-                <span className="text-xs font-semibold tabular-nums">{count}</span>
+                <span className="text-xs font-semibold tabular-nums text-foreground">{count}</span>
               </span>
             ) : null
           )}
         </div>
       </div>
-      <ul className="mt-3 grid gap-1.5">
+      <ul className="mt-4 grid gap-2">
         {sorted.map(([model, h]) => (
           <ModelHealthRow key={model} model={model} health={h} note={usedBy(model).join(", ")} taskLabel={taskLabel} />
         ))}
@@ -509,26 +904,26 @@ function TaskChain({ task, health, taskLabel }) {
   const chain = [task.model, ...task.fallbacks]
   const answering = chain.find((model) => !["cooling_down", "no_key"].includes(health?.[model]?.state))
   return (
-    <div className="mt-2">
-      <p className="mb-1 text-xs font-semibold text-muted-foreground">
-        Model order — each is tried when the one above it fails
+    <div className="mt-3">
+      <p className="mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        Fallback Chain (tried in order)
       </p>
-      <ol className="grid gap-1">
+      <ol className="grid gap-1.5">
         {chain.map((model, index) => (
           <ModelHealthRow
             key={model}
             model={model}
             label={`${index + 1}. ${model}`}
             health={health?.[model]}
-            note={model === answering ? "Answering now" : index === 0 ? "Main" : null}
+            note={model === answering ? "Active" : index === 0 ? "Primary" : null}
             taskLabel={taskLabel}
           />
         ))}
       </ol>
       {!answering ? (
-        <p className="mt-1.5 flex items-start gap-1.5 text-xs text-destructive">
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-          Every model for this feature is set aside right now, so it fails until one comes back.
+          Every configured model for this feature is currently unavailable.
         </p>
       ) : null}
     </div>

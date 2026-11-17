@@ -2,10 +2,18 @@ import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
-import { ChevronRight } from "@/components/icons"
+import { ChevronRight, Search, X } from "@/components/icons"
 import MemberAttemptReviewSheet from "@/components/institution/member-attempt-review-sheet.jsx"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { getDepartmentAssessmentResults } from "@/services/institutionService.js"
@@ -27,14 +35,14 @@ function StatTile({ label, value, hint }) {
 }
 
 function memberStatus(member) {
-  if (member.passed) return { label: "Passed", className: "bg-emerald-600 text-white" }
+  if (member.passed) return { key: "passed", label: "Passed", className: "bg-emerald-600 text-white" }
   if (member.attempts.some((a) => a.status === "SUBMITTED")) {
-    return { label: "Not passed", className: "bg-rose-600 text-white" }
+    return { key: "not_passed", label: "Not passed", className: "bg-rose-600 text-white" }
   }
   if (member.attempts.some((a) => a.status === "IN_PROGRESS")) {
-    return { label: "In progress", className: "bg-amber-500 text-white" }
+    return { key: "in_progress", label: "In progress", className: "bg-amber-500 text-white" }
   }
-  return { label: "Not taken", className: "bg-muted text-muted-foreground" }
+  return { key: "not_taken", label: "Not taken", className: "bg-muted text-muted-foreground" }
 }
 
 /**
@@ -97,9 +105,9 @@ function AttemptChip({ attempt, onOpen }) {
         "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition",
         submitted
           ? attempt.passed
-            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-            : "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100"
-          : "cursor-default border-dashed text-muted-foreground"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+            : "border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/50"
+          : "cursor-default border-dashed text-muted-foreground dark:border-muted-foreground/30"
       )}
     >
       #{attempt.attemptNumber} {submitted ? percent(attempt.percentage) : "…"}
@@ -110,6 +118,8 @@ function AttemptChip({ attempt, onOpen }) {
 export default function InstitutionAssessmentResultsPage() {
   const { departmentId, examId } = useParams()
   const [reviewing, setReviewing] = useState(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const resultsQuery = useQuery({
     queryKey: ["department-assessment-results", departmentId, examId],
@@ -140,6 +150,21 @@ export default function InstitutionAssessmentResultsPage() {
         : null,
     }
   }, [hasDuplicateMembers, members, results])
+
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return members.filter((member) => {
+      if (statusFilter !== "all") {
+        const status = memberStatus(member)
+        if (status.key !== statusFilter) return false
+      }
+      if (!q) return true
+      const nameMatch = member.name?.toLowerCase().includes(q)
+      const emailMatch = member.email?.toLowerCase().includes(q)
+      const sectionMatch = member.sectionName?.toLowerCase().includes(q)
+      return Boolean(nameMatch || emailMatch || sectionMatch)
+    })
+  }, [members, searchQuery, statusFilter])
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6">
@@ -197,6 +222,69 @@ export default function InstitutionAssessmentResultsPage() {
         ) : null}
       </div>
 
+      {!resultsQuery.isLoading && members.length > 0 ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground">Students</h2>
+            <p className="text-xs text-muted-foreground">
+              {searchQuery || statusFilter !== "all"
+                ? `Showing ${filteredMembers.length} of ${members.length} enrolled student${members.length === 1 ? "" : "s"}`
+                : `${members.length} enrolled student${members.length === 1 ? "" : "s"}`}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[200px] flex-1 sm:w-64 sm:flex-initial">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search student, email, section..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-9 pr-8 text-sm"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="size-3.5" />
+                </button>
+              ) : null}
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[130px] text-xs">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="passed">Passed</SelectItem>
+                <SelectItem value="not_passed">Not passed</SelectItem>
+                <SelectItem value="in_progress">In progress</SelectItem>
+                <SelectItem value="not_taken">Not taken</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {(searchQuery || statusFilter !== "all") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("")
+                  setStatusFilter("all")
+                }}
+                className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {/* Desktop / Tablet view: Wrapped in overflow-x-auto with right-fade affordance */}
       <section className="relative overflow-hidden rounded-xl border bg-card">
         {/* Right fade gradient overlay for scroll affordance */}
@@ -211,11 +299,31 @@ export default function InstitutionAssessmentResultsPage() {
           </div>
         ) : members.length === 0 ? (
           <p className="p-6 text-center text-sm text-muted-foreground">This department has no students yet.</p>
+        ) : filteredMembers.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <p className="text-sm font-medium text-foreground">No students found</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {searchQuery
+                ? `No students matching "${searchQuery}"${statusFilter !== "all" ? ` with status "${statusFilter.replace("_", " ")}"` : ""}.`
+                : `No students with status "${statusFilter.replace("_", " ")}".`}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("")
+                setStatusFilter("all")
+              }}
+              className="mt-3 text-xs"
+            >
+              Clear filters
+            </Button>
+          </div>
         ) : (
           <>
             {/* Mobile Card-per-row layout (< sm) */}
             <div className="divide-y sm:hidden">
-              {members.map((member) => {
+              {filteredMembers.map((member) => {
                 const status = memberStatus(member)
                 const latestSubmitted = [...member.attempts].reverse().find((a) => a.status === "SUBMITTED")
                 return (
@@ -286,7 +394,7 @@ export default function InstitutionAssessmentResultsPage() {
                   <span>Status</span>
                 </div>
                 <ul className="divide-y">
-                  {members.map((member) => {
+                  {filteredMembers.map((member) => {
                     const status = memberStatus(member)
                     const latestSubmitted = [...member.attempts].reverse().find((a) => a.status === "SUBMITTED")
                     return (

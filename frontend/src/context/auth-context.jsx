@@ -7,6 +7,7 @@ import {
   useState,
 } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 import {
   getAccessToken,
@@ -176,6 +177,7 @@ export function AuthProvider({ children }) {
     queryClient.clear()
     setUser(null)
     setStatus("anonymous")
+    toast.success("Successfully logged out.")
   }, [queryClient])
 
   usePresenceHeartbeat(status === "authenticated")

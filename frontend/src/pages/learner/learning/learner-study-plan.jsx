@@ -259,6 +259,7 @@ function FormSelect({ label, value, onValueChange, options }) {
 }
 
 function FormInput({ label, value, onChange, type = "text", min, max, error, disabled = false }) {
+    const isPicker = type === "date" || type === "time"
     return (
         <div className="space-y-2">
             <Label className={`text-xs font-semibold ${disabled ? "text-slate-500 dark:text-slate-400" : "text-foreground"}`}>
@@ -273,13 +274,17 @@ function FormInput({ label, value, onChange, type = "text", min, max, error, dis
                 disabled={disabled}
                 aria-invalid={error ? true : undefined}
                 onChange={(event) => onChange(event.target.value)}
-                className={`h-10 rounded-lg text-sm ${
+                className={`h-10 rounded-lg text-sm [color-scheme:light] dark:[color-scheme:dark] ${
+                    isPicker
+                        ? "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:transition-opacity"
+                        : ""
+                } ${
                     error
                         ? "border-destructive focus-visible:ring-destructive/40"
                         : disabled
                             ? "border-slate-200 bg-slate-200/80 text-slate-500 opacity-100 dark:border-slate-700 dark:bg-slate-700/60 dark:text-slate-400"
                             : ""
-                } ${disabled ? "" : "[color-scheme:light]"}`}
+                }`}
             />
 
             {error ? (

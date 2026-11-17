@@ -4,6 +4,11 @@ import { ExportButton, sectionsFromPayload } from "@/components/commons/export-b
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
+  Award,
+  Building2,
+  CalendarDays,
+  ChevronsUpDownIcon,
+  Loader2Icon,
   Trash2,
   Users,
 } from "@/components/icons"
@@ -183,20 +188,23 @@ function getLearnerId(learner, index) {
 }
 
 function getLearnerName(learner) {
+  if (!learner) return "this learner"
   const fullName = [
     learner.firstName,
     learner.middleName,
     learner.lastName,
   ]
-      .filter(Boolean)
-      .join(" ")
-      .trim()
+    .filter(Boolean)
+    .join(" ")
+    .trim()
 
   return (
-      learner.fullName ??
-      learner.name ??
-      fullName ??
-      "Unnamed learner"
+    (learner.fullName && learner.fullName.trim()) ||
+    (learner.name && learner.name.trim()) ||
+    fullName ||
+    learner.email ||
+    learner.username ||
+    "this learner"
   )
 }
 
@@ -270,7 +278,7 @@ export default function Learners({
       useState(ALL_FILTER_VALUE)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const { sort, toggle, sortRows } = useTableSort()
+  const { sort, setSort, toggle, sortRows } = useTableSort()
   const [pendingDelete, setPendingDelete] = useState(null)
   const queryClient = useQueryClient()
 
@@ -545,10 +553,205 @@ export default function Learners({
                   <SelectItem value="suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Mobile Sort Dropdown */}
+              <Select
+                value={
+                  sort
+                    ? `${sort.key}-${sort.direction}`
+                    : "default"
+                }
+                onValueChange={(val) => {
+                  if (val === "default") {
+                    setSort(null)
+                  } else {
+                    const [key, direction] = val.split("-")
+                    setSort({ key, direction })
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 w-full sm:w-44 md:hidden" aria-label="Sort learners">
+                  <ChevronsUpDownIcon className="mr-1.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default order</SelectItem>
+                  <SelectItem value="learner-asc">Name (A–Z)</SelectItem>
+                  <SelectItem value="learner-desc">Name (Z–A)</SelectItem>
+                  <SelectItem value="institution-asc">Institution (A–Z)</SelectItem>
+                  <SelectItem value="progress-desc">Progress (High to Low)</SelectItem>
+                  <SelectItem value="progress-asc">Progress (Low to High)</SelectItem>
+                  <SelectItem value="certifications-desc">Certifications (High to Low)</SelectItem>
+                  <SelectItem value="joined-desc">Date joined (Newest)</SelectItem>
+                  <SelectItem value="joined-asc">Date joined (Oldest)</SelectItem>
+                  <SelectItem value="status-asc">Status</SelectItem>
+                </SelectContent>
+              </Select>
             </TableToolbar>
 
-            <div className="min-h-0 flex-1 overflow-auto">
-              <Table>
+            {/* Mobile Cards View: Compact & Aesthetic */}
+            <div className="divide-y divide-border/60 md:hidden">
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <div key={`mobile-loading-${index}`} className="space-y-2.5 p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-muted" />
+                        <div className="space-y-1.5">
+                          <div className="h-3.5 w-28 animate-pulse rounded bg-muted" />
+                          <div className="h-3 w-36 animate-pulse rounded bg-muted" />
+                        </div>
+                      </div>
+                      <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                      <div className="h-6 w-16 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))
+              ) : paginatedLearners.length > 0 ? (
+                paginatedLearners.map((learner, index) => {
+                  const learnerName = getLearnerName(learner)
+                  const institutionName =
+                    learner.institutionName ??
+                    learner.institution?.name ??
+                    learner.institution?.institutionName
+
+                  const learnerType = String(
+                    learner.learnerType ??
+                    learner.type ??
+                    (institutionName ? "institution" : "individual")
+                  ).toLowerCase()
+
+                  const certificationCount = Number(
+                    learner.certificationCount ??
+                    learner.totalCertifications ??
+                    learner.certificationsCount ??
+                    0
+                  )
+
+                  const progressPercentage = Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Number(
+                        learner.progressPercentage ??
+                        learner.progress ??
+                        learner.overallProgress ??
+                        0
+                      )
+                    )
+                  )
+
+                  return (
+                    <article
+                      key={getLearnerId(learner, index)}
+                      className="space-y-2 p-3 transition-colors hover:bg-muted/20 sm:p-3.5"
+                    >
+                      {/* Row 1: Initials Avatar + Name & Email + Status Badge */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-xs font-bold text-primary shadow-2xs">
+                            {getInitials(learnerName)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-foreground">
+                              {learnerName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {learner.email ?? "No email provided"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          <LearnerStatusBadge status={learner.status} />
+                        </div>
+                      </div>
+
+                      {/* Row 2: Institution / Affiliation + Date Joined */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
+                        <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          {institutionName ? (
+                            <>
+                              <Building2 className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              <span className="truncate max-w-[170px] font-medium text-foreground" title={institutionName}>
+                                {institutionName}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="italic text-muted-foreground">Independent learner</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <CalendarDays className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                          <span>
+                            {formatDate(
+                              learner.joinedAt ??
+                              learner.createdAt ??
+                              learner.dateCreated
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Certifications & Progress + Delete Button */}
+                      <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 text-xs font-medium text-foreground" title={`${certificationCount} certifications`}>
+                            <Award className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                            <span className="font-bold tabular-nums">{certificationCount}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {certificationCount === 1 ? "cert" : "certs"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5" title={`Overall progress: ${progressPercentage}%`}>
+                            <Progress value={progressPercentage} className="h-1.5 w-14 sm:w-20" />
+                            <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                              {progressPercentage}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Delete ${learnerName}`}
+                          onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}
+                        >
+                          <Trash2 className="mr-1 size-3.5" />
+                          <span>Delete</span>
+                        </Button>
+                      </div>
+                    </article>
+                  )
+                })
+              ) : (
+                <div className="px-4 py-12 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-foreground">
+                    {isError ? "Learners could not be loaded" : "No learners found"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {isError ? "Try loading the directory again." : "Try changing the search or clearing the filters."}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+              <Table mobileLayout="scroll">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <SortableHead
@@ -720,8 +923,8 @@ export default function Learners({
                               </TableCell>
 
                               <TableCell className="text-right">
-                                <Button type="button" variant="outline" className="min-h-11 gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Delete ${learnerName}`} onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}>
-                                  <Trash2 className="size-4" /> Delete
+                                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-destructive/30 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Delete ${learnerName}`} onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}>
+                                  <Trash2 className="size-3.5" /> Delete
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -766,34 +969,71 @@ export default function Learners({
             open={pendingDelete != null}
             onOpenChange={(open) => !open && setPendingDelete(null)}
         >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Delete {pendingDelete ? getLearnerName(pendingDelete) : "this learner"}?
-              </AlertDialogTitle>
-
-              <AlertDialogDescription>
-                This erases the account and everything belonging to it:
-                enrolments, assessment attempts and results, achievements and
-                XP, mastery estimates, community posts, uploaded files, and the
-                sign-in itself. It cannot be undone.
-              </AlertDialogDescription>
+          <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xl text-card-foreground">
+            <AlertDialogHeader className="gap-1.5">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive border border-destructive/25">
+                  <Trash2 className="size-5" />
+                </div>
+                <div className="min-w-0">
+                  <AlertDialogTitle className="font-heading text-lg font-bold text-foreground sm:text-xl">
+                    Delete {pendingDelete ? getLearnerName(pendingDelete) : "Learner Account"}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="mt-0.5 text-xs text-muted-foreground truncate">
+                    {pendingDelete?.email ?? "Permanent account deletion"}
+                  </AlertDialogDescription>
+                </div>
+              </div>
             </AlertDialogHeader>
 
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMutation.isPending}>
+            {pendingDelete && (
+              <div className="space-y-3 py-2 text-sm">
+                <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider">Account</span>
+                    <Badge variant="outline" className="text-[11px] font-semibold">
+                      {pendingDelete.customerType === "INSTITUTION" || pendingDelete.institutionName ? "Institution" : "Individual"}
+                    </Badge>
+                  </div>
+                  <p className="font-semibold text-foreground text-sm">{getLearnerName(pendingDelete)}</p>
+                  <p className="text-muted-foreground">{pendingDelete.email}</p>
+                  {pendingDelete.institutionName ? (
+                    <p className="text-muted-foreground pt-1 border-t border-border/50">
+                      Affiliation: <span className="text-foreground">{pendingDelete.institutionName}</span>
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive dark:text-red-300">
+                  <p className="font-bold text-destructive dark:text-red-200">Irreversible Action</p>
+                  <p className="mt-1 leading-relaxed text-foreground/90">
+                    This erases the account and everything belonging to it:
+                    enrollments, assessment attempts and results, achievements and XP, mastery estimates, community posts, uploaded files, and the sign-in itself.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row pt-2">
+              <AlertDialogCancel disabled={deleteMutation.isPending} className="w-full text-xs sm:w-auto h-9 px-4 font-medium">
                 Cancel
               </AlertDialogCancel>
 
               <AlertDialogAction
-                  onClick={(event) => {
-                    event.preventDefault()
-                    deleteMutation.mutate(pendingDelete)
-                  }}
-                  disabled={deleteMutation.isPending}
-                  className="bg-destructive text-white hover:bg-destructive/90"
+                variant="destructive"
+                onClick={(event) => {
+                  event.preventDefault()
+                  deleteMutation.mutate(pendingDelete)
+                }}
+                disabled={deleteMutation.isPending}
+                className="w-full gap-1.5 bg-destructive text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 sm:w-auto h-9 px-4"
               >
-                {deleteMutation.isPending ? "Deleting..." : "Delete learner"}
+                {deleteMutation.isPending ? (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="size-3.5" />
+                )}
+                <span>{deleteMutation.isPending ? "Deleting..." : "Delete learner"}</span>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

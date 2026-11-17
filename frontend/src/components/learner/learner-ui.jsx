@@ -23,6 +23,7 @@ import {
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BrandLogo } from "@/components/brand-logo"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -164,6 +165,7 @@ export function LearnerHeader({ data, onMenuClick, searchValue, onSearchChange }
     localStorage.removeItem("user_id")
     localStorage.removeItem("name")
     localStorage.removeItem("email")
+    toast.success("Successfully logged out.")
     navigate("/", { replace: true })
   }
 
