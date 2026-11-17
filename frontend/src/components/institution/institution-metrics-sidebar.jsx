@@ -32,6 +32,64 @@ const OWNER_METRIC_ITEMS = [
   { id: "ent-invitations", label: "Invitations", icon: Mail, category: "Administration" },
 ]
 
+export const handleTileClick = (tileId) => {
+  const element = document.getElementById(tileId)
+  if (element) {
+    const topOffset = 130
+    const elementPosition = element.getBoundingClientRect().top
+    const offsetPosition = elementPosition + window.pageYOffset - topOffset
+
+    window.scrollTo({
+      top: Math.max(0, offsetPosition),
+      behavior: "smooth",
+    })
+
+    element.classList.add("ring-2", "ring-primary", "ring-offset-2")
+    setTimeout(() => {
+      element.classList.remove("ring-2", "ring-primary", "ring-offset-2")
+    }, 1500)
+  }
+}
+
+export function MobileInstitutionMetricsNav() {
+  return (
+    <div className="sticky top-16 z-30 lg:hidden -mt-2 mb-4">
+      <div className="rounded-2xl border border-border/70 bg-card/95 p-1.5 shadow-md backdrop-blur-md">
+        <div className="relative">
+          <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-none pr-8">
+            {OWNER_METRIC_ITEMS.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleTileClick(item.id)}
+                  className="group flex items-center gap-1.5 rounded-xl border border-border/40 bg-muted/40 px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-border transition-all shrink-0 active:scale-95"
+                >
+                  <Icon
+                    className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors"
+                    aria-hidden="true"
+                  />
+                  <span>{item.label}</span>
+                  <ChevronRight
+                    className="size-3 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all"
+                    aria-hidden="true"
+                  />
+                </button>
+              )
+            })}
+          </div>
+
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card via-card/70 to-transparent"
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function InstitutionMetricsSidebar({
   rearranging = false,
   onStartRearranging,
@@ -44,19 +102,8 @@ export function InstitutionMetricsSidebar({
     return item.label.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const handleTileClick = (tileId) => {
-    const element = document.getElementById(tileId)
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" })
-      element.classList.add("ring-2", "ring-primary", "ring-offset-2")
-      setTimeout(() => {
-        element.classList.remove("ring-2", "ring-primary", "ring-offset-2")
-      }, 1500)
-    }
-  }
-
   return (
-    <aside aria-label="Institution metrics sidebar" className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+    <aside aria-label="Institution metrics sidebar" className="hidden lg:block space-y-4 lg:sticky lg:top-20 lg:self-start">
       {/* Header */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-3.5 shadow-xs backdrop-blur-xs space-y-3">
         <div className="flex items-center gap-2 pb-2 border-b border-border/40">

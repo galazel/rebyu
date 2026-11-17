@@ -39,16 +39,32 @@ export function TableToolbar({
   children,
 }) {
   return (
-    <div className="rb-table-toolbar flex min-w-0 flex-col gap-3 border-b border-border/60 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 flex-wrap items-center gap-3">
+    <div className="rb-table-toolbar flex min-w-0 flex-col gap-3 border-b border-border/60 px-4 py-3 sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between">
+      {onSearchChange ? (
+        <label className="relative order-1 w-full lg:order-2 lg:max-w-xs">
+          <span className="sr-only">{searchPlaceholder}</span>
+          <Input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={searchPlaceholder}
+            className="h-9 pr-9 text-sm"
+          />
+          <Search
+            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </label>
+      ) : null}
+
+      <div className="order-2 flex min-w-0 flex-wrap items-center gap-2.5 sm:gap-3 lg:order-1">
         {onPageSizeChange ? (
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            Show
+            <span className="hidden sm:inline">Show</span>
             <Select
               value={String(pageSize)}
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger className="h-9 w-[74px]" aria-label="Rows per page">
+              <SelectTrigger className="h-9 w-[70px] sm:w-[74px]" aria-label="Rows per page">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -59,28 +75,12 @@ export function TableToolbar({
                 ))}
               </SelectContent>
             </Select>
-            entries
+            <span className="hidden sm:inline">entries</span>
           </label>
         ) : null}
 
         {children}
       </div>
-
-      {onSearchChange ? (
-        <label className="relative w-full lg:max-w-xs">
-          <span className="sr-only">{searchPlaceholder}</span>
-          <Input
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={searchPlaceholder}
-            className="h-9 pr-9"
-          />
-          <Search
-            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-        </label>
-      ) : null}
     </div>
   )
 }
@@ -159,7 +159,7 @@ export function useTableSort(initialKey = null, initialDirection = "asc") {
     })
   }
 
-  return { sort, toggle, sortRows }
+  return { sort, toggle, sortRows, setSort }
 }
 
 function pageWindow(page, totalPages) {

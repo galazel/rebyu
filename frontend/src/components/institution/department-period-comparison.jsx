@@ -553,22 +553,26 @@ export function PeriodComparisonTile({
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("previous_period")}
-                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${comparisonType === "previous_period"
+                className={`rounded-md px-2.5 sm:px-3 py-1 sm:py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold transition-colors ${
+                  comparisonType === "previous_period"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
-                  }`}
+                }`}
               >
-                Sequential ({comparisonRange?.previous?.baselineLabel ?? "Previous period"})
+                <span className="sm:hidden">Sequential</span>
+                <span className="hidden sm:inline">Sequential ({comparisonRange?.previous?.baselineLabel ?? "Previous period"})</span>
               </button>
               <button
                 type="button"
                 onClick={() => onComparisonTypeChange?.("prior_year")}
-                className={`rounded-md px-3 py-1.5 min-h-[38px] sm:min-h-0 text-xs font-semibold transition-colors ${comparisonType === "prior_year"
+                className={`rounded-md px-2.5 sm:px-3 py-1 sm:py-1.5 min-h-[36px] sm:min-h-0 text-xs font-semibold transition-colors ${
+                  comparisonType === "prior_year"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
-                  }`}
+                }`}
               >
-                Year-over-Year (YoY)
+                <span className="sm:hidden">YoY</span>
+                <span className="hidden sm:inline">Year-over-Year (YoY)</span>
               </button>
             </div>
 

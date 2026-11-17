@@ -8,16 +8,16 @@ export function DirectoryHeader({ title, description, stats, children }) {
           <p className="mb-1 text-xs font-bold tracking-widest text-primary uppercase">
             Administration
           </p>
-          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             {title}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <p className="mt-1.5 text-xs sm:text-sm leading-5 sm:leading-6 text-muted-foreground">
             {description}
           </p>
         </div>
-        <div className="flex shrink-0 items-start gap-2">{children}</div>
+        <div className="flex w-full shrink-0 items-start gap-2 sm:w-auto">{children}</div>
       </div>
-      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         {stats.map(({ label, value, hint, onSelect, active }) => (
           <div
             key={label}
@@ -28,28 +28,28 @@ export function DirectoryHeader({ title, description, stats, children }) {
                 type="button"
                 onClick={onSelect}
                 aria-pressed={Boolean(active)}
-                className="block min-h-28 w-full rounded-xl p-4 text-left hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
+                className="block min-h-24 sm:min-h-28 w-full rounded-xl p-3.5 sm:p-4 text-left hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring"
               >
-                <span className="block text-xs font-semibold text-muted-foreground">
+                <span className="block text-xs font-semibold text-muted-foreground truncate">
                   {label}
                 </span>
-                <span className="mt-2 block text-2xl font-bold text-foreground tabular-nums">
+                <span className="mt-1.5 sm:mt-2 block text-xl sm:text-2xl font-bold text-foreground tabular-nums">
                   {value}
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">
+                <span className="mt-1 block text-xs text-muted-foreground truncate">
                   {hint ?? "View records"}
                 </span>
               </button>
             ) : (
-              <div className="p-4">
-                <dt className="text-xs font-semibold text-muted-foreground">
+              <div className="p-3.5 sm:p-4">
+                <dt className="text-xs font-semibold text-muted-foreground truncate">
                   {label}
                 </dt>
-                <dd className="mt-2 text-2xl font-bold text-foreground tabular-nums">
+                <dd className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-foreground tabular-nums">
                   {value}
                 </dd>
                 {hint ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+                  <p className="mt-1 text-xs text-muted-foreground truncate">{hint}</p>
                 ) : null}
               </div>
             )}
@@ -69,10 +69,10 @@ export function DirectoryResults({
   onRetry,
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
       <div>
-        <h2 className="text-base font-bold text-foreground">{title}</h2>
-        <p className="mt-1 text-xs text-muted-foreground" role="status">
+        <h2 className="text-sm font-bold text-foreground sm:text-base">{title}</h2>
+        <p className="mt-0.5 text-xs text-muted-foreground" role="status">
           {error
             ? "Records could not be loaded."
             : `${count.toLocaleString()} matching ${count === 1 ? "record" : "records"}`}
@@ -82,7 +82,7 @@ export function DirectoryResults({
         <button
           type="button"
           onClick={onRetry}
-          className="min-h-11 rounded-lg border px-3 text-sm font-semibold text-destructive"
+          className="min-h-9 rounded-lg border px-3 text-xs font-semibold text-destructive sm:min-h-11 sm:text-sm"
         >
           Try again
         </button>
@@ -90,7 +90,7 @@ export function DirectoryResults({
         <button
           type="button"
           onClick={onReset}
-          className="min-h-11 rounded-lg border px-3 text-sm font-semibold text-primary hover:bg-accent"
+          className="min-h-9 rounded-lg border px-3 text-xs font-semibold text-primary hover:bg-accent sm:min-h-11 sm:text-sm"
         >
           Clear filters
         </button>

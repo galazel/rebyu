@@ -92,51 +92,84 @@ export default function InvoiceDocument({ invoice }) {
         </dl>
       </section>
 
-      <div className="min-w-0 max-w-full overflow-x-auto print:overflow-visible" role="region" aria-label="Invoice items — scroll horizontally to see all columns" tabIndex={0}>
-      <table className="w-full border-collapse text-[13px]">
-        <caption className="pb-2 pt-4 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
-          {slots} learner slot{slots === 1 ? "" : "s"} across {items.length}{" "}
-          certification{items.length === 1 ? "" : "s"}
-        </caption>
-        <thead>
-          <tr className="border-b border-[color:var(--rb-invoice-rule)] text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
-            <th className="py-2 pr-3 text-left font-bold">Certification</th>
-            <th className="py-2 px-3 text-left font-bold">Access window</th>
-            <th className="py-2 px-3 text-right font-bold">Slots</th>
-            <th className="py-2 px-3 text-right font-bold">Per slot</th>
-            <th className="py-2 pl-3 text-right font-bold">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr
-              key={item.institutionInvoiceItemId}
-              className="border-b border-[color:var(--rb-invoice-rule)]"
-            >
-              <td className="py-2.5 pr-3 font-semibold text-[color:var(--rb-invoice-ink)]">
+      {/* Desktop items table */}
+      <div className="hidden sm:block min-w-0 max-w-full overflow-x-auto print:block" role="region" aria-label="Invoice items — scroll horizontally to see all columns" tabIndex={0}>
+        <table className="w-full border-collapse text-[13px]">
+          <caption className="pb-2 pt-4 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
+            {slots} learner slot{slots === 1 ? "" : "s"} across {items.length}{" "}
+            certification{items.length === 1 ? "" : "s"}
+          </caption>
+          <thead>
+            <tr className="border-b border-[color:var(--rb-invoice-rule)] text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
+              <th className="py-2 pr-3 text-left font-bold">Certification</th>
+              <th className="py-2 px-3 text-left font-bold">Access window</th>
+              <th className="py-2 px-3 text-right font-bold">Slots</th>
+              <th className="py-2 px-3 text-right font-bold">Per slot</th>
+              <th className="py-2 pl-3 text-right font-bold">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr
+                key={item.institutionInvoiceItemId}
+                className="border-b border-[color:var(--rb-invoice-rule)]"
+              >
+                <td className="py-2.5 pr-3 font-semibold text-[color:var(--rb-invoice-ink)]">
+                  {item.certificationTitle}
+                </td>
+                <td className="py-2.5 px-3 text-[color:var(--rb-invoice-muted)]">
+                  {item.accessStartDate && item.accessEndDate
+                    ? `${formatDate(item.accessStartDate)} – ${formatDate(item.accessEndDate)}`
+                    : "1 year from approval"}
+                </td>
+                <td className="py-2.5 px-3 text-right tabular-nums text-[color:var(--rb-invoice-ink)]">
+                  {item.learnerSlots}
+                </td>
+                <td className="py-2.5 px-3 text-right tabular-nums text-[color:var(--rb-invoice-muted)]">
+                  {money(item.unitPrice, invoice.currency)}
+                </td>
+                <td className="py-2.5 pl-3 text-right font-semibold tabular-nums text-[color:var(--rb-invoice-ink)]">
+                  {money(item.lineTotal, invoice.currency)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile compressed items card list */}
+      <div className="sm:hidden space-y-2 pt-3 print:hidden">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)] pb-1">
+          {slots} learner slot{slots === 1 ? "" : "s"} across {items.length} certification{items.length === 1 ? "" : "s"}
+        </p>
+        {items.map((item) => (
+          <div
+            key={item.institutionInvoiceItemId}
+            className="rounded-lg border border-[color:var(--rb-invoice-rule)] bg-[color:var(--rb-invoice-rule)]/10 p-3 space-y-2 text-xs"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-semibold text-[color:var(--rb-invoice-ink)] leading-snug">
                 {item.certificationTitle}
-              </td>
-              <td className="py-2.5 px-3 text-[color:var(--rb-invoice-muted)]">
+              </span>
+              <span className="font-mono font-bold text-[color:var(--rb-invoice-ink)] shrink-0">
+                {money(item.lineTotal, invoice.currency)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-[color:var(--rb-invoice-muted)] pt-0.5 border-t border-[color:var(--rb-invoice-rule)]/50">
+              <span>
                 {item.accessStartDate && item.accessEndDate
                   ? `${formatDate(item.accessStartDate)} – ${formatDate(item.accessEndDate)}`
                   : "1 year from approval"}
-              </td>
-              <td className="py-2.5 px-3 text-right tabular-nums text-[color:var(--rb-invoice-ink)]">
-                {item.learnerSlots}
-              </td>
-              <td className="py-2.5 px-3 text-right tabular-nums text-[color:var(--rb-invoice-muted)]">
-                {money(item.unitPrice, invoice.currency)}
-              </td>
-              <td className="py-2.5 pl-3 text-right font-semibold tabular-nums text-[color:var(--rb-invoice-ink)]">
-                {money(item.lineTotal, invoice.currency)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </span>
+              <span className="font-medium">
+                {item.learnerSlots} slot(s) × {money(item.unitPrice, invoice.currency)}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <dl className="ml-auto mt-4 grid w-full max-w-[17rem] grid-cols-2 gap-y-1.5 text-[13px]">
+      <dl className="ml-auto mt-4 grid w-full sm:max-w-[17rem] grid-cols-2 gap-y-1.5 text-[13px]">
         <dt className="text-[color:var(--rb-invoice-muted)]">Subtotal</dt>
         <dd className="text-right tabular-nums text-[color:var(--rb-invoice-ink)]">
           {money(invoice.subtotal, invoice.currency)}

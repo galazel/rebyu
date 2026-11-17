@@ -194,46 +194,99 @@ function InvoiceList() {
           description="An invoice is issued when a partnership request is approved."
         />
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Issued</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoices.map((invoice) => (
-                  <TableRow key={invoice.institutionInvoiceId}>
-                    <TableCell>
-                      <Link
-                        to={`/institution/invoices/${invoice.institutionInvoiceId}`}
-                        className="font-mono text-sm font-semibold text-primary underline-offset-2 hover:underline"
-                      >
-                        {invoice.invoiceNumber}
-                      </Link>
-                      {invoice.partnershipReference ? (
-                        <p className="text-xs text-muted-foreground">Request {invoice.partnershipReference}</p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="text-sm">{formatDate(invoice.issuedAt)}</TableCell>
-                    <TableCell className="text-sm">{formatDate(invoice.dueAt)}</TableCell>
-                    <TableCell>
-                      <InstitutionStatusBadge status={invoice.status} />
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
-                      {money(invoice.totalAmount, invoice.currency)}
-                    </TableCell>
+        <div>
+          {/* Mobile compressed invoice cards */}
+          <div className="sm:hidden space-y-3">
+            {invoices.map((invoice) => (
+              <div
+                key={invoice.institutionInvoiceId}
+                className="rounded-xl border border-border/70 bg-card p-3.5 shadow-xs space-y-2.5 transition-colors hover:border-border"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    to={`/institution/invoices/${invoice.institutionInvoiceId}`}
+                    className="font-mono text-sm font-bold text-primary underline-offset-2 hover:underline"
+                  >
+                    {invoice.invoiceNumber}
+                  </Link>
+                  <InstitutionStatusBadge status={invoice.status} />
+                </div>
+
+                {invoice.partnershipReference ? (
+                  <p className="text-xs text-muted-foreground">
+                    Request <span className="font-semibold text-foreground">#{invoice.partnershipReference}</span>
+                  </p>
+                ) : null}
+
+                <div className="grid grid-cols-2 gap-2 text-xs border-y border-border/50 py-2 text-muted-foreground">
+                  <div>
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Issued</span>
+                    <span className="font-medium text-foreground">{formatDate(invoice.issuedAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">Due date</span>
+                    <span className="font-medium text-foreground">{invoice.dueAt ? formatDate(invoice.dueAt) : "—"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="text-xs text-muted-foreground">Total amount</span>
+                  <span className="font-mono text-base font-bold text-foreground">
+                    {money(invoice.totalAmount, invoice.currency)}
+                  </span>
+                </div>
+
+                <Button asChild size="sm" variant="outline" className="w-full text-xs">
+                  <Link to={`/institution/invoices/${invoice.institutionInvoiceId}`}>
+                    View invoice details
+                  </Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <Card className="hidden sm:block">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Issued</TableHead>
+                    <TableHead>Due</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((invoice) => (
+                    <TableRow key={invoice.institutionInvoiceId}>
+                      <TableCell>
+                        <Link
+                          to={`/institution/invoices/${invoice.institutionInvoiceId}`}
+                          className="font-mono text-sm font-semibold text-primary underline-offset-2 hover:underline"
+                        >
+                          {invoice.invoiceNumber}
+                        </Link>
+                        {invoice.partnershipReference ? (
+                          <p className="text-xs text-muted-foreground">Request {invoice.partnershipReference}</p>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-sm">{formatDate(invoice.issuedAt)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(invoice.dueAt)}</TableCell>
+                      <TableCell>
+                        <InstitutionStatusBadge status={invoice.status} />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {money(invoice.totalAmount, invoice.currency)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

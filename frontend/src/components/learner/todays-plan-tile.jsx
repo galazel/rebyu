@@ -166,6 +166,13 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
                   }.`
                 : "Everything your study plans schedule for today, across all certifications."
             }
+            chip={
+              todaysEvents.length > 2 ? (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                  {todaysEvents.length} tasks · scroll for more
+                </span>
+              ) : null
+            }
           />
 
           {planCount > 0 ? (
@@ -200,7 +207,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
             </Button>
           </div>
         ) : todaysEvents.length > 0 ? (
-          <ul className="-mr-2 mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-2">
+          <ul className="-mr-2 mt-4 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-2 max-h-[260px] sm:max-h-[290px] touch-pan-y scrollbar-thin">
             {todaysEvents.map((event) => {
               const kind = eventKind(event)
               const meta = EVENT_META[kind] ?? EVENT_META.lesson
@@ -212,29 +219,29 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
               return (
                 <li
                   key={event.key}
-                  className={`flex items-start gap-3 rounded-rb-tile border border-border/60 p-3 ${done ? "opacity-60" : ""}`}
+                  className={`flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 hover:bg-muted/30 transition-colors ${done ? "opacity-60" : ""}`}
                 >
                   <span
-                    className={`grid size-9 shrink-0 place-items-center rounded-xl ${
+                    className={`grid size-8 shrink-0 place-items-center rounded-lg ${
                       done ? "bg-rb-feather text-primary-foreground" : meta.tone
                     }`}
                   >
-                    {done ? <Check className="size-4" aria-hidden="true" /> : <Icon className="size-4" aria-hidden="true" />}
+                    {done ? <Check className="size-3.5" aria-hidden="true" /> : <Icon className="size-3.5" aria-hidden="true" />}
                   </span>
 
                   <div className="min-w-0 flex-1">
                     {event.certificationLabel ? (
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
                         {event.certificationLabel}
                       </p>
                     ) : null}
 
-                    <p className={`text-sm font-semibold leading-5 text-foreground ${done ? "line-through" : ""}`}>
+                    <p className={`text-sm font-semibold leading-snug text-foreground ${done ? "line-through" : ""}`}>
                       {event.title}
                     </p>
 
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                      <span className="font-medium">{EVENT_TYPE_LABELS[kind] ?? kind}</span>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
+                      <span className="font-semibold">{EVENT_TYPE_LABELS[kind] ?? kind}</span>
                       {event.minutes ? (
                         <>
                           <span aria-hidden="true">·</span>
@@ -249,10 +256,10 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
                       ) : null}
                     </p>
 
-                    <p className="mt-1.5 text-xs leading-5 text-foreground/80">{describeEvent(event)}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">{describeEvent(event)}</p>
 
                     {done ? (
-                      <p className="mt-2 text-xs font-semibold text-rb-feather-ink">Done</p>
+                      <p className="mt-1.5 text-xs font-semibold text-rb-feather-ink">Done</p>
                     ) : null}
 
                     <div className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 ${done ? "hidden" : ""}`}>
@@ -339,7 +346,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
         )}
       </div>
       {footer ? (
-        <div className="shrink-0 border-t border-border/60 px-5 py-4 sm:px-6">{footer}</div>
+        <div className="shrink-0 border-t border-border/60 bg-muted/10 px-5 py-3.5 sm:px-6 sm:py-4">{footer}</div>
       ) : null}
     </BentoTile>
   )

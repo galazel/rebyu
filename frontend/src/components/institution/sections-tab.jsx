@@ -90,6 +90,7 @@ function backendMessage(error, fallback) {
 }
 
 function fullName(row) {
+  if (!row) return ""
   return [row.firstName, row.lastName].filter(Boolean).join(" ")
 }
 
@@ -869,6 +870,7 @@ function SectionPanel({
     if (focused) panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [focused])
   const [removeTarget, setRemoveTarget] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
   const rosterAvatars = useAvatarUrls(learners.map((row) => row.avatarKey))
   const certTitles = new Map(asArray(group?.certifications).map((cert) => [cert.certificationId, cert.title]))
 
@@ -906,6 +908,7 @@ function SectionPanel({
     },
     onSuccess: () => {
       toast.success("Invitation cancelled.")
+      setCancelTarget(null)
       invalidate()
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to cancel this invitation.")),
@@ -1044,7 +1047,7 @@ function SectionPanel({
                     variant="ghost"
                     size="sm"
                     className="self-end sm:self-auto text-xs text-destructive hover:bg-destructive/10"
-                    onClick={() => cancel.mutate(inv.ids)}
+                    onClick={() => setCancelTarget(inv)}
                     disabled={cancel.isPending}
                   >
                     Cancel
@@ -1191,6 +1194,88 @@ function SectionPanel({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => remove.mutate(removeTarget.learnerId)} disabled={remove.isPending}>
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={cancelTarget != null} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md p-5 sm:p-6 rounded-2xl border border-border bg-card shadow-2xl dark:border-border dark:bg-card">
+          <AlertDialogHeader className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-destructive/10 text-destructive dark:bg-destructive/15 dark:text-red-400">
+                <MailIcon className="size-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <AlertDialogTitle className="text-base sm:text-lg font-bold text-foreground leading-snug">
+                  Cancel learner invitation?
+                </AlertDialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  This invitation link will be invalidated immediately.
+                </p>
+              </div>
+            </div>
+
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-xs sm:text-sm text-muted-foreground pt-1">
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-3 sm:p-3.5 space-y-2 dark:border-border/60 dark:bg-muted/15">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-foreground truncate">
+                      {fullName(cancelTarget) || cancelTarget?.email}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 uppercase tracking-wider">
+                      Pending
+                    </span>
+                  </div>
+
+                  {fullName(cancelTarget) && cancelTarget?.email ? (
+                    <p className="font-mono text-xs text-muted-foreground break-all">
+                      {cancelTarget.email}
+                    </p>
+                  ) : null}
+
+                  {cancelTarget?.titles?.length ? (
+                    <div className="pt-2 border-t border-border/50 text-xs">
+                      <span className="text-[10px] uppercase font-semibold text-muted-foreground/80 block">
+                        Assigned certifications
+                      </span>
+                      <p className="font-medium text-foreground mt-0.5">
+                        {cancelTarget.titles.join(", ")}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The learner will no longer be able to use this invitation to join <strong className="text-foreground">{title}</strong>. Any allocated certification seats will be freed immediately.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row gap-2 mt-4 pt-2">
+            <AlertDialogCancel
+              disabled={cancel.isPending}
+              className="w-full sm:w-auto mt-0"
+            >
+              Keep invitation
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                if (cancelTarget?.ids) cancel.mutate(cancelTarget.ids)
+              }}
+              disabled={cancel.isPending}
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+            >
+              {cancel.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-1.5" aria-hidden="true" />
+                  Cancelling...
+                </>
+              ) : (
+                "Cancel invitation"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

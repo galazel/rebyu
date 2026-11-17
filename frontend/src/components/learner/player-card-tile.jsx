@@ -148,67 +148,80 @@ export function PlayerCardTile({ portalData }) {
     <BentoTile
       col={2}
       row={1}
-      className="gap-1.5 !p-4 sm:!p-5 [&_.rb-bento-heading]:!mb-1.5 [&_.rb-bento-heading]:!pb-2"
+      className="flex flex-col justify-between !p-5 sm:!p-6 gap-3.5"
       aria-label="Your daily streak"
     >
       <BentoHeading
         icon={Flame}
         kicker="Daily Streak"
         title={status}
-        chip={
-          best > 0 ? (
-            <span className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-              best {best}
-            </span>
-          ) : null
-        }
       />
 
-      <div className="flex w-full flex-1 flex-col justify-center gap-2.5">
-        <div className="flex items-center justify-center gap-3.5 sm:gap-5">
+      <div className="flex items-center justify-between rounded-xl border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent px-4 py-3 sm:px-5 sm:py-3.5">
+        <div className="flex items-center gap-3.5 sm:gap-4">
           <StreakFlame lit={streak > 0} />
-          <div className="leading-none">
-            <CountUp
-              value={streak}
-              className="block font-rb-display text-4xl sm:text-[2.75rem] font-black tabular-nums tracking-tight leading-none"
-              style={{ color: streak > 0 ? FLAME : "var(--muted-foreground)" }}
-            />
-            <span className="mt-1 block text-[11px] sm:text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
-              day{streak === 1 ? "" : "s"} streak
+          <div>
+            <div className="flex items-baseline gap-1.5 leading-none">
+              <CountUp
+                value={streak}
+                className="font-rb-display text-3xl sm:text-4xl font-black tabular-nums tracking-tight leading-none"
+                style={{ color: streak > 0 ? FLAME : "var(--muted-foreground)" }}
+              />
+              <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                day{streak === 1 ? "" : "s"}
+              </span>
+            </div>
+            <span className="mt-1 block text-[11px] font-semibold text-muted-foreground">
+              {streak > 0 ? "Current streak" : "Start your streak"}
             </span>
           </div>
         </div>
+        {best > 0 ? (
+          <div className="text-right">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Best streak</span>
+            <p className="mt-0.5 font-rb-display text-lg sm:text-xl font-black text-foreground tabular-nums leading-none">
+              {best} <span className="text-[11px] font-bold text-muted-foreground">d</span>
+            </p>
+          </div>
+        ) : null}
+      </div>
 
-        <div className="grid w-full grid-cols-7 gap-1" aria-label="Last 7 days">
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Last 7 days
+        </p>
+        <div className="grid w-full grid-cols-7 gap-1.5" aria-label="Last 7 days">
           {week.map((day, index) => (
             <motion.div
               key={day.key}
               className="flex flex-col items-center gap-1"
               title={`${day.label}${day.kept ? " · studied" : ""}`}
-              initial={{ opacity: 0, y: 8, scale: 0.6 }}
+              initial={{ opacity: 0, y: 6, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: 0.15 + index * 0.06, type: "spring", stiffness: 420, damping: 18 }}
+              transition={{ delay: 0.1 + index * 0.05, type: "spring", stiffness: 400, damping: 20 }}
             >
               <span
-                className={`relative grid size-7 sm:size-8 place-items-center rounded-full ${
-                  day.kept ? "text-white shadow-sm" : "bg-muted text-muted-foreground/50"
+                className={`relative grid size-8 sm:size-9 place-items-center rounded-xl transition-all ${
+                  day.kept
+                    ? "text-white shadow-sm ring-1 ring-amber-500/30"
+                    : "bg-muted/60 text-muted-foreground/40 border border-border/40"
                 }`}
-                style={day.kept ? { background: `linear-gradient(160deg, #f6b34a, ${FLAME} 55%, #d0582a)` } : undefined}
+                style={day.kept ? { background: `linear-gradient(145deg, #f6b34a, ${FLAME} 60%, #d0582a)` } : undefined}
               >
-                <Flame className="size-3.5" aria-hidden="true" />
+                <Flame className="size-4" aria-hidden="true" />
                 {day.isToday ? (
                   <motion.span
-                    className="absolute inset-0 rounded-full ring-2"
-                    style={{ "--tw-ring-color": day.kept ? FLAME : "var(--border)" }}
-                    animate={{ scale: [1, 1.22, 1], opacity: [0.9, 0, 0.9] }}
+                    className="absolute inset-0 rounded-xl ring-2"
+                    style={{ "--tw-ring-color": day.kept ? FLAME : "var(--primary)" }}
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.9, 0, 0.9] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
                     aria-hidden="true"
                   />
                 ) : null}
               </span>
               <span
-                className={`text-[10px] font-extrabold uppercase leading-none ${
-                  day.isToday ? "text-foreground" : "text-muted-foreground"
+                className={`text-[10px] font-bold uppercase leading-none ${
+                  day.isToday ? "text-foreground font-black" : "text-muted-foreground"
                 }`}
               >
                 {day.label.slice(0, 2)}
@@ -219,24 +232,30 @@ export function PlayerCardTile({ portalData }) {
       </div>
 
       {goal ? (
-        <div className="space-y-1">
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="space-y-1.5 rounded-xl border border-border/40 bg-muted/20 p-2.5 sm:p-3">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-muted-foreground">Next streak goal</span>
+            <span className="font-bold tabular-nums text-foreground">{goal} days</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
             <motion.div
               className="h-full rounded-full"
               style={{ background: `linear-gradient(90deg, #f6b34a, ${FLAME})` }}
               initial={{ width: 0 }}
               animate={{ width: `${Math.min(100, (streak / goal) * 100)}%` }}
-              transition={{ delay: 0.3, duration: 0.9, ease: "easeOut" }}
+              transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
             />
           </div>
-          <p className="text-[11px] font-semibold leading-tight text-muted-foreground">
+          <p className="text-[11px] font-medium text-muted-foreground">
             {goal - streak} more day{goal - streak === 1 ? "" : "s"} to your {goal}-day goal
           </p>
         </div>
       ) : null}
 
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-border/40 pt-1.5 text-[11px] font-semibold leading-tight text-muted-foreground">
-        <span>Next goal <strong className="text-foreground">{goal ?? "—"}</strong></span>
+      <div className="flex items-center justify-between border-t border-border/40 pt-2.5 text-xs font-semibold text-muted-foreground">
+        <span>
+          Target: <strong className="text-foreground">{goal ?? "Max"}</strong>
+        </span>
         <span>
           {level ? (
             <>
@@ -248,7 +267,7 @@ export function PlayerCardTile({ portalData }) {
             </>
           )}
         </span>
-      </p>
+      </div>
     </BentoTile>
   )
 }

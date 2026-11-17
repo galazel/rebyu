@@ -110,25 +110,25 @@ function DashboardCardHeader({
   className = "",
 }) {
   return (
-    <div className={`border-b border-border/50 pb-3 mb-4 transition-all ${className}`}>
+    <div className={`border-b border-border/50 pb-2.5 sm:pb-3 mb-3 sm:mb-4 transition-all ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           {Icon ? (
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
-              <Icon className="size-4.5" aria-hidden="true" />
+            <span className="grid size-7 sm:size-9 shrink-0 place-items-center rounded-lg sm:rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs">
+              <Icon className="size-3.5 sm:size-4.5" aria-hidden="true" />
             </span>
           ) : null}
           <div className="min-w-0">
             {kicker ? (
-              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-primary dark:text-emerald-400">
+              <h3 className="text-[9px] sm:text-[10px] font-bold uppercase leading-tight tracking-wider text-primary dark:text-emerald-400">
                 {kicker}
               </h3>
             ) : null}
-            <p className="truncate text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
+            <p className="truncate text-xs sm:text-sm font-bold leading-snug text-foreground sm:text-base font-sans tracking-tight">
               {title}
             </p>
             {hint ? (
-              <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground font-sans">
+              <p className="mt-0.5 truncate text-[11px] sm:text-xs font-normal text-muted-foreground font-sans">
                 {hint}
               </p>
             ) : null}
@@ -148,19 +148,19 @@ function DashboardCardHeader({
 function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null, className = "" }) {
   return (
     <div
-      className={`rounded-xl border p-2.5 sm:p-3.5 flex flex-col justify-between transition-all hover:border-border/80 ${
+      className={`rounded-lg sm:rounded-xl border p-2 sm:p-3.5 flex flex-col justify-between transition-all hover:border-border/80 ${
         alert
           ? "border-amber-500/30 bg-amber-500/5 ring-1 ring-inset ring-amber-500/20"
           : "border-border/60 bg-background/60 hover:bg-muted/30"
       } ${className}`}
     >
-      <div className="flex items-center justify-between gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center justify-between gap-1 text-[10px] sm:text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span className="truncate">{label}</span>
-        {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
+        {Icon ? <Icon className={`size-3 sm:size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
       </div>
-      <div className="mt-1 flex items-baseline justify-between gap-1.5">
+      <div className="mt-0.5 sm:mt-1 flex items-baseline justify-between gap-1 sm:gap-1.5">
         <div
-          className={`font-sans tabular-nums text-xl sm:text-2xl font-bold tracking-tight ${
+          className={`font-sans tabular-nums text-lg sm:text-2xl font-bold tracking-tight ${
             alert ? "text-amber-600 dark:text-amber-400" : "text-foreground"
           }`}
         >
@@ -169,7 +169,7 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delt
         {delta}
       </div>
       {subtext ? (
-        <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums truncate">
+        <div className="mt-0.5 text-[9px] sm:text-[10px] text-muted-foreground tabular-nums truncate">
           {subtext}
         </div>
       ) : null}
@@ -392,7 +392,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-progress",
         element: (
-          <div id="dept-progress" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+          <div id="dept-progress" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={TargetIcon}
@@ -401,8 +401,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
               />
 
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                <div className="sm:col-span-5 flex min-h-[130px] sm:min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
-                  <div className="w-full max-w-[130px] sm:max-w-none mx-auto flex items-center justify-center">
+                <div className="sm:col-span-5 flex min-h-[120px] sm:min-h-[180px] items-center justify-center sm:pl-4 min-w-0">
+                  <div className="w-full max-w-[120px] sm:max-w-none mx-auto flex items-center justify-center">
                     <BeadedRadialGauge
                       value={failed ? 0 : Number(summary.averageProgress) || 0}
                       label="Department Completion"
@@ -475,8 +475,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-programme-enrolment",
         element: (
-          <div id="dept-programme-enrolment" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
-            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
+          <div id="dept-programme-enrolment" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between">
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Enrollment by Certification"
@@ -544,8 +544,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-programme-table",
         element: (
-          <div id="dept-programme-table" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
-            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
+          <div id="dept-programme-table" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between">
               <DashboardCardHeader
                 icon={Award}
                 kicker="Certification Scorecard"
@@ -633,7 +633,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-completion-spread",
         element: (
-          <div id="dept-completion-spread" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+          <div id="dept-completion-spread" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
             <div className="flex h-full flex-col justify-between gap-3">
               <DashboardCardHeader
                 icon={Layers}
@@ -646,19 +646,19 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                   No learners assigned to your department yet.
                 </p>
               ) : (
-                <div className="my-auto grid gap-6 py-1 md:grid-cols-2">
+                <div className="my-auto grid gap-4 sm:gap-6 py-1 md:grid-cols-2">
                   <div className="min-w-0">
-                    <p className="mb-1 text-xs font-semibold text-muted-foreground">Completion (learners per band)</p>
+                    <p className="mb-1 text-[11px] sm:text-xs font-semibold text-muted-foreground">Completion (learners per band)</p>
                     <BarBreakdownChart
                       data={spread}
                       categoryKey="tier"
                       valueKey="learners"
                       horizontal={false}
-                      height={186}
+                      height={isMediumScreen ? 186 : 150}
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                    <p className="mb-1 text-[11px] sm:text-xs font-semibold text-muted-foreground">
                       Exam readiness (marks and coverage together)
                     </p>
                     <BarBreakdownChart
@@ -666,7 +666,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                       categoryKey="tier"
                       valueKey="learners"
                       horizontal={false}
-                      height={186}
+                      height={isMediumScreen ? 186 : 150}
                     />
                   </div>
                 </div>
@@ -687,7 +687,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-monthly-trend",
         element: (
-          <div id="dept-monthly-trend" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
+          <div id="dept-monthly-trend" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
             <DashboardCardHeader
               icon={TrendingUpIconSafe}
               kicker="Over Time"
@@ -697,13 +697,13 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
             {monthlyTrend.every((row) => !row.gradedAttempts && !row.lessonsCompleted) ? (
               <p className="text-sm text-muted-foreground">No graded work or finished lessons in this period.</p>
             ) : (
-              <div className="grid min-w-0 gap-6 md:grid-cols-2">
+              <div className="grid min-w-0 gap-4 sm:gap-6 md:grid-cols-2">
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Marks (%)</p>
+                  <p className="mb-1 text-[11px] sm:text-xs font-semibold text-muted-foreground">Marks (%)</p>
                   <TrendLineChart
                     data={monthlyTrend}
                     xKey="label"
-                    height={200}
+                    height={isMediumScreen ? 200 : 160}
                     unit="%"
                     dot
                     series={[
@@ -713,11 +713,11 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Activity (count)</p>
+                  <p className="mb-1 text-[11px] sm:text-xs font-semibold text-muted-foreground">Activity (count)</p>
                   <TrendLineChart
                     data={monthlyTrend}
                     xKey="label"
-                    height={200}
+                    height={isMediumScreen ? 200 : 160}
                     dot
                     domain={[
                       0,
@@ -745,8 +745,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-hard-topics",
         element: (
-          <div id="dept-hard-topics" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
-            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
+          <div id="dept-hard-topics" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between">
               <DashboardCardHeader
                 icon={TargetIcon}
                 kicker="Teaching Signal"
@@ -783,7 +783,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                         target={50}
                         domainMax={100}
                         height={Math.max(120, programme.topics.length * 34)}
-                        categoryWidth={150}
+                        categoryWidth={isMediumScreen ? 150 : 120}
                       />
                     </div>
                   ))}
@@ -805,8 +805,8 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
       {
         id: "dept-hard-assessments",
         element: (
-          <div id="dept-hard-assessments" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-6 animate-in fade-in-50 duration-200">
-            <div className="flex h-full min-h-0 flex-1 flex-col justify-between p-3.5 sm:p-5">
+          <div id="dept-hard-assessments" className="rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3 sm:p-6 shadow-xs space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
+            <div className="flex h-full min-h-0 flex-1 flex-col justify-between">
               <DashboardCardHeader
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
@@ -848,7 +848,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                         target={passMarkFor(programme.assessments)}
                         domainMax={100}
                         height={Math.max(120, programme.assessments.length * 36)}
-                        categoryWidth={150}
+                        categoryWidth={isMediumScreen ? 150 : 120}
                         tooltipContent={({ active, payload, label }) => {
                           if (!active || !payload?.length) return null
                           const item = payload[0]?.payload
@@ -991,7 +991,7 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
         ) : (
           /* Every view at once. The dashboard's own cards already show the
              headline numbers, so the "progress" view is left out here. */
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-3 sm:gap-6 lg:grid-cols-2">
             {GRID_LAYOUT.map(({ id, wide }) => {
               const tile = tiles.find((t) => t.id === id)
               return tile ? (

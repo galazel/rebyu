@@ -15,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  UserCheck,
   UserPlus,
 } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
@@ -749,48 +750,121 @@ export function DepartmentManagementBoard({
       {activeFeature === "dept-co-authorities" && (
         <div id="dept-co-authorities" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
           <DashboardCardHeader
-                  icon={ShieldCheck}
-                  kicker="Delegation & Leadership"
-                  title="Co-Authorities & Faculty Roles"
-                  hint={`${activeHeadAssignments.length} active · ${pendingHeadInvitations.length} pending`}
-                  action={
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setCoAuthoritiesOpen(true)}
-                      className="h-8 gap-1.5 text-xs font-semibold"
+            icon={ShieldCheck}
+            kicker="Delegation & Leadership"
+            title="Co-Authorities & Faculty Roles"
+            hint={`${activeHeadAssignments.length} active · ${pendingHeadInvitations.length} pending`}
+            action={
+              <Button
+                size="sm"
+                onClick={() => setCoAuthoritiesOpen(true)}
+                className="h-8 gap-1.5 text-xs font-semibold"
+              >
+                <UserPlus className="size-3.5" aria-hidden="true" />
+                Manage co-authorities
+              </Button>
+            }
+          />
+
+          <div className="grid grid-cols-2 gap-3 my-2">
+            <StatBox
+              label="Active Authorities"
+              value={count(activeHeadAssignments.length)}
+              icon={ShieldCheck}
+              iconClass="text-emerald-600 dark:text-emerald-400"
+            />
+            <StatBox
+              label="Pending Invitations"
+              value={count(pendingHeadInvitations.length)}
+              icon={MailIcon}
+              iconClass={pendingHeadInvitations.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}
+            />
+          </div>
+
+          {headAssignmentsQuery.isLoading || headCodesQuery.isLoading ? (
+            <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">
+              <Loader2 className="mr-2 size-3.5 animate-spin" aria-hidden="true" />
+              Loading co-authorities...
+            </div>
+          ) : activeHeadAssignments.length === 0 && pendingHeadInvitations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-5 text-center">
+              <ShieldCheck className="mx-auto size-7 text-muted-foreground/50" aria-hidden="true" />
+              <p className="mt-2 text-xs font-semibold text-foreground">No co-authorities or pending invites</p>
+              <p className="mt-1 text-[11px] text-muted-foreground max-w-sm mx-auto">
+                Assign faculty members or email an invitation code to delegate management of this department.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <span>Assigned Faculty & Pending Invitations</span>
+                <span className="text-[11px]">
+                  {activeHeadAssignments.length} active · {pendingHeadInvitations.length} pending
+                </span>
+              </div>
+              <div className="divide-y divide-border/50 rounded-xl border border-border/70 bg-card overflow-hidden">
+                {activeHeadAssignments.map((auth) => {
+                  const ownName = [auth.firstName, auth.lastName].filter(Boolean).join(" ").trim()
+                  const displayName = ownName || auth.email || `User #${auth.userId}`
+                  return (
+                    <div
+                      key={auth.departmentHeadAssignmentId}
+                      className="flex items-center justify-between gap-2 p-2.5 sm:px-3 text-xs"
                     >
-                      <UserPlus className="size-3.5" aria-hidden="true" />
-                      Manage
-                    </Button>
-                  }
-                />
-
-                <div className="grid grid-cols-2 gap-3 my-2">
-                  <StatBox
-                    label="Active Authorities"
-                    value={count(activeHeadAssignments.length)}
-                    icon={ShieldCheck}
-                    iconClass="text-emerald-600 dark:text-emerald-400"
-                  />
-                  <StatBox
-                    label="Pending Invitations"
-                    value={count(pendingHeadInvitations.length)}
-                    icon={MailIcon}
-                    iconClass={pendingHeadInvitations.length > 0 ? "text-amber-600" : "text-muted-foreground"}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground">
-                  <span>Authorized department managers</span>
-                  <button
-                    type="button"
-                    onClick={() => setCoAuthoritiesOpen(true)}
-                    className="font-semibold text-primary hover:underline cursor-pointer"
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="grid size-6 place-items-center rounded-full bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 shrink-0">
+                          <UserCheck className="size-3.5" aria-hidden="true" />
+                        </span>
+                        <span className="font-medium text-foreground truncate">{displayName}</span>
+                        {auth.email && ownName ? (
+                          <span className="text-muted-foreground text-[11px] truncate hidden sm:inline">
+                            ({auth.email})
+                          </span>
+                        ) : null}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] shrink-0"
+                      >
+                        Active
+                      </Badge>
+                    </div>
+                  )
+                })}
+                {pendingHeadInvitations.map((inv) => (
+                  <div
+                    key={inv.invitationId}
+                    className="flex items-center justify-between gap-2 p-2.5 sm:px-3 text-xs"
                   >
-                    Manage invites →
-                  </button>
-                </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="grid size-6 place-items-center rounded-full bg-amber-500/10 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 shrink-0">
+                        <MailIcon className="size-3.5" aria-hidden="true" />
+                      </span>
+                      <span className="font-mono text-[11px] text-foreground truncate">{inv.email}</span>
+                      {inv.accountName ? (
+                        <span className="text-muted-foreground text-[11px] truncate hidden sm:inline">
+                          ({inv.accountName})
+                        </span>
+                      ) : null}
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] shrink-0"
+                    >
+                      Pending
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-t border-border/40 pt-2.5 mt-auto text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+              Co-authorities have management permissions for curriculum, section cohorts, and learner progress.
+            </span>
+          </div>
         </div>
       )}
 

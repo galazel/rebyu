@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 .native-test-output/
+coverage/
+*.lcov
 src/__test__/test-results.json
 src/__test__/targeted-results.json
 dist

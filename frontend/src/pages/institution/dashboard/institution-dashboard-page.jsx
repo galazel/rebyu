@@ -38,7 +38,10 @@ import {
   INSTITUTION_DEFAULT,
   INSTITUTION_PRESET,
 } from "@/components/commons/dashboard-tile-labels.js"
-import { InstitutionMetricsSidebar } from "@/components/institution/institution-metrics-sidebar.jsx"
+import {
+  InstitutionMetricsSidebar,
+  MobileInstitutionMetricsNav,
+} from "@/components/institution/institution-metrics-sidebar.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { getInstitutionDashboard } from "@/services/institutionDashboardService.js"
 import {
@@ -994,6 +997,8 @@ export default function InstitutionDashboardPage() {
             />
 
             <div className="min-w-0 space-y-6">
+              <MobileInstitutionMetricsNav />
+
               <DashboardBoard
                 tiles={tiles}
                 layout={hasRetiredTile || usesLegacyInstitutionDefault ? INSTITUTION_PRESET : institutionLayout}

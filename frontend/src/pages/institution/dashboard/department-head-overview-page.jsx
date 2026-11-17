@@ -94,16 +94,38 @@ function alertHref(alert) {
   return null
 }
 
-function KpiCard({ label, icon: Icon, iconClass, value, suffix, children }) {
+function KpiCard({ label, shortLabel, icon: Icon, iconClass, value, suffix, shortSuffix, children }) {
   return (
-    <div className="space-y-2 rounded-2xl border border-border/70 bg-card p-4 shadow-xs sm:p-5">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-[11px] font-semibold uppercase tracking-wider">{label}</span>
-        <Icon className={cn("size-4", iconClass)} aria-hidden="true" />
-      </div>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-extrabold tabular-nums text-foreground sm:text-3xl">{value}</span>
-        {suffix ? <span className="text-xs font-medium text-muted-foreground">{suffix}</span> : null}
+    <div className="flex flex-col justify-between space-y-1.5 rounded-xl border border-border/70 bg-card p-3 shadow-xs sm:space-y-2 sm:rounded-2xl sm:p-5">
+      <div>
+        <div className="flex items-center justify-between text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider truncate sm:text-[11px]">
+            {shortLabel ? (
+              <>
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
+              </>
+            ) : (
+              label
+            )}
+          </span>
+          <Icon className={cn("size-3.5 shrink-0 sm:size-4", iconClass)} aria-hidden="true" />
+        </div>
+        <div className="mt-1 flex items-baseline gap-1 sm:gap-2">
+          <span className="text-xl font-extrabold tabular-nums text-foreground sm:text-2xl xl:text-3xl">{value}</span>
+          {suffix ? (
+            <span className="text-[10px] font-medium text-muted-foreground truncate sm:text-xs">
+              {shortSuffix ? (
+                <>
+                  <span className="sm:hidden">{shortSuffix}</span>
+                  <span className="hidden sm:inline">{suffix}</span>
+                </>
+              ) : (
+                suffix
+              )}
+            </span>
+          ) : null}
+        </div>
       </div>
       {children}
     </div>
@@ -112,11 +134,11 @@ function KpiCard({ label, icon: Icon, iconClass, value, suffix, children }) {
 
 function Panel({ icon: Icon, iconClass, title, action, children }) {
   return (
-    <section className="h-full space-y-4 rounded-2xl border border-border/70 bg-card p-5 shadow-xs sm:p-6">
-      <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-3">
-        <div className="flex items-center gap-2">
-          <Icon className={cn("size-4", iconClass)} aria-hidden="true" />
-          <h2 className="text-sm font-bold text-foreground sm:text-base">{title}</h2>
+    <section className="h-full space-y-3 sm:space-y-4 rounded-xl sm:rounded-2xl border border-border/70 bg-card p-3.5 sm:p-6 shadow-xs">
+      <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2.5 sm:pb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon className={cn("size-3.5 sm:size-4 shrink-0", iconClass)} aria-hidden="true" />
+          <h2 className="truncate text-xs sm:text-sm lg:text-base font-bold text-foreground">{title}</h2>
         </div>
         {action}
       </div>
@@ -272,74 +294,89 @@ export default function DepartmentHeadOverviewPage() {
 
   const tiles = [
     { id: "dh-kpis", col: 6, row: 2, element: (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4">
         <KpiCard
           label="Learners"
+          shortLabel="Learners"
           icon={UsersRound}
           iconClass="text-primary"
           value={totals.learners}
           suffix={`${totals.activeLearners} with activity`}
+          shortSuffix={`${totals.activeLearners} active`}
         >
           {totals.seatsTotal > 0 ? (
-            <div className="space-y-1 pt-1">
-              <Progress value={seatPercent} className="h-1.5" aria-label="Seats used" />
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="space-y-1 pt-0.5 sm:pt-1">
+              <Progress value={seatPercent} className="h-1 sm:h-1.5" aria-label="Seats used" />
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground sm:text-[11px]">
                 <span>
-                  {totals.seatsUsed} of {totals.seatsTotal} seats used
+                  <span className="sm:hidden">{totals.seatsUsed}/{totals.seatsTotal} used</span>
+                  <span className="hidden sm:inline">{totals.seatsUsed} of {totals.seatsTotal} seats used</span>
                 </span>
                 <span>{Math.max(0, totals.seatsTotal - totals.seatsUsed)} free</span>
               </div>
             </div>
           ) : (
-            <p className="pt-1 text-xs text-muted-foreground">No seat allocation yet</p>
+            <p className="pt-0.5 text-[10px] text-muted-foreground sm:pt-1 sm:text-xs">No seat allocation yet</p>
           )}
         </KpiCard>
 
         <KpiCard
           label="Average completion"
+          shortLabel="Completion"
           icon={TargetIcon}
           iconClass="text-emerald-600 dark:text-emerald-400"
           value={progress == null ? "—" : `${progress}%`}
         >
-          <p className="pt-1 text-xs text-muted-foreground">
-            Across the roster · {summary.lessonsCompleted} lesson{summary.lessonsCompleted === 1 ? "" : "s"} finished ·{" "}
-            {totals.completed} earned the badge
+          <p className="pt-0.5 text-[10px] text-muted-foreground sm:pt-1 sm:text-xs leading-tight">
+            <span className="sm:hidden">{totals.completed} badge{totals.completed === 1 ? "" : "s"} · {summary.lessonsCompleted} done</span>
+            <span className="hidden sm:inline">
+              Across the roster · {summary.lessonsCompleted} lesson{summary.lessonsCompleted === 1 ? "" : "s"} finished ·{" "}
+              {totals.completed} earned the badge
+            </span>
           </p>
         </KpiCard>
 
         <KpiCard
           label="Graded pass rate"
+          shortLabel="Pass rate"
           icon={Award}
           iconClass="text-primary"
           value={percent(summary.passRate)}
           suffix={summary.averageScore == null ? null : `avg score ${summary.averageScore}%`}
+          shortSuffix={summary.averageScore == null ? null : `avg ${summary.averageScore}%`}
         >
-          <p className="pt-1 text-xs text-muted-foreground">
-            {summary.gradedAttempts} graded attempt{summary.gradedAttempts === 1 ? "" : "s"} ·{" "}
-            {totals.mockExamPassed} passed a mock exam
+          <p className="pt-0.5 text-[10px] text-muted-foreground sm:pt-1 sm:text-xs leading-tight">
+            <span className="sm:hidden">{summary.gradedAttempts} attempt{summary.gradedAttempts === 1 ? "" : "s"} · {totals.mockExamPassed} passed mock</span>
+            <span className="hidden sm:inline">
+              {summary.gradedAttempts} graded attempt{summary.gradedAttempts === 1 ? "" : "s"} ·{" "}
+              {totals.mockExamPassed} passed a mock exam
+            </span>
           </p>
         </KpiCard>
 
         <KpiCard
           label="Need a check-in"
+          shortLabel="Check-ins"
           icon={ShieldAlert}
           iconClass={needsHelp > 0 ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}
           value={needsHelp}
           suffix={`of ${totals.learners} learners`}
+          shortSuffix={`of ${totals.learners}`}
         >
-          <p className="pt-1 text-xs text-muted-foreground">
-            {totals.atRisk} at risk · {totals.dormant} quiet · {totals.notStarted} not started
+          <p className="pt-0.5 text-[10px] text-muted-foreground sm:pt-1 sm:text-xs leading-tight">
+            <span className="sm:hidden">{totals.atRisk} risk · {totals.dormant} quiet · {totals.notStarted} new</span>
+            <span className="hidden sm:inline">{totals.atRisk} at risk · {totals.dormant} quiet · {totals.notStarted} not started</span>
           </p>
         </KpiCard>
       </div>
     ) },
     { id: "dh-alerts", col: 6, row: 2, element: (
-      <section className="space-y-3" aria-labelledby="dept-alerts-heading">
+      <section className="space-y-2.5 sm:space-y-3" aria-labelledby="dept-alerts-heading">
         <div className="flex items-center gap-2">
-          <h2 id="dept-alerts-heading" className="text-base font-bold text-foreground sm:text-lg">
+          <h2 id="dept-alerts-heading" className="text-sm font-bold text-foreground sm:text-lg">
             Needs your attention
           </h2>
-          <Badge variant="secondary" className="px-2 py-0.5 text-xs font-bold">
+          <Badge variant="secondary" className="px-1.5 py-0 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs font-bold">
             {alerts.length}
           </Badge>
         </div>
@@ -349,7 +386,7 @@ export default function DepartmentHeadOverviewPage() {
             Seats, access and learner activity are all within normal range.
           </QuietState>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid gap-2.5 sm:gap-3">
             {alerts.map((alert) => {
               const tone = SEVERITY[alert.severity] ?? SEVERITY.info
               const Icon = tone.icon
@@ -360,24 +397,26 @@ export default function DepartmentHeadOverviewPage() {
                   key={alert.id}
                   {...(href ? { to: href } : {})}
                   className={cn(
-                    "flex flex-col justify-between gap-3 rounded-2xl border p-4 shadow-xs sm:flex-row sm:items-center sm:p-5",
+                    "flex flex-col justify-between gap-2.5 rounded-xl border p-3 shadow-xs sm:flex-row sm:items-center sm:rounded-2xl sm:p-5",
                     href && "transition-colors hover:border-primary/40 hover:shadow-sm",
                     tone.card
                   )}
                 >
-                  <div className="flex min-w-0 items-start gap-3.5">
-                    <div className={cn("mt-0.5 shrink-0 rounded-xl p-2.5", tone.iconWrap)}>
-                      <Icon className="size-4" aria-hidden="true" />
+                  <div className="flex min-w-0 items-start gap-2.5 sm:gap-3.5">
+                    <div className={cn("mt-0.5 shrink-0 rounded-lg p-2 sm:rounded-xl sm:p-2.5", tone.iconWrap)}>
+                      <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
                     </div>
-                    <div className="min-w-0 space-y-1">
-                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px] font-bold", tone.badge)}>
-                        {tone.label}
-                      </Badge>
-                      <h3 className="text-sm font-bold text-foreground">{alert.title}</h3>
-                      <p className="text-xs text-muted-foreground">{alert.message}</p>
+                    <div className="min-w-0 space-y-0.5 sm:space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={cn("px-1.5 py-0 text-[9px] sm:text-[10px] font-bold", tone.badge)}>
+                          {tone.label}
+                        </Badge>
+                        <h3 className="truncate text-xs font-bold text-foreground sm:text-sm">{alert.title}</h3>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground sm:text-xs leading-normal">{alert.message}</p>
                     </div>
                   </div>
-                  {href ? <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
+                  {href ? <ChevronRight className="hidden sm:block size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
                 </Card>
               )
             })}
@@ -394,30 +433,30 @@ export default function DepartmentHeadOverviewPage() {
           {watchlist.length === 0 ? (
             <QuietState title="Every learner is on track">No one is at risk, quiet or yet to start.</QuietState>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5 sm:space-y-2">
               {watchlist.slice(0, 6).map((learner) => {
                 const status = LEARNER_STATUS[learner.status]
                 return (
                   <li key={learner.learnerId}>
                     <Link
                       to={`/institution/departments/${departmentId}/learners/${learner.learnerId}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 text-xs transition-colors hover:border-primary/40 hover:bg-muted/40"
+                      className="flex items-center justify-between gap-2 rounded-lg sm:rounded-xl border border-border/60 bg-muted/20 p-2 sm:p-3 text-xs transition-colors hover:border-primary/40 hover:bg-muted/40"
                     >
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate font-semibold text-foreground">{learner.name}</span>
-                          <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", status.className)}>
+                      <div className="min-w-0 space-y-0.5 sm:space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate font-semibold text-foreground text-xs">{learner.name}</span>
+                          <Badge variant="outline" className={cn("px-1 py-0 text-[9px] sm:text-[10px]", status.className)}>
                             {status.label}
                           </Badge>
                         </div>
-                        <p className="truncate text-[11px] text-muted-foreground">
+                        <p className="truncate text-[10px] sm:text-[11px] text-muted-foreground">
                           {learner.reason}
                           {learner.sectionName ? ` · ${learner.sectionName}` : " · No section"}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <span className="font-bold tabular-nums text-foreground">{percent(learner.averageProgress)}</span>
-                        <span className="block text-[10px] text-muted-foreground">
+                        <span className="font-bold tabular-nums text-foreground text-xs sm:text-sm">{percent(learner.averageProgress)}</span>
+                        <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
                           {relativeDays(learner.daysInactive)}
                         </span>
                       </div>
@@ -426,7 +465,7 @@ export default function DepartmentHeadOverviewPage() {
                 )
               })}
               {watchlist.length > 6 ? (
-                <li className="pt-1 text-center text-[11px] text-muted-foreground">
+                <li className="pt-1 text-center text-[10px] sm:text-[11px] text-muted-foreground">
                   +{watchlist.length - 6} more
                 </li>
               ) : null}
@@ -445,7 +484,7 @@ export default function DepartmentHeadOverviewPage() {
               Create sections under a program to group learners into classes.
             </QuietState>
           ) : (
-            <ul className="max-h-[17rem] space-y-1.5 overflow-y-auto pr-1">
+            <ul className="max-h-[17rem] space-y-1 sm:space-y-1.5 overflow-y-auto pr-1">
               {sections.map((section) => {
                 const sectionProgress =
                   section.averageProgress == null ? 0 : Math.round(Number(section.averageProgress))
@@ -460,31 +499,31 @@ export default function DepartmentHeadOverviewPage() {
                     <Row
                       {...(sectionHref ? { to: sectionHref } : {})}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs",
+                        "flex items-center gap-2 rounded-lg sm:rounded-xl border border-border/60 bg-muted/20 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs",
                         sectionHref && "transition-colors hover:border-primary/40 hover:bg-muted/40"
                       )}
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate font-semibold text-foreground">{section.sectionName}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="truncate font-semibold text-foreground text-xs">{section.sectionName}</span>
                           {flagged > 0 ? (
-                            <span className="shrink-0 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                            <span className="shrink-0 rounded-full bg-rose-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-rose-700 dark:text-rose-300">
                               {flagged} check-in{flagged === 1 ? "" : "s"}
                             </span>
                           ) : null}
                           {section.pendingInvitations > 0 ? (
-                            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-800 dark:text-amber-300">
                               {section.pendingInvitations} invited
                             </span>
                           ) : null}
                         </div>
-                        <p className="truncate text-[11px] text-muted-foreground">{section.programName || "No program"}</p>
+                        <p className="truncate text-[10px] sm:text-[11px] text-muted-foreground">{section.programName || "No program"}</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <span className="font-bold tabular-nums text-foreground">
+                        <span className="font-bold tabular-nums text-foreground text-xs sm:text-sm">
                           {section.learners === 0 ? "—" : `${sectionProgress}%`}
                         </span>
-                        <span className="block text-[10px] text-muted-foreground">
+                        <span className="block text-[9px] sm:text-[10px] text-muted-foreground">
                           {section.learners} learner{section.learners === 1 ? "" : "s"}
                         </span>
                       </div>
@@ -493,7 +532,7 @@ export default function DepartmentHeadOverviewPage() {
                 )
               })}
               {totals.unsectioned > 0 ? (
-                <li className="pt-1 text-[11px] text-muted-foreground">
+                <li className="pt-1 text-[10px] sm:text-[11px] text-muted-foreground">
                   {totals.unsectioned} learner{totals.unsectioned === 1 ? " is" : "s are"} not in any section.
                 </li>
               ) : null}
@@ -531,23 +570,23 @@ export default function DepartmentHeadOverviewPage() {
             Announcements reach every learner in the department.
           </QuietState>
         ) : (
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-2.5 sm:gap-3 md:grid-cols-3">
             {announcements.map((item) => (
               <article
                 key={item.departmentAnnouncementId}
-                className="space-y-1 rounded-xl border border-border/60 bg-muted/20 p-3.5 text-xs"
+                className="space-y-1 rounded-lg sm:rounded-xl border border-border/60 bg-muted/20 p-2.5 sm:p-3.5 text-xs"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="truncate font-bold text-foreground">{item.title}</h3>
+                <div className="flex items-center justify-between gap-1.5">
+                  <h3 className="truncate font-bold text-foreground text-xs sm:text-sm">{item.title}</h3>
                   {item.pinned ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold text-amber-800 dark:text-amber-300">
                       <PinIcon className="size-2.5" aria-hidden="true" />
                       Pinned
                     </span>
                   ) : null}
                 </div>
-                <p className="line-clamp-3 text-[11px] text-muted-foreground">{item.body}</p>
-                <p className="pt-1 text-[10px] text-muted-foreground/80">
+                <p className="line-clamp-2 sm:line-clamp-3 text-[10px] sm:text-[11px] text-muted-foreground">{item.body}</p>
+                <p className="pt-0.5 text-[9px] sm:text-[10px] text-muted-foreground/80">
                   {[item.createdByEmail, formatDate(item.createdAt)].filter(Boolean).join(" · ")}
                 </p>
               </article>
@@ -559,33 +598,33 @@ export default function DepartmentHeadOverviewPage() {
   ]
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
       {/* Department */}
-      <header className="flex flex-col justify-between gap-4 rounded-3xl border border-border/70 bg-card p-6 shadow-xs sm:p-8 lg:flex-row lg:items-center">
-        <div className="min-w-0 space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{overview.departmentName}</h1>
-          <div className="flex flex-wrap items-center gap-2">
+      <header className="flex flex-col justify-between gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border border-border/70 bg-card p-4 sm:p-6 lg:p-8 shadow-xs lg:flex-row lg:items-center">
+        <div className="min-w-0 space-y-1.5 sm:space-y-2">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">{overview.departmentName}</h1>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {certifications.map((cert) => (
               <span
                 key={cert.institutionCertId}
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-semibold text-primary"
               >
-                <Award className="size-3.5" aria-hidden="true" />
+                <Award className="size-3 sm:size-3.5" aria-hidden="true" />
                 {cert.title}
               </span>
             ))}
             {nextExpiry ? (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[11px] sm:text-xs text-muted-foreground">
                 Access until {formatDate(nextExpiry.accessExpiryDate)}
               </span>
             ) : null}
           </div>
           {overview.departmentDescription ? (
-            <p className="max-w-2xl text-sm text-muted-foreground">{overview.departmentDescription}</p>
+            <p className="max-w-2xl text-xs sm:text-sm text-muted-foreground line-clamp-2 sm:line-clamp-none">{overview.departmentDescription}</p>
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
         <DashboardRearrangeControls
           rearranging={layout.rearranging}
           onStart={layout.startRearranging}
@@ -604,7 +643,7 @@ export default function DepartmentHeadOverviewPage() {
         />
         {departments.length > 1 ? (
           <Select value={String(departmentId)} onValueChange={(value) => selectDepartment(Number(value))}>
-            <SelectTrigger className="w-full bg-background sm:w-[240px]" aria-label="Department">
+            <SelectTrigger className="w-full bg-background sm:w-[220px]" aria-label="Department">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
