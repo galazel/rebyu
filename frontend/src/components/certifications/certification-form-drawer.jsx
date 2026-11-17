@@ -208,6 +208,7 @@ export default function CertificationFormDrawer({
     const estimate = estimateGeneration(lessonCount, questionBankSize, credits.data?.rates, reviewMode)
     const isLargeRun = generationEstimateLevel(estimate.tokens) === "high"
     const notEnoughCredit = hasEnoughCredit(credits.data, estimate.cost) === false
+        const [confirmedLowCredit, setConfirmedLowCredit] = useState(false)
 
     const {
         mutateAsync: createWithAi,
@@ -333,9 +334,10 @@ export default function CertificationFormDrawer({
             return
         }
 
-        if (notEnoughCredit) {
+        if (notEnoughCredit && !confirmedLowCredit) {
+            setConfirmedLowCredit(true)
             setSubmissionError(
-                "Your OpenRouter balance is below this run's estimated cost. Top up, or lower the lessons or bank size."
+                "Your OpenRouter balance is below this run's estimated cost. It will pause when the credit runs out — top up, then press Continue on its progress panel and it picks up where it stopped. Press again to start anyway."
             )
             return
         }
@@ -620,8 +622,8 @@ export default function CertificationFormDrawer({
                         <Button
                             type="button"
                             onClick={handleGenerate}
-                            disabled={isBusy || notEnoughCredit}
-                            title={notEnoughCredit ? "Not enough OpenRouter credit for this run" : undefined}
+                            disabled={isBusy}
+                            title={notEnoughCredit ? "Balance is below the estimate — the run will pause when credit runs out" : undefined}
                             className="min-w-[185px] gap-2"
                         >
                             {isBusy ? (

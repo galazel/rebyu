@@ -56,15 +56,58 @@ def route_certification_assessments(state: CertificationState) -> str:
     return "append" if (state.get("existing_curriculum") or "").strip() else "full"
 
 
+def _has_questions(state, key: str) -> bool:
+    """Whether this exam was already drafted (even if it came back empty --
+    an empty exam is the review's call, not a reason to write it twice)."""
+    return isinstance(state.get(key), dict)
+
+
 def _after_bank(state) -> str:
     """After the bank's review: regenerate it, or go on to the diagnostic.
+
+    The diagnostic was normally drafted alongside the bank, so this goes
+    straight to its review. A run checkpointed before the three were drafted
+    together has no diagnostic yet and generates it here instead.
 
     An append goes on too: its diagnostic and mock are rebuilt over the whole
     certification -- what existed and what was just added -- and replace the
     old ones when stored (see `persist_generated_assessments`)."""
     if route_after_review(state) == "regenerate":
         return "regenerate"
-    return "diagnostic"
+    return "diagnostic_review" if _has_questions(state, "diagnostic_exam") else "diagnostic"
+
+
+def _after_diagnostic(state) -> str:
+    """Same as `_after_bank`, one exam on: review the drafted mock, or write it."""
+    if route_after_review(state) == "regenerate":
+        return "regenerate"
+    return "mock_review" if _has_questions(state, "mock_exam") else "mock"
+
+
+def _drafted(node):
+    """Runs one of the three final assessments as a parallel draft.
+
+    The question bank, diagnostic exam and mock exam do not depend on each
+    other, so they are written at the same time and the duplicate audit runs
+    once over all three afterwards (it already keeps an exam's copy of a
+    question over the bank's). Each writes its own state key; `status` is the
+    one key all three set, and parallel writes to an un-reduced key are an
+    error in LangGraph, so the drafts leave it out.
+    """
+
+    async def draft(state):
+        result = await node(state)
+        if isinstance(result, dict):
+            result = {key: value for key, value in result.items() if key != "status"}
+        return result
+
+    draft.__name__ = f"draft_{node.__name__}"
+    return draft
+
+
+def _start_final_assessments(state: CertificationState) -> dict:
+    """A junction that fans out to the three drafts. Writes nothing."""
+    return {"status": "FINAL_ASSESSMENTS_STARTED"}
 
 
 def build_certification_graph(checkpointer):
@@ -163,8 +206,29 @@ def build_certification_graph(checkpointer):
     workflow.add_conditional_edges(
         CERTIFICATION_ASSESSMENTS_GATE,
         route_certification_assessments,
-        {"full": "generate_question_bank", "append": "generate_question_bank"},
+        {"full": "start_final_assessments", "append": "start_final_assessments"},
     )
+
+    # The bank, diagnostic and mock exam are drafted at the same time, then
+    # audited together. Each draft reports under its usual stage name, so the
+    # progress view reads the same. The `generate_*` nodes below stay for
+    # regenerating one of them after review, and for runs checkpointed before
+    # this layout.
+    workflow.add_node("start_final_assessments", _start_final_assessments)
+    workflow.add_node(
+        "draft_question_bank",
+        instrument(_drafted(generate_question_bank_node), "generate_question_bank"),
+    )
+    workflow.add_node(
+        "draft_diagnostic_exam",
+        instrument(_drafted(generate_diagnostic_exam_node), "generate_diagnostic_exam"),
+    )
+    workflow.add_node(
+        "draft_mock_exam",
+        instrument(_drafted(generate_mock_exam_node), "generate_mock_exam"),
+    )
+    for draft in ("draft_question_bank", "draft_diagnostic_exam", "draft_mock_exam"):
+        workflow.add_edge("start_final_assessments", draft)
 
     workflow.add_node("generate_diagnostic_exam", instrument(generate_diagnostic_exam_node, "generate_diagnostic_exam"))
     workflow.add_node("await_diagnostic_exam_review", await_diagnostic_exam_review_node)
@@ -174,18 +238,30 @@ def build_certification_graph(checkpointer):
     workflow.add_node("audit_questions", instrument(audit_questions_node, "audit_questions"))
     workflow.add_node("await_question_bank_review", await_question_bank_review_node)
 
+    workflow.add_edge(
+        ["draft_question_bank", "draft_diagnostic_exam", "draft_mock_exam"], "audit_questions"
+    )
     workflow.add_edge("generate_question_bank", "audit_questions")
     workflow.add_edge("audit_questions", "await_question_bank_review")
     workflow.add_conditional_edges(
         "await_question_bank_review",
         _after_bank,
-        {"regenerate": "generate_question_bank", "diagnostic": "generate_diagnostic_exam", "done": END},
+        {
+            "regenerate": "generate_question_bank",
+            "diagnostic": "generate_diagnostic_exam",
+            "diagnostic_review": "await_diagnostic_exam_review",
+            "done": END,
+        },
     )
     workflow.add_edge("generate_diagnostic_exam", "await_diagnostic_exam_review")
     workflow.add_conditional_edges(
         "await_diagnostic_exam_review",
-        route_after_review,
-        {"approve": "generate_mock_exam", "regenerate": "generate_diagnostic_exam"},
+        _after_diagnostic,
+        {
+            "mock": "generate_mock_exam",
+            "mock_review": "await_mock_exam_review",
+            "regenerate": "generate_diagnostic_exam",
+        },
     )
     workflow.add_edge("generate_mock_exam", "await_mock_exam_review")
     workflow.add_conditional_edges(

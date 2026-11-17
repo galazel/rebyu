@@ -21,6 +21,7 @@ import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { useAuth } from "@/context/auth-context.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
+import { toast } from "sonner"
 import "@/styles/admin-mobile.css"
 
 export default function DashboardLayout() {
@@ -51,6 +52,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     await logout()
+    toast.success("Logout successfully")
     navigate("/login", { replace: true })
   }
 

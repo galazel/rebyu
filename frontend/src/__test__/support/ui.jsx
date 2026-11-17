@@ -2,6 +2,7 @@ import React from "react"
 import { vi } from "vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "react-router-dom"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 export function wrapper({ children }) {
   const [client] = React.useState(
@@ -15,7 +16,9 @@ export function wrapper({ children }) {
   )
   return (
     <MemoryRouter>
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <TooltipProvider>
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      </TooltipProvider>
     </MemoryRouter>
   )
 }

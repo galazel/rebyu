@@ -86,11 +86,27 @@ def _figure_regions(page) -> list:
         return []
 
 
+def _page_may_have_figures(page) -> bool:
+    """A cheap gate before figure detection: a page with no embedded image and
+    no vector drawing at all (plain text) cannot hold a figure, so the
+    stroke-clustering in `_figure_regions` is skipped for it. Fails open."""
+    try:
+        if page.get_images(full=False):
+            return True
+        drawings = page.get_cdrawings() if hasattr(page, "get_cdrawings") else page.get_drawings()
+        return bool(drawings)
+    except Exception:
+        return True
+
+
 def _capture_page_images(
     doc: "fitz.Document", page_index: int, source_name: str
 ) -> list[dict[str, Any]]:
     page = doc[page_index]
     captures = []
+
+    if not _page_may_have_figures(page):
+        return captures
 
     for image_index, crop in enumerate(_figure_regions(page)):
 

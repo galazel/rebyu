@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
+  getAiCredits,
   getWorkflowRun,
   restartWorkflowRun,
   retryWorkflowRun,
@@ -21,6 +22,15 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
 
   const recovery = details.data?.recovery
   const status = details.data?.status
+  const outOfCredit = isOutOfCredit(errorMessage ?? details.data?.error_message)
+
+  const credits = useQuery({
+    queryKey: ["ai-credits", "recovery", runId],
+    queryFn: getAiCredits,
+    enabled: outOfCredit,
+    refetchInterval: outOfCredit ? 30_000 : false,
+  })
+  const remaining = credits.data?.available ? credits.data.remaining : null
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["workflow-recovery", runId] })
@@ -67,15 +77,30 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">
-            {stalled ? "This run went quiet" : "This run stopped"}
+            {stalled
+              ? "This run went quiet"
+              : outOfCredit
+                ? "Paused — out of AI credit"
+                : "This run stopped"}
           </p>
           <p className="mt-0.5 break-words text-xs leading-relaxed text-muted-foreground">
             {stalled
               ? `Nothing has been recorded for ${Math.round((recovery.idle_seconds ?? 0) / 60)} minutes. ` +
                 "The generation service most likely restarted while it was executing. It is " +
                 "resumed automatically from its last checkpoint; these are here in case it isn't."
-              : errorMessage || "It failed partway through and is no longer running."}
+              : outOfCredit
+                ? "The OpenRouter balance ran out partway through. Everything generated so far " +
+                  "is kept. Top up the balance, then continue — it picks up at the step that " +
+                  "stopped, not from the beginning. It also retries on its own about every hour."
+                : errorMessage || "It failed partway through and is no longer running."}
           </p>
+
+          {outOfCredit && remaining != null ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              OpenRouter balance now:{" "}
+              <span className="font-mono font-medium text-foreground">${remaining.toFixed(2)}</span>
+            </p>
+          ) : null}
 
           {recovery?.failed_stage ? (
             <p className="mt-1.5 text-xs text-muted-foreground">
@@ -98,9 +123,11 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
                   ) : (
                     <RefreshCw className="mr-2 size-4" />
                   )}
-                  {recovery.failed_stage
-                    ? `Retry ${stageLabel(recovery.failed_stage)}`
-                    : "Retry the failed step"}
+                  {outOfCredit
+                    ? "Continue where it stopped"
+                    : recovery.failed_stage
+                      ? `Retry ${stageLabel(recovery.failed_stage)}`
+                      : "Retry the failed step"}
                 </Button>
                 <Button
                   size="sm"
@@ -130,4 +157,20 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
       </div>
     </div>
   )
+}
+
+const CREDIT_MARKERS = [
+  "insufficient credit",
+  "insufficient_quota",
+  "more credits",
+  "add credits",
+  "negative credit",
+  "payment required",
+  "exceeded your current quota",
+  "402",
+]
+
+function isOutOfCredit(message) {
+  const text = String(message ?? "").toLowerCase()
+  return CREDIT_MARKERS.some((marker) => text.includes(marker))
 }

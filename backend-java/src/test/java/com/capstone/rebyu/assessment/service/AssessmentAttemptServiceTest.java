@@ -945,6 +945,30 @@ class AssessmentAttemptServiceTest {
     }
 
     @Test
+    void submitDoesNotRetainEarlierCreditWhenCompilationFails() {
+        stubActiveEnrollment();
+
+        AssessmentAttemptAnswer answer = submitProgrammingWithStoredVerdict(
+                "stale-hash", "print('changed')", new CodeExecutionResultDto(
+                        "COMPILE_ERROR", "", "Syntax error", 11L, 2048L, 0, 2, List.of()));
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(answer.getCredit()));
+        assertFalse(answer.getIsCorrect());
+    }
+
+    @Test
+    void submitDoesNotRetainEarlierCreditWhenExecutionTimesOut() {
+        stubActiveEnrollment();
+
+        AssessmentAttemptAnswer answer = submitProgrammingWithStoredVerdict(
+                "stale-hash", "print('changed')", new CodeExecutionResultDto(
+                        "TIME_LIMIT_EXCEEDED", "", null, 11L, 2048L, 0, 2, List.of()));
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(answer.getCredit()));
+        assertFalse(answer.getIsCorrect());
+    }
+
+    @Test
     void submitKeepsTheCheckVerdictWhenTheCodeIsUnchanged() throws Exception {
         stubActiveEnrollment();
         String code = "print(sum(map(int, input().split())))";

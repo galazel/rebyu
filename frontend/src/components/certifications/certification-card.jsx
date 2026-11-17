@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   ActivityIcon,
   AlertTriangle,
@@ -94,6 +94,14 @@ function CertificationCard({ item, certification, generationRun = null }) {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showGeneration, setShowGeneration] = useState(false)
+  const openedOnEndedRunRef = useRef(false)
+  // When one of this card's dialogs closes on a click outside it, the dialog
+  // goes on pointer-down and the same click's release lands on the card below,
+  // which would open the certification. Clicks right after a close are ignored.
+  const dialogClosedAtRef = useRef(0)
+  const markDialogClosed = () => {
+    dialogClosedAtRef.current = Date.now()
+  }
   const [showGenerateDrawer, setShowGenerateDrawer] = useState(false)
   const [finishedStatus, setFinishedStatus] = useState(null)
 
@@ -117,6 +125,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
         description: "It continues from where it stopped. Nothing is regenerated.",
       })
       queryClient.invalidateQueries({ queryKey: ["workflow-runs", "active"] })
+      openedOnEndedRunRef.current = false
       setShowGeneration(true)
     },
     onError: (error) =>
@@ -252,6 +261,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
   function handleOpenGeneration(event) {
     event?.preventDefault()
     event?.stopPropagation()
+    openedOnEndedRunRef.current = isStopped || isFailed
 
     if (!generationRun?.run_id) {
       toast.error("Cannot open the generation", {
@@ -263,7 +273,14 @@ function CertificationCard({ item, certification, generationRun = null }) {
     setShowGeneration(true)
   }
 
-  function handleOpenCertification() {
+  function handleOpenCertification(event) {
+    // React passes clicks from this card's dialogs (rendered in portals, e.g.
+    // closing the progress panel by clicking outside it) up to the card. Only
+    // a click that actually landed on the card opens the certification.
+    if (event?.target instanceof Node && !event.currentTarget?.contains(event.target)) return
+    if (showGeneration || showDeleteDialog || finishedStatus != null) return
+    if (Date.now() - dialogClosedAtRef.current < 500) return
+
     if (isGenerating) {
       toast.info("Still generating", {
         description: `"${certificationTitle}" is being built. Open the progress view to watch it.`,
@@ -555,11 +572,21 @@ function CertificationCard({ item, certification, generationRun = null }) {
                             : "View progress"}
                   </Button>
               ) : isStopped || (isFailed && generationRun?.run_id) ? (
+                <div className="flex gap-2">
+                  <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="flex-1"
+                      onClick={handleOpenGeneration}
+                  >
+                    View progress
+                  </Button>
                   <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="w-full"
+                      className="flex-1"
                       disabled={resumeGeneration.isPending || !generationRun?.run_id}
                       onClick={(event) => {
                         event.stopPropagation()
@@ -571,6 +598,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
                         ? isFailed ? "Retrying…" : "Resuming…"
                         : isFailed ? "Retry generation" : "Resume generation"}
                   </Button>
+                </div>
               ) : isEmpty ? (
                   <Button
                       type="button"
@@ -592,7 +620,12 @@ function CertificationCard({ item, certification, generationRun = null }) {
           </div>
         </div>
 
-        <AlertDialog open={finishedStatus != null} onOpenChange={(open) => !open && setFinishedStatus(null)}>
+        <AlertDialog open={finishedStatus != null} onOpenChange={(open) => {
+          if (!open) {
+            markDialogClosed()
+            setFinishedStatus(null)
+          }
+        }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogMedia
@@ -638,7 +671,13 @@ function CertificationCard({ item, certification, generationRun = null }) {
           </AlertDialogContent>
         </AlertDialog>
 
-        <Dialog open={showGeneration} onOpenChange={setShowGeneration}>
+        <Dialog
+            open={showGeneration}
+            onOpenChange={(open) => {
+              if (!open) markDialogClosed()
+              setShowGeneration(open)
+            }}
+        >
           <DialogContent
               className="flex h-[82vh] w-[96vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] sm:max-w-none lg:w-[80vw] xl:w-[70vw]"
               onClick={(event) => event.stopPropagation()}
@@ -655,6 +694,9 @@ function CertificationCard({ item, certification, generationRun = null }) {
                     certificationId={certificationId}
                     onClose={() => setShowGeneration(false)}
                     onFinished={(status) => {
+                      // Opened on a run that had already stopped or failed: the
+                      // admin is looking at it, so keep the panel open.
+                      if (openedOnEndedRunRef.current) return
                       setShowGeneration(false)
                       setFinishedStatus(status)
                       queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
@@ -668,7 +710,10 @@ function CertificationCard({ item, certification, generationRun = null }) {
         {isEmpty ? (
             <CertificationFormDrawer
                 open={showGenerateDrawer}
-                onOpenChange={setShowGenerateDrawer}
+                onOpenChange={(open) => {
+                  if (!open) markDialogClosed()
+                  setShowGenerateDrawer(open)
+                }}
                 certification={currentCertification}
                 onSaved={async () => {
                   markGenerationQueued(certificationId)
@@ -677,7 +722,13 @@ function CertificationCard({ item, certification, generationRun = null }) {
             />
         ) : null}
 
-        <AlertDialog open={showDeleteDialog} onOpenChange={handleDeleteDialogChange}>
+        <AlertDialog
+            open={showDeleteDialog}
+            onOpenChange={(open) => {
+              if (!open) markDialogClosed()
+              handleDeleteDialogChange(open)
+            }}
+        >
           <AlertDialogContent size="sm">
             <AlertDialogHeader>
               <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20">

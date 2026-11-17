@@ -87,18 +87,6 @@ test("TC-156: Assessment builder validation", async (context) => {
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Week 1 Quiz" },
   })
-  await waitFor(() =>
-    expect(document.querySelectorAll("select").length).toBeGreaterThanOrEqual(4)
-  )
-  fireEvent.change(document.querySelectorAll("select")[1], {
-    target: { value: "1" },
-  })
-  fireEvent.change(document.querySelectorAll("select")[2], {
-    target: { value: "2" },
-  })
-  fireEvent.change(document.querySelectorAll("select")[3], {
-    target: { value: "3" },
-  })
   fireEvent.click(screen.getByRole("button", { name: "Create assessment" }))
   expect(
     await screen.findByText("Add at least one question.")

@@ -118,6 +118,18 @@ def _namespace(state: CertificationState) -> str:
     )
 
 
+def _has_capturable_documents(state: CertificationState) -> bool:
+    """Figures are only read out of PDFs and Word files; a run of CSVs or plain
+    text has nothing to capture, so the step returns at once."""
+    from app.rag.visuals import _CAPTURERS
+
+    refs = state.get("document_refs") or []
+    files = state.get("uploaded_files") or []
+    return any(ref.get("content_type") in _CAPTURERS for ref in refs) or any(
+        file.get("type") in _CAPTURERS for file in files
+    )
+
+
 async def capture_document_visuals_node(state: CertificationState):
     """Screenshots figures/diagrams/tables/charts out of the uploaded PDFs
     before ingestion drops the raw bytes, so a later lesson/question stage
@@ -125,6 +137,10 @@ async def capture_document_visuals_node(state: CertificationState):
     text description of it (or a stock-photo search result -- see
     `app/domain/lesson_media.py`)."""
     logger.info("Document visual capture started")
+
+    if not _has_capturable_documents(state):
+        logger.info("No PDF or Word documents in this run; skipping figure capture")
+        return {"document_visuals": []}
 
     visuals = await asyncio.to_thread(
         capture_document_visuals,

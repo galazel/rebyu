@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
+  Database as DatabaseIcon,
   Loader2Icon,
   PlusCircleIcon,
   RocketIcon,
@@ -9,6 +10,7 @@ import {
   XCircleIcon,
 } from "@/components/icons"
 import { toast } from "sonner"
+import { useNavigate } from "react-router-dom"
 
 import {
   AlertDialog,
@@ -33,6 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   getCertificationPublishingRequirements,
+  getExamBankSize,
   publishCertification,
 } from "@/services/certificationService.js"
 
@@ -117,6 +120,15 @@ function buildCreateRequest(item) {
   }
 }
 
+// Every fix opens the question builder for that one assessment.
+function builderPath(certificationId, params) {
+  const query = new URLSearchParams({ tab: "question-builder", mode: "manual" })
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== "") query.set(key, String(value))
+  })
+  return `/admin/certification/${certificationId}/question-bank?${query}`
+}
+
 export default function CertificationPublishingChecklist({
                                                            certificationId,
                                                            isPublished = false,
@@ -124,6 +136,7 @@ export default function CertificationPublishingChecklist({
                                                            onCreateAssessment,
                                                          }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const requirementsQuery = useQuery({
     queryKey: ["certification-publishing-requirements", certificationId],
@@ -253,7 +266,13 @@ export default function CertificationPublishingChecklist({
                                 type="button"
                                 size="sm"
                                 className="shrink-0 sm:self-center"
-                                onClick={() => onCreateAssessment?.(createRequest)}
+                                onClick={() =>
+                                    navigate(builderPath(certificationId, {
+                                      target: normalizedType,
+                                      scope: item.scopeId ?? createRequest.lessonId ?? createRequest.middleCategoryId ?? createRequest.majorCategoryId,
+                                      for: createRequest.title || item.title,
+                                    }))
+                                }
                             >
                               <PlusCircleIcon aria-hidden="true" />
                               Create {typeLabel}
@@ -285,17 +304,16 @@ export default function CertificationPublishingChecklist({
                         </div>
                       </div>
 
-                      {item.examId != null ? (
+                      {item.reason === "QUESTION_BANK_TOO_SMALL" ? (
+                          <BankTooSmallFix examId={item.examId} title={item.title} certificationId={certificationId} />
+                      ) : item.examId != null ? (
                           <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="shrink-0 sm:self-center"
                               onClick={() =>
-                                  onCreateAssessment?.({
-                                    mode: "edit",
-                                    examId: item.examId,
-                                  })
+                                  navigate(builderPath(certificationId, { exam: item.examId, for: item.title }))
                               }
                           >
                             <WrenchIcon aria-hidden="true" />
@@ -350,5 +368,41 @@ export default function CertificationPublishingChecklist({
           </AlertDialog>
         </CardContent>
       </Card>
+  )
+}
+
+// An adaptive exam draws its questions from the certification's bank, so a
+// bank that is too small is fixed by adding bank questions in the exam's scope
+// -- not by editing the exam itself.
+function BankTooSmallFix({ examId, title, certificationId }) {
+  const navigate = useNavigate()
+  const size = useQuery({
+    queryKey: ["exam-bank-size", examId],
+    queryFn: () => getExamBankSize(examId),
+    enabled: examId != null,
+    staleTime: 30_000,
+  })
+  const missing = size.data ? Math.max(0, (size.data.required ?? 0) - (size.data.total ?? 0)) : null
+
+  return (
+      <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end sm:self-center">
+        <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigate(builderPath(certificationId, { exam: examId, for: title, needed: missing || null }))
+            }}
+        >
+          <DatabaseIcon aria-hidden="true" />
+          Add bank questions
+        </Button>
+        {size.data ? (
+            <span className="text-xs text-muted-foreground">
+              Has {size.data.total} · needs {size.data.required}
+              {missing ? ` · add ${missing} more` : ""}
+            </span>
+        ) : null}
+      </div>
   )
 }

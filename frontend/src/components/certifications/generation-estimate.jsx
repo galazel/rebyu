@@ -234,7 +234,7 @@ export function GenerationEstimate({ lessons, bankSize, credits, creditsLoading,
 
       <p className="mt-3 text-xs leading-5 text-muted-foreground">
         {enough === false
-          ? "Top up your OpenRouter credits, or lower the lessons or bank size, before generating. "
+          ? "You can still start it: the run pauses when the credit runs out, and after a top-up it continues from where it stopped. "
           : level === "high"
             ? "If credit runs out part-way, generation stops. Finished steps are kept and you can retry. "
             : ""}

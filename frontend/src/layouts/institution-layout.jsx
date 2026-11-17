@@ -21,6 +21,7 @@ import { NotificationBell } from "@/components/notification-bell.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
 import { UpdatingPill } from "@/components/commons/updating-pill.jsx"
+import { toast } from "sonner"
 
 function getInitials(name = "") {
   return (
@@ -75,6 +76,7 @@ export default function InstitutionLayout() {
     await authLogout()
     localStorage.removeItem("institution_id")
     localStorage.removeItem("institutionId")
+    toast.success("Logout successfully")
     navigate("/login", { replace: true })
   }
 

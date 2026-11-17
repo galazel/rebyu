@@ -147,8 +147,11 @@ def get_llm(task: str = "question", model: str | None = None, max_retries: int |
 
     from app.ai.usage import UsageRecorder
 
+    from app.ai.prompt_cache import CachingChatOpenAI, supports_cache_control
+
     model_name = model or profile.model
-    return ChatOpenAI(
+    return CachingChatOpenAI(
+        cache_breakpoints=supports_cache_control(provider.name, model_name),
         api_key=key,
         base_url=provider.base_url,
         model=model_name,
