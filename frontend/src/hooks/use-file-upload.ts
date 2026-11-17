@@ -6,6 +6,7 @@ import {
   type InputHTMLAttributes,
   type RefObject,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -120,6 +121,23 @@ export const useFileUpload = (
     },
     [accept, maxSize],
   );
+
+  // Release image previews when the component using this hook unmounts.
+  const filesRef = useRef(state.files);
+  filesRef.current = state.files;
+  useEffect(() => {
+    return () => {
+      for (const file of filesRef.current ?? []) {
+        if (
+          file.preview &&
+          file.file instanceof File &&
+          file.file.type.startsWith("image/")
+        ) {
+          URL.revokeObjectURL(file.preview);
+        }
+      }
+    };
+  }, []);
 
   const createPreview = useCallback(
     (file: File | FileMetadata): string | undefined => {

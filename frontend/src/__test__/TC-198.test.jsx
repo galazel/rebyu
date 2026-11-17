@@ -17,7 +17,9 @@ test("TC-198: Dashboard layout failure", async (context) => {
     wrapper,
   })
   await waitFor(() => expect(result.current.tileLayout).toHaveLength(1))
+  act(() => result.current.startRearranging())
   act(() => result.current.handleLayoutChange([{ i: "score", x: 1, y: 0 }]))
+  act(() => result.current.finishRearranging())
   await waitFor(() => expect(toast.error).toHaveBeenCalled())
   await waitFor(() =>
     expect(result.current.tileLayout).toEqual([{ i: "old", x: 0, y: 0 }])

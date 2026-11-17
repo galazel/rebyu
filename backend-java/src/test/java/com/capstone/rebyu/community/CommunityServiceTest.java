@@ -78,6 +78,11 @@ class CommunityServiceTest {
                 mock(com.capstone.rebyu.gamification.service.CertificationReviewLevelService.class));
 
         when(postRepository.save(any(CommunityPost.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(learnerRepository.getReferenceById(any())).thenAnswer(inv -> {
+            com.capstone.rebyu.user.entity.Learner ref = new com.capstone.rebyu.user.entity.Learner();
+            ref.setLearnerId(inv.getArgument(0));
+            return ref;
+        });
     }
 
     private CommunityPost sharedQuizPost(String moderationStatus) {

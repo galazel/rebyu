@@ -17,7 +17,9 @@ test("TC-197: Dashboard layout save", async (context) => {
     wrapper,
   })
   await waitFor(() => expect(result.current.tileLayout).toHaveLength(1))
+  act(() => result.current.startRearranging())
   act(() => result.current.handleLayoutChange([{ i: "score", x: 1, y: 0 }]))
+  act(() => result.current.finishRearranging())
   await waitFor(() => expect(request).toHaveBeenCalled())
   expect(request).toHaveBeenCalledWith("learner", [{ i: "score", x: 1, y: 0 }])
   await waitFor(() =>
