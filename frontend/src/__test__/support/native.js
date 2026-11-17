@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
-import { readFile, writeFile, mkdir } from "node:fs/promises"
+import { readFile, writeFile, mkdir, access } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -8,6 +8,21 @@ const execute = promisify(execFile)
 const repository = fileURLToPath(new URL("../../../../", import.meta.url))
 const output = path.join(repository, "frontend/.native-test-output")
 export const nativeEnabled = process.env.REBYU_NATIVE_TESTS === "1"
+
+async function pythonExecutable() {
+  if (process.env.REBYU_PYTHON) return process.env.REBYU_PYTHON
+  const local = path.join(
+    repository,
+    "python-backend/.venv",
+    process.platform === "win32" ? "Scripts/python.exe" : "bin/python"
+  )
+  try {
+    await access(local)
+    return local
+  } catch {
+    return "python"
+  }
+}
 
 export async function runPythonTests(selectors) {
   await mkdir(output, { recursive: true })
@@ -25,7 +40,7 @@ export async function runPythonTests(selectors) {
     ...selectors,
   ]
   // Selected existing tests mock AI/retrieval. No live_turns or live-provider tests.
-  await execute(process.env.REBYU_PYTHON || "python", args, {
+  await execute(await pythonExecutable(), args, {
     cwd: path.join(repository, "python-backend"),
     timeout: 180000,
     maxBuffer: 8 * 1024 * 1024,

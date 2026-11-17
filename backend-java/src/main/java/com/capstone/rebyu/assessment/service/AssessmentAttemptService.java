@@ -2031,8 +2031,7 @@ public class AssessmentAttemptService {
             }
         }
 
-        boolean definitive = result != null
-                && ("COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status()));
+        boolean definitive = result != null && isDefinitiveProgrammingResult(result.status());
         if (!definitive) {
             noteVerdictFromEarlierCode(answer);
             return;
@@ -2055,6 +2054,18 @@ public class AssessmentAttemptService {
             answer.setIsCorrect(false);
         }
         answer.setPendingManualEvaluation(false);
+    }
+
+    /**
+     * A runner result for the submitted source must replace an earlier Check verdict.
+     * In particular, a compilation failure or timeout is a definitive failed submission,
+     * not a reason to retain credit from different, previously checked code.
+     */
+    private static boolean isDefinitiveProgrammingResult(String status) {
+        return "COMPLETED".equals(status)
+                || "COMPILE_ERROR".equals(status)
+                || "COMPILATION_ERROR".equals(status)
+                || "TIME_LIMIT_EXCEEDED".equals(status);
     }
 
     /**
