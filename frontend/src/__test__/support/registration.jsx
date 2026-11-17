@@ -30,7 +30,7 @@ vi.mock("@/services/partnershipService.js", () => ({
   getRegistrationRequest: mocks.lookup,
   lookupDepartmentHeadCode: mocks.department,
 }))
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
 import RegisterPage from "@/pages/auth/register-page.jsx"
 
 export function registration(type = "learner") {
