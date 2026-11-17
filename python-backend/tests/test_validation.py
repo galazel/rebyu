@@ -76,13 +76,23 @@ def test_mcq_requires_between_three_and_nine_choices():
 
 
 def test_mcq_requires_correct_choice_index():
+    """With no explanation to fall back on, a missing answer index is still an error."""
     with pytest.raises(ValidationError, match="correct_choice_index"):
-        mcq(correct_choice_index=None)
+        mcq(correct_choice_index=None, explanation="")
 
 
-def test_mcq_rejects_out_of_range_index():
+def test_mcq_rejects_out_of_range_index_without_explanation():
+    """With nothing to grade against, a bad answer index is still an error."""
     with pytest.raises(ValidationError, match="out of range"):
-        mcq(correct_choice_index=9)
+        mcq(correct_choice_index=9, explanation="")
+
+
+def test_mcq_with_out_of_range_index_is_kept_as_descriptive():
+    """A bad answer index no longer discards the question: its explanation becomes the rubric."""
+    q = mcq(correct_choice_index=9)
+    assert q.question_type == "DESCRIPTIVE"
+    assert q.rubric_answer == "Because two plus two equals four, by definition."
+    assert q.choices == [] and q.correct_choice_index is None
 
 
 def test_mcq_rejects_duplicate_choices():
