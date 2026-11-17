@@ -6,6 +6,7 @@ import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Routes, Route } from "react-router-dom"
 vi.mock("@/context/auth-context.jsx", () => ({
   useAuth: () => ({ status: "authenticated", user: { role: "LEARNER" } }),
+  roleHomePath: () => "/learner/analytics",
 }))
 import ProtectedRoute from "@/components/ProtectedRoute.jsx"
 
@@ -19,7 +20,7 @@ test("TC-023: Role mismatch", async (context) => {
             element={<div>Secret administrator content</div>}
           />
         </Route>
-        <Route path="/403" element={<div>Access redirected</div>} />
+        <Route path="/learner/analytics" element={<div>Access redirected</div>} />
       </Routes>
     </MemoryRouter>
   )

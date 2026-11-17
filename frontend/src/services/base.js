@@ -60,7 +60,9 @@ export async function base(endpoint, options = {}) {
 
   const promise = request(endpoint, { ...options, headers })
   inFlightGetRequests.set(requestKey, promise)
-  promise.finally(() => inFlightGetRequests.delete(requestKey))
+  promise
+    .finally(() => inFlightGetRequests.delete(requestKey))
+    .catch(() => {})
   return promise
 }
 

@@ -30,6 +30,7 @@ test("TC-201: Admin save failure", async (context) => {
     />,
     { wrapper }
   )
+  fireEvent.click(screen.getByRole("button", { name: "Add Program" }))
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Information Technology" },
   })

@@ -6,6 +6,7 @@ import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Routes, Route } from "react-router-dom"
 vi.mock("@/context/auth-context.jsx", () => ({
   useAuth: () => ({ status: "anonymous", user: null }),
+  roleHomePath: () => "/learner/analytics",
 }))
 import ProtectedRoute from "@/components/ProtectedRoute.jsx"
 

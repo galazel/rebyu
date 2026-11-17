@@ -52,6 +52,7 @@ test("TC-113: Tutor study-set conversion", async (context) => {
       front: "2+2?",
       back: "4",
       options: ["3", "4"],
+      optionExplanations: [],
       correctIndex: 1,
       explanation: "Addition",
     },
