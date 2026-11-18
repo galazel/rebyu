@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { CircleAlert, Sparkles, X } from "@/components/icons"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { getAiCredits } from "@/services/aiWorkflowService"
+import { cancelWorkflowRun, getAiCredits, listWorkflowRuns } from "@/services/aiWorkflowService"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import {
     addCertificationWithAi,
     appendToCertificationWithAi,
+    deleteCertification,
     setCertificationBadge,
     updateCertification,
 } from "@/services/certificationService"
@@ -248,6 +249,39 @@ export default function CertificationFormDrawer({
         },
     })
 
+    // Cancel cannot just drop the request: the server keeps reading the
+    // documents and would still create the certification and start its run.
+    // So it waits for the server, then stops what was started.
+    const cancelRequested = useRef(false)
+    const [cancelling, setCancelling] = useState(false)
+
+    async function stopStartedRun(certificationId) {
+        // The run is published after the server commits, so give it a moment
+        // to appear before cancelling it.
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            const { runs = [] } = (await listWorkflowRuns({ certificationId, limit: 20 }).catch(() => null)) ?? {}
+            const live = runs.filter(
+                (run) =>
+                    String(run.certification_id) === String(certificationId) &&
+                    !["COMPLETED", "FAILED", "CANCELLED"].includes(String(run.status).toUpperCase())
+            )
+            if (live.length) {
+                await Promise.all(live.map((run) => cancelWorkflowRun(run.run_id).catch(() => null)))
+                return
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+    }
+
+    async function discardStarted(saved) {
+        const certificationId = saved?.certificationId ?? existingId
+        if (certificationId == null) return
+        await stopStartedRun(certificationId)
+        // A new certification is removed entirely; an existing one keeps its
+        // details and only loses the run that was just started.
+        if (!isExisting) await deleteCertification(certificationId)
+    }
+
     const isProcessing = isBusy && uploadPercent >= 100
     useEffect(() => {
         if (!isProcessing) {
@@ -347,6 +381,8 @@ export default function CertificationFormDrawer({
             return
         }
 
+        cancelRequested.current = false
+        setCancelling(false)
         try {
             setSubmissionError("")
 
@@ -370,6 +406,20 @@ export default function CertificationFormDrawer({
                 lessons,
             })
 
+            if (cancelRequested.current) {
+                await discardStarted(savedCertification)
+                // Refreshes the list without marking anything as generating.
+                if (!isExisting) await onSaved?.(null)
+                onOpenChange(false)
+                resetForm()
+                toast.info("Generation cancelled", {
+                    description: isExisting
+                        ? "The run was stopped before it wrote anything."
+                        : "Nothing was created.",
+                })
+                return
+            }
+
             await onSaved?.(savedCertification)
 
 
@@ -384,6 +434,13 @@ export default function CertificationFormDrawer({
                         : "It will pause at each step for your approval. Open it from the list to review.",
             })
         } catch (error) {
+            if (cancelRequested.current) {
+                // Failed on its own before anything was started.
+                onOpenChange(false)
+                resetForm()
+                toast.info("Generation cancelled")
+                return
+            }
             const message = getErrorMessage(error)
 
             setSubmissionError(message)
@@ -391,6 +448,8 @@ export default function CertificationFormDrawer({
             toast.error("Could not start generation", { description: message })
         } finally {
             setUploadPercent(0)
+            cancelRequested.current = false
+            setCancelling(false)
         }
     }
 
@@ -606,8 +665,10 @@ export default function CertificationFormDrawer({
                             {uploadPercent >= 100 && (
                                 <p className="text-xs leading-5 text-muted-foreground">
                                     Large PDFs take a few minutes — every page is
-                                    read and its diagrams pulled out. This keeps
-                                    going even if you close this.
+                                    read and its diagrams pulled out.
+                                    {cancelling
+                                        ? " Cancelling — waiting for the server to stop what it started."
+                                        : " This keeps going even if you close this."}
                                 </p>
                             )}
                         </div>
@@ -618,6 +679,19 @@ export default function CertificationFormDrawer({
                             <p className="mr-auto text-sm text-destructive">
                                 This is a large run. Click again to start it anyway.
                             </p>
+                        )}
+                        {isBusy && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    cancelRequested.current = true
+                                    setCancelling(true)
+                                }}
+                                disabled={cancelling}
+                            >
+                                {cancelling ? "Cancelling..." : "Cancel"}
+                            </Button>
                         )}
                         <Button
                             type="button"

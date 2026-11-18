@@ -5,6 +5,7 @@ import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.certification.dto.LessonComponentResponseDto;
 import com.capstone.rebyu.certification.dto.LessonDto;
+import com.capstone.rebyu.certification.dto.LessonVersionDto;
 import com.capstone.rebyu.certification.service.LessonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -77,7 +78,7 @@ public class LessonController {
     ) {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
-        lessonService.saveLessonComponent(id, lessonDto, isAdmin, user.institutionId(), user.userId(), isOwner(user));
+        lessonService.saveLessonComponent(id, lessonDto, isAdmin, user.institutionId(), user.userId(), isOwner(user), displayName(user));
         // After the save's transaction has committed, so Python reads the new content.
         aiServiceClient.indexLessonAsync(id);
     }
@@ -87,6 +88,27 @@ public class LessonController {
             @PathVariable Long id
     ) {
         return lessonService.getLessonComponent(id);
+    }
+
+    @GetMapping("/lesson/{id}/versions")
+    public List<LessonVersionDto> getLessonVersions(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        CurrentUserDto user = requireAdminOrInstitution(jwt);
+        return lessonService.getVersions(id, isAdmin(user), user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    @GetMapping("/lesson/{id}/versions/{versionId}")
+    public LessonVersionDto getLessonVersion(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long id, @PathVariable Long versionId) {
+        CurrentUserDto user = requireAdminOrInstitution(jwt);
+        return lessonService.getVersion(id, versionId, isAdmin(user), user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    private String displayName(CurrentUserDto user) {
+        if (user.displayName() != null && !user.displayName().isBlank()) return user.displayName();
+        String first = user.firstName() == null ? "" : user.firstName();
+        String last = user.lastName() == null ? "" : user.lastName();
+        String full = (first + " " + last).trim();
+        return full.isEmpty() ? user.email() : full;
     }
 
     private CurrentUserDto requireAdminOrInstitution(Jwt jwt) {

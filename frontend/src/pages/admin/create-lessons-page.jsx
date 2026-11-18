@@ -1,17 +1,16 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
   AlignLeft,
-  ArrowLeft,
   BetweenHorizontalEnd,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
   Code2 as CodeIcon,
   FilePlay,
-  FileText,
   FlipHorizontal,
+  History,
   Heading as HeadingIcon,
   Image as ImageIcon,
   Layers,
@@ -23,6 +22,7 @@ import {
   PanelRight,
   PanelsTopLeft,
   Plus,
+  RotateCcw,
   Save,
   Search,
   Table as TableIcon,
@@ -53,9 +53,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import Section from "../../components/certifications/section"
 import {
   getLessonComponent,
+  getLessonVersion,
+  getLessonVersions,
   setLessonComponent,
 } from "../../services/lessonService.js"
 import { saveFile as MediaFileUpload } from "../../services/fileService.js"
+
+// Version timestamps are UTC LocalDateTimes (no zone on the wire).
+function formatVersionTime(createdAt) {
+  if (!createdAt) return ""
+  const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(createdAt) ? createdAt : `${createdAt}Z`)
+  if (Number.isNaN(date.getTime())) return createdAt
+  const sameYear = date.getFullYear() === new Date().getFullYear()
+  return date.toLocaleString(undefined, {
+    month: "long",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
 
 function getBackendErrorMessage(error, fallbackMessage) {
   const responseData = error?.response?.data
@@ -756,6 +773,23 @@ function CreateLessons() {
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
   const [blockSearch, setBlockSearch] = useState("")
   const [zoom, setZoom] = useState(100)
+  // JSON of the last loaded/saved structure; Save and Cancel only appear when the editor differs from it.
+  const [savedSnapshot, setSavedSnapshot] = useState("[]")
+
+  // Version history (Google Docs style): browse saved versions, preview one, restore it.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [versions, setVersions] = useState([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  // { versionId, label, working } while previewing; `working` is the editor content to return to.
+  const [preview, setPreview] = useState(null)
+  const [previewLoadingId, setPreviewLoadingId] = useState(null)
+  const lessonMediaRef = useRef({ imageKeys: {}, videoKeys: {} })
+
+  const editingSections = preview ? preview.working : sections
+  const isDirty = useMemo(
+      () => JSON.stringify(editingSections) !== savedSnapshot,
+      [editingSections, savedSnapshot]
+  )
 
   function normalizeSections(savedSections, imageKeys = {}, videoKeys = {}) {
     if (!Array.isArray(savedSections)) {
@@ -830,6 +864,7 @@ function CreateLessons() {
       if (!lessonId) {
         if (isMounted) {
           setSections([])
+          setSavedSnapshot("[]")
           setIsLoadingLesson(false)
         }
 
@@ -840,6 +875,11 @@ function CreateLessons() {
         setIsLoadingLesson(true)
 
         const response = await getLessonComponent(lessonId)
+        const responseData = response?.data ?? response ?? {}
+        lessonMediaRef.current = {
+          imageKeys: responseData.imageKeys ?? {},
+          videoKeys: responseData.videoKeys ?? {},
+        }
         const savedSections = parseLessonComponent(response)
 
         if (!isMounted) {
@@ -847,6 +887,7 @@ function CreateLessons() {
         }
 
         setSections(savedSections)
+        setSavedSnapshot(JSON.stringify(savedSections))
         setSectionIndex(0)
       } catch (error) {
         if (isMounted) {
@@ -874,8 +915,95 @@ function CreateLessons() {
     }
   }, [lessonId])
 
+  // Warn before closing or reloading the tab with unsaved edits.
+  useEffect(() => {
+    if (!isDirty) return undefined
+    const onBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [isDirty])
+
+  async function loadVersions() {
+    if (!lessonId) return
+    setVersionsLoading(true)
+    try {
+      const response = await getLessonVersions(lessonId)
+      const list = response?.data ?? response
+      setVersions(Array.isArray(list) ? list : [])
+    } catch (error) {
+      toast.error("Could not load version history", { description: error?.message })
+    } finally {
+      setVersionsLoading(false)
+    }
+  }
+
+  function toggleHistory() {
+    if (historyOpen) {
+      closeHistory()
+      return
+    }
+    setHistoryOpen(true)
+    loadVersions()
+  }
+
+  function closeHistory() {
+    if (preview) {
+      setSections(preview.working)
+      setPreview(null)
+    }
+    setHistoryOpen(false)
+  }
+
+  async function handlePreviewVersion(version, isCurrent) {
+    if (isCurrent) {
+      if (preview) {
+        setSections(preview.working)
+        setPreview(null)
+      }
+      return
+    }
+    setPreviewLoadingId(version.lessonVersionId)
+    try {
+      const response = await getLessonVersion(lessonId, version.lessonVersionId)
+      const data = response?.data ?? response ?? {}
+      const versionSections = parseLessonComponent({
+        lessonComponentStructure: data.lessonComponentStructure,
+        ...lessonMediaRef.current,
+      })
+      const working = preview ? preview.working : sections
+      setPreview({
+        versionId: version.lessonVersionId,
+        label: formatVersionTime(version.createdAt),
+        working,
+      })
+      setSections(versionSections)
+      setSectionIndex(0)
+    } catch (error) {
+      toast.error("Could not open that version", { description: error?.message })
+    } finally {
+      setPreviewLoadingId(null)
+    }
+  }
+
+  // Restoring puts that version in the editor as unsaved changes; Save makes it the newest version.
+  function handleRestoreVersion() {
+    if (!preview) return
+    const label = preview.label
+    setPreview(null)
+    setHistoryOpen(false)
+    toast.success("Version restored", {
+      description: `Content from ${label} is in the editor. Save to keep it, or Cancel to undo.`,
+    })
+  }
+
+  // Cancel discards the edits and returns the editor to the last saved version.
   function handleCancel() {
-    navigate(-1)
+    const restored = JSON.parse(savedSnapshot)
+    setSections(restored)
+    setSectionIndex((index) => Math.min(index, Math.max(restored.length - 1, 0)))
   }
 
   function handleAddSection() {
@@ -1410,6 +1538,8 @@ function CreateLessons() {
       await setLessonComponent(lessonId, savedLessonStructure)
 
       setSections(savedLessonStructure)
+      setSavedSnapshot(JSON.stringify(savedLessonStructure))
+      if (historyOpen) loadVersions()
       setIsSuccessDialogOpen(true)
 
       toast.success("Lesson saved", {
@@ -1454,52 +1584,72 @@ function CreateLessons() {
 
   return (
       <section className="relative flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b bg-background px-3 py-2 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleCancel}
-                aria-label="Back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="h-4 w-4" />
-            </div>
-
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold leading-tight tracking-tight">
-                {lessonName}
-              </h1>
-              <p className="text-xs text-muted-foreground">Lesson editor</p>
-            </div>
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5">
+          {/* Same eyebrow + title header as the question bank workspace. */}
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Lesson editor
+            </p>
+            <h1 className="truncate text-sm font-bold text-foreground">
+              {lessonName}
+            </h1>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" variant="outline" size="icon" className="md:hidden" aria-label="Lesson elements and outline" aria-expanded={mobilePanelOpen} aria-controls="lesson-elements-panel" onClick={() => setMobilePanelOpen((open) => !open)}>
               {mobilePanelOpen ? <X className="size-4" /> : <Layers className="size-4" />}
             </Button>
-            <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                className="hidden sm:inline-flex"
-            >
-              Cancel
-            </Button>
+            {lessonId ? (
+                <Button
+                    type="button"
+                    variant={historyOpen ? "secondary" : "ghost"}
+                    size="icon"
+                    onClick={toggleHistory}
+                    aria-label="Version history"
+                    aria-pressed={historyOpen}
+                    title="Version history"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+            ) : null}
 
-            <Button
-                type="button"
-                onClick={handleSaveLesson}
-                disabled={isSaving || isLoadingLesson}
-                className="gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {isLoadingLesson ? "Loading..." : isSaving ? "Saving..." : "Save"}
-            </Button>
+            {preview ? (
+                <>
+                  <Button type="button" variant="outline" onClick={() => handlePreviewVersion(null, true)}>
+                    Back to editing
+                  </Button>
+                  <Button type="button" onClick={handleRestoreVersion} className="gap-2">
+                    <RotateCcw className="h-4 w-4" />
+                    Restore this version
+                  </Button>
+                </>
+            ) : isDirty || isSaving ? (
+                <>
+                  <span className="hidden text-xs text-muted-foreground lg:inline">Unsaved changes</span>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCancel}
+                      disabled={isSaving}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button
+                      type="button"
+                      onClick={handleSaveLesson}
+                      disabled={isSaving || isLoadingLesson}
+                      className="gap-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSaving ? "Saving..." : "Save"}
+                  </Button>
+                </>
+            ) : (
+                <span className="text-xs text-muted-foreground">
+                  {isLoadingLesson ? "Loading..." : "All changes saved"}
+                </span>
+            )}
           </div>
         </header>
 
@@ -1529,7 +1679,7 @@ function CreateLessons() {
 
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Canva-style side panel */}
-          <aside id="lesson-elements-panel" className={`${mobilePanelOpen ? "flex" : "hidden md:flex"} max-h-[40dvh] w-full shrink-0 flex-col border-b bg-background md:max-h-none md:w-72 md:border-b-0 md:border-r`}>
+          <aside id="lesson-elements-panel" className={`${preview ? "hidden" : mobilePanelOpen ? "flex" : "hidden md:flex"} max-h-[40dvh] w-full shrink-0 flex-col border-b bg-background md:max-h-none md:w-72 md:border-b-0 md:border-r`}>
             <div className="flex shrink-0 gap-1 border-b p-2">
               {[
                 { key: "elements", label: "Elements", icon: Layers },
@@ -1555,7 +1705,7 @@ function CreateLessons() {
               })}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="lesson-editor-scroll min-h-0 flex-1 overflow-y-auto p-3">
               {panelTab === "elements" ? (
                   <>
                     <div className="relative mb-3">
@@ -1664,10 +1814,17 @@ function CreateLessons() {
           </aside>
 
           {/* Page canvas */}
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/60">
+          <main className="lesson-editor-scroll relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/60">
+            {preview ? (
+                <div className="sticky top-0 z-10 flex items-center justify-center gap-2 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
+                  <History className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Viewing the version from <strong>{preview.label}</strong>. It is read-only until you restore it.</span>
+                </div>
+            ) : null}
             <div
-                className="mx-auto w-full max-w-[860px] px-3 py-6 sm:px-8 sm:py-12"
+                className="mx-auto w-full max-w-[880px] px-3 py-6 sm:px-8 sm:py-10"
                 style={{ zoom: zoom / 100 }}
+                inert={Boolean(preview)}
             >
               {isLoadingLesson ? (
                   <Card className="shadow-md">
@@ -1703,7 +1860,7 @@ function CreateLessons() {
                     </CardContent>
                   </Card>
               ) : (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {sections.map((section, index) => {
                       const isSelected = sectionIndex === index
 
@@ -1711,10 +1868,10 @@ function CreateLessons() {
                           <div
                               key={section.id}
                               id={`lesson-section-${section.id}`}
-                              className={`scroll-mt-6 rounded-sm bg-background px-5 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_8px_24px_rgba(0,0,0,0.06)] transition sm:px-16 sm:py-14 ${
-                                  isSelected
-                                      ? "ring-2 ring-primary/30"
-                                      : "ring-1 ring-transparent hover:ring-border"
+                              // A Google Docs page: US Letter proportions (816 x 1056 px at 100%),
+                              // square corners, 1-inch margins, a soft sheet shadow, no selection ring.
+                              className={`lesson-paper mx-auto w-full max-w-[816px] scroll-mt-6 bg-background px-5 py-8 transition-shadow sm:min-h-[1056px] sm:px-[72px] sm:py-[72px] ${
+                                  isSelected ? "lesson-paper-active" : ""
                               }`}
                               onMouseDown={() => setSectionIndex(index)}
                               onFocusCapture={() => setSectionIndex(index)}
@@ -1736,7 +1893,7 @@ function CreateLessons() {
                         type="button"
                         variant="outline"
                         onClick={handleAddSection}
-                        className="h-12 w-full border-dashed bg-background/60 text-muted-foreground hover:text-foreground"
+                        className="mx-auto flex h-12 w-full max-w-[816px] border-dashed bg-background/60 text-muted-foreground hover:text-foreground"
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add another section
@@ -1745,6 +1902,63 @@ function CreateLessons() {
               )}
             </div>
           </main>
+
+          {historyOpen ? (
+              <aside className="flex max-h-[45dvh] w-full shrink-0 flex-col border-t bg-background md:max-h-none md:w-80 md:border-l md:border-t-0" aria-label="Version history">
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3">
+                  <div>
+                    <h2 className="text-sm font-semibold">Version history</h2>
+                    <p className="text-xs text-muted-foreground">A version is kept every time you save.</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" onClick={closeHistory} aria-label="Close version history">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="lesson-editor-scroll min-h-0 flex-1 overflow-y-auto p-2">
+                  {versionsLoading && versions.length === 0 ? (
+                      <p className="px-2 py-6 text-center text-sm text-muted-foreground">Loading versions...</p>
+                  ) : versions.length === 0 ? (
+                      <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        No saved versions yet. Your next save starts the history.
+                      </p>
+                  ) : (
+                      <ul className="space-y-1">
+                        {versions.map((version, index) => {
+                          const isCurrent = index === 0
+                          const isSelected = preview ? preview.versionId === version.lessonVersionId : isCurrent
+                          return (
+                              <li key={version.lessonVersionId}>
+                                <button
+                                    type="button"
+                                    onClick={() => handlePreviewVersion(version, isCurrent)}
+                                    disabled={previewLoadingId !== null}
+                                    aria-current={isSelected ? "true" : undefined}
+                                    className={`w-full rounded-lg border px-3 py-2.5 text-left transition ${
+                                        isSelected
+                                            ? "border-primary/40 bg-primary/10"
+                                            : "border-transparent hover:bg-muted"
+                                    }`}
+                                >
+                                  <span className="block text-sm font-medium">
+                                    {formatVersionTime(version.createdAt)}
+                                    {previewLoadingId === version.lessonVersionId ? " ..." : ""}
+                                  </span>
+                                  {isCurrent ? (
+                                      <span className="block text-xs font-medium text-primary">Current version</span>
+                                  ) : null}
+                                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                    {version.savedByName || "Before version history"}
+                                  </span>
+                                </button>
+                              </li>
+                          )
+                        })}
+                      </ul>
+                  )}
+                </div>
+              </aside>
+          ) : null}
         </div>
 
         {/* Word-style status bar */}

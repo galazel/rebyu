@@ -118,7 +118,7 @@ def test_find_duplicates_runs_one_audit_per_lesson_slice_and_survives_a_failure(
             keep=stems["What is the purpose of an AUP?"],
             duplicates=[stems["What is an AUP's primary function?"]])])
 
-    resolution = asyncio.run(audit.find_duplicates("InfoSec", items, fake_audit))
+    resolution = asyncio.run(audit.find_duplicates("InfoSec", items, fake_audit, jobs=audit.lesson_slices))
     assert sorted(seen) == ["malware", "policies"]
     assert [i.stem for i in resolution.dropped] == ["What is an AUP's primary function?"]
 
@@ -130,3 +130,136 @@ def test_slices_overlap_so_boundary_pairs_are_still_compared():
     covered = {i.stem for p in parts for i in p}
     assert len(covered) == 100
     assert {i.stem for i in parts[0]} & {i.stem for i in parts[1]}
+
+
+def _aup_resolution(state):
+    items = audit.collect_items(state, [])
+    policies = sorted(audit.group_by_lesson(items)["policies"], key=lambda i: i.stem.casefold())
+    labelled = {n + 1: item for n, item in enumerate(policies)}
+    by_stem = {item.stem: label for label, item in labelled.items()}
+    verdict = QuestionAuditResult(groups=[DuplicateGroup(
+        keep=by_stem["What is an AUP's primary function?"],
+        duplicates=[by_stem["What is the purpose of an AUP?"],
+                    by_stem["Which best describes what an Acceptable Use Policy is for?"]],
+        reason="same fact",
+    )])
+    resolution = audit.Resolution()
+    audit.resolve(labelled, verdict, resolution)
+    return resolution
+
+
+def test_duplicate_review_lists_each_group_with_where_each_copy_lives():
+    state = _state()
+    review = audit.build_duplicate_review(state, _aup_resolution(state), kept=set())
+    assert review["kind"] == "duplicates" and review["total_duplicates"] == 2
+    group = review["groups"][0]
+    assert group["reason"] == "same fact"
+    assert group["keep"]["where"] == "Major category exam: Governance"
+    wheres = sorted(d["where"] for d in group["duplicates"])
+    assert wheres == ["Lesson quiz: Policies", "Question bank"]
+    assert all(d["choice"] == audit.REPLACE for d in group["duplicates"])
+
+
+def test_copies_already_kept_are_not_asked_about_again():
+    from app.domain.question_stem import stem as normalise
+
+    state = _state()
+    kept = {normalise("What is the purpose of an AUP?"), normalise("What is an AUP's primary function?")}
+    assert audit.build_duplicate_review(state, _aup_resolution(state), kept) is None
+
+
+def test_choices_default_to_replace_and_skip_keeps_everything():
+    state = _state()
+    review = audit.build_duplicate_review(state, _aup_resolution(state), kept=set())
+    ids = [d["id"] for d in review["groups"][0]["duplicates"]]
+
+    picked = audit.choices_from_decision(review, {"action": "approve", "payload": {"choices": {ids[0]: "keep"}}})
+    assert picked == {ids[0]: "keep", ids[1]: "replace"}
+    assert set(audit.choices_from_decision(review, {"action": "approve"}).values()) == {"replace"}
+    assert set(audit.choices_from_decision(review, {"action": "skip"}).values()) == {"keep"}
+    # An unknown id or value from the browser is ignored, not trusted.
+    odd = audit.choices_from_decision(review, {"action": "approve", "payload": {"choices": {"x": "keep", ids[1]: "drop"}}})
+    assert odd == {ids[0]: "replace", ids[1]: "replace"}
+
+
+def test_replace_removes_the_chosen_copy_tops_up_and_remembers_the_kept_one(monkeypatch):
+    state = _state()
+    review = audit.build_duplicate_review(state, _aup_resolution(state), kept=set())
+    copies = {d["where"]: d["id"] for d in review["groups"][0]["duplicates"]}
+    state = {**state, "duplicate_review": review, "duplicate_rounds": 1,
+             "duplicate_choices": {copies["Lesson quiz: Policies"]: "keep", copies["Question bank"]: "replace"}}
+
+    monkeypatch.setattr(audit, "_load_stored", lambda _cid: [])
+
+    async def fake_top_up(working, update, source, entry, lost, stems):
+        fresh = [{"question": f"New {source} question {n}"} for n in range(len(lost))]
+        update[source] = list(update.get(source) or working.get(source) or []) + fresh
+        return fresh
+
+    monkeypatch.setattr(audit, "_top_up", fake_top_up)
+    update = asyncio.run(audit.replace_duplicates_node(state))
+
+    assert update["status"] == "DUPLICATES_REPLACED"
+    bank = [q["question"] for q in update["question_bank"]]
+    assert "What is an AUP's primary function?" not in bank and "New question_bank question 0" in bank
+    assert "lesson_quizzes" not in update  # the kept copy is untouched
+    assert update["duplicates_kept"] == ["What is the purpose of an AUP?"]
+    assert update["question_audit"]["replaced"] == 1 and update["question_audit"]["kept"] == 1
+    assert audit.route_after_replacing({**state, **update}) == "check"
+
+
+def test_keeping_everything_ends_the_review_without_another_check(monkeypatch):
+    state = _state()
+    review = audit.build_duplicate_review(state, _aup_resolution(state), kept=set())
+    state = {**state, "duplicate_review": review, "duplicate_rounds": 1,
+             "duplicate_choices": audit.choices_from_decision(review, {"action": "skip"})}
+    monkeypatch.setattr(audit, "_load_stored", lambda _cid: [])
+    update = asyncio.run(audit.replace_duplicates_node(state))
+    assert update["status"] == "DUPLICATES_KEPT"
+    assert audit.route_after_replacing({**state, **update}) == "done"
+
+
+def test_only_the_first_duplicate_check_asks_the_admin(monkeypatch):
+    import app.graphs.certification.review_mode as review_mode
+
+    monkeypatch.setattr(review_mode, "auto_approving", lambda state, scope=None: False)
+    state = _state()
+    review = audit.build_duplicate_review({**state, "duplicate_rounds": 1}, _aup_resolution(state), kept=set())
+    assert review["round"] == 2
+    update = audit.await_duplicate_review_node({**state, "duplicate_review": review})
+    assert update["status"] == "DUPLICATES_AUTO_REPLACED"
+    assert set(update["duplicate_choices"].values()) == {"replace"}
+
+
+def _fake_embed(vectors):
+    return lambda texts: [vectors[t.split("\n")[0]] for t in texts]
+
+
+def test_similar_questions_far_apart_still_share_a_batch():
+    """The old windows compared only alphabetical neighbours; every similar
+    pair must now be audited together, wherever the two questions sit."""
+    items = audit.collect_items(_state(), [])
+    stems = [i.stem for i in items]
+    vectors = {stem: [0.0] * 8 for stem in stems}
+    for n, stem in enumerate(stems):
+        vectors[stem][n % 8] = 1.0
+    # make the two AUP questions in different assessments near-identical
+    a, b = "What is the purpose of an AUP?", "What is an AUP's primary function?"
+    vectors[b] = list(vectors[a])
+    batches = audit.similar_batches(items, embed=_fake_embed(vectors), threshold=0.9)
+    together = [{i.stem for i in batch} for _label, batch in batches]
+    assert any({a, b} <= group for group in together)
+    # questions similar to nothing are not sent to the auditor at all
+    assert all(len(group) >= 2 for group in together)
+    assert sum(len(group) for group in together) < len(items)
+
+
+def test_every_candidate_pair_is_covered_even_past_the_batch_size():
+    items = [audit.Item(audit.BANK, None, n, "L", {}, f"Q{n}", "A", "MCQ") for n in range(7)]
+    same = {f"Q{n}": [1.0, 0.0] for n in range(7)}
+    batches = audit.similar_batches(items, embed=_fake_embed(same), threshold=0.9, size=3)
+    seen = set()
+    for _label, batch in batches:
+        keys = [i.index for i in batch]
+        seen |= {(x, y) for x in keys for y in keys if x < y}
+    assert seen == {(x, y) for x in range(7) for y in range(7) if x < y}

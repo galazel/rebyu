@@ -22,3 +22,28 @@
   .admin-portal [data-route-content] > :is(section, div) > header { flex-wrap: wrap; }
   .admin-portal [data-slot="card-header"] { min-width: 0; }
 }
+
+/* Lesson editor: slim, quiet scrollbars that only darken on hover. */
+.lesson-editor-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.lesson-editor-scroll:hover { scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent; }
+.lesson-editor-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.lesson-editor-scroll::-webkit-scrollbar-track { background: transparent; }
+.lesson-editor-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+.lesson-editor-scroll:hover::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--foreground) 22%, transparent); }
+
+/* Lesson editor pages: sheets of paper on the grey canvas, like Google Docs. */
+.lesson-paper {
+  border-radius: 0;
+  box-shadow: 0 1px 3px 1px rgb(60 64 67 / 0.15), 0 1px 2px 0 rgb(60 64 67 / 0.3);
+}
+.lesson-paper-active {
+  box-shadow: 0 2px 6px 2px rgb(60 64 67 / 0.15), 0 1px 2px 0 rgb(60 64 67 / 0.3);
+}
+.dark .lesson-paper,
+[data-theme="dark"] .lesson-paper {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 2px 8px rgb(0 0 0 / 0.5);
+}
+.dark .lesson-paper-active,
+[data-theme="dark"] .lesson-paper-active {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16), 0 4px 14px rgb(0 0 0 / 0.6);
+}

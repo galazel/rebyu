@@ -30,6 +30,10 @@ export function GenerationTranscript({
   }
 
   const hasContent = groups.length > 0 || hasTail
+  // A step that rejoins an earlier group (a late review) leaves the live
+  // group mid-list, so "open the last one" would open a finished group and
+  // leave the one waiting on the admin collapsed.
+  const hasLiveGroup = groups.some(isLiveGroup)
 
   return (
     <ScrollArea className={cn("h-full", className)} onScrollCapture={onScroll}>
@@ -39,7 +43,7 @@ export function GenerationTranscript({
             key={group.id}
             group={group}
             currentTaskId={currentTaskId}
-            defaultOpen={index === groups.length - 1}
+            defaultOpen={hasLiveGroup ? isLiveGroup(group) : index === groups.length - 1}
           />
         ))}
 
@@ -56,23 +60,33 @@ export function GenerationTranscript({
   )
 }
 
+function isLiveGroup(group) {
+  return group.status === "RUNNING" || group.status === "WAITING_FOR_REVIEW"
+}
+
 function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen)
 
-  const wasDefaultOpen = useRef(defaultOpen)
+  // Follow the default (open while live / last) until the admin toggles the
+  // group themself. The events arrive in pages, so a group briefly the last
+  // one used to open on load and then stay open for good.
+  const toggledByUser = useRef(false)
   useEffect(() => {
-    if (defaultOpen && !wasDefaultOpen.current) setOpen(true)
-    wasDefaultOpen.current = defaultOpen
+    if (!toggledByUser.current) setOpen(defaultOpen)
   }, [defaultOpen])
+  const toggle = () => {
+    toggledByUser.current = true
+    setOpen((value) => !value)
+  }
 
-  const isLive = group.status === "RUNNING" || group.status === "WAITING_FOR_REVIEW"
+  const isLive = isLiveGroup(group)
   const stepCount = group.steps.length
 
   return (
     <section className={cn("rounded-lg", isLive && "bg-muted/40")}>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/60"
       >
@@ -100,7 +114,7 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
         ) : null}
 
         <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-          {group.durationMs != null
+          {group.durationMs != null && !isLive
             ? formatDuration(group.durationMs)
             : taskStatusLabel(group.status).toLowerCase()}
         </span>
@@ -166,12 +180,69 @@ function TranscriptStep({ step, isCurrent }) {
         <CreatedArtifactCard step={step} />
       ) : null}
 
+      {step.formatCheck ? <FormatCheckNote check={step.formatCheck} /> : null}
+
       {step.error ? (
         <p className="mt-1 ml-4 rounded-md bg-destructive/10 px-2 py-1 font-mono text-[11px] leading-relaxed break-words text-destructive">
           {step.error}
         </p>
       ) : null}
     </li>
+  )
+}
+
+const FORMAT_LABELS = {
+  MCQ: "Multiple choice",
+  MULTIPLE_ANSWER: "Multiple answer",
+  SHORT_ANSWER: "Short answer",
+  FILL_IN_BLANK: "Fill in the blanks",
+  DESCRIPTIVE: "Descriptive",
+  PROGRAMMING: "Programming",
+  DIAGRAM: "Diagram",
+  CRITICAL_THINKING: "Programming and diagram",
+}
+
+/** What the first step decided about the ticked question formats. */
+function FormatCheckNote({ check }) {
+  const label = (code) => FORMAT_LABELS[code] ?? code
+  let message
+  if (check.removed?.length) {
+    message = `Removed ${check.removed.map(label).join(" and ")}: this certification has no ${
+      check.removed.every((code) => code === "DIAGRAM") ? "diagram modelling" : check.removed.every((code) => code === "PROGRAMMING") ? "programming" : "programming or diagram modelling"
+    }. Keeping ${check.kept.map(label).join(", ")}.`
+  } else if (check.error || (check.confident === false && check.relevant)) {
+    message = "Couldn't confirm the subject, so every ticked format is kept."
+  } else if (check.relevant) {
+    message = `Programming and diagram questions fit this certification, so every ticked format is kept.`
+  } else {
+    message = check.skipped
+      ? "No formats were ticked, so the planner looks up the real exam and decides."
+      : "Programming and Diagram weren't ticked, so there was nothing to check."
+  }
+  return (
+    <div
+      className={cn(
+        "mt-1.5 ml-4 rounded-md px-2.5 py-1.5 text-xs leading-relaxed",
+        check.removed?.length
+          ? "bg-amber-500/[0.08] text-amber-900 dark:text-amber-200"
+          : "bg-muted/50 text-muted-foreground",
+      )}
+    >
+      <p>{message}</p>
+      {check.evidence ? (
+        <p className="mt-0.5 text-muted-foreground">
+          {check.evidence}
+          {check.source ? (
+            <>
+              {" "}
+              <a href={check.source} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+                Source
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -216,6 +287,14 @@ function CreatedArtifactCard({ step }) {
 
 function artifactName(stage) {
   const names = {
+    plan_curriculum: "curriculum",
+    lesson_content: "lesson",
+    lesson_quiz_generate: "lesson quiz",
+    middle_generate: "middle-category assessment",
+    major_generate: "major-category assessment",
+    generate_diagnostic_exam: "diagnostic exam",
+    generate_mock_exam: "mock exam",
+    generate_question_bank: "question bank",
     CURRICULUM: "curriculum",
     LESSON: "lesson and quiz",
     MIDDLE: "middle-category assessment",

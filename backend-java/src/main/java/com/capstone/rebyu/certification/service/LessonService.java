@@ -2,10 +2,13 @@ package com.capstone.rebyu.certification.service;
 
 import com.capstone.rebyu.certification.dto.LessonComponentResponseDto;
 import com.capstone.rebyu.certification.dto.LessonDto;
+import com.capstone.rebyu.certification.dto.LessonVersionDto;
 import com.capstone.rebyu.certification.entity.Lesson;
+import com.capstone.rebyu.certification.entity.LessonVersion;
 import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.mapper.LessonMapper;
 import com.capstone.rebyu.certification.repository.LessonRepository;
+import com.capstone.rebyu.certification.repository.LessonVersionRepository;
 import com.capstone.rebyu.certification.repository.MiddleCategoryRepository;
 import com.capstone.rebyu.common.BusinessRuleException;
 import jakarta.persistence.EntityNotFoundException;
@@ -13,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,6 +33,7 @@ public class LessonService {
     private final LessonVideoService lessonVideoService;
     private final MajorCategoryService majorCategoryService;
     private final CurriculumSubtreeService curriculumSubtreeService;
+    private final LessonVersionRepository lessonVersionRepository;
 
     public List<LessonDto> getAll() {
         return lessonRepository.findAll()
@@ -97,21 +103,75 @@ public class LessonService {
 
     public void saveLessonComponent(
             Long id, LessonDto lessonDto,
-            boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
+            boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner,
+            String callerName) {
         Lesson lesson = findEntity(id);
         majorCategoryService.requireCanActOn(
                 lesson.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
                 isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
-        String structure = lessonDto.getLessonComponentStructure();
+        String previous = normalizeStructure(lesson.getLessonComponentStructure());
+        String structure = normalizeStructure(lessonDto.getLessonComponentStructure());
 
-        lesson.setLessonComponentStructure(
-                structure == null || structure.isBlank()
-                        ? "[]"
-                        : structure
-        );
-
+        lesson.setLessonComponentStructure(structure);
         lessonRepository.save(lesson);
+
+        recordVersion(id, previous, structure, callerUserId, callerName);
+    }
+
+    /**
+     * Appends the saved content to the lesson's history. The first save after history existed
+     * also keeps what was there before (generated or older content), so it stays restorable.
+     */
+    private void recordVersion(Long lessonId, String previous, String structure, Long userId, String userName) {
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC); // UTC; the client appends "Z"
+        if (!lessonVersionRepository.existsByLessonId(lessonId)) {
+            if (!"[]".equals(previous) && !previous.equals(structure)) {
+                lessonVersionRepository.save(newVersion(lessonId, previous, null, null, now.minusSeconds(1)));
+            }
+        } else {
+            String latest = lessonVersionRepository.findFirstByLessonIdOrderByCreatedAtDescLessonVersionIdDesc(lessonId)
+                    .map(LessonVersion::getLessonComponentStructure).orElse(null);
+            if (structure.equals(latest)) {
+                return;
+            }
+        }
+        lessonVersionRepository.save(newVersion(lessonId, structure, userId, userName, now));
+    }
+
+    private LessonVersion newVersion(Long lessonId, String structure, Long userId, String userName, LocalDateTime at) {
+        LessonVersion version = new LessonVersion();
+        version.setLessonId(lessonId);
+        version.setLessonComponentStructure(structure);
+        version.setSavedByUserId(userId);
+        version.setSavedByName(userName);
+        version.setCreatedAt(at);
+        return version;
+    }
+
+    @Transactional(readOnly = true)
+    public List<LessonVersionDto> getVersions(
+            Long id, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
+        requireCanEdit(id, isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+        return lessonVersionRepository.findAllByLessonIdOrderByCreatedAtDescLessonVersionIdDesc(id).stream()
+                .map(v -> new LessonVersionDto(v.getLessonVersionId(), v.getSavedByName(), v.getCreatedAt(), null))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public LessonVersionDto getVersion(
+            Long id, Long versionId, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
+        requireCanEdit(id, isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+        LessonVersion v = lessonVersionRepository.findByLessonVersionIdAndLessonId(versionId, id)
+                .orElseThrow(() -> new EntityNotFoundException("Lesson version not found"));
+        return new LessonVersionDto(v.getLessonVersionId(), v.getSavedByName(), v.getCreatedAt(), v.getLessonComponentStructure());
+    }
+
+    private void requireCanEdit(Long id, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
+        Lesson lesson = findEntity(id);
+        majorCategoryService.requireCanActOn(
+                lesson.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
+                isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
     }
 
     @Transactional(readOnly = true)

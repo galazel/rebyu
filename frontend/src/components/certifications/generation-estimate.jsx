@@ -50,8 +50,6 @@ function parallelWidth(key, count, parallel, reviewMode) {
     case "bank_question":
     case "diagnostic_question":
       return Math.max(1, Math.min(questions, Math.ceil(count / QUESTION_BATCH_SIZE)))
-    case "mock":
-      return questions
     default:
       return 1
   }

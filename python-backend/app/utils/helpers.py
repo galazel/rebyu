@@ -18,11 +18,42 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 connection_string = (os.getenv("DATABASE_URL") or "").replace("postgresql+psycopg://", "postgresql://")
-connection_string = connection_string.replace(".pooler.supabase.com:5432/", ".pooler.supabase.com:6543/")
+
+# The checkpointer keeps the SESSION pooler (:5432), unlike the request pool in
+# `app.db.session`. Through the transaction pooler (:6543) each statement can
+# land on a server connection another client left a `search_path` on -- Alembic
+# sets `bkt, public` -- so unqualified `checkpoints` resolved to
+# `bkt.checkpoints` for some statements and `public.checkpoints` for others.
+# Run 66 had its saves split across the two copies: a resume read an older one,
+# forked from it, and the exam drafts ran without the curriculum. A session
+# connection is one client's for its lifetime, so the `search_path` pinned in
+# `_pin_search_path` holds for every statement. It costs at most `max_size`
+# (2) of the plan's 15 session clients.
+checkpointer_connection_string = connection_string.replace(
+    ".pooler.supabase.com:6543/", ".pooler.supabase.com:5432/"
+)
+CHECKPOINT_SCHEMA = "public"
 
 _checkpointer = None
 _checkpointer_pool = None
 _checkpointer_lock = asyncio.Lock()
+
+
+async def _pin_search_path(conn) -> None:
+    """Every checkpointer connection reads and writes `public.checkpoints*`,
+    whatever search_path the server connection arrived with."""
+    await conn.execute(f"SET search_path TO {CHECKPOINT_SCHEMA}")
+
+
+async def _check_checkpoint_connection(conn) -> None:
+    """The pool's health check, plus: refuse a connection whose search_path
+    is no longer pinned, so it is replaced rather than used."""
+    await AsyncConnectionPool.check_connection(conn)
+    cursor = await conn.execute("SELECT current_schema() AS schema")
+    row = await cursor.fetchone()
+    schema = row["schema"] if isinstance(row, dict) else row[0]
+    if schema != CHECKPOINT_SCHEMA:
+        raise RuntimeError(f"checkpointer connection is on schema {schema!r}, not {CHECKPOINT_SCHEMA!r}")
 
 
 async def get_checkpointer():
@@ -55,14 +86,14 @@ async def get_checkpointer():
     async with _checkpointer_lock:
         if _checkpointer is None:
             pool = AsyncConnectionPool(
-                conninfo=connection_string,
-                # prepare_threshold=None, never 0: 0 prepares EVERY statement server-side,
-                # and the transaction pooler (:6543) moves statements between server
-                # connections, so they fail with "prepared statement _pg3_N does not exist".
+                conninfo=checkpointer_connection_string,
+                # prepare_threshold=None, never 0: a pooler may move statements
+                # between server connections, and then a prepared "_pg3_N" is gone.
                 kwargs={"autocommit": True, "prepare_threshold": None, "row_factory": dict_row},
                 min_size=0,
                 max_size=2,
-                check=AsyncConnectionPool.check_connection,
+                configure=_pin_search_path,
+                check=_check_checkpoint_connection,
                 open=False,
             )
             await pool.open(wait=True)

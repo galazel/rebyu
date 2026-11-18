@@ -51,10 +51,21 @@ public class DocumentIngestionService {
         this.bucketName = bucketName;
     }
 
+    /** Cuts a filename to at most {@code max} characters, keeping its extension. */
+    static String shorten(String name, int max) {
+        if (name.length() <= max) return name;
+        int dot = name.lastIndexOf('.');
+        String ext = (dot > 0 && name.length() - dot <= 10) ? name.substring(dot) : "";
+        return name.substring(0, max - ext.length()).trim() + ext;
+    }
+
     public KnowledgeDocumentDto ingest(MultipartFile file, Long certificationId, KnowledgeDocument.UseCase useCase) throws java.io.IOException {
+        String originalName = file.getOriginalFilename() == null ? "document" : file.getOriginalFilename();
         KnowledgeDocument doc = KnowledgeDocument.builder()
-                .filename(UUID.randomUUID() + "_" + file.getOriginalFilename())
-                .originalFilename(file.getOriginalFilename())
+                // filename and the "ai-documents/" S3 key both land in varchar(255) columns,
+                // so a long upload name has to be shortened, not stored whole.
+                .filename(UUID.randomUUID() + "_" + shorten(originalName, 150))
+                .originalFilename(shorten(originalName, 255))
                 .contentType(file.getContentType())
                 .fileSize(file.getSize())
                 .certificationId(certificationId)

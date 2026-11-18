@@ -189,6 +189,18 @@ _COUNTED_UNIT_NOUNS = (
     "decades", "times", "bytes", "bits", "digits", "characters", "percent", "points", "marks",
 )
 
+# Thinking out loud inside an explanation: "Wait --", "let me recalculate",
+# "I'll adjust the explanation", "that's not in the choices". Phrases, not
+# single words, so ordinary teaching prose ("wait time", "let me show") passes.
+_SELF_CORRECTION_PATTERN = re.compile(
+    r"(?i)(?:\bwait\s*(?:[,—–-]|\.\.\.)\s*(?:let|i|that|no|actually)"
+    r"|\blet me (?:re-?calculate|re-?check|re-?count|re-?consider|re-?verify|verify|recompute|re-?do|re-?read|rewrite|reconsider)"
+    r"|\bi(?:'ll| will| need to) (?:adjust|re-?count|re-?calculate|re-?consider|rewrite)"
+    r"|\bhmm\b"
+    r"|\bnot (?:in|among) the (?:answer )?(?:choices|options)\b"
+    r"|\bmy (?:setup|calculation|earlier (?:answer|work)) (?:was|is) wrong\b)"
+)
+
 _COUNTED_SET_PATTERN = re.compile(
     r"\b(?:two|three|four|five|six|seven|eight|nine|ten|[2-9]|10)\s+"
     r"(?!(?:" + "|".join(_COUNTED_UNIT_NOUNS) + r")\b)\w+s\b"
@@ -506,6 +518,27 @@ class QuestionDraft(BaseModel):
         if self.estimated_seconds <= 0:
             raise ValueError("estimated_seconds must be positive")
 
+        return self
+
+    @model_validator(mode="after")
+    def _reject_self_correcting_explanation(self) -> "QuestionDraft":
+        """An explanation that argues with itself means the key is unreliable.
+
+        Seen live: "dF/dt = 18 - t ... t = 18. Wait -- let me recalculate ...
+        I'll adjust the explanation to match the correct answer of t = 9", on an
+        item keyed to t = 9 whose function peaks at t = 18. The model noticed
+        its options were wrong and rewrote the maths to fit them. Such an item
+        is sent back for repair (with this reason) rather than stored with a
+        wrong key and a visible chain of thought."""
+        texts = [self.explanation, self.common_mistake, *self.choice_explanations]
+        for text in texts:
+            match = _SELF_CORRECTION_PATTERN.search(text or "")
+            if match:
+                raise ValueError(
+                    f"explanation corrects itself mid-way ({match.group(0)!r}): work the answer out "
+                    "first, make sure the keyed choice IS that answer (fix the choices if needed), "
+                    "and write only the final reasoning"
+                )
         return self
 
     @model_validator(mode="after")

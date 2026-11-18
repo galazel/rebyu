@@ -87,12 +87,11 @@ function Section({
                             onDelete(section.id)
                         }
                     }}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-sm font-medium text-destructive transition hover:border-destructive hover:bg-destructive hover:text-white"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
                     title="Remove section"
                     aria-label="Remove section"
                 >
                     <Trash2 className="h-4 w-4" />
-                    Remove section
                 </button>
             </div>
 

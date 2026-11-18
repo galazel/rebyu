@@ -308,7 +308,11 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
             )
             registry.mark_completed(
                 session, context.thread_id,
-                payload={"exams": len(summary["exams"]), "bank_questions": summary["bank_questions"]},
+                payload={
+                    "exams": len(summary["exams"]),
+                    "bank_questions": summary["bank_questions"],
+                    "summary": generation_summary(result, summary),
+                },
             )
     except Exception as error:
         _record_save_finished(
@@ -334,6 +338,61 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
         "outcome": registry.COMPLETED,
         "exams": len(summary["exams"]),
         "bank_questions": summary["bank_questions"],
+    }
+
+
+def generation_summary(result: dict[str, Any], saved: dict[str, Any] | None = None) -> dict[str, Any]:
+    """What a finished run built, for the summary card at the end of the
+    progress view: the outline, every assessment with its question count, and
+    what the duplicate review did. Counted from the final state, so it shows
+    what the admin approved rather than what was first drafted."""
+
+    def count(container) -> int:
+        """Questions in one exam (`{"questions": [...]}`) or a list of quizzes."""
+        if isinstance(container, dict):
+            return len(container.get("questions") or [])
+        if isinstance(container, list):
+            return sum(count(entry) for entry in container)
+        return 0
+
+    curriculum = result.get("curriculum") or {}
+    majors = curriculum.get("majorCategories") or []
+    middles = [m for major in majors for m in (major.get("middleCategories") or [])]
+    lessons = [lesson for middle in middles for lesson in (middle.get("lessons") or [])]
+    structure = curriculum.get("exam_structure") or {}
+    audit = result.get("question_audit") or {}
+
+    assessments = [
+        {"label": "Lesson quizzes", "items": len(result.get("lesson_quizzes") or []),
+         "questions": count(result.get("lesson_quizzes") or [])},
+        {"label": "Middle category exams", "items": len(result.get("middle_quizzes") or []),
+         "questions": count(result.get("middle_quizzes") or [])},
+        {"label": "Major category exams", "items": len(result.get("major_quizzes") or []),
+         "questions": count(result.get("major_quizzes") or [])},
+        {"label": "Diagnostic exam", "items": 1 if count(result.get("diagnostic_exam")) else 0,
+         "questions": count(result.get("diagnostic_exam"))},
+        {"label": "Mock exam", "items": 1 if count(result.get("mock_exam")) else 0,
+         "questions": count(result.get("mock_exam")),
+         "target": int(structure.get("total_items") or 0) or None},
+        {"label": "Question bank", "items": 1 if result.get("question_bank") else 0,
+         "questions": len(result.get("question_bank") or [])},
+    ]
+    return {
+        "outline": {"majors": len(majors), "middles": len(middles), "lessons": len(lessons)},
+        "assessments": assessments,
+        "total_questions": sum(a["questions"] for a in assessments),
+        "duplicates": {
+            "groups": int(audit.get("groups") or 0),
+            "replaced": int(audit.get("replaced") or 0),
+            "kept": int(audit.get("kept") or 0),
+            "deleted_saved": int(audit.get("stored_deleted") or 0),
+        },
+        "saved": {
+            "lessons": (saved or {}).get("lessons_written"),
+            "exams": len((saved or {}).get("exams") or []),
+            "bank_questions": (saved or {}).get("bank_questions"),
+            "warnings": len((saved or {}).get("warnings") or []),
+        },
     }
 
 

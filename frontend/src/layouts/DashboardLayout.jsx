@@ -40,6 +40,7 @@ export default function DashboardLayout() {
 
   const isBleedPage = BLEED_PATHS.some((pattern) => pattern.test(location.pathname))
   const isFillPage = FILL_PATHS.some((pattern) => pattern.test(location.pathname))
+  const isLessonEditor = /^\/admin\/lessons\/[^/]+\/create$/.test(location.pathname)
   const { user, logout } = useAuth()
   const notifications = useNotifications()
   const displayName = user?.displayName || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.email?.split("@")[0] || "Administrator"
@@ -57,7 +58,9 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="rebyu-ds netacad-portal admin-portal flex min-h-screen flex-col">
+    // Fill pages lock the shell to the viewport and let <main> take whatever the topbar leaves,
+    // instead of guessing the topbar height (a guess that's off by a pixel adds a page scrollbar).
+    <div className={`rebyu-ds netacad-portal admin-portal flex flex-col ${isLessonEditor ? "h-dvh overflow-hidden" : isFillPage ? "min-h-screen md:h-dvh md:overflow-hidden" : "min-h-screen"}`}>
       <PortalTopNavigation
         role="ADMIN"
         actions={
@@ -86,7 +89,7 @@ export default function DashboardLayout() {
           </>
         }
       />
-      <main data-route-content data-admin-workspace={location.pathname.includes("/lessons/") ? "lesson" : undefined} className={`rebyu-page ${isFillPage ? "rebyu-page-fill" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
+      <main data-route-content data-admin-workspace={location.pathname.includes("/lessons/") ? "lesson" : undefined} className={`rebyu-page ${isLessonEditor ? "rebyu-page-fill !h-auto !max-h-none !flex-1" : isFillPage ? "rebyu-page-fill md:!h-auto md:!max-h-none md:!flex-1" : isBleedPage ? "rebyu-page-bleed" : ""}`}>
         <Suspense fallback={location.pathname.replace(/\/+$/, "") === "/admin" ? <CertificationsPageSkeleton /> : <PortalPageSkeleton />}>
           <Outlet />
         </Suspense>

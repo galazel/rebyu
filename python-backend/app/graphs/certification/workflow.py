@@ -34,7 +34,15 @@ from .nodes import (
     await_question_bank_review_node,
 )
 from app.graphs.instrumentation import instrument
-from .question_audit import audit_questions_node
+from .format_check import check_question_formats_node
+from .question_audit import (
+    audit_questions_node,
+    await_duplicate_review_node,
+    find_duplicates_node,
+    replace_duplicates_node,
+    route_after_duplicate_check,
+    route_after_replacing,
+)
 from .review_loop import register_phase
 from .state import CertificationState
 
@@ -115,13 +123,14 @@ def build_certification_graph(checkpointer):
 
     Shape:
 
-        ingest -> plan curriculum -> [review]
+        check question formats -> ingest -> plan curriculum -> [review]
         FOR EACH major:
             FOR EACH middle under it:
                 FOR EACH lesson under it: content -> quiz -> validate -> [review]
                 middle quiz (from those lessons) -> validate -> [review]
             major quiz (from every lesson under it) -> validate -> [review]
-        bank -> audit -> [review] -> diagnostic -> [review] -> mock -> [review] -> END
+        bank + diagnostic + mock (drafted together) -> bank [review] -> diagnostic [review]
+            -> mock [review] -> duplicate check -> [duplicate review] -> replace -> (check again) -> END
 
     Bottom-up and interleaved, because every assessment is generated *from the
     content it tests*. The previous shape ran three flat passes -- all majors,
@@ -154,7 +163,13 @@ def build_certification_graph(checkpointer):
     workflow.add_node("plan_curriculum", instrument(curriculum_planning_agent_node, "plan_curriculum"))
     workflow.add_node("await_curriculum_review", await_curriculum_review_node)
 
-    workflow.add_edge(START, "validate_documents")
+    # First step: drop ticked question formats the real exam does not use, so no
+    # stage writes them (see `format_check`).
+    workflow.add_node(
+        "check_question_formats", instrument(check_question_formats_node, "check_question_formats")
+    )
+    workflow.add_edge(START, "check_question_formats")
+    workflow.add_edge("check_question_formats", "validate_documents")
     workflow.add_conditional_edges(
         "validate_documents",
         route_after_validation,
@@ -238,10 +253,14 @@ def build_certification_graph(checkpointer):
     workflow.add_node("audit_questions", instrument(audit_questions_node, "audit_questions"))
     workflow.add_node("await_question_bank_review", await_question_bank_review_node)
 
+    # The duplicate check comes last, once all three are reviewed: an exam
+    # regenerated during its own review is checked too, and the admin decides
+    # what happens to each duplicate (see `question_audit`). `audit_questions`
+    # stays registered only for runs checkpointed in front of it.
     workflow.add_edge(
-        ["draft_question_bank", "draft_diagnostic_exam", "draft_mock_exam"], "audit_questions"
+        ["draft_question_bank", "draft_diagnostic_exam", "draft_mock_exam"], "await_question_bank_review"
     )
-    workflow.add_edge("generate_question_bank", "audit_questions")
+    workflow.add_edge("generate_question_bank", "await_question_bank_review")
     workflow.add_edge("audit_questions", "await_question_bank_review")
     workflow.add_conditional_edges(
         "await_question_bank_review",
@@ -267,7 +286,18 @@ def build_certification_graph(checkpointer):
     workflow.add_conditional_edges(
         "await_mock_exam_review",
         route_after_review,
-        {"approve": END, "regenerate": "generate_mock_exam"},
+        {"approve": "find_duplicates", "regenerate": "generate_mock_exam"},
+    )
+
+    workflow.add_node("find_duplicates", instrument(find_duplicates_node, "find_duplicates"))
+    workflow.add_node("await_duplicate_review", await_duplicate_review_node)
+    workflow.add_node("replace_duplicates", instrument(replace_duplicates_node, "replace_duplicates"))
+    workflow.add_conditional_edges(
+        "find_duplicates", route_after_duplicate_check, {"review": "await_duplicate_review", "done": END}
+    )
+    workflow.add_edge("await_duplicate_review", "replace_duplicates")
+    workflow.add_conditional_edges(
+        "replace_duplicates", route_after_replacing, {"check": "find_duplicates", "done": END}
     )
 
     return workflow.compile(checkpointer=checkpointer)

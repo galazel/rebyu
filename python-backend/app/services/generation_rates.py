@@ -70,7 +70,7 @@ UNITS: tuple[Unit, ...] = (
     Unit(
         "run",
         "Document checks & curriculum plan",
-        frozenset({"validate_documents", "capture_document_visuals", "ingest_documents", "plan_curriculum"}),
+        frozenset({"check_question_formats", "validate_documents", "capture_document_visuals", "ingest_documents", "plan_curriculum"}),
         (
             Call(tasks.DOCUMENT_AUDIT, 20_000, 300),
             Call(tasks.EXTRACTION, 12_000, 1_500),
@@ -104,7 +104,7 @@ UNITS: tuple[Unit, ...] = (
     Unit(
         "bank_question",
         "Question bank (per question)",
-        frozenset({"generate_question_bank", "audit_questions"}),
+        frozenset({"generate_question_bank", "audit_questions", "find_duplicates", "replace_duplicates"}),
         (Call(tasks.QUESTION, 650, 550), Call(tasks.LESSON_AUDIT, 900, 120)),
     ),
     Unit(
@@ -227,6 +227,10 @@ DEFAULT_SECONDS = {
 }
 
 
+# Units whose time the create form divides by the next run's parallel width.
+WIDTH_SCALED_UNITS = frozenset({"lesson", "bank_question", "diagnostic_question"})
+
+
 def _units_done(run: dict) -> dict[str, int]:
     done = run["done"]
     # Runs from before plan totals rode on events: count the lessons it wrote.
@@ -294,8 +298,12 @@ def _measured(session) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, A
             # Serial-equivalent: a step that wrote several items at once is
             # charged as if it had written them one after another, so the form
             # can divide by whatever width the next run will use.
+            # Only for the units the form divides by a width again; the rest
+            # (plan, category/domain quizzes, the mock) are kept as wall time,
+            # since the form adds them as they are.
+            width = max(1, int(payload.get("parallel") or 1)) if unit in WIDTH_SCALED_UNITS else 1
             timed = run["time"].setdefault(unit, {"seconds": 0.0})
-            timed["seconds"] += duration_ms / 1000 * max(1, int(payload.get("parallel") or 1))
+            timed["seconds"] += duration_ms / 1000 * width
         usage = payload.get("usage")
         if usage:
             spent = run["spend"].setdefault(unit, {"tokens": 0, "cost_usd": 0.0})
@@ -319,7 +327,12 @@ def _measured(session) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, A
         key=lambda run: run["at"],
         reverse=True,
     )
-    metered_runs = [run for run in recent if run["spend"]][:RECENT_RUNS]
+    # A run counts as metered only if it recorded real spend: runs from before
+    # metering carry zero-cost usage and would otherwise inflate "last N runs".
+    metered_runs = [
+        run for run in recent
+        if any(spent.get("cost_usd", 0) > 0 for spent in run["spend"].values())
+    ][:RECENT_RUNS]
 
     costs = {
         unit: {
@@ -334,7 +347,9 @@ def _measured(session) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, A
     times = {
         unit: {"seconds": round(total["seconds"] / total["units"], 1), "time_source": "measured",
                "time_runs": int(total["runs"])}
-        for unit, total in _average(recent[:RECENT_RUNS], "time").items()
+        # Time from the same current-pipeline runs as cost when there are any:
+        # older runs used a slower pipeline and much larger plans.
+        for unit, total in _average((metered_runs or recent)[:RECENT_RUNS], "time").items()
         if total.get("seconds", 0) > 0
     }
     return costs, times, shape, len(metered_runs)

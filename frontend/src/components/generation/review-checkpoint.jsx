@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { ArtifactViewer } from "./artifact-viewer"
+import { DuplicateReview, isDuplicateReview } from "./duplicate-review"
 import { ReviewActions } from "./review-panel"
 import { VersionHistory } from "./version-history"
 import { stageLabel } from "./task-status"
@@ -37,6 +38,7 @@ export function ReviewCheckpoint({
   } = review
 
   const position = total ? `${(index ?? 0) + 1} of ${total}` : null
+  const duplicates = isDuplicateReview(review)
 
   const submit = (decision) => {
     setOpen(false)
@@ -82,12 +84,18 @@ export function ReviewCheckpoint({
               ) : null}
             </DialogTitle>
             <DialogDescription>
-              {label
-                ? label
-                : "Read what was generated, then approve it or send it back for another pass."}
+              {duplicates
+                ? "These questions ask the same thing. Choose what happens to each extra copy."
+                : label
+                  ? label
+                  : "Read what was generated, then approve it or send it back for another pass."}
             </DialogDescription>
           </DialogHeader>
 
+          {duplicates ? (
+            <DuplicateReview payload={payload} submitting={submitting} onSubmit={submit} />
+          ) : (
+          <>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
             <div className="space-y-5">
 
@@ -112,6 +120,8 @@ export function ReviewCheckpoint({
               onSubmit={submit}
             />
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

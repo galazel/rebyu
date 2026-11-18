@@ -59,10 +59,49 @@ export function currentAttemptEvents(events) {
   return start === 0 ? list : list.slice(start)
 }
 
+// Which step produced each part of a reviewed artifact. A lesson review holds
+// the lesson AND its quiz; showing that as one "lesson and quiz" card on the
+// review hid which step made what, so each part is shown on its own step.
+const PRODUCERS = {
+  CURRICULUM: [["plan_curriculum", (artifact) => artifact]],
+  LESSON: [
+    ["lesson_content", (artifact) => artifact?.lesson],
+    ["lesson_quiz_generate", (artifact) => artifact?.quiz],
+  ],
+  MIDDLE: [["middle_generate", (artifact) => artifact]],
+  MAJOR: [["major_generate", (artifact) => artifact]],
+  DIAGNOSTIC_EXAM: [["generate_diagnostic_exam", (artifact) => artifact]],
+  MOCK_EXAM: [["generate_mock_exam", (artifact) => artifact]],
+  QUESTION_BANK: [["generate_question_bank", (artifact) => artifact]],
+}
+
 export function buildTasks(events) {
   const tasks = []
   const openByStage = new Map()
   const artifactsByKey = new Map()
+
+  // Puts each part of a reviewed artifact on the latest step that wrote it
+  // (the same item, for per-item phases). True when anything was placed.
+  const distribute = (reviewStage, index, artifact) => {
+    let placed = false
+    for (const [producer, pick] of PRODUCERS[reviewStage] ?? []) {
+      const part = pick(artifact)
+      if (part == null) continue
+      const step = [...tasks]
+        .reverse()
+        .find(
+          (task) =>
+            task.stage === producer &&
+            !task.isReview &&
+            (task.itemNumber == null || index == null || task.itemNumber === index + 1),
+        )
+      if (step) {
+        step.artifact = part
+        placed = true
+      }
+    }
+    return placed
+  }
 
   const latestArtifactFor = (stage, index) => {
     const exact = artifactsByKey.get(`${stage}:${index ?? 0}`)
@@ -78,6 +117,8 @@ export function buildTasks(events) {
     const { stage, event_type: type } = event
     if (type === "version.recorded" && event.payload?.key && "artifact" in event.payload) {
       artifactsByKey.set(event.payload.key, event.payload.artifact)
+      const [keyStage, keyIndex] = String(event.payload.key).split(":")
+      distribute(keyStage, Number(keyIndex) || 0, event.payload.artifact)
       return
     }
     if (!stage) return
@@ -117,6 +158,7 @@ export function buildTasks(events) {
       target.status = event.task_status === "FAILED" ? "FAILED" : "COMPLETED"
       target.durationMs = event.duration_ms ?? null
       target.error = event.payload?.error ?? null
+      if (event.payload?.format_check) target.formatCheck = event.payload.format_check
       if (event.payload?.item_number) target.itemNumber = event.payload.item_number
       if (event.payload?.item_total) target.itemTotal = event.payload.item_total
       openByStage.delete(stage)
@@ -127,6 +169,9 @@ export function buildTasks(events) {
       const review = event.payload?.review
       const itemIndex = review?.item_index ?? 0
       const artifact = review?.payload ?? review?.batch ?? latestArtifactFor(stage, itemIndex)
+      // Shown on the steps that made it; the review keeps a card only when
+      // no producing step is in this attempt (a resumed run, say).
+      const placed = distribute(stage, itemIndex, artifact)
       tasks.push({
         id: `review:${stage}#${event.seq}`,
         stage,
@@ -135,7 +180,7 @@ export function buildTasks(events) {
         durationMs: null,
         retryCount: 0,
         isReview: true,
-        artifact,
+        artifact: placed ? undefined : artifact,
         seq: event.seq,
       })
       return
@@ -165,6 +210,7 @@ export function findCurrentTask(tasks) {
 }
 
 const STAGE_FAMILIES = {
+  check_question_formats: "formats",
   validate_documents: "documents",
   capture_document_visuals: "documents",
   ingest_documents: "documents",
@@ -186,6 +232,9 @@ const STAGE_FAMILIES = {
   MOCK_EXAM: "mock_exam",
   generate_question_bank: "question_bank",
   audit_questions: "question_bank",
+  find_duplicates: "duplicates",
+  replace_duplicates: "duplicates",
+  DUPLICATES: "duplicates",
   save_generated_content: "saving",
   QUESTION_BANK: "question_bank",
   resolve_scope: "scope",
@@ -195,6 +244,7 @@ const STAGE_FAMILIES = {
 }
 
 const FAMILY_LABELS = {
+  formats: "Question formats",
   documents: "Source documents",
   curriculum: "Curriculum",
   major: "Major category",
@@ -203,6 +253,7 @@ const FAMILY_LABELS = {
   diagnostic_exam: "Diagnostic exam",
   mock_exam: "Mock exam",
   question_bank: "Question bank",
+  duplicates: "Duplicate check",
   saving: "Saving generated certification",
   scope: "Scope",
   question_batch: "Question batch",
@@ -238,6 +289,19 @@ export function buildTranscript(tasks) {
       return
     }
 
+    // The bank, diagnostic and mock are drafted in parallel and reviewed one
+    // after another, so a step of theirs (a review, a regenerate) often lands
+    // after another family's steps. Whole-run steps have no item number, so
+    // they rejoin the group already open for their family instead of opening
+    // a second "Diagnostic exam" at the bottom.
+    if (task.itemNumber == null && STAGE_FAMILIES[task.stage]) {
+      const earlier = groups.findLast((group) => group.key === key)
+      if (earlier) {
+        earlier.steps.push(task)
+        return
+      }
+    }
+
     groups.push({
       id: `${key}@${task.seq}`,
       key,
@@ -267,6 +331,7 @@ function stageTitle(stage) {
 }
 
 export const PLANNED_STEPS = {
+  formats: 1,
   documents: 3,
   curriculum: 1,
   lesson: 3,
@@ -275,14 +340,17 @@ export const PLANNED_STEPS = {
   mock_exam: 1,
   diagnostic_exam: 1,
   question_bank: 1,
+  duplicates: 1,
 }
 
 const FIXED_STEPS =
+  PLANNED_STEPS.formats +
   PLANNED_STEPS.documents +
   PLANNED_STEPS.curriculum +
   PLANNED_STEPS.mock_exam +
   PLANNED_STEPS.diagnostic_exam +
-  PLANNED_STEPS.question_bank
+  PLANNED_STEPS.question_bank +
+  PLANNED_STEPS.duplicates
 
 const FINISHED_STEP_STATUSES = new Set(["COMPLETED", "SKIPPED"])
 

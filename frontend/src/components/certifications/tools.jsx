@@ -128,23 +128,27 @@ function AddButton({ children, onClick, className = "" }) {
         <button
             type="button"
             onClick={onClick}
-            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 ${className}`}
+            className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary ${className}`}
         >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             {children}
         </button>
     )
 }
 
-function RemoveButton({ children = "Remove", onClick, disabled = false }) {
+// Icon-only; `children` (or `label`) is the tooltip and screen-reader name.
+function RemoveButton({ children = "Remove", label, onClick, disabled = false, className = "" }) {
+    const name = label ?? (typeof children === "string" ? children : "Remove")
     return (
         <button
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className="rounded-full px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:pointer-events-none disabled:opacity-35"
+            title={name}
+            aria-label={name}
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40 disabled:pointer-events-none disabled:opacity-30 ${className}`}
         >
-            {children}
+            <Trash2 className="h-4 w-4" />
         </button>
     )
 }
@@ -232,35 +236,51 @@ function ImageUploadArea({ data, onDataChange, title = "Upload an image" }) {
         },
     })
 
-    return (
-        <div className="space-y-4">
+    // Once there is an image, it replaces the upload box: click or drop on it to swap it.
+    if (previewUrl) {
+        return (
             <div
                 {...getRootProps()}
-                className={`cursor-pointer rounded-xl border-2 border-dashed p-7 text-center transition ${
-                    isDragActive
-                        ? "border-primary bg-primary/10"
-                        : "border-border bg-muted/40 hover:border-primary/40 hover:bg-muted/60"
+                title="Click or drop an image to replace"
+                className={`group/image relative cursor-pointer overflow-hidden rounded-xl bg-muted/40 ring-1 transition ${
+                    isDragActive ? "ring-2 ring-primary" : "ring-border/60 hover:ring-primary/40"
                 }`}
             >
                 <input {...getInputProps()} />
-                <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-lg bg-muted text-muted-foreground">
-                    <ImagePlus className="h-5 w-5" />
+                <img
+                    src={previewUrl}
+                    alt={data?.smallHeader || data?.title || "Lesson upload preview"}
+                    className="mx-auto max-h-[420px] w-full object-contain"
+                />
+                <div className={`pointer-events-none absolute inset-0 grid place-items-center bg-foreground/40 transition ${
+                    isDragActive ? "opacity-100" : "opacity-0 group-hover/image:opacity-100"
+                }`}>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow">
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        {isDragActive ? "Drop to replace" : "Replace image"}
+                    </span>
                 </div>
-                <p className="font-medium text-foreground">
-                    {isDragActive ? "Drop the image here" : title}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">JPG, PNG, WebP, GIF, or JFIF.</p>
             </div>
+        )
+    }
 
-            {previewUrl && (
-                <div className="overflow-hidden rounded-xl bg-muted/40">
-                    <img
-                        src={previewUrl}
-                        alt={data?.smallHeader || data?.title || "Lesson upload preview"}
-                        className="max-h-[420px] w-full object-cover"
-                    />
-                </div>
-            )}
+    return (
+        <div
+            {...getRootProps()}
+            className={`cursor-pointer rounded-xl border-2 border-dashed p-7 text-center transition ${
+                isDragActive
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-muted/40 hover:border-primary/40 hover:bg-muted/60"
+            }`}
+        >
+            <input {...getInputProps()} />
+            <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-lg bg-muted text-muted-foreground">
+                <ImagePlus className="h-5 w-5" />
+            </div>
+            <p className="font-medium text-foreground">
+                {isDragActive ? "Drop the image here" : title}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">JPG, PNG, WebP, GIF, or JFIF.</p>
         </div>
     )
 }
@@ -271,7 +291,9 @@ function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
     const storedVideoUrl = useStoredVideoUrl(selectedVideo ? "" : data?.videoKey)
     const previewUrl = uploadedVideoPreview || storedVideoUrl
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+        noClick: Boolean(previewUrl),
+        noKeyboard: Boolean(previewUrl),
         accept: {
             "video/mp4": [".mp4"],
             "video/webm": [".webm"],
@@ -289,6 +311,26 @@ function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
             })
         },
     })
+
+    if (previewUrl) {
+        return (
+            <div
+                {...getRootProps()}
+                className={`space-y-2 rounded-xl transition ${isDragActive ? "ring-2 ring-primary" : ""}`}
+            >
+                <input {...getInputProps()} />
+                <video src={previewUrl} controls className="w-full rounded-xl bg-foreground" />
+                <button
+                    type="button"
+                    onClick={open}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                >
+                    <VideoIcon className="h-3.5 w-3.5" />
+                    {isDragActive ? "Drop to replace" : "Replace video"}
+                </button>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-4">
@@ -309,14 +351,6 @@ function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">MP4, WebM, or OGG.</p>
             </div>
-
-            {previewUrl && (
-                <video
-                    src={previewUrl}
-                    controls
-                    className="w-full rounded-xl bg-foreground"
-                />
-            )}
         </div>
     )
 }
@@ -379,16 +413,38 @@ function ListEditorTool({ data, onDataChange, onDelete, ordered = false }) {
         })
     }
 
-    function addItem() {
-        onDataChange({
-            ...data,
-            items: [...items, { id: createId("list"), text: "" }],
-        })
+    const inputRefs = useRef(new Map())
+    const focusIdRef = useRef(null)
+
+    useLayoutEffect(() => {
+        if (!focusIdRef.current) return
+        inputRefs.current.get(focusIdRef.current)?.focus()
+        focusIdRef.current = null
+    })
+
+    function addItem(afterIndex = items.length - 1) {
+        const newItem = { id: createId("list"), text: "" }
+        const next = [...items]
+        next.splice(afterIndex + 1, 0, newItem)
+        focusIdRef.current = newItem.id
+        onDataChange({ ...data, items: next })
     }
 
     function removeItem(itemId) {
         if (items.length <= 1) return
+        const index = items.findIndex((item) => item.id === itemId)
+        focusIdRef.current = items[index - 1]?.id ?? items[index + 1]?.id ?? null
         onDataChange({ ...data, items: items.filter((item) => item.id !== itemId) })
+    }
+
+    function handleItemKeyDown(event, item, index) {
+        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault()
+            addItem(index)
+        } else if (event.key === "Backspace" && !item.text && items.length > 1) {
+            event.preventDefault()
+            removeItem(item.id)
+        }
     }
 
     const ListTag = ordered ? "ol" : "ul"
@@ -399,28 +455,42 @@ function ListEditorTool({ data, onDataChange, onDelete, ordered = false }) {
             description="Add important lesson points or instructions."
             onDelete={onDelete}
         >
-            <SectionHeading
-                title="List items"
-                description="New items start blank so you can type directly."
-                action={<AddButton onClick={addItem}>Add item</AddButton>}
-            />
-
-            <ListTag className={ordered ? "list-decimal space-y-3 pl-6" : "list-disc space-y-3 pl-6"}>
+            <ListTag className={ordered ? "list-decimal space-y-1 pl-6" : "list-disc space-y-1 pl-6"}>
                 {items.map((item, index) => (
                     <li key={item.id} className="pl-1 marker:text-muted-foreground">
-                        <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2 transition focus-within:bg-muted/60 focus-within:ring-2 focus-within:ring-ring/25">
+                        <div className="group/item flex items-center gap-1 rounded-lg transition hover:bg-muted/40 focus-within:bg-muted/50">
                             <input
+                                ref={(element) => {
+                                    if (element) inputRefs.current.set(item.id, element)
+                                    else inputRefs.current.delete(item.id)
+                                }}
                                 type="text"
                                 value={item.text ?? ""}
                                 onChange={(event) => updateItem(item.id, event.target.value)}
+                                onKeyDown={(event) => handleItemKeyDown(event, item, index)}
                                 placeholder={`List item ${index + 1}`}
-                                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                                className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60"
                             />
-                            <RemoveButton onClick={() => removeItem(item.id)} disabled={items.length <= 1} />
+                            <RemoveButton
+                                label={`Remove item ${index + 1}`}
+                                onClick={() => removeItem(item.id)}
+                                disabled={items.length <= 1}
+                                className="opacity-0 group-hover/item:opacity-100 focus-visible:opacity-100"
+                            />
                         </div>
                     </li>
                 ))}
             </ListTag>
+
+            <button
+                type="button"
+                onClick={() => addItem()}
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-primary/5 hover:text-primary"
+            >
+                <Plus className="h-3.5 w-3.5" />
+                Add item
+                <span className="hidden text-muted-foreground/60 sm:inline">or press Enter</span>
+            </button>
         </ToolShell>
     )
 }
@@ -1026,9 +1096,11 @@ function TableEditor({ data, onDataChange }) {
                                     type="button"
                                     onClick={() => removeColumn(columnIndex)}
                                     disabled={columns.length <= 1}
-                                    className="text-xs text-muted-foreground transition hover:text-destructive disabled:opacity-40"
+                                    title="Remove column"
+                                    aria-label={`Remove column ${columnIndex + 1}`}
+                                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
                                 >
-                                    Remove column
+                                    <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                             </div>
                         ))}
@@ -1053,9 +1125,10 @@ function TableEditor({ data, onDataChange }) {
                                 onClick={() => removeRow(rowIndex)}
                                 disabled={rows.length <= 1}
                                 aria-label={`Remove row ${rowIndex + 1}`}
-                                className="grid place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                                title="Remove row"
+                                className="grid place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
                             >
-                                &times;
+                                <Trash2 className="h-3.5 w-3.5" />
                             </button>
                         </div>
                     ))}

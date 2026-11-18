@@ -1,12 +1,31 @@
+import { AlertTriangle } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
+import { DuplicateGroupsView } from "./duplicate-review"
 
 export function ArtifactViewer({ payload }) {
   if (payload == null) {
     return <p className="py-8 text-center text-sm text-muted-foreground">Nothing to display.</p>
   }
 
+  if (payload.kind === "duplicates") return <DuplicateGroupsView payload={payload} />
+
   const questions = extractQuestions(payload)
   if (questions) return <QuestionList questions={questions} />
+
+  if (isEmptyQuestionSet(payload)) {
+    // An exam that came back with nothing used to render as raw
+    // `{"questions": []}`, which reads like a display bug, not an empty draft.
+    return (
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />
+        <p className="text-sm font-medium text-foreground">No questions were generated</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          This draft is empty. Use Regenerate to write it again, or Improve with AI to say what it
+          should cover. Approving it would save an exam with no questions.
+        </p>
+      </div>
+    )
+  }
 
   if (isLesson(payload)) return <LessonView lesson={payload} />
   if (payload.lesson) {
@@ -33,6 +52,11 @@ function extractQuestions(value) {
   if (Array.isArray(value) && value.length && value[0]?.question) return value
   if (Array.isArray(value?.questions) && value.questions.length) return value.questions
   return null
+}
+
+function isEmptyQuestionSet(value) {
+  if (Array.isArray(value)) return value.length === 0
+  return Array.isArray(value?.questions) && value.questions.length === 0
 }
 
 function isLesson(value) {

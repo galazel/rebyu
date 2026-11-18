@@ -153,6 +153,12 @@ export default function CertificationPublishingChecklist({
         queryKey: ["certification-publishing-requirements", certificationId],
       })
       queryClient.invalidateQueries({ queryKey: ["exams"] })
+      // The certification page caches its certification for 5 minutes; left
+      // alone, leaving and coming back inside that window showed it as a draft
+      // again although it was published. Refreshing "admin-certifications"
+      // covers that page's query and the certification list.
+      queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
+      queryClient.invalidateQueries({ queryKey: ["certifications"] })
       onPublished?.()
     },
     onError: (error) => {

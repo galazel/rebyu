@@ -72,6 +72,7 @@ function getErrorMessage(error, fallback = "Something went wrong.") {
 function stageLabel(stage) {
   if (!stage) return null
   const labels = {
+    check_question_formats: "Checking the real exam's question formats",
     validate_documents: "Checking documents",
     ingest_documents: "Reading documents",
     plan_curriculum: "Planning the curriculum",
@@ -84,6 +85,8 @@ function stageLabel(stage) {
     generate_diagnostic_exam: "Building the diagnostic exam",
     generate_question_bank: "Building the question bank",
     audit_questions: "Checking every question for duplicates",
+    find_duplicates: "Checking every question for duplicates",
+    replace_duplicates: "Replacing duplicate questions",
   }
   return labels[stage] ?? null
 }
@@ -697,10 +700,13 @@ function CertificationCard({ item, certification, generationRun = null }) {
                       // Opened on a run that had already stopped or failed: the
                       // admin is looking at it, so keep the panel open.
                       if (openedOnEndedRunRef.current) return
-                      setShowGeneration(false)
-                      setFinishedStatus(status)
                       queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
                       queryClient.invalidateQueries({ queryKey: ["workflow-runs", "active"] })
+                      // A finished run stays open on its generation summary;
+                      // the admin closes it. Closing it here hid the summary.
+                      if (status === "COMPLETED") return
+                      setShowGeneration(false)
+                      setFinishedStatus(status)
                     }}
                 />
             ) : null}

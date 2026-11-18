@@ -74,6 +74,7 @@ public class CascadeDeleteService {
             "lessons", List.of(
                     new SoftReference("lesson_images", "lesson_id"),
                     new SoftReference("lesson_videos", "lesson_id"),
+                    new SoftReference("lesson_versions", "lesson_id"),
                     new SoftReference("lesson_dialogue_sessions", "lesson_id"),
                     new SoftReference("lesson_dialogue_completions", "lesson_id"),
                     new SoftReference("learner_skill_states", "lesson_id"),

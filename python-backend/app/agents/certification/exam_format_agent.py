@@ -43,7 +43,7 @@ def get_exam_format_agent(model: str | None = None):
     extraction task's model rather than the curriculum planner's.
     """
     return create_agent(
-        model=get_llm(tasks.EXTRACTION, model),
+        model=get_llm(tasks.DOCUMENT_AUDIT, model),
         tools=[],
         response_format=ToolStrategy(ExamFormat),
         system_prompt=SYSTEM_PROMPT,

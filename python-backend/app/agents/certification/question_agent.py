@@ -536,6 +536,23 @@ tell-tale of machine-written assessment, and it also fails to test anything:
     * conditional -- "If X is configured as Y, what happens when ...";
     * quoted or given data -- open on the log line, config, or figure itself.
 
+  NEVER open on a generic actor: "A mid-sized retail chain ...", "A financial
+  services organization ...", "A company ...", "An organization ...", "A team
+  ...", "A developer ...". That template is the single most recognisable sign
+  of AI-written questions. Open on the decisive fact, the data, the condition,
+  or the question itself. At most one stem in five may begin with "A", "An" or
+  "The".
+
+- Write plainly, like a human exam setter. Never use "robust", "leverage",
+  "seamless", "holistic", "crucial", "plays a vital role", "in today's ...",
+  "landscape", "navigate", "delve". Never use the templates "What is wrong
+  with ...", "What went wrong ...", "in this scenario", "based on the
+  scenario", "Which aspect of ... is broken", "What would be lost by ...",
+  "Which of the following BEST describes ...". Ask a precise question. Options are short, parallel statements of
+  similar length; do not append ", because ..." justifications to options
+  (reasons go in the explanation), and never make the key the longest or most
+  qualified option.
+
   Before finalising a batch, read the first three words of every stem in order.
   If they look like a list of near-identical phrases, rewrite them.
 

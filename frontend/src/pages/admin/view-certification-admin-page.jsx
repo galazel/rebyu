@@ -105,6 +105,9 @@ export default function ViewCertificationAdmin() {
     queryFn: () => getCertificationById(routeCertificationId),
     enabled: routeCertificationId != null,
     staleTime: 5 * 60 * 1000,
+    // Coming back (browser Back, or from a module/lesson page) always re-checks the
+    // outline in the background, so modules and lessons added elsewhere show up.
+    refetchOnMount: "always",
   })
 
   const { byCertificationId: generationRuns } = useActiveGenerations()
@@ -122,7 +125,9 @@ export default function ViewCertificationAdmin() {
         (overrideId == null ||
             String(overrideId) === String(routeCertificationId))
     ) {
-      return { ...fetchedCertification, ...certificationOverride }
+      // The router-state copy is only a placeholder until the server answers. Browser
+      // Back restores that old copy, so the fetched outline must win once it exists.
+      return { ...certificationOverride, ...fetchedCertification }
     }
 
     return fetchedCertification ?? null
@@ -194,6 +199,11 @@ export default function ViewCertificationAdmin() {
           ["admin-certifications", "certification-page", String(routeCertificationId)],
           saved,
       )
+    } else {
+      // No body to seed from: refetch this page so the server copy (which wins) is current.
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-certifications", "certification-page", String(routeCertificationId)],
+      })
     }
     void queryClient.invalidateQueries({
       queryKey: ["admin-certifications"],
@@ -613,8 +623,9 @@ export default function ViewCertificationAdmin() {
                 <InlineGenerationMonitor
                     certificationId={certification.certificationId ?? certification.id}
                     onClose={() => setIsWatchingGeneration(false)}
-                    onFinished={() => {
-                      setIsWatchingGeneration(false)
+                    onFinished={(status) => {
+                      // Stay open on the generation summary when it completes.
+                      if (status !== "COMPLETED") setIsWatchingGeneration(false)
                       queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
                       queryClient.invalidateQueries({ queryKey: ["workflow-runs", "active"] })
                     }}

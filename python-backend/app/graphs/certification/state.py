@@ -31,6 +31,9 @@ class CertificationState(TypedDict, total=False):
     industry: str
 
     requested_question_types: List[str]
+    # What the first step found about the real exam's formats, and which
+    # ticked formats it removed (see `format_check`).
+    format_check: Optional[Dict]
 
     requested_bank_size: Optional[int]
 
@@ -87,6 +90,13 @@ class CertificationState(TypedDict, total=False):
 
     audit_result: Optional[Dict]
     question_audit: Optional[Dict]
+    # The duplicate review that closes a run: what the last check found, the
+    # admin's replace/keep choice per duplicate, how many checks have run, and
+    # the stems the admin chose to keep (so a later check does not ask again).
+    duplicate_review: Optional[Dict]
+    duplicate_choices: Optional[Dict]
+    duplicate_rounds: int
+    duplicates_kept: List[str]
     validation_report: Optional[Dict]
     review_decision: Optional[str]
 

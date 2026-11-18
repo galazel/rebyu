@@ -52,7 +52,11 @@ def difficulty_quota_instruction(count: int) -> str:
         "short scenario; HARD means combining two or more ideas, a multi-step "
         "calculation, or reasoning about a trade-off. Write genuinely easier "
         "and genuinely harder questions -- do not relabel mid-level ones."
+        + PROFESSIONAL_STEM_RULE
     )
+
+from app.graphs.certification.nodes import PROFESSIONAL_STEM_RULE  # noqa: E402
+
 
 async def resolve_scope_node(state: QuestionBankState):
     """Resolves the reference context once, up front: uploaded-file text

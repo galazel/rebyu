@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useWorkflowStream } from "@/hooks/useWorkflowStream"
+import { GenerationSummary, findGenerationSummary } from "@/components/generation/generation-summary"
 import {
   cancelWorkflowRun,
   getPendingReview,
@@ -182,7 +183,13 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
         </span>
 
         {isTerminal ? (
-          <Badge variant="secondary">Finished</Badge>
+          // "Finished" sat beside a failure icon on a failed run; say which.
+          <Badge
+            variant={run?.status === "COMPLETED" ? "secondary" : "outline"}
+            className={run?.status === "FAILED" ? "text-destructive" : undefined}
+          >
+            {run?.status === "COMPLETED" ? "Completed" : run?.status === "CANCELLED" ? "Stopped" : "Failed"}
+          </Badge>
         ) : connected ? (
           <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400">
             Live
@@ -214,6 +221,7 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
             </Button>
           ) : null}
 
+          {/* No "Done" once it ends: the dialog's own back button already closes it. */}
           {!isTerminal ? (
             <Button
               size="sm"
@@ -224,11 +232,7 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
               <Ban className="mr-2 size-4" />
               Stop generating
             </Button>
-          ) : (
-            <Button size="sm" onClick={onClose}>
-              Done
-            </Button>
-          )}
+          ) : null}
         </span>
       </header>
 
@@ -320,6 +324,9 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
               lastSeq={run?.last_seq}
               errorMessage={run?.error_message}
             />
+          ) : null}
+          {run?.status === "COMPLETED" ? (
+            <GenerationSummary summary={findGenerationSummary(attemptEvents)} />
           ) : null}
         </GenerationTranscript>
       </div>

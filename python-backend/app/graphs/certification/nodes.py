@@ -12,7 +12,7 @@ from app.schemas.certification.lesson_schema import GeneratedLesson
 from app.schemas.certification.question_schema import QuestionBatch
 from app.schemas.assessment.reflection_schema import ReflectionGenerationRequest
 from app.services.ai.reflection import generate_reflection
-from app.tools.certification.web_search import format_organic_results, serper_search
+from app.tools.certification.web_search import format_organic_results
 from app.agents.certification.exam_format_agent import get_exam_format_agent
 from .review_mode import auto_approving
 from .state import CertificationState
@@ -607,6 +607,15 @@ async def generate_diagnostic_exam_node(state: CertificationState):
     curriculum = state.get("curriculum", {}) or {}
     types = researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES)
     lessons = _diagnostic_lessons(state)
+    if not lessons:
+        # One item per lesson means no lessons -> an empty paper, which used to
+        # go to review as `{"questions": []}` with no hint why. Seen when the
+        # run's curriculum lost its majorCategories (a stale checkpoint read on
+        # resume): fail the step so the run shows the cause and can be retried.
+        raise RuntimeError(
+            "Diagnostic exam has no lessons to cover: the run's curriculum has no "
+            "majorCategories/lessons in state. Restore the curriculum, then retry."
+        )
     size = max(1, get_settings().question_batch_size)
     prior = written_stems(state)
     generated_questions: list = []
@@ -830,12 +839,39 @@ def mcq_style_rule(state: CertificationState) -> str:
         "concept would also complete it truthfully, add a detail that rules it out "
         "or list it as a variation. "
         f"(2) At least {SCENARIO_SHARE} of the MCQs in this batch must be "
-        "SCENARIO-BASED: a concrete situation in two to four sentences -- a named "
-        "organisation or role, what it has, what it needs or what went wrong, with "
-        "the numbers or constraints that matter -- then a question on what should be "
-        "done, what caused it, or which option fits. The scenario must decide the "
-        "answer: without it, more than one choice would be defensible. "
+        "SCENARIO-BASED: a concrete situation in two to four sentences -- what exists, "
+        "what is needed or what went wrong, with the numbers or constraints that "
+        "matter -- then a question on what should be done, what caused it, or which "
+        "option fits. The scenario must decide the answer: without it, more than one "
+        "choice would be defensible. "
+        + PROFESSIONAL_STEM_RULE
     )
+
+
+PROFESSIONAL_STEM_RULE = (
+    " HOUSE STYLE (applies to EVERY question): write like an experienced exam "
+    "setter, not a chatbot. NEVER open a stem with a generic actor such as \"A "
+    "mid-sized retail chain...\", \"A financial services organization...\", \"A "
+    "company...\", \"An organization...\", \"A team...\", \"A developer...\", \"The "
+    "HR department...\". Open instead on the decisive fact, the data, the "
+    "condition or the question itself, e.g. \"Twenty-eight percent of store "
+    "managers hired in the last two years have left...\", \"After a merger, two "
+    "payroll systems...\", \"Under which condition...\", \"Which control...\", "
+    "\"You are reviewing...\". At most one question in five may begin with "
+    "\"A\", \"An\" or \"The\". Banned filler words and phrases: \"robust\", "
+    "\"leverage\", \"seamless\", \"holistic\", \"crucial\", \"plays a vital role\", "
+    "\"in today's\", \"landscape\", \"navigate\", \"delve\", \"MOST directly\". "
+    "Banned question templates: \"What is wrong with ...\", \"What went wrong ...\", "
+    "\"in this scenario\", \"in the scenario above\", \"based on the scenario\", "
+    "\"Which aspect of ... is broken\", \"What would be lost by ...\", \"Which of "
+    "the following BEST describes ...\". Ask a precise, technical question "
+    "instead (\"Which control prevents ...?\", \"What is the next step?\", "
+    "\"Which value does the query return?\"). Keep stems to what the question "
+    "needs; no storytelling padding. "
+    "Options are plain parallel statements of similar length: no option may "
+    "carry a \", because ...\" justification (reasons belong in the explanation), "
+    "and the correct option must not be the longest or most qualified one. "
+)
 
 
 def requested_question_types(state: CertificationState) -> str:
@@ -960,13 +996,17 @@ async def _checked_exam_structure(state: CertificationState) -> dict:
 
     name = state["certification_name"]
     try:
+        # Serper alone failed whenever it was out of credit (a 400), so the mock
+        # silently fell back to 50 items; `_search` tries DuckDuckGo next.
+        from app.graphs.certification.format_check import _search
+
         results = await asyncio.to_thread(
-            serper_search, f"{name} official exam format number of questions time limit", 6
+            _search, f"{name} official exam format number of questions time limit"
         )
         found = await invoke_agent(
             get_exam_format_agent,
             f"Certification: {name}\n\nSearch results:\n{format_organic_results(results)}",
-            task=tasks.EXTRACTION,
+            task=tasks.DOCUMENT_AUDIT,
         )
     except Exception as exc:
         logger.warning("Could not look up the real exam format for '%s': %s", name, exc)

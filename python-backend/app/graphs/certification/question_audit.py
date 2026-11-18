@@ -85,6 +85,9 @@ class Resolution:
     stored_to_delete: list[Item] = field(default_factory=list)
     groups: int = 0
     reasons: list[str] = field(default_factory=list)
+    # Each group as found: the copy that stays, the copies that would go, and
+    # the auditor's reason. What the duplicate review shows the admin.
+    found: list[tuple[Item, list[Item], str]] = field(default_factory=list)
 
 
 
@@ -212,6 +215,7 @@ def resolve(labelled: dict[int, Item], result: QuestionAuditResult, resolution: 
         resolution.groups += 1
         if group.reason:
             resolution.reasons.append(f"{keep.stem[:80]!r}: {group.reason}")
+        resolution.found.append((keep, [m for m in members if m is not keep], group.reason or ""))
         for member in members:
             if member is keep:
                 continue
@@ -282,13 +286,90 @@ async def _audit_slice(certification_name: str, lesson: str, items: list[Item]) 
     return labelled, result
 
 
+SIMILAR = 0.70  # cosine similarity that makes two questions worth the auditor's look
+
+
+def lesson_slices(items: list[Item]) -> list[tuple[str, list[Item]]]:
+    """The old grouping: each lesson's items in alphabetical windows of 40.
+
+    Only pairs inside one window are compared, so with a large lesson two
+    duplicates far apart alphabetically were never seen together -- run 69's
+    second check found 32 groups the first had missed. Kept as the fallback
+    when the embedding model cannot load."""
+    return [(lesson, part) for lesson, group in group_by_lesson(items).items() for part in slices(group)]
+
+
+def similar_batches(
+    items: list[Item],
+    embed: Callable[[list[str]], list[list[float]]] | None = None,
+    threshold: float = SIMILAR,
+    size: int = AUDIT_SLICE,
+) -> list[tuple[str, list[Item]]]:
+    """Every pair of similar questions, wherever they live, in at least one batch.
+
+    Each question is compared with every other one -- across lessons and
+    assessments -- by meaning (the app's local embedding model). A pair at or
+    above `threshold` is a candidate; batches are built around the question
+    with the most uncovered candidates until every candidate pair has shared a
+    batch, so the auditor sees all of them in one check and the admin is asked
+    once. Questions similar to nothing are not sent at all."""
+    import numpy as np
+
+    if len(items) < 2:
+        return []
+    if embed is None:
+        from app.rag.embeddings import get_embeddings
+
+        embed = get_embeddings().embed_documents
+    texts = [f"{item.stem}\nAnswer: {item.answer or ''}" for item in items]
+    vectors = np.asarray(embed(texts), dtype=float)
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    vectors = vectors / np.where(norms == 0, 1, norms)
+    sims = vectors @ vectors.T
+
+    uncovered = {(a, b) for a, b in zip(*np.where(np.triu(sims, k=1) >= threshold))}
+    uncovered = {(int(a), int(b)) for a, b in uncovered}
+    batches: list[list[int]] = []
+    while uncovered:
+        degree: dict[int, int] = defaultdict(int)
+        for a, b in uncovered:
+            degree[a] += 1
+            degree[b] += 1
+        centre = max(degree, key=degree.get)
+        partners = [b if a == centre else a for a, b in uncovered if centre in (a, b)]
+        partners.sort(key=lambda k: -sims[centre, k])
+        members = [centre, *partners[: size - 1]]
+        batches.append(members)
+        inside = set(members)
+        uncovered = {(a, b) for a, b in uncovered if not (a in inside and b in inside)}
+
+    def label(batch: list[Item]) -> str:
+        lessons = [i.lesson for i in batch if i.lesson]
+        return max(set(lessons), key=lessons.count) if lessons else "(mixed)"
+
+    out = []
+    for members in batches:
+        batch = [items[k] for k in members]
+        out.append((label(batch), batch))
+    return out
+
+
+def _jobs(items: list[Item]) -> list[tuple[str, list[Item]]]:
+    try:
+        return similar_batches(items)
+    except Exception:
+        logger.warning("Similarity grouping failed; falling back to lesson windows", exc_info=True)
+        return lesson_slices(items)
+
+
 async def find_duplicates(
     certification_name: str,
     items: list[Item],
     audit: Callable[[str, str, list[Item]], Awaitable[tuple[dict[int, Item], QuestionAuditResult]]] = _audit_slice,
+    jobs: Callable[[list[Item]], list[tuple[str, list[Item]]]] = _jobs,
 ) -> Resolution:
     resolution = Resolution()
-    jobs = [(lesson, part) for lesson, group in group_by_lesson(items).items() for part in slices(group)]
+    jobs = await asyncio.to_thread(jobs, items)
     if not jobs:
         return resolution
     gate = asyncio.Semaphore(max(1, get_settings().audit_concurrency))
@@ -462,3 +543,246 @@ async def audit_questions_node(state: CertificationState):
     update["question_audit"] = summary
     update["status"] = "QUESTIONS_AUDITED"
     return update
+
+
+# --- The duplicate review that closes a run -------------------------------
+#
+# The check above used to run right after the three final assessments were
+# drafted, and silently dropped and replaced what it found. Two things were
+# wrong with that: an exam regenerated during its own review afterwards was
+# never checked again, and the admin never saw what was thrown away. The check
+# now runs once every assessment is reviewed, shows each duplicate group, and
+# lets the admin replace or keep each copy -- a review like the others.
+# `audit_questions_node` stays only for runs checkpointed before this change.
+
+DUPLICATES_STAGE = "DUPLICATES"
+REPLACE = "replace"
+KEEP = "keep"
+MAX_REVIEW_ROUNDS = 3
+
+
+def _where(state: CertificationState, item: Item) -> str:
+    """Where a question lives, in the admin's words."""
+    if item.source == STORED:
+        return f"Already saved{f' ({item.lesson})' if item.lesson else ''}"
+    if item.source == MOCK:
+        return "Mock exam"
+    if item.source == DIAGNOSTIC:
+        return "Diagnostic exam"
+    if item.source == BANK:
+        return "Question bank"
+    entries = state.get(item.source) or []
+    entry = entries[item.entry] if item.entry is not None and item.entry < len(entries) else {}
+    entry = entry if isinstance(entry, dict) else {}
+    if item.source == LESSON:
+        return f"Lesson quiz: {entry.get('lesson') or item.lesson or 'lesson'}"
+    if item.source == MIDDLE:
+        return f"Middle category exam: {entry.get('middleCategory') or 'category'}"
+    if item.source == MAJOR:
+        return f"Major category exam: {entry.get('majorCategory') or 'category'}"
+    return item.source.replace("_", " ")
+
+
+def _describe(state: CertificationState, item: Item, item_id: str) -> dict:
+    question = item.question or {}
+    choices = question.get("choices")
+    return {
+        "id": item_id,
+        "key": [item.source, item.entry, item.index],
+        "where": _where(state, item),
+        "source": item.source,
+        "question": item.stem,
+        "answer": item.answer,
+        "type": item.qtype,
+        "choices": choices if isinstance(choices, list) else None,
+        "lesson": item.lesson or None,
+        "saved": item.source == STORED or bool(question.get("_stored")),
+    }
+
+
+def build_duplicate_review(state: CertificationState, resolution: Resolution, kept: set[str]) -> dict | None:
+    """The review payload: one entry per group, each copy that would go marked
+    `replace` by default. Copies the admin already chose to keep are left out,
+    and a group with nothing left to decide is not shown."""
+    from app.domain.question_stem import stem as normalise
+
+    groups = []
+    for keep, others, reason in resolution.found:
+        others = [m for m in others if normalise(m.stem) not in kept]
+        if not others:
+            continue
+        number = len(groups) + 1
+        groups.append({
+            "id": f"g{number}",
+            "reason": reason,
+            "keep": _describe(state, keep, f"g{number}-keep"),
+            "duplicates": [
+                {**_describe(state, member, f"g{number}-d{i + 1}"), "choice": REPLACE}
+                for i, member in enumerate(others)
+            ],
+        })
+    if not groups:
+        return None
+    return {
+        "kind": "duplicates",
+        "round": int(state.get("duplicate_rounds") or 0) + 1,
+        "groups": groups,
+        "total_duplicates": sum(len(g["duplicates"]) for g in groups),
+    }
+
+
+async def find_duplicates_node(state: CertificationState):
+    """Checks every question the run holds -- the reviewed bank, diagnostic and
+    mock, and every quiz -- and prepares the duplicate review."""
+    from app.domain.question_stem import stem as normalise
+
+    rounds = int(state.get("duplicate_rounds") or 0)
+    if rounds >= MAX_REVIEW_ROUNDS:
+        logger.info("Duplicate review for %r: %d rounds done, not checking again",
+                    state.get("certification_name"), rounds)
+        return {"duplicate_review": None, "status": "DUPLICATES_CHECKED"}
+
+    stored = _load_stored(state.get("certification_id"))
+    resolution = await find_duplicates(state.get("certification_name") or "", collect_items(state, stored))
+    kept = {normalise(s) for s in (state.get("duplicates_kept") or [])}
+    review = build_duplicate_review(state, resolution, kept)
+    logger.info(
+        "Duplicate check round %d for %r: %d group(s) to review",
+        rounds + 1, state.get("certification_name"), len((review or {}).get("groups") or []),
+    )
+    return {
+        "duplicate_review": review,
+        "duplicate_choices": None,
+        "duplicate_rounds": rounds + 1,
+        "status": "DUPLICATES_FOUND" if review else "DUPLICATES_CHECKED",
+    }
+
+
+def route_after_duplicate_check(state: CertificationState) -> str:
+    return "review" if state.get("duplicate_review") else "done"
+
+
+def _default_choices(review: dict, choice: str = REPLACE) -> dict[str, str]:
+    return {d["id"]: choice for g in review.get("groups") or [] for d in g.get("duplicates") or []}
+
+
+def choices_from_decision(review: dict, decision: Any) -> dict[str, str]:
+    """The admin's choice per duplicate.
+
+    `approve` (or `edit`) carries `{"choices": {id: "replace" | "keep"}}`;
+    anything it leaves out is replaced. `skip` / `reject` keeps every copy.
+    """
+    if isinstance(decision, str):
+        decision = {"action": decision}
+    decision = decision or {}
+    action = decision.get("action") or "approve"
+    if action in ("skip", "reject"):
+        return _default_choices(review, KEEP)
+    choices = _default_choices(review, REPLACE)
+    payload = decision.get("payload")
+    picked = payload.get("choices") if isinstance(payload, dict) else None
+    for item_id, choice in (picked or {}).items():
+        if item_id in choices and choice in (REPLACE, KEEP):
+            choices[item_id] = choice
+    return choices
+
+
+def await_duplicate_review_node(state: CertificationState):
+    """Pauses with the duplicate groups. An unattended run replaces them all."""
+    from langgraph.types import interrupt
+
+    from app.graphs.certification.review_mode import auto_approving
+
+    review = state.get("duplicate_review") or {}
+    if auto_approving(state):
+        logger.info("Replacing every duplicate: run is unattended")
+        return {"duplicate_choices": _default_choices(review), "status": "DUPLICATES_AUTO_APPROVED"}
+    if int(review.get("round") or 1) > 1:
+        # The admin reviews duplicates once. A later check only finds overlap
+        # among the replacements the run itself just wrote, so those are
+        # replaced without asking again.
+        logger.info("Duplicate check round %s: replacing the replacements' duplicates without a review",
+                    review.get("round"))
+        return {"duplicate_choices": _default_choices(review), "status": "DUPLICATES_AUTO_REPLACED"}
+
+    decision = interrupt({"stage": DUPLICATES_STAGE, "payload": review})
+    return {"duplicate_choices": choices_from_decision(review, decision), "status": "DUPLICATES_REVIEWED"}
+
+
+async def replace_duplicates_node(state: CertificationState):
+    """Carries out the admin's choices: a copy marked `replace` is removed (and
+    deleted from the database if it was already saved) and its assessment gets
+    a new question in its place; a copy marked `keep` stays, and is not asked
+    about again."""
+    review = state.get("duplicate_review") or {}
+    choices = state.get("duplicate_choices") or {}
+    certification_id = state.get("certification_id")
+    stored = _load_stored(certification_id)
+    by_key = {item.key: item for item in collect_items(state, stored)}
+
+    to_replace: list[Item] = []
+    kept_stems = list(state.get("duplicates_kept") or [])
+    for group in review.get("groups") or []:
+        for copy in group.get("duplicates") or []:
+            item = by_key.get(tuple(copy.get("key") or ()))
+            if item is None:
+                continue
+            if choices.get(copy["id"], REPLACE) == KEEP:
+                kept_stems.append(item.stem)
+            else:
+                to_replace.append(item)
+
+    summary = dict(state.get("question_audit") or {})
+    for name in ("rounds", "groups", "dropped", "replaced", "kept", "stored_deleted", "stored_kept"):
+        summary.setdefault(name, 0)
+    summary["groups"] += len(review.get("groups") or [])
+    summary["kept"] += sum(1 for choice in choices.values() if choice == KEEP)
+    summary["rounds"] = int(state.get("duplicate_rounds") or 0)
+
+    update: dict = {"duplicates_kept": kept_stems, "duplicate_review": None, "duplicate_choices": None}
+    if not to_replace:
+        # Nothing new was written, so there is nothing to check again.
+        update.update(question_audit=summary, duplicate_rounds=MAX_REVIEW_ROUNDS, status="DUPLICATES_KEPT")
+        return update
+
+    stored_to_delete = [i for i in to_replace if i.source == STORED or (i.question or {}).get("_stored")]
+    if stored_to_delete:
+        deleted, kept = _delete_stored(certification_id, stored_to_delete)
+        summary["stored_deleted"] += deleted
+        summary["stored_kept"] += kept
+        gone = {i.index for i in stored_to_delete if i.source == STORED}
+        stored = [row for row in stored if int(row["question_id"]) not in gone]
+
+    in_run = [i for i in to_replace if i.source != STORED]
+    summary["dropped"] += len(in_run)
+    update.update(apply_drops(state, in_run))
+    working = dict(state, **update)  # type: ignore[assignment]
+
+    all_stems = [i.stem for i in collect_items(working, stored)]
+    gaps = list(shortfalls(in_run).items())
+    results = await asyncio.gather(
+        *(_top_up(working, update, source, entry, lost, list(all_stems)) for (source, entry), lost in gaps),
+        return_exceptions=True,
+    )
+    for ((source, _entry), lost), fresh in zip(gaps, results):
+        if isinstance(fresh, BaseException):
+            logger.warning("Could not replace %d duplicate(s) in %s; it stays shorter",
+                           len(lost), source, exc_info=fresh)
+            continue
+        summary["replaced"] += len(fresh)
+        all_stems.extend(str(q.get("question") or "") for q in fresh)
+
+    logger.info("Duplicate review for %r: %d replaced, %d kept",
+                state.get("certification_name"), len(to_replace), summary["kept"])
+    update.update(question_audit=summary, status="DUPLICATES_REPLACED")
+    return update
+
+
+def route_after_replacing(state: CertificationState) -> str:
+    """New questions were written, so check them too -- unless the rounds are
+    used up or nothing was replaced."""
+    if state.get("status") != "DUPLICATES_REPLACED":
+        return "done"
+    if int(state.get("duplicate_rounds") or 0) >= MAX_REVIEW_ROUNDS:
+        return "done"
+    return "check"

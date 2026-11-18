@@ -42,6 +42,7 @@ import {
 } from "@/components/generation/generation-transcript"
 import { ReviewCheckpoint } from "@/components/generation/review-checkpoint"
 import { RunRecoveryPanel } from "@/components/generation/run-recovery-panel"
+import { GenerationSummary, findGenerationSummary } from "@/components/generation/generation-summary"
 import { TaskStatusIcon, stageLabel } from "@/components/generation/task-status"
 
 export default function GenerationWorkspacePage() {
@@ -293,6 +294,9 @@ export default function GenerationWorkspacePage() {
                       lastSeq={run?.last_seq}
                       errorMessage={run?.error_message}
                     />
+                  ) : null}
+                  {run?.status === "COMPLETED" ? (
+                    <GenerationSummary summary={findGenerationSummary(events)} />
                   ) : null}
                 </GenerationTranscript>
               </div>

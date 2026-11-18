@@ -47,3 +47,11 @@ export async function generateLessonFromFiles(lessonId, files) {
   })
 }
 
+
+export function getLessonVersions(id) {
+  return base(`lessons/lesson/${id}/versions`, { method: "GET" })
+}
+
+export function getLessonVersion(id, versionId) {
+  return base(`lessons/lesson/${id}/versions/${versionId}`, { method: "GET" })
+}

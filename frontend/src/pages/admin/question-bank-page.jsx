@@ -3431,6 +3431,15 @@ function QuestionBank({
         });
     }
 
+    // Clears the unsaved drafts only; questions already saved to the bank are untouched.
+    function removeAllQuestions() {
+        if (questions.length === 0) return;
+        const count = questions.length;
+        if (!window.confirm(`Remove all ${count} unsaved question${count === 1 ? "" : "s"}? This can't be undone.`)) return;
+        setQuestions([]);
+        setValidationErrors({});
+    }
+
     const importCertificationId =
         lockedCertificationId || selectedCertification?.certificationId || "";
 
@@ -4900,9 +4909,19 @@ OUTPUT RULES:
 
                                 {questions.length > 0 && (
                                     <>
-                                        <p className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                            Drafts ({questions.length})
-                                        </p>
+                                        <div className="mb-2 mt-5 flex items-center justify-between gap-2">
+                                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                                Drafts ({questions.length})
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={removeAllQuestions}
+                                                disabled={isSavingQuestions}
+                                                className="rounded px-1.5 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                                            >
+                                                Remove all
+                                            </button>
+                                        </div>
                                         <div className="space-y-1">
                                             {questions.map((question, index) => {
                                                 const hasErrors = Boolean(validationErrors[question.id]);

@@ -273,7 +273,9 @@ async def test_a_missing_item_count_is_looked_up(monkeypatch):
     from app.agents.certification.exam_format_agent import ExamFormat
     from app.graphs.certification import nodes
 
-    monkeypatch.setattr(nodes, "serper_search", lambda query, num: [])
+    from app.graphs.certification import format_check
+
+    monkeypatch.setattr(format_check, "_search", lambda query: [])
 
     async def found(*args, **kwargs):
         return ExamFormat(total_items=65, duration_minutes=150, source="https://example.org")
@@ -292,7 +294,10 @@ async def test_a_researched_item_count_is_not_looked_up_again(monkeypatch):
     def never(*args, **kwargs):
         raise AssertionError("searched although the planner found the count")
 
-    monkeypatch.setattr(nodes, "serper_search", never)
+    from app.graphs.certification import format_check
+
+    monkeypatch.setattr(format_check, "_search", never)
+    monkeypatch.setattr(nodes, "invoke_agent", never)
     structure = await nodes._checked_exam_structure(_state({"total_items": 100}))
     assert structure["total_items"] == 100
 
@@ -300,10 +305,15 @@ async def test_a_researched_item_count_is_not_looked_up_again(monkeypatch):
 async def test_a_failed_lookup_keeps_the_fallback(monkeypatch):
     from app.graphs.certification import nodes
 
-    def broken(*args, **kwargs):
-        raise RuntimeError("SERPER_API_KEY not configured.")
+    from app.graphs.certification import format_check
 
-    monkeypatch.setattr(nodes, "serper_search", broken)
+    async def broken(*args, **kwargs):
+        raise RuntimeError("no search results and the model call failed")
+
+    # The search itself never raises now (Serper, then DuckDuckGo, then none);
+    # a lookup fails when the model call does.
+    monkeypatch.setattr(format_check, "_search", lambda query: [])
+    monkeypatch.setattr(nodes, "invoke_agent", broken)
     structure = await nodes._checked_exam_structure(_state())
     assert not structure.get("total_items")
 
@@ -339,10 +349,13 @@ async def test_the_fallback_mock_exam_asks_for_mcq_over_every_lesson(monkeypatch
         sent["count"] = count
         return QuestionBatch(scope=scope, questions=[])
 
-    def no_search(*args, **kwargs):
+    from app.graphs.certification import format_check
+
+    async def offline(*args, **kwargs):
         raise RuntimeError("offline")
 
-    monkeypatch.setattr(nodes, "serper_search", no_search)
+    monkeypatch.setattr(format_check, "_search", lambda query: [])
+    monkeypatch.setattr(nodes, "invoke_agent", offline)
     monkeypatch.setattr(nodes, "invoke_question_agent", fake)
     await nodes.generate_mock_exam_node(_state())
 
