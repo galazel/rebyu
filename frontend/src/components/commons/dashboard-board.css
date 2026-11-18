@@ -82,17 +82,92 @@
   opacity: 1;
 }
 
+/* While rearranging, a card's own contents ignore the mouse, so a drag can start
+   anywhere on it -- on a button, a link or a scrolling list included -- and inner
+   lists don't swallow the wheel. The move grip and resize handles stay live. */
+.rebyu-board.is-editing .rebyu-tile-cell > :first-child {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Resize handles: a bar on the bottom edge (taller), one on the right edge (wider)
+   and the corner (both). Big enough to find, drawn as pills so they read as grips. */
 .rebyu-board .react-resizable-handle {
   opacity: 0;
+  background-image: none;
   transition: opacity 120ms ease;
+  z-index: 15;
 }
 
 .rebyu-board.is-editing .react-resizable-handle {
-  opacity: 0.6;
+  opacity: 1;
 }
 
-.rebyu-board.is-editing .react-grid-item:hover .react-resizable-handle {
-  opacity: 1;
+.rebyu-board .react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 55%, transparent);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle:hover::after {
+  background: var(--primary);
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-s {
+  bottom: -6px;
+  left: 50%;
+  width: 72px;
+  height: 18px;
+  margin-left: -36px;
+  transform: none;
+  cursor: ns-resize;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-s::after {
+  left: 12px;
+  right: 12px;
+  top: 6px;
+  bottom: auto;
+  width: auto;
+  height: 6px;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-e {
+  right: -6px;
+  top: 50%;
+  width: 18px;
+  height: 72px;
+  margin-top: -36px;
+  transform: none;
+  cursor: ew-resize;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-e::after {
+  top: 12px;
+  bottom: 12px;
+  left: 6px;
+  right: auto;
+  width: 6px;
+  height: auto;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  right: -4px;
+  bottom: -4px;
+  width: 28px;
+  height: 28px;
+  cursor: nwse-resize;
+}
+
+.rebyu-board .react-grid-item > .react-resizable-handle.react-resizable-handle-se::after {
+  right: 6px;
+  bottom: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px 3px 6px 3px;
 }
 
 /* Lightweight, butter-smooth animation for card expansion & collapse */

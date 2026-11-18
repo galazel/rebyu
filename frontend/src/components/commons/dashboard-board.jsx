@@ -153,21 +153,26 @@ export function DashboardBoard({
     if (editing) return
     const grid = viewGridRef.current
     if (!grid) return
+    // Only the desktop board maps onto 6 columns; below it the grid has its own layouts.
+    if ((width || window.innerWidth) < BREAKPOINTS.lg) return
     const gap = parseFloat(getComputedStyle(grid).columnGap) || MARGIN[0]
-    const columns = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || COLS.lg
-    if (columns !== COLS.lg) return // only the desktop grid maps onto the 6-column board
     const box = grid.getBoundingClientRect()
-    const colWidth = (box.width - gap * (columns - 1)) / columns
+    // Measured as fractions of the board, so this works for the saved 6-column grid
+    // AND the 2-column flow a board without a saved arrangement uses. Measuring only
+    // the 6-column case left flow boards with default heights in rearrange mode:
+    // cards shrank and their contents vanished the moment rearranging began.
+    const unit = (box.width + gap) / COLS.lg
     const rowUnit = ROW_HEIGHT + MARGIN[1]
     const next = new Map()
     for (const element of grid.children) {
       const id = element.getAttribute("data-tile-id")
       if (!id) continue
       const r = element.getBoundingClientRect()
+      const w = Math.min(COLS.lg, Math.max(1, Math.round((r.width + gap) / unit)))
       next.set(id, {
-        x: Math.max(0, Math.round((r.left - box.left) / (colWidth + gap))),
+        x: Math.min(COLS.lg - w, Math.max(0, Math.round((r.left - box.left) / unit))),
         y: Math.max(0, Math.round((r.top - box.top) / rowUnit)),
-        w: Math.max(1, Math.round((r.width + gap) / (colWidth + gap))),
+        w,
         h: Math.max(1, Math.ceil((r.height + MARGIN[1]) / rowUnit)),
       })
     }
@@ -435,7 +440,9 @@ export function DashboardBoard({
         draggableCancel="a, input, select, textarea, label, button:not(.rebyu-board-handle), [role='tab'], [role='switch'], [role='combobox'], .react-resizable-handle"
         isDraggable={editing}
         isResizable={editing}
-        resizeHandles={["se"]}
+        // Bottom edge (taller), right edge (wider) and the corner (both): one 20px
+        // corner alone was too small to find.
+        resizeHandles={["s", "e", "se"]}
         // No auto-packing: a card stays exactly where it is dropped and the cards it
         // lands on move down. Vertical packing sent a card dropped beside a card of
         // the same row back below it, so the top row could never be rearranged.
