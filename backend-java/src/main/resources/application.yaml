@@ -231,6 +231,10 @@ adaptive:
   final-round-max: ${ADAPTIVE_FINAL_ROUND_MAX:2}
   randomesque-top-k: ${ADAPTIVE_RANDOMESQUE_TOP_K:3}
   min-bank-multiplier: ${ADAPTIVE_MIN_BANK_MULTIPLIER:1.5}
+  # Automatic question-bank top-up: when a learner has seen most of a level, an AI
+  # generation run is queued with no admin involved. OFF unless deliberately turned
+  # on -- left on, one test learner drained the OpenRouter balance (36 runs since Sept).
+  replenish-enabled: ${ADAPTIVE_REPLENISH_ENABLED:false}
 
 rebyu:
   assessment:
