@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Responsive, utils as gridUtils } from "react-grid-layout"
+import GridLayout, { Responsive, utils as gridUtils } from "react-grid-layout"
 
 import { GripHorizontal } from "@/components/icons"
 
@@ -43,11 +43,123 @@ const COLS = { lg: 6, md: 6, sm: 2, xs: 1, xxs: 1 }
 const BREAKPOINTS = { lg: 1024, md: 768, sm: 640, xs: 480, xxs: 0 }
 const ROW_HEIGHT = 88
 const MARGIN = [16, 16]
-// View mode keeps the exact saved arrangement only while one grid column is at least this wide
-// (the narrowest card, e.g. the streak, needs it); below, cards flow instead of being squeezed.
-const MIN_PLACED_COLUMN = 230
+// View mode keeps the exact saved arrangement while its NARROWEST card is at least this wide
+// on the current screen; below that, cards flow instead of being squeezed. (A fixed 230px
+// per grid column used to be required, which most laptop-width boards fail -- so a layout
+// saved with Done was silently ignored and the board fell back to two columns.)
+const MIN_PLACED_CARD_WIDTH = 300
 // Board width from which flowing cards sit two to a row.
 const TWO_COLUMN_MIN = 720
+const MAX_TILE_HEIGHT = 20 // Learner layout API limit, in grid rows.
+
+function learnerGridLayout(preset, placements) {
+  const byId = new Map(placements?.map((item) => [item.id ?? item.i, item]))
+  const grid = preset.map((item) => {
+    const saved = byId.get(item.id)
+    const w = Math.max(1, Math.min(COLS.lg, saved?.w ?? item.w))
+    return {
+      i: item.id,
+      x: Math.max(0, Math.min(COLS.lg - w, saved?.x ?? item.x)),
+      y: Math.max(0, saved?.y ?? item.y),
+      w,
+      h: Math.max(1, Math.min(MAX_TILE_HEIGHT, saved?.h ?? item.h)),
+      maxH: MAX_TILE_HEIGHT,
+    }
+  })
+  return gridUtils.compact(inReadingOrder(grid), null, COLS.lg)
+}
+
+function inReadingOrder(layout) {
+  return [...layout].sort((a, b) => a.y - b.y || a.x - b.x)
+}
+
+function stackTiles(layout) {
+  let y = 0
+  return inReadingOrder(layout).map((item) => {
+    const stacked = { ...item, x: 0, y, w: 1 }
+    y += item.h
+    return stacked
+  })
+}
+
+function applyStackEdits(desktop, stacked) {
+  const previousOrder = inReadingOrder(desktop)
+  const nextOrder = inReadingOrder(stacked)
+  const byId = new Map(desktop.map((item) => [item.i, item]))
+  const resized = nextOrder.map(({ i, h }) => ({ ...byId.get(i), h }))
+  if (nextOrder.every((item, index) => item.i === previousOrder[index].i)) {
+    return gridUtils.compact(inReadingOrder(resized), null, COLS.lg)
+  }
+
+  // A phone reorder defines reading order. Rebuild desktop rows in that order
+  // while preserving each card's desktop width and its own height.
+  let x = 0
+  let y = 0
+  let rowHeight = 0
+  return resized.map((item) => {
+    if (x + item.w > COLS.lg) {
+      y += rowHeight
+      x = 0
+      rowHeight = 0
+    }
+    const placement = { ...item, x, y }
+    x += item.w
+    rowHeight = Math.max(rowHeight, item.h)
+    return placement
+  })
+}
+
+// The same grid stays mounted when the learner enters the editor or saves.
+// Its handles are the only layout controls that depend on edit mode.
+export function LearnerDashboardBoard({ tiles, layout, preset, editing, onLayoutChange }) {
+  const [ref, width] = useContainerWidth()
+  const desktop = useMemo(() => learnerGridLayout(preset, layout), [preset, layout])
+  const stacked = width < BREAKPOINTS.md
+  const visibleLayout = useMemo(() => stacked ? stackTiles(desktop) : desktop, [stacked, desktop])
+
+  const commitGesture = (placements) => {
+    const previousById = new Map(visibleLayout.map((item) => [item.i, item]))
+    const changed = placements.some((item) =>
+      ["x", "y", "w", "h"].some((key) => item[key] !== previousById.get(item.i)?.[key]),
+    )
+    if (!changed) return
+    const next = stacked ? applyStackEdits(desktop, placements) : placements
+    onLayoutChange(next.map(({ i, x, y, w, h }) => ({ id: i, x, y, w, h })))
+  }
+
+  return (
+    <div ref={ref} className="w-full min-w-0">
+      <GridLayout
+        className={`rebyu-board rebyu-learner-grid ${editing ? "is-editing" : ""}`}
+        width={width}
+        layout={visibleLayout}
+        cols={stacked ? 1 : COLS.lg}
+        rowHeight={ROW_HEIGHT}
+        margin={MARGIN}
+        containerPadding={[0, 0]}
+        compactType={stacked ? "vertical" : null}
+        isDraggable={editing}
+        isResizable={editing}
+        draggableCancel=".react-resizable-handle"
+        resizeHandles={stacked ? ["s"] : ["s", "e", "se"]}
+        onDragStop={commitGesture}
+        onResizeStop={commitGesture}
+      >
+        {tiles.map((tile) => (
+          <div key={tile.id} id={tile.id} data-tile-id={tile.id}
+            className={`rebyu-tile-cell is-sized min-w-0 ${editing ? "cursor-grab active:cursor-grabbing select-none" : ""}`}>
+            {tile.element}
+            {editing && (
+              <span className="absolute right-2 top-2 z-10 grid size-7 place-items-center rounded-lg bg-background/90 text-muted-foreground shadow-sm ring-1 ring-border" aria-hidden="true">
+                <GripHorizontal className="size-4" />
+              </span>
+            )}
+          </div>
+        ))}
+      </GridLayout>
+    </div>
+  )
+}
 
 function defaultLayout(tiles) {
   let x = 0
@@ -369,7 +481,12 @@ export function DashboardBoard({
     const boardWidth = width || (typeof window !== "undefined" ? window.innerWidth : 0)
     const columnWidth = (boardWidth - 5 * MARGIN[0]) / 6
     const hasPlacement = (layout ?? []).some((item) => Number.isInteger(item?.x) && Number.isInteger(item?.y))
-    const placed = hasPlacement && isDesktop && columnWidth >= MIN_PLACED_COLUMN
+    const narrowestSavedSpan = Math.min(
+        ...(layout ?? []).map((item) => Number(item?.w)).filter((w) => Number.isInteger(w) && w > 0),
+        COLS.lg,
+    )
+    const narrowestCardWidth = narrowestSavedSpan * columnWidth + (narrowestSavedSpan - 1) * MARGIN[0]
+    const placed = hasPlacement && isDesktop && narrowestCardWidth >= MIN_PLACED_CARD_WIDTH
     const flowColumns = boardWidth >= TWO_COLUMN_MIN ? 2 : 1
     const savedById = new Map((layout ?? []).map((item) => [item.id ?? item.i, item]))
     const flowOrder = placed ? orderedTiles : [...orderedTiles].sort((a, b) => {
@@ -382,7 +499,7 @@ export function DashboardBoard({
       <div ref={containerRef} className="w-full">
         <div
           ref={viewGridRef}
-          className={placed ? "grid grid-cols-6 items-stretch gap-4" : "grid items-stretch gap-4 sm:gap-5"}
+          className={placed ? "grid grid-cols-6 items-stretch gap-4" : "grid items-start gap-4 sm:gap-5"}
           style={placed
             ? { gridAutoRows: `${ROW_HEIGHT}px` }
             : { gridTemplateColumns: `repeat(${flowColumns}, minmax(0, 1fr))` }}
@@ -391,7 +508,14 @@ export function DashboardBoard({
             const saved = savedById.get(tile.id)
             const span = Math.min(6, Math.max(1, Number(saved?.w ?? tile.col ?? 3)))
             const isCollapsed = Boolean(collapsedTiles[tile.id])
-            const alignClass = isCollapsed ? "self-start" : "h-full flex flex-col"
+            // In flow mode, grid-row stretching makes a short card inherit its
+            // neighbour's height. Keep the fixed height only for an explicitly
+            // placed grid; ordinary saved layouts should hug their content.
+            const alignClass = isCollapsed
+              ? "self-start"
+              : placed
+                ? "h-full flex flex-col"
+                : "flex flex-col"
             const savedRows = Number.isInteger(saved?.h) && saved.h > 0 ? saved.h : Math.max(1, tile.row ?? 3)
             const style = placed
               ? {

@@ -87,6 +87,9 @@
    lists don't swallow the wheel. The move grip and resize handles stay live. */
 .rebyu-board.is-editing .rebyu-tile-cell > :first-child {
   pointer-events: none;
+}
+
+.rebyu-board.is-editing:not(.rebyu-learner-grid) .rebyu-tile-cell > :first-child {
   overflow: hidden;
 }
 

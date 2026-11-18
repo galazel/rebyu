@@ -43,7 +43,7 @@ import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
 import { PrioritySeal } from "@/components/learner/priority-tag.jsx"
 import { BentoGrid, BentoHeading, BentoTile } from "@/components/commons/bento.jsx"
-import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
+import { LearnerDashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import {
   RadialGauge,
   TrendLineChart,
@@ -115,6 +115,7 @@ function getTopicTitle(topic, fallback = "Untitled Topic") {
 }
 
 
+const ASSESSMENT_PREVIEW_LIMIT = 10
 const RETAKE_COLORS = [
   "#2f6b4f", "#c9962b", "#c8553d", "#6b7d3f", "#d9822b",
   "#4f8a78", "#8a5a2b", "#a8412c", "#9bb35a", "#5c3d2e",
@@ -252,12 +253,6 @@ function migrateLearnerLayout(layout) {
       keep.h = Math.max(keep.h, gone.h)
     }
     next = next.filter((item) => idOf(item) !== goneId)
-  }
-  for (const item of next) {
-    const id = idOf(item)
-    if ((id === "player-card" || id === "todays-plan") && item.h > 3) {
-      item.h = 3
-    }
   }
   return next
 }
@@ -796,8 +791,7 @@ export default function LearnerProgressPage() {
       }))
       .sort((a, b) => b.attempts.length - a.attempts.length)
 
-    const MAX_SERIES = RETAKE_COLORS.length
-    const shown = assessments.slice(0, MAX_SERIES)
+    const shown = assessments.slice(0, ASSESSMENT_PREVIEW_LIMIT)
 
     const longestRun = shown.reduce((max, item) => Math.max(max, item.attempts.length), 0)
     const rows = Array.from({ length: longestRun }, (_, index) => {
@@ -1083,7 +1077,7 @@ export default function LearnerProgressPage() {
             icon={TrendingUp}
             kicker="Progress Over Time"
             title="score across retakes"
-            hint="Each assessment's attempts in order — a rising line is a score you moved."
+            hint="Scores by attempt for up to 10 assessments, ranked by number of graded attempts."
             chip={
               retakeTrend.hiddenCount > 0 ? (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
@@ -1119,9 +1113,9 @@ export default function LearnerProgressPage() {
                 />
               </div>
 
-              <div className="-mr-2 mt-2 min-h-16 flex-1 space-y-1 overflow-y-auto pr-2">
+              <ul aria-label="Assessments plotted" className="-mr-2 mt-2 min-h-16 flex-1 space-y-1 overflow-y-auto pr-2">
                 {retakeTrend.summaries.map((summary, index) => (
-                  <div key={summary.key} className="flex items-center gap-2.5 text-xs">
+                  <li key={summary.key} className="flex items-center gap-2.5 text-xs">
                     <span
                       className="size-2.5 shrink-0 rounded-sm"
                       style={{ background: retakeColors[index] ?? seriesColor(chartTheme, index) }}
@@ -1157,9 +1151,9 @@ export default function LearnerProgressPage() {
                         {summary.delta === 0 ? "no change" : `${summary.delta} pts`}
                       </span>
                     )}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </>
           )}
         </BentoTile>
@@ -1257,11 +1251,11 @@ export default function LearnerProgressPage() {
                 icon={ClipboardListIcon}
                 kicker="Your Record"
                 title="assessment history"
-                hint="Your latest attempt on each assessment — open the full run from here."
+                hint="Latest attempts for your 10 most recent assessments. Open any assessment to see all its attempts."
                 chip={
-                  assessmentHistory.length > 5 ? (
+                  assessmentHistory.length > ASSESSMENT_PREVIEW_LIMIT ? (
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
-                      {assessmentHistory.length} total · scroll for more
+                      Showing {ASSESSMENT_PREVIEW_LIMIT} of {assessmentHistory.length}
                     </span>
                   ) : null
                 }
@@ -1275,12 +1269,12 @@ export default function LearnerProgressPage() {
                   No assessments sat yet
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Once you submit one, every attempt shows up here.
+                  Once you submit an assessment, its latest attempt shows up here.
                 </p>
               </div>
             ) : (
               <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain max-h-[365px] lg:max-h-[390px] touch-pan-y">
-                {assessmentHistory.map((row) => (
+                {assessmentHistory.slice(0, ASSESSMENT_PREVIEW_LIMIT).map((row) => (
                   <li
                     key={row.examId}
                     className="flex items-center gap-2.5 sm:gap-3 px-4 py-3 sm:px-6 sm:py-3.5"
@@ -1355,76 +1349,46 @@ export default function LearnerProgressPage() {
   })
 
   const queryClient = useQueryClient()
-  const [rearranging, setRearranging] = useState(false)
-  const [localLayout, setLocalLayout] = useState(null)
-  const savedLayout = useMemo(() => {
-    const migrated = migrateLearnerLayout(localLayout ?? layoutQuery.data?.tiles ?? null)
-    if (!migrated || !migrated.length) return migrated
-    return migrated
-  }, [localLayout, layoutQuery.data?.tiles])
-  const tileLayout = savedLayout ?? []
+  const [editSession, setEditSession] = useState(null)
+  const rearranging = editSession !== null
+  const savedLayout = useMemo(
+    () => migrateLearnerLayout(layoutQuery.data?.tiles),
+    [layoutQuery.data?.tiles],
+  )
 
   const saveLayoutMutation = useMutation({
     mutationFn: saveDashboardLayout,
+    onMutate: () => queryClient.cancelQueries({ queryKey: [DASHBOARD_LAYOUT_KEY] }),
 
     onSuccess: (saved) => {
       queryClient.setQueryData([DASHBOARD_LAYOUT_KEY], saved)
-      setLocalLayout(null)
+      setEditSession(null)
+      toast.success("Layout saved", {
+        description: "Your dashboard arrangement will be here the next time you visit.",
+      })
     },
 
     onError: (error) => {
-      setLocalLayout(null)
-
       console.warn("Saving the dashboard layout failed.", error)
       toast.error("Could not save your layout", {
-        description:
-          error?.response?.status === 404
-            ? "The layout service isn't available, so arrangements cannot be saved yet."
-            : "Your tiles have been put back where they were.",
+        description: "Your edits are still here. Try saving again.",
       })
     },
   })
 
-  const handleLayoutChange = (nextLayout) => {
-    // Ensure every tile is at least 2 columns wide
-    const sanitized = nextLayout.map((tile) => ({
-      ...tile,
-      w: Math.max(1, tile.w ?? 2),
-    }))
-    // A draft while rearranging: saved once, on Done. Saving every drop let a slow
-    // or failed save overwrite the board mid-edit (cards "resisting" and snapping back).
-    setLocalLayout(sanitized)
-  }
-
-  const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
-
-  // Back to the default layout, out of rearrange mode.
-  const resetLayout = () => {
-    setRearranging(false)
-    setLayoutBeforeEdit(null)
-    setLocalLayout(LEARNER_PRESET)
-    queryClient.setQueryData([DASHBOARD_LAYOUT_KEY], { tiles: LEARNER_PRESET })
-    saveLayoutMutation.mutate(LEARNER_PRESET)
-    toast.success("Layout reset to default")
-  }
+  const savingLayout = saveLayoutMutation.isPending
+  const handleLayoutChange = (layout) => setEditSession({ layout, changed: true })
 
   const startRearranging = () => {
-    setLayoutBeforeEdit(savedLayout)
-    setRearranging(true)
+    setEditSession({ layout: savedLayout, changed: false })
+    toast.info("Customize your dashboard", {
+      description: "Drag a tile to move it. Use its bottom, right, or corner handle to resize it, then select Save layout.",
+    })
   }
 
   const finishRearranging = () => {
-    const changed = JSON.stringify(tileLayout) !== JSON.stringify(layoutBeforeEdit ?? [])
-    setLayoutBeforeEdit(null)
-    setRearranging(false)
-    if (changed && localLayout) saveLayoutMutation.mutate(localLayout)
-  }
-
-  // Nothing was sent while rearranging, so cancelling just drops the draft.
-  const cancelRearranging = () => {
-    setLayoutBeforeEdit(null)
-    setRearranging(false)
-    setLocalLayout(null)
+    if (editSession.changed) saveLayoutMutation.mutate(editSession.layout)
+    else setEditSession(null)
   }
 
   return (
@@ -1481,11 +1445,11 @@ export default function LearnerProgressPage() {
 
           {rearranging ? (
             <>
-              <Button variant="ghost" onClick={resetLayout}>
+              <Button variant="ghost" disabled={savingLayout} onClick={() => handleLayoutChange(LEARNER_PRESET)}>
                 Reset layout
               </Button>
 
-              <Button variant="outline" onClick={cancelRearranging}>
+              <Button variant="outline" disabled={savingLayout} onClick={() => setEditSession(null)}>
                 Cancel
               </Button>
             </>
@@ -1495,9 +1459,10 @@ export default function LearnerProgressPage() {
             <TooltipTrigger asChild>
               <Button
                 variant={rearranging ? "default" : "outline"}
-                size="icon"
+                size="sm"
+                className="gap-2"
                 aria-pressed={rearranging}
-                aria-label={rearranging ? "Keep this arrangement" : "Rearrange tiles"}
+                disabled={savingLayout || layoutQuery.isPending || !analytics}
                 onClick={rearranging ? finishRearranging : startRearranging}
               >
                 {rearranging ? (
@@ -1505,11 +1470,12 @@ export default function LearnerProgressPage() {
                 ) : (
                   <GripHorizontal className="size-4" aria-hidden="true" />
                 )}
+                <span>{savingLayout ? "Saving layout…" : rearranging ? "Save layout" : "Customize layout"}</span>
               </Button>
             </TooltipTrigger>
 
             <TooltipContent side="bottom">
-              {rearranging ? "Keep this arrangement" : "Rearrange tiles"}
+              {rearranging ? "Save your tile arrangement" : "Move and resize dashboard tiles"}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -1545,11 +1511,11 @@ export default function LearnerProgressPage() {
               </div>
             )}
 
-            <DashboardBoard
+            <LearnerDashboardBoard
               tiles={dashboardTiles}
-              layout={tileLayout}
+              layout={editSession ? editSession.layout : savedLayout}
               preset={LEARNER_PRESET}
-              editing={rearranging}
+              editing={rearranging && !savingLayout}
               onLayoutChange={handleLayoutChange}
             />
           </>
