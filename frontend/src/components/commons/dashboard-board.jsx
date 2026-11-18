@@ -144,11 +144,14 @@ export function DashboardBoard({
   // Becomes true once a tile is dragged or resized in this rearrange session.
   const movedRef = useRef(false)
   if (!editing) movedRef.current = false
-  // Bumped on every drop/resize so the grid remounts from the committed layout. The
-  // grid otherwise keeps its own copy of the arrangement, and any re-render of the page
-  // (live data, timers) after a drop made it show that stale copy: cards landed in the
-  // wrong place, overlapped, or snapped back.
-  const [gridVersion, setGridVersion] = useState(0)
+  // The arrangement being edited, kept here while rearranging. The page's own copy can
+  // lag behind (a save in flight, a slow server, a data refresh re-rendering the page),
+  // and feeding that back in snapped cards back mid-edit. Remounting the grid after
+  // every drop papered over it but redrew every card -- the flicker. Cleared on exit.
+  const [draft, setDraft] = useState(null)
+  useEffect(() => {
+    if (!editing) setDraft(null)
+  }, [editing])
   useLayoutEffect(() => {
     if (editing) return
     const grid = viewGridRef.current
@@ -206,6 +209,7 @@ export function DashboardBoard({
   }, [tiles, layout, byId])
 
   const currentLayout = useMemo(() => {
+    if (editing && draft) return draft
     const measured = measuredRef.current
     if (
       editing &&
@@ -257,7 +261,7 @@ export function DashboardBoard({
     }
 
     return defaultLayout(orderedTiles)
-  }, [tiles, layout, byId, collapsedTiles, orderedTiles, editing])
+  }, [tiles, layout, byId, collapsedTiles, orderedTiles, editing, draft])
 
   const layouts = useMemo(() => {
     const sortedForResponsive = [...currentLayout].sort((a, b) => a.y - b.y || a.x - b.x)
@@ -326,7 +330,6 @@ export function DashboardBoard({
   const handleLayoutChange = (dropped) => {
     if (!editing) return
     movedRef.current = true
-    setGridVersion((version) => version + 1)
     // The dropped card keeps the spot it was dropped on (cards under it moved
     // down); then everything slides up into the gaps that left behind. Packing
     // during the drag is off because it sent a card dropped beside one in the same
@@ -335,6 +338,7 @@ export function DashboardBoard({
       .sort((a, b) => b[1] - a[1])
       .find(([, min]) => width >= min)?.[0]
     const next = gridUtils.compact(dropped, "vertical", COLS[cols] ?? COLS.lg)
+    setDraft(next.map((item) => ({ i: item.i, id: item.i, x: item.x, y: item.y, w: item.w, h: item.h })))
     onLayoutChange?.(
       next.map((item) => {
         const isCollapsed = Boolean(collapsedTiles[item.i])
@@ -426,7 +430,7 @@ export function DashboardBoard({
         <div className="h-96" aria-hidden="true" />
       ) : (
       <Responsive
-        key={`${JSON.stringify(collapsedTiles)}:${gridVersion}`}
+        key={JSON.stringify(collapsedTiles)}
         width={width}
         className={`rebyu-board ${editing ? "is-editing" : ""}`}
         layouts={layouts}

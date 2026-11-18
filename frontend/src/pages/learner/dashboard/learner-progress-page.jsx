@@ -1391,8 +1391,9 @@ export default function LearnerProgressPage() {
       ...tile,
       w: Math.max(1, tile.w ?? 2),
     }))
+    // A draft while rearranging: saved once, on Done. Saving every drop let a slow
+    // or failed save overwrite the board mid-edit (cards "resisting" and snapping back).
     setLocalLayout(sanitized)
-    saveLayoutMutation.mutate(sanitized)
   }
 
   const [layoutBeforeEdit, setLayoutBeforeEdit] = useState(null)
@@ -1413,17 +1414,17 @@ export default function LearnerProgressPage() {
   }
 
   const finishRearranging = () => {
+    const changed = JSON.stringify(tileLayout) !== JSON.stringify(layoutBeforeEdit ?? [])
     setLayoutBeforeEdit(null)
     setRearranging(false)
+    if (changed && localLayout) saveLayoutMutation.mutate(localLayout)
   }
 
+  // Nothing was sent while rearranging, so cancelling just drops the draft.
   const cancelRearranging = () => {
-    const previous = layoutBeforeEdit
-    finishRearranging()
-    if (previous != null && JSON.stringify(previous) !== JSON.stringify(tileLayout)) {
-      setLocalLayout(previous)
-      saveLayoutMutation.mutate(previous)
-    }
+    setLayoutBeforeEdit(null)
+    setRearranging(false)
+    setLocalLayout(null)
   }
 
   return (
