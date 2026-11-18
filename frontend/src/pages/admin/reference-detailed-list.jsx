@@ -31,7 +31,7 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
   const scrollContainerRef = useRef(null)
   const [draft, setDraft] = useState(EMPTY)
   const [editingId, setEditingId] = useState(null)
-  const [editorOpen, setEditorOpen] = useState(defaultEditorOpen || process.env.NODE_ENV === "test")
+  const [editorOpen, setEditorOpen] = useState(defaultEditorOpen)
   const [search, setSearch] = useState("")
 
   const query = useQuery({
