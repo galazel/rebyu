@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -52,6 +52,8 @@ export default function AiSettingsPage() {
   const [activeSection, setActiveSection] = useState("section-live-tutor")
   const [sidebarFilter, setSidebarFilter] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // While a click's smooth scroll runs, scroll tracking must not move the highlight.
+  const clickScrollUntil = useRef(0)
 
   const query = useQuery({
     queryKey: ["ai-settings"],
@@ -139,35 +141,37 @@ export default function AiSettingsPage() {
   const scrollToSection = (id) => {
     const el = document.getElementById(id)
     if (el) {
+      clickScrollUntil.current = Date.now() + 900
       el.scrollIntoView({ behavior: "smooth", block: "start" })
       setActiveSection(id)
       setMobileMenuOpen(false)
     }
   }
 
-  // Auto-track the current active section as the user scrolls
+  // Only the ids matter for tracking; the 15 s data refresh rebuilds `sections`
+  // with new badges, which must not tear the scroll tracking down each time.
+  const sectionIds = sections.map((item) => item.id).join("|")
+
+  // Active section = the last one whose top has scrolled past the header. One
+  // deterministic answer per frame, instead of an observer picking among several.
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const intersecting = entries.filter((e) => e.isIntersecting)
-        if (intersecting.length > 0) {
-          intersecting.sort((a, b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top))
-          setActiveSection(intersecting[0].target.id)
-        }
-      },
-      {
-        rootMargin: "-80px 0px -55% 0px",
-        threshold: [0, 0.2],
+    const ids = sectionIds ? sectionIds.split("|") : []
+    // Runs straight on each scroll event: measuring ~16 sections is cheap, and
+    // waiting for an animation frame left the highlight a step behind.
+    const update = () => {
+      if (Date.now() < clickScrollUntil.current) return
+      let current = ids[0]
+      for (const id of ids) {
+        const el = document.getElementById(id)
+        if (el && el.getBoundingClientRect().top <= 140) current = id
       }
-    )
-
-    sections.forEach((item) => {
-      const el = document.getElementById(item.id)
-      if (el) observer.observe(el)
-    })
-
-    return () => observer.disconnect()
-  }, [sections])
+      if (current) setActiveSection((previous) => (previous === current ? previous : current))
+    }
+    // Capture phase: also hears scrolling inside the portal's scroll container.
+    window.addEventListener("scroll", update, { capture: true, passive: true })
+    update()
+    return () => window.removeEventListener("scroll", update, { capture: true })
+  }, [sectionIds])
 
   const currentActiveItem = sections.find((s) => s.id === activeSection)
 
@@ -252,10 +256,10 @@ export default function AiSettingsPage() {
                         type="button"
                         onClick={() => scrollToSection(item.id)}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+                          "group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs",
                           activeSection === item.id
                             ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            : "text-foreground/75 hover:bg-primary/10 hover:text-foreground"
                         )}
                       >
                         <span className="truncate">{item.label}</span>
@@ -265,7 +269,7 @@ export default function AiSettingsPage() {
                               "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ml-2",
                               activeSection === item.id
                                 ? "bg-primary-foreground/20 text-primary-foreground"
-                                : "bg-muted text-muted-foreground"
+                                : "bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground"
                             )}
                           >
                             {item.badge}
@@ -335,10 +339,10 @@ export default function AiSettingsPage() {
                           type="button"
                           onClick={() => scrollToSection(item.id)}
                           className={cn(
-                            "group flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-all",
+                            "group flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs",
                             isActive
                               ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              : "text-foreground/75 hover:bg-primary/10 hover:text-foreground"
                           )}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -356,7 +360,7 @@ export default function AiSettingsPage() {
                                 "text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ml-1.5 truncate max-w-[80px]",
                                 isActive
                                 ? "bg-primary-foreground/20 text-primary-foreground"
-                                : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                                : "bg-muted text-muted-foreground group-hover:bg-background group-hover:text-foreground"
                               )}
                             >
                               {item.badge}
