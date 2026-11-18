@@ -115,7 +115,9 @@ function CertificationCard({
           {getCertificationDescription(certification)}
         </p>
 
-        <EarnedStrip certificationId={getCertificationId(certification)} award={award} />
+        <div className="mt-3 grid min-h-[4.25rem]">
+          <EarnedStrip certificationId={getCertificationId(certification)} award={award} className="" />
+        </div>
       </BubbleCard>
   )
 }
@@ -413,7 +415,7 @@ export default function LearnerCertificationsPage() {
                 />
             ) : (
                 <>
-                  <section className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  <section className="grid auto-rows-fr grid-cols-1 items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     {visibleCertifications.map((certification) => {
                       const certificationId = getCertificationId(certification)
 
