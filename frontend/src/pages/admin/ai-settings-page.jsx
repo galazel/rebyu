@@ -173,18 +173,7 @@ export default function AiSettingsPage() {
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-5 sm:gap-6 pb-12">
-      {/* Top Header */}
-      <div className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-primary">
-          Administration
-        </p>
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          AI Settings & Model Routing
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Configure multi-provider model routing, fallback chains, voice tutor limits, and health monitoring.
-        </p>
-      </div>
+      <h1 className="sr-only">Others</h1>
 
       {/* Sticky Mobile Quick-Jump Nav Bar (lg:hidden) */}
       <div className="sticky top-14 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur-md border-b border-border/70 lg:hidden shadow-xs flex flex-col gap-2">
@@ -192,7 +181,7 @@ export default function AiSettingsPage() {
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="size-2 rounded-full bg-primary shrink-0 animate-pulse" />
             <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
-              {currentActiveItem?.shortLabel ?? "AI Settings"}
+              {currentActiveItem?.shortLabel ?? "Others"}
             </span>
           </div>
           <Button
@@ -403,7 +392,7 @@ export default function AiSettingsPage() {
           ) : query.isError ? (
             <p className="flex items-start gap-2 rounded-2xl border border-destructive/40 bg-destructive/5 p-5 text-sm text-destructive">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              {apiMessage(query.error, "The AI settings could not be loaded.")}
+              {apiMessage(query.error, "These settings could not be loaded.")}
             </p>
           ) : (
             <>
@@ -437,9 +426,6 @@ export default function AiSettingsPage() {
                     <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
                       Models by Feature
                     </h2>
-                    <p className="text-xs text-muted-foreground sm:text-sm">
-                      Assign primary AI models, customize fallback chains, and manage tool access per feature.
-                    </p>
                   </div>
                   <Badge variant="secondary" className="text-xs font-mono">
                     {data.tasks?.length ?? 0} features
@@ -475,9 +461,6 @@ function CreditsCard({ credits, providers }) {
           <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
             OpenRouter Credits & API Keys
           </h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm max-w-2xl">
-            Chat, tutor analysis, and content-generation features run through OpenRouter. Paid models draw from this balance; free models do not, but may encounter rate limits.
-          </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(providers ?? {}).map(([name, present]) => (
@@ -876,9 +859,6 @@ function HealthOverview({ health, since, tasks, taskLabel }) {
           <h2 className="font-heading text-lg font-bold text-foreground sm:text-xl">
             Model Health & Status Monitor
           </h2>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm max-w-2xl">
-            Real-time tracking since service launch ({ago(since)}), refreshed every 15 seconds. Expand any model for error details and recent calls.
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {counts.map(([state, count]) =>

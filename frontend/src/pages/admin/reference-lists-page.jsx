@@ -4,17 +4,7 @@ import { REFERENCE_DEGREE_PROGRAM, REFERENCE_INSTITUTION, REFERENCE_PROGRAM } fr
 export default function ReferenceLists() {
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-5 sm:gap-6 overflow-y-auto pb-8">
-      <div className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-primary">
-          Administration
-        </p>
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Reference Lists
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          System reference options and taxonomies for academic units, degree programs, and institutions.
-        </p>
-      </div>
+      <h1 className="sr-only">Reference Lists</h1>
 
       <div className="grid gap-5 sm:gap-6 xl:grid-cols-2">
         <DetailedReferenceList

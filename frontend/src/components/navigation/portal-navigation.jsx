@@ -6,7 +6,7 @@ import {
   BarChart3,
   BookOpen,
   BookOpenCheck,
-  Bot,
+  Settings,
   Building2,
   ChevronDown,
   CircleHelp,
@@ -102,7 +102,7 @@ export const adminGroups = [
       { label: "Reference lists", href: "/admin/reference-lists", icon: ListChecks },
       { label: "Pricing & plans", href: "/admin/pricing", icon: CreditCard },
       { label: "Rewards & XP", href: "/admin/rewards", icon: Trophy },
-      { label: "AI settings", href: "/admin/ai-settings", icon: Bot },
+      { label: "Others", href: "/admin/ai-settings", icon: Settings },
     ],
   },
 ]

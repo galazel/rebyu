@@ -118,7 +118,6 @@ function CategoryCard({ category, values, onChange }) {
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-semibold">{category.title}</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{category.description}</p>
         </div>
       </div>
       <div className="border-t px-2 py-2">
@@ -140,7 +139,7 @@ function ReviewLevelEditor({ levels, onChange, onUpload, uploading }) {
     <section className="rounded-xl border bg-card">
       <div className="flex items-start gap-3 p-5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Trophy className="h-5 w-5" /></div>
-        <div><h2 className="text-base font-semibold">Certification review levels</h2><p className="mt-0.5 text-sm text-muted-foreground">The shared 20-level system used for every learner’s certification review progress. Uploading a badge is optional; learners see the default trophy when none is set.</p></div>
+        <div><h2 className="text-base font-semibold">Certification review levels</h2></div>
       </div>
       <div className="border-t divide-y">
         {levels.map((level, index) => (
@@ -225,11 +224,10 @@ export default function RewardsManagementPage() {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto pb-10">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <h1 className="sr-only">Rewards & XP</h1>
-        </div>
-        {hasChanges ? (
+      <h1 className="sr-only">Rewards & XP</h1>
+      {/* Only appears with unsaved changes; without them it was an empty band. */}
+      {hasChanges ? (
+        <div className="flex flex-wrap items-end justify-end gap-4 border-b border-border pb-4">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={handleReset}>
               <RotateCcw className="size-3.5" />
@@ -240,8 +238,8 @@ export default function RewardsManagementPage() {
               Save changes
             </Button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {query.isLoading ? (
         <div className="grid gap-4">
@@ -267,7 +265,7 @@ export default function RewardsManagementPage() {
         </div>
       )}
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Shared certification-review ranks</h2><p className="text-sm text-muted-foreground">Applied per certification, not as a scholarship or global account rank.</p></div>{levelsChanged ? <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setLevelEdits(null)}>Discard</Button><Button size="sm" onClick={saveLevels} disabled={levelsMutation.isPending}>{levelsMutation.isPending ? "Saving…" : "Save review levels"}</Button></div> : null}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold">Shared certification-review ranks</h2></div>{levelsChanged ? <div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => setLevelEdits(null)}>Discard</Button><Button size="sm" onClick={saveLevels} disabled={levelsMutation.isPending}>{levelsMutation.isPending ? "Saving…" : "Save review levels"}</Button></div> : null}</div>
         {levelsQuery.isLoading ? <Skeleton className="h-96 w-full" /> : levelsQuery.error ? <p className="text-sm text-destructive">{apiMessage(levelsQuery.error, "Could not load review levels.")}</p> : <ReviewLevelEditor levels={currentLevels} onChange={changeLevel} onUpload={(levelNumber, file) => imageMutation.mutate({ levelNumber, file })} uploading={imageMutation.isPending ? imageMutation.variables?.levelNumber : null} />}
       </div>
     </div>

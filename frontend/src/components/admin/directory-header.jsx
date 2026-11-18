@@ -1,22 +1,14 @@
 import "./directory.css"
 
+// Admin pages carry no introduction: the title is for screen readers only, and
+// `description` is accepted but not shown. Stats and actions stay.
 export function DirectoryHeader({ title, description, stats, children }) {
   return (
     <header className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="max-w-2xl min-w-0">
-          <p className="mb-1 text-xs font-bold tracking-widest text-primary uppercase">
-            Administration
-          </p>
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {title}
-          </h1>
-          <p className="mt-1.5 text-xs sm:text-sm leading-5 sm:leading-6 text-muted-foreground">
-            {description}
-          </p>
-        </div>
-        <div className="flex w-full shrink-0 items-start gap-2 sm:w-auto">{children}</div>
-      </div>
+      <h1 className="sr-only">{title}</h1>
+      {children ? (
+        <div className="flex w-full items-start justify-end gap-2">{children}</div>
+      ) : null}
       <dl className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         {stats.map(({ label, value, hint, onSelect, active }) => (
           <div

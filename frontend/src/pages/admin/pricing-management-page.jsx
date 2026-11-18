@@ -126,7 +126,6 @@ function SectionHeading({ icon: Icon, title, description, badge }) {
             <h2 className="font-heading text-lg font-bold tracking-tight text-foreground sm:text-xl">{title}</h2>
             {badge ? <Badge variant="secondary" className="text-xs">{badge}</Badge> : null}
           </div>
-          <p className="text-xs text-muted-foreground sm:text-sm">{description}</p>
         </div>
       </div>
     </div>

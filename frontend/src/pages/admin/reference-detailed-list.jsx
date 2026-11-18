@@ -161,7 +161,6 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="font-rb-display text-lg font-bold text-foreground sm:text-xl">{title}</h2>
-            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
           </div>
           <Badge variant="secondary" className="shrink-0 px-2.5 py-0.5 text-xs font-semibold tabular-nums">
             {active.length}
