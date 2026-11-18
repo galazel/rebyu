@@ -22,6 +22,7 @@ import { useAuth } from "@/context/auth-context.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 import "@/styles/admin-mobile.css"
 
 export default function DashboardLayout() {
@@ -53,7 +54,7 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     await logout()
-    toast.success("Logout successfully")
+    toastWhenReady.success("Signed out.")
     navigate("/login", { replace: true })
   }
 

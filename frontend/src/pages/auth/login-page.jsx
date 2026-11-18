@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 import { AlertCircle, AlertTriangle, Check, Loader2, LogIn } from "@/components/icons"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -129,8 +130,8 @@ export default function LoginPage() {
         loggedUser.email?.split("@")[0] ||
         "there"
 
-      toast.success(`Welcome back, ${displayName}!`, {
-        description: "Signed in successfully. Taking you to your dashboard...",
+      toastWhenReady.success(`Welcome back, ${displayName}!`, {
+        description: "Signed in successfully.",
         duration: 3500,
       })
 

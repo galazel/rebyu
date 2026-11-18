@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 import { AlertCircle, Building2, KeyRound, Loader2, UsersRound } from "@/components/icons"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -86,7 +87,7 @@ export default function AccountSetupPage() {
       await finishAccountSetup("complete").catch(() => {})
       queryClient.clear()
       const nextUser = await refresh()
-      toast.success(
+      toastWhenReady.success(
         type === "institution"
           ? `Welcome, ${result?.institutionName ?? "your institution"}.`
           : `You are now the department head of ${result?.departmentName ?? "your department"}.`

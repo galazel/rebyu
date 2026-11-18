@@ -16,6 +16,7 @@ import {
   SkipForwardIcon,
 } from "@/components/icons"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 
 import {
   AlertDialog,
@@ -616,7 +617,7 @@ export default function LearnerAssessmentAttemptPage() {
       // The server has already ended the attempt with a score of 0: never auto-submit after it.
       autoSubmittedRef.current = true
       sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
-      toast.error("You left the assessment too many times. It has ended with a score of 0.")
+      toastWhenReady.error("You left the assessment too many times. It has ended with a score of 0.")
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
       navigate(`/learner/results/${forfeitedAttemptId}`, {
         replace: true,

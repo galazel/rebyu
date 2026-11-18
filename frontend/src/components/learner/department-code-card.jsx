@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 import { AlertCircle, KeyRound, Loader2, UsersRound } from "@/components/icons"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -37,7 +38,7 @@ export function DepartmentCodeCard({ onDismiss, initialCode = "", title = "Enter
       await finishAccountSetup("complete").catch(() => {})
       queryClient.clear()
       const nextUser = await refresh()
-      toast.success(`You are now the department head of ${result?.departmentName ?? "your department"}.`)
+      toastWhenReady.success(`You are now the department head of ${result?.departmentName ?? "your department"}.`)
       navigate(roleHomePath(nextUser?.role ?? "DEPARTMENT_HEAD"), { replace: true })
     } catch (err) {
       setError(err?.response?.data?.message ?? "That code could not be used. Check it and try again.")

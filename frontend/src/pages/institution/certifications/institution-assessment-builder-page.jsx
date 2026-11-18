@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AlertCircle, LibraryBig, ListChecks, Loader2, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -563,7 +564,7 @@ export default function InstitutionAssessmentBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exams"] })
       queryClient.invalidateQueries({ queryKey: ["exam-questions"] })
-      toast.success(isEdit ? "Assessment updated." : "Assessment created.")
+      toastWhenReady.success(isEdit ? "Assessment updated." : "Assessment created.")
       navigate(`/institution/departments?view=assessments&department=${id}&certificationId=${groupCertificationId ?? ""}`)
     },
     onError: (err) => {

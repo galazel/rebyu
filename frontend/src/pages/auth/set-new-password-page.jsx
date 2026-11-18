@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { AlertCircle, KeyRound, Loader2 } from "@/components/icons"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -64,7 +65,7 @@ export default function SetNewPasswordPage() {
                 )
             }
 
-            toast.success("Your password was created successfully.")
+            toastWhenReady.success("Your password was created.")
 
             navigate(roleHomePath(result.user.role), {
                 replace: true,

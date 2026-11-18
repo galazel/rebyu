@@ -30,6 +30,7 @@ import { PomodoroOverlay } from "@/components/learner/pomodoro-overlay.jsx"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import { UpdatingPill } from "@/components/commons/updating-pill.jsx"
 import { toast } from "sonner"
+import { toastWhenReady } from "@/lib/toast-when-ready.js"
 
 export default function LearnerLayout() {
   usePortalTheme()
@@ -126,7 +127,7 @@ export default function LearnerLayout() {
     localStorage.removeItem("learner_id")
     localStorage.removeItem("userId")
     localStorage.removeItem("user_id")
-    toast.success("Logout successfully")
+    toastWhenReady.success("Signed out.")
     navigate("/login", { replace: true })
   }
 

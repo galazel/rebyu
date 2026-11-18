@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { useLocation } from "react-router-dom"
 
 import { LoadingScreen, messagesForPath } from "@/components/loading-screen.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
+import { setLoadingScreenVisible } from "@/lib/toast-when-ready.js"
 
 const MIN_VISIBLE_MS = 1200
 
@@ -45,6 +46,11 @@ export function LoadingOverlayProvider({ children }) {
     }, wait)
     return () => clearTimeout(finish)
   }, [active, latest])
+
+  // Toasts queued for the next page (toastWhenReady) appear once this screen is gone.
+  useEffect(() => {
+    setLoadingScreenVisible(phase !== "hidden")
+  }, [phase])
 
   const value = useMemo(() => ({ register, unregister }), [register, unregister])
 
