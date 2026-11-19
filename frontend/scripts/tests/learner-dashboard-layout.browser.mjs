@@ -20,7 +20,7 @@ const server = await createServer({
       vite.middlewares.use(async (request, response, next) => {
         if (request.url?.split("?")[0] !== route) return next()
         response.setHeader("Content-Type", "text/html")
-        response.end(await vite.transformIndexHtml(route, '<html><body><div id="root"></div><script type="module" src="/scripts/tests/learner-dashboard-layout-fixture.jsx"></script></body></html>'))
+        response.end(await vite.transformIndexHtml(route, '<html><body><div id="root"></div><script type="module">import("/scripts/tests/learner-dashboard-layout-fixture.jsx")</script></body></html>'))
       })
     },
   }],
@@ -35,6 +35,7 @@ let saved = [
 ]
 let failSave = true
 let saveAttempts = 0
+let heldAnalytics = Promise.withResolvers()
 const scoreTrend = Array.from({ length: 12 }, (_, index) => {
   const examId = index + 1
   return Array.from({ length: 12 - index }, (_, attempt) => ({
@@ -70,7 +71,15 @@ try {
       }
       return respond({ tiles: saved })
     }
-    return respond(pathname.endsWith("/progress-analytics") ? { readiness: 8, scoreTrend } : [])
+    if (pathname.endsWith("/progress-analytics")) {
+      const sendAnalytics = () => respond({ readiness: 8, scoreTrend })
+      if (heldAnalytics) {
+        heldAnalytics.resolve(sendAnalytics)
+        return
+      }
+      return sendAnalytics()
+    }
+    return respond([])
   })
 
   const grid = ".rebyu-learner-grid"
@@ -102,7 +111,15 @@ try {
 
   const url = new URL(`${route}?certification=14`, server.resolvedUrls.local[0])
   await page.goto(url.href, { waitUntil: "domcontentloaded" })
-  await page.waitForFunction(() => document.querySelector("#exam-readiness")?.getBoundingClientRect().width < 300)
+  await page.waitForFunction(() => document.querySelector("#todays-plan")?.getBoundingClientRect().height === 296)
+  const skeletonSelector = '[aria-label="Loading progress dashboard"]'
+  await page.waitForSelector(skeletonSelector)
+  await settle()
+  const savedSkeleton = await geometry()
+  const releaseSavedAnalytics = await heldAnalytics.promise
+  heldAnalytics = null
+  await releaseSavedAnalytics()
+  await page.waitForSelector(skeletonSelector, { hidden: true })
   const retakes = await page.$$eval('#score-over-time [aria-label="Assessments plotted"] li', (rows) =>
     rows.map((row) => row.querySelector(".truncate").textContent.trim()),
   )
@@ -114,6 +131,7 @@ try {
   assert.equal(await page.$$eval("#assessment-history li button", (buttons) => buttons.length), 10)
   await settle()
   const before = await geometry()
+  assert.deepEqual(before, savedSkeleton, "saved layout skeleton matches the displayed board")
   assert.equal(before["todays-plan"][3], 296)
   assert.equal(before["exam-readiness"][3], 400)
   await click("Customize layout")
@@ -145,7 +163,24 @@ try {
   await click("Customize layout")
   await click("Reset layout")
   await settle()
-  assert.notDeepEqual(await geometry(), edited)
+  const defaultGeometry = await geometry()
+  const columnStep = (defaultGeometry["score-over-time"][2] + 16) / 6
+  const gridUnits = ([left, top, width, height]) => [
+    Math.round(left / columnStep), Math.round(top / 104),
+    Math.round((width + 16) / columnStep), Math.round((height + 16) / 104),
+  ]
+  assert.deepEqual(Object.fromEntries(Object.entries(defaultGeometry).map(([id, box]) => [id, gridUnits(box)])), {
+    "todays-plan": [0, 0, 2, 7],
+    "exam-readiness": [2, 0, 1, 4],
+    "player-card": [3, 0, 3, 5],
+    "exam-countdown": [2, 4, 1, 3],
+    "topic-mastery": [3, 5, 3, 3],
+    "next-up": [0, 7, 3, 4],
+    "mastery-by-topic": [3, 8, 3, 7],
+    "study-notes": [0, 11, 3, 4],
+    "score-over-time": [0, 15, 6, 6],
+    "assessment-history": [0, 21, 6, 5],
+  }, "Reset previews the screenshot arrangement")
   await click("Cancel")
   await settle()
   assert.deepEqual(await geometry(), edited)
@@ -166,7 +201,21 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll("button")].some((button) => button.textContent.trim() === "Customize layout" && !button.disabled))
   assert.deepEqual(await geometry(), mobileEdit)
   assert.equal(saved.find(({ id }) => id === "player-card").w, 2, "mobile resize preserves desktop widths")
-  console.log("Learner dashboard drag, resize, save, reload and cancel passed")
+
+  saved = []
+  heldAnalytics = Promise.withResolvers()
+  await page.setViewport({ width: 1600, height: 1000 })
+  await page.reload({ waitUntil: "domcontentloaded" })
+  await page.waitForSelector(skeletonSelector)
+  await page.waitForFunction(() => document.querySelector("#todays-plan")?.getBoundingClientRect().height === 712)
+  await settle()
+  assert.deepEqual(await geometry(), defaultGeometry, "the skeleton uses the preset when no layout is saved")
+  const releaseDefaultAnalytics = await heldAnalytics.promise
+  heldAnalytics = null
+  await releaseDefaultAnalytics()
+  await page.waitForSelector(skeletonSelector, { hidden: true })
+  assert.deepEqual(await geometry(), defaultGeometry, "learners without a saved layout see the reset preset")
+  console.log("Learner dashboard default, layout-aware skeleton, drag, resize, save, reload and cancel passed")
 } finally {
   await browser?.close()
   await server.close()

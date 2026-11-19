@@ -25,6 +25,7 @@ import { NotificationBell } from "@/components/notification-bell.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { DepartmentCodeCard } from "@/components/learner/department-code-card.jsx"
+import { LearnerProgressRouteSkeleton } from "@/components/learner/learner-progress-skeleton.jsx"
 import { StudyActivityHost } from "@/components/learner/study-activity-host.jsx"
 import { PomodoroOverlay } from "@/components/learner/pomodoro-overlay.jsx"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
@@ -131,9 +132,7 @@ export default function LearnerLayout() {
     navigate("/login", { replace: true })
   }
 
-  function RouteSkeleton() {
-  return <LoadingSignal />
-}
+  const routeSkeleton = isProgressBoardRoute ? <LearnerProgressRouteSkeleton /> : <LoadingSignal />
 
 
   return (
@@ -178,7 +177,7 @@ export default function LearnerLayout() {
           {query.isError && !query.data ? (
             <LearnerErrorState error={query.error} onRetry={query.refetch} />
           ) : !query.data ? (
-            <RouteSkeleton />
+            routeSkeleton
           ) : (
             <>
               {awaitingDepartmentCode ? (
@@ -186,7 +185,7 @@ export default function LearnerLayout() {
                   initialCode={typeof awaitingDepartmentCode === "string" ? awaitingDepartmentCode : ""}
                   onDismiss={() => setAwaitingDepartmentCode(false)} />
               ) : null}
-              <Suspense fallback={<RouteSkeleton />}>
+              <Suspense fallback={routeSkeleton}>
                 <Outlet context={outletContext} />
               </Suspense>
             </>

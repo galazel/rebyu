@@ -1,9 +1,9 @@
-import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 import { LEARNER_PRESET } from "@/components/commons/dashboard-tile-labels.js"
 import { learnerReportBlocks } from "@/lib/learner-export.js"
 import { ExportButton } from "@/components/commons/export-button.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
+import { useLearnerDashboardLayout } from "@/hooks/use-learner-dashboard-layout.js"
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   LearnerEmptyState,
@@ -42,7 +41,8 @@ import { ExamCountdownBody } from "@/components/learner/exam-countdown-tile.jsx"
 import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
 import { PrioritySeal } from "@/components/learner/priority-tag.jsx"
-import { BentoGrid, BentoHeading, BentoTile } from "@/components/commons/bento.jsx"
+import { LearnerProgressSkeleton } from "@/components/learner/learner-progress-skeleton.jsx"
+import { BentoHeading, BentoTile } from "@/components/commons/bento.jsx"
 import { LearnerDashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import {
   RadialGauge,
@@ -69,7 +69,6 @@ import { useCertificationStudyPlan } from "@/components/learner/use-certificatio
 import { isDiagnosticCompleted } from "@/pages/learner/learning/learner-learning-page.jsx"
 import {
   DASHBOARD_LAYOUT_KEY,
-  getDashboardLayout,
   saveDashboardLayout,
 } from "@/services/studyDeskService.js"
 import { getStudyBehavior } from "@/services/studyTelemetryService.js"
@@ -206,55 +205,6 @@ const PACE_STYLE = {
     chip: "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300",
     note: "Many sections were skimmed quickly. Slow down to remember more.",
   },
-}
-
-// 2026-11-10: Study behavior folded into Today's plan. A layout saved before that still lists
-// the absorbed card; the merged card takes over its partner's space when the two sat side by
-// side, so nobody's arrangement gets a hole in it.
-const MERGED_TILES = [
-  ["todays-plan", "study-behavior"],
-]
-
-// 2026-11-11: Exam readiness and Exam countdown are separate cards again. A layout saved while
-// they were one card holds only "exam-readiness"; it is split in two so the countdown lands
-// beside it instead of at the bottom of the board.
-const SPLIT_TILES = [
-  ["exam-readiness", "exam-countdown"],
-]
-
-function migrateLearnerLayout(layout) {
-  if (!Array.isArray(layout) || layout.length === 0) return layout
-  let next = layout.map((item) => ({ ...item }))
-  const idOf = (item) => item.id ?? item.i
-  for (const [keepId, newId] of SPLIT_TILES) {
-    const keep = next.find((item) => idOf(item) === keepId)
-    if (!keep || next.some((item) => idOf(item) === newId) || !(keep.w >= 2)) continue
-    const leftW = Math.ceil(keep.w / 2)
-    const added = { ...keep, id: newId, x: keep.x + leftW, w: keep.w - leftW }
-    if (keep.i != null) added.i = newId
-    keep.w = leftW
-    next.push(added)
-  }
-  for (const [keepId, goneId] of MERGED_TILES) {
-    const keep = next.find((item) => idOf(item) === keepId)
-    const gone = next.find((item) => idOf(item) === goneId)
-    if (!gone) continue
-    if (!keep) {
-      // Only the absorbed card was placed: the merged card inherits its slot.
-      gone.id = keepId
-      if (gone.i != null) gone.i = keepId
-      continue
-    }
-    const sameRow = keep.y === gone.y
-    const adjacent = keep.x + keep.w === gone.x || gone.x + gone.w === keep.x
-    if (sameRow && adjacent) {
-      keep.x = Math.min(keep.x, gone.x)
-      keep.w = keep.w + gone.w
-      keep.h = Math.max(keep.h, gone.h)
-    }
-    next = next.filter((item) => idOf(item) !== goneId)
-  }
-  return next
 }
 
 function dayLetter(date) {
@@ -508,58 +458,6 @@ function ReadinessBody({ readiness }) {
     </>
   )
 }
-
-function AnalyticsLoadingSkeleton() {
-  return (
-    <div className="space-y-4">
-    <LoadingNote text="drawing your progress board…" />
-    <BentoGrid>
-      <BentoTile col={4} row={2} className="gap-3">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-7 w-2/3" />
-        <Skeleton className="mt-auto h-2 w-full" />
-        <Skeleton className="h-10 w-36" />
-      </BentoTile>
-      <BentoTile col={2} row={2} className="gap-3">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="mx-auto h-[130px] w-[130px] rounded-full" />
-      </BentoTile>
-
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-
-      <BentoTile col={4} row={2} className="gap-3">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-[200px] w-full" />
-      </BentoTile>
-      <BentoTile col={2} row={2} className="gap-3">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-      </BentoTile>
-
-      {[0, 1, 2, 3, 4, 5].map((index) => (
-        <BentoTile key={index} col={3} row={2} className="gap-3">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-        </BentoTile>
-      ))}
-    </BentoGrid>
-    </div>
-  )
-}
-
 
 export default function LearnerProgressPage() {
   const navigate = useNavigate()
@@ -1341,20 +1239,11 @@ export default function LearnerProgressPage() {
     },
   ]
 
-  const layoutQuery = useQuery({
-    queryKey: [DASHBOARD_LAYOUT_KEY],
-    queryFn: getDashboardLayout,
-    staleTime: 5 * 60_000,
-    retry: 1,
-  })
+  const { layout: savedLayout, isPending: layoutPending } = useLearnerDashboardLayout()
 
   const queryClient = useQueryClient()
   const [editSession, setEditSession] = useState(null)
   const rearranging = editSession !== null
-  const savedLayout = useMemo(
-    () => migrateLearnerLayout(layoutQuery.data?.tiles),
-    [layoutQuery.data?.tiles],
-  )
 
   const saveLayoutMutation = useMutation({
     mutationFn: saveDashboardLayout,
@@ -1462,7 +1351,7 @@ export default function LearnerProgressPage() {
                 size="sm"
                 className="gap-2"
                 aria-pressed={rearranging}
-                disabled={savingLayout || layoutQuery.isPending || !analytics}
+                disabled={savingLayout || layoutPending || !analytics}
                 onClick={rearranging ? finishRearranging : startRearranging}
               >
                 {rearranging ? (
@@ -1491,14 +1380,14 @@ export default function LearnerProgressPage() {
               </Button>
             }
           />
-        ) : analyticsQuery.isLoading ? (
-          <AnalyticsLoadingSkeleton />
         ) : analyticsQuery.isError ? (
           <LearnerErrorState
             title="Couldn't load your analytics"
             error={analyticsQuery.error}
             onRetry={analyticsQuery.refetch}
           />
+        ) : analyticsQuery.isPending || layoutPending ? (
+          <LearnerProgressSkeleton layout={savedLayout} />
         ) : (
           <>
             {bktUnavailable && (
