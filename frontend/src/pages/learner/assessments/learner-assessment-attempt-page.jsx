@@ -1,7 +1,13 @@
+import { withInlineMath } from "@/components/certifications/math.jsx"
+import { EquationAnswerInput } from "@/components/assessments/attempt/equation-answer-input.jsx"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from "react-router-dom"
 
 import { returnPath } from "@/lib/assessment-return"
+import {
+  finishedAttemptToShow,
+  rememberFinishedAttempt,
+} from "@/lib/finished-attempt.js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeftIcon,
@@ -117,6 +123,10 @@ const QUESTION_TYPE_STYLES = {
   },
   DESCRIPTIVE: {
     label: "Descriptive",
+    className: "border-rb-bee bg-rb-bee-wash text-rb-bee-ink",
+  },
+  PROBLEM_SOLVING: {
+    label: "Problem Solving",
     className: "border-rb-bee bg-rb-bee-wash text-rb-bee-ink",
   },
   CRITICAL_THINKING: {
@@ -249,7 +259,7 @@ export function NormalQuestionPanel({ question, index, answer, onAnswer }) {
             itemLabel="Question"
         />
 
-        <p className="whitespace-pre-wrap text-lg font-semibold leading-8 text-foreground">{question.question}</p>
+        <p className="whitespace-pre-wrap text-lg font-semibold leading-8 text-foreground">{withInlineMath(question.question)}</p>
 
         <AuthedImage
             imageKey={question.questionImageKey}
@@ -297,7 +307,7 @@ export function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   <span className="mr-1.5 font-extrabold text-[var(--tg-ink)]">
                     {String.fromCharCode(65 + choiceIndex)}.
                   </span>
-                  {choice.choiceText}
+                  {withInlineMath(choice.choiceText)}
                 </span>
                       <AuthedImage
                           imageKey={choice.imageKey}
@@ -318,7 +328,7 @@ export function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                       key={sub.subQuestionId}
                       className="space-y-2"
                   >
-                    <p className="text-sm font-medium text-foreground">{sub.questionText}</p>
+                    <p className="text-sm font-medium text-foreground">{withInlineMath(sub.questionText)}</p>
                     <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="max-h-80 w-auto rounded-lg border bg-white" />
                     <Input
                         value={answer?.subAnswers?.[sub.subQuestionId] ?? ""}
@@ -347,6 +357,11 @@ export function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   placeholder="Type your answer"
               />
             </div>
+        ) : question.questionType === "PROBLEM_SOLVING" ? (
+            <EquationAnswerInput
+                value={answer?.learnerAnswer ?? ""}
+                onChange={(learnerAnswer) => onAnswer({ learnerAnswer })}
+            />
         ) : (
             <div className="space-y-2">
               <Label htmlFor="descriptive-answer">Your answer</Label>
@@ -390,7 +405,7 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
             itemLabel="Item"
         />
         <p className="whitespace-pre-wrap text-sm leading-7">
-          {question.question}
+          {withInlineMath(question.question)}
         </p>
         {question.instructions ? (
             <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
@@ -554,6 +569,10 @@ export default function LearnerAssessmentAttemptPage() {
     return matches.find((m) => String(m.matchId) === String(matchId)) ?? null
   }, [worldCupBracketQuery.data, matchId])
   const navigate = useNavigate()
+  // POP is Back, Forward or a reload. A deliberate PUSH -- "Retake assessment",
+  // opening the paper from the curriculum -- is the learner asking for a new
+  // sitting, and clears the marker below.
+  const navigationType = useNavigationType()
   const location = useLocation()
   const queryClient = useQueryClient()
   useEffect(() => {
@@ -584,6 +603,7 @@ export default function LearnerAssessmentAttemptPage() {
   const [skipped, setSkipped] = useState(() => new Set())
   const [currentIndex, setCurrentIndex] = useState(0)
   const [leaveOpen, setLeaveOpen] = useState(false)
+  const leavingRef = useRef(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(null)
@@ -599,6 +619,26 @@ export default function LearnerAssessmentAttemptPage() {
   const assessmentType = String(attempt?.assessmentType ?? "").toUpperCase()
   const isDiagnostic = assessmentType === "DIAGNOSTIC"
   const isChallenge = assessmentType === "CHALLENGE"
+
+  function showResult(attemptId, state) {
+    if (leavingRef.current) return
+    leavingRef.current = true
+
+    rememberFinishedAttempt(examId, learnerId, questionIndex, attemptId)
+
+    const resultPath = `/learner/results/${attemptId}`
+    const replaceAttempt = () => navigate(resultPath, { replace: true, state })
+
+    if (window.history.state?.rebyuAttemptGuard) {
+      // Replace both quiz entries so neither Back nor Forward can launch it again.
+      replaceAttempt()
+      window.addEventListener("popstate", replaceAttempt, { once: true })
+      window.history.back()
+      return
+    }
+
+    replaceAttempt()
+  }
 
   // A diagnostic is a learning baseline, not a proctored sitting. Its answers must
   // reach the mastery model even when the learner changes tabs or needs to return.
@@ -619,15 +659,29 @@ export default function LearnerAssessmentAttemptPage() {
       sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
       toastWhenReady.error("You left the assessment too many times. It has ended with a score of 0.")
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
-      navigate(`/learner/results/${forfeitedAttemptId}`, {
-        replace: true,
-        state: { returnTo: returnPath(location), forfeited: true },
-      })
+      showResult(forfeitedAttemptId, { returnTo: returnPath(location), forfeited: true })
     },
   })
 
   useEffect(() => {
     if (learnerId == null || startedRef.current) return
+
+    // Back from the result page shows that result again rather than quietly
+    // starting the paper over. See lib/finished-attempt.js.
+    const finishedAttemptId = finishedAttemptToShow({
+      examId,
+      learnerId,
+      questionIndex,
+      navigationType,
+    })
+
+    if (finishedAttemptId) {
+      startedRef.current = true
+      leavingRef.current = true
+      navigate(`/learner/results/${finishedAttemptId}`, { replace: true })
+      return
+    }
+
     startedRef.current = true
     const keySuffix = questionIndex != null ? `-q${questionIndex}` : ""
     const keyName = `rebyu-attempt-key-${examId}-${learnerId}${keySuffix}`
@@ -908,26 +962,22 @@ export default function LearnerAssessmentAttemptPage() {
         import("@/services/challengeService.js").then(({ reportWorldCupScore }) => {
           reportWorldCupScore(matchId, result.assessmentAttemptId, result.percentage ?? 0).catch(() => {})
         })
-        navigate(`/learner/results/${result.assessmentAttemptId}`, {
-          replace: true,
-          state: { returnTo: "/learner/challenges/world-cup", fromChallenge: true, isWorldCup: true, matchId: Number(matchId) },
+        showResult(result.assessmentAttemptId, {
+          returnTo: "/learner/challenges/world-cup",
+          fromChallenge: true,
+          isWorldCup: true,
+          matchId: Number(matchId),
         })
       } else if (challengeType) {
-        navigate(`/learner/results/${result.assessmentAttemptId}`, {
-          replace: true,
-          state: {
-            returnTo: { codestrike: "/learner/challenges/codestrike", blueprint: "/learner/challenges/blueprint-arena" }[arenaId] ?? "/learner/challenges",
-            fromChallenge: true,
-            arenaId,
-            questionIndex,
-            totalProblems,
-          },
+        showResult(result.assessmentAttemptId, {
+          returnTo: { codestrike: "/learner/challenges/codestrike", blueprint: "/learner/challenges/blueprint-arena" }[arenaId] ?? "/learner/challenges",
+          fromChallenge: true,
+          arenaId,
+          questionIndex,
+          totalProblems,
         })
       } else {
-        navigate(`/learner/results/${result.assessmentAttemptId}`, {
-          replace: true,
-          state: { returnTo: returnPath(location) },
-        })
+        showResult(result.assessmentAttemptId, { returnTo: returnPath(location) })
       }
 
       if (!challengeType) {
@@ -963,7 +1013,6 @@ export default function LearnerAssessmentAttemptPage() {
     }
   }, [timeUp, attempt, submitMutation])
 
-  const leavingRef = useRef(false)
   const restoringHistoryRef = useRef(false)
   const hadPriorHistoryRef = useRef(
     typeof window !== "undefined" ? window.history.length > 1 : true
@@ -981,7 +1030,7 @@ export default function LearnerAssessmentAttemptPage() {
     }
 
     const onPopState = () => {
-      if (leavingRef.current || submitMutation.isPending || submitMutation.isSuccess) return
+      if (leavingRef.current || submitMutation.isSuccess) return
       // The guard is a duplicate history entry. Move straight back to it rather
       // than pushing another entry, which could briefly expose the previous page
       // and let the learner restart an in-progress assessment by using Back.
@@ -991,7 +1040,7 @@ export default function LearnerAssessmentAttemptPage() {
       }
       restoringHistoryRef.current = true
       window.history.go(1)
-      setLeaveOpen(true)
+      if (!submitMutation.isPending) setLeaveOpen(true)
     }
 
     window.addEventListener("popstate", onPopState)

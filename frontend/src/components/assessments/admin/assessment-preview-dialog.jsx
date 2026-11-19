@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { getAssessmentTypeLabel } from "@/services/assessmentService.js"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 export default function AssessmentPreviewDialog({
                                                   open,
@@ -91,7 +92,7 @@ export default function AssessmentPreviewDialog({
                             <div className="min-w-0 flex-1">
                               <div className="flex items-start justify-between gap-3">
                                 <p className="min-w-0 text-sm font-medium">
-                                  {question.questionText}
+                                  {withInlineMath(question.questionText)}
                                 </p>
                               </div>
 
@@ -125,7 +126,7 @@ export default function AssessmentPreviewDialog({
                                               }
                                           >
                                             {String.fromCharCode(65 + choiceIndex)}.{" "}
-                                            {choice.choiceText}
+                                            {withInlineMath(choice.choiceText)}
                                             {correct ? " ✓" : ""}
                                           </li>
                                       )

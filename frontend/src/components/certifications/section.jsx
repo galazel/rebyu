@@ -4,6 +4,8 @@ import {
     AccordionTool,
     CodeTool,
     DescriptionTool,
+    ExampleTool,
+    FormulaTool,
     FlipGridTool,
     HeadingTool,
     ImageTool,
@@ -47,6 +49,8 @@ const TOOL_COMPONENTS = {
     "media-text-block": MediaTextBlockTool,
     "image-hotspot": ImageHotspotTool,
     table: TableTool,
+    formula: FormulaTool,
+    example: ExampleTool,
     code: CodeTool,
 }
 

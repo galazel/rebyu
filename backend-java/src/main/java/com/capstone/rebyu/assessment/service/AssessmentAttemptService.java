@@ -1777,7 +1777,7 @@ public class AssessmentAttemptService {
             }
         }
 
-        if ("DESCRIPTIVE".equals(type) && source != null
+        if (isWrittenAiType(type) && source != null
                 && gradeDescriptiveAnswer(attemptQuestion, source, answer, points, batch)) {
             return;
         }
@@ -1864,7 +1864,7 @@ public class AssessmentAttemptService {
             }
             BigDecimal points = UNIT;
 
-            if ("DESCRIPTIVE".equals(type) || isAiSemanticShortAnswer(type, source)) {
+            if (isWrittenAiType(type) || isAiSemanticShortAnswer(type, source)) {
                 AnswerGradingRequestDto request = descriptiveGradingRequest(
                         attemptQuestion, source, answer, points);
                 workload.ai(key, () -> gradeWithRetry(request));
@@ -2482,6 +2482,20 @@ public class AssessmentAttemptService {
         return false;
     }
 
+
+    /**
+     * The types whose answer is prose or worked mathematics, marked by the AI
+     * examiner against a reference answer rather than matched against a key.
+     *
+     * PROBLEM_SOLVING stores exactly what DESCRIPTIVE stores -- a reference
+     * answer in the text question config, marked AI_SEMANTIC -- so it is marked
+     * on the same path. It is a separate type because the learner writes
+     * equations rather than sentences, which changes the editor they are given
+     * and the way the examiner is told to mark.
+     */
+    private static boolean isWrittenAiType(String questionType) {
+        return "DESCRIPTIVE".equals(questionType) || "PROBLEM_SOLVING".equals(questionType);
+    }
 
     private static boolean isWorkspaceType(String questionType) {
         return "CRITICAL_THINKING".equals(questionType)

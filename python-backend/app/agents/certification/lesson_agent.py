@@ -120,6 +120,23 @@ _PROMPT_TEMPLATE = """
     from whoever ranks highest that day, and teaches terminology the real
     paper does not use.
 
+
+MATHEMATICS AND SCIENCE NOTATION -- every text field here is typeset, so an
+equation must be written as an equation, not spelled out in ASCII:
+
+- Wrap inline maths in \\( ... \\), never in dollar signs: "the deviation
+  \\(\\sigma = \\sqrt{\\frac{1}{n}\\sum(x_i-\\bar{x})^2}\\) grows with the
+  spread". Dollar signs are left alone on purpose, because these texts are
+  full of prices.
+- Inside the delimiters it is LaTeX: \\frac, \\sqrt, ^, _, \\sum, \\int,
+  \\le, \\ge, \\approx, \\times, Greek letters, matrices.
+- Chemistry uses \\ce{...}: \\(\\ce{2H2 + O2 -> 2H2O}\\),
+  \\(\\ce{H2SO4}\\). A quantity with a unit uses \\pu{...}:
+  \\(\\pu{9.81 m/s^2}\\), \\(\\pu{123 kJ//mol}\\).
+- Never write "x^2" or "sqrt(2)" or "H2O" as bare text, and never draw an
+  equation with ASCII art. Ordinary prose stays ordinary prose -- only the
+  mathematics goes inside the delimiters.
+
     --------------------------------------------------
     VISUAL CONTENT
     --------------------------------------------------
@@ -181,6 +198,77 @@ _PROMPT_TEMPLATE = """
     `caption` is one sentence on what to notice. A before/after comparison
     is two `code` blocks, titled "Bad" and "Good", not one block with prose
     between the lines.
+
+    {"type": "example",
+     "data": {"smallHeader": "", "description": "", "label": "", "title": "",
+              "scenario": "",
+              "givens": [{"label": "", "value": ""}],
+              "steps": [{"title": "", "detail": ""}],
+              "resultLabel": "", "result": "", "takeaway": "", "caption": ""}}
+
+    Use `example` to WORK SOMETHING THROUGH. It is the right block whenever the
+    material is a demonstration rather than a statement -- the thing a teacher
+    does on the board once, start to finish -- and it is NOT only for
+    calculations. All of these are `example` blocks:
+
+      - a sampling plan applied to a real lot, or a critical path traced
+      - a failed deployment diagnosed from its symptoms to its cause
+      - a table taken through normalisation to third normal form
+      - a vague requirement rewritten into a testable one
+      - a security incident handled step by step under a response policy
+      - a contract clause or a case read against the rule it turns on
+      - a design pattern applied to a particular awkward class
+      - a project appraised, a risk assessed, an interview conducted
+
+    `label` names the kind of walkthrough -- "Worked example" is the default,
+    but use "Case study", "Walkthrough", "Diagnosis" or whatever fits. `title`
+    says what this one shows. `scenario` sets the situation up in a sentence or
+    two.
+
+    `givens` is the set-up: what is true before the work starts. An entry may
+    be a short name and its value ("Sample size (n)", "125 units"), or ONE
+    plain fact with the other field left empty ("The server had been rebooted
+    overnight") -- use whichever the material actually is, and never invent a
+    number to fill a field. Put each fact in its own entry rather than listing
+    them in a paragraph.
+
+    `steps` are the work in order, each a short `title` naming what is done and
+    a `detail` saying what happens and why. `result` is what the steps conclude
+    -- a quantity, a decision, a diagnosis, a verdict -- and `resultLabel`
+    names it ("Result", "Decision", "Diagnosis", "Outcome"). `takeaway` is the
+    one thing to remember. Every part is optional except that it needs at least
+    a scenario, a set-up, or some steps.
+
+    Do NOT use `code` for this -- a worked example is not a program, and a code
+    box turns its set-up, steps and conclusion into one grey wall with line
+    numbers. Do NOT use `example` for a pure equation (that is `formula`) or
+    for several items compared on the same attributes (that is `table`). A
+    walkthrough whose steps ARE code still uses `example`, with the code in its
+    own `code` block beside it.
+
+    {"type": "formula",
+     "data": {"smallHeader": "", "description": "", "caption": "",
+              "items": [{"name": "", "latex": "",
+                         "where": [{"symbol": "", "meaning": ""}],
+                         "note": ""}]}}
+
+    Use `formula` for EVERY equation, mathematical relationship, or unit
+    conversion -- never `code`. A formula is not a program: it has no
+    language, nobody runs it, and in a code box it arrives wearing a language
+    chip, line numbers and a copy button, all of which are lies about it.
+    `latex` is the expression in LaTeX and nothing else -- "V = IR",
+    "P = \\sqrt{3} \\times V \\times I \\times \\cos\\phi",
+    "\\sigma = \\sqrt{\\frac{1}{n}\\sum_{i=1}^{n}(x_i-\\bar{x})^2}" -- with no
+    prose, no "where ..." tail and no worked numbers inside it. Each symbol
+    that appears gets one `where` entry naming it and its unit ("V",
+    "voltage, in volts"). `note` is an optional worked example or a line on
+    when the formula applies. Related formulas belong in ONE block as several
+    `items`, not one block each.
+
+    Inside `formula`, `latex` is the whole expression, so it needs no
+    delimiters. Everywhere ELSE -- a description, a list item, a table cell, a
+    heading, a tab label -- an equation goes inline between \\( and \\), as
+    described under NOTATION below.
 
     {"type": "image", "data": {"imageQuery": ""}}
     {"type": "video", "data": {"videoQuery": ""}}

@@ -110,7 +110,8 @@ export default function CreateQuestionDialog({
     ])
 
     const isMultipleChoice = questionType === "MULTIPLE_CHOICE"
-    const isDescriptive = questionType === "DESCRIPTIVE"
+    const isDescriptive =
+        questionType === "DESCRIPTIVE" || questionType === "PROBLEM_SOLVING"
     const isShortAnswer = questionType === "SHORT_ANSWER"
     const isCriticalThinking = questionType === "CRITICAL_THINKING"
 
@@ -298,6 +299,10 @@ export default function CreateQuestionDialog({
 
                                             <SelectItem value="DESCRIPTIVE">
                                                 Descriptive
+                                            </SelectItem>
+
+                                            <SelectItem value="PROBLEM_SOLVING">
+                                                Problem Solving
                                             </SelectItem>
 
                                             <SelectItem value="SHORT_ANSWER">

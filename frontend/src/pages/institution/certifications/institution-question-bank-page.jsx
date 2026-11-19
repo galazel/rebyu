@@ -64,6 +64,7 @@ const QUESTION_TYPES = [
   { value: "MULTIPLE_ANSWER", label: "Multiple Answer" },
   { value: "SHORT_ANSWER", label: "Short Answer" },
   { value: "DESCRIPTIVE", label: "Descriptive" },
+  { value: "PROBLEM_SOLVING", label: "Problem Solving" },
   { value: "CRITICAL_THINKING", label: "Critical Thinking" },
 ]
 

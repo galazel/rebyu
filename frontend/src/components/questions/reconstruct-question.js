@@ -48,6 +48,22 @@ export async function reconstructQuestionData(question, allQuestions) {
     }
   }
 
+  if (question.questionType === "PROBLEM_SOLVING") {
+    const config = await getTextQuestionConfig(question.questionId).catch(() => null)
+    return {
+      typeId: "PROBLEM_SOLVING",
+      data: {
+        questionType: "PROBLEM_SOLVING",
+        question: questionText,
+        image: null,
+        imageKey,
+        rubricBasedAnswer: config?.correctAnswer ?? "",
+        checkingMethod: config?.checkingMethod ?? "AI_SEMANTIC",
+        difficulty,
+      },
+    }
+  }
+
   if (question.questionType === "DESCRIPTIVE") {
     const config = await getTextQuestionConfig(question.questionId).catch(() => null)
     return {

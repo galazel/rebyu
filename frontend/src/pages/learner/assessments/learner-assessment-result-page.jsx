@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { AuthedImage } from "@/lib/authed-media.jsx"
 import { returnPath } from "@/lib/assessment-return"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowRight,
   CheckCircle2Icon,
@@ -32,6 +32,7 @@ import PerformanceBreakdown from "@/components/assessments/attempt/performance-b
 import {
   getCurrentLearner,
   getCurrentLearnerIdentity,
+  getLearnerPortalData,
 } from "@/services/learnerService.js"
 import {
   getAssessmentTypeLabel,
@@ -42,6 +43,9 @@ import LearnerPremiumGuard from "@/components/learner/learner-premium-guard.jsx"
 import { StudyPlanPrompt } from "@/components/learner/study-plan-prompt.jsx"
 import { FEATURES } from "@/services/subscriptionService.js"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
+import { withInlineMath } from "@/components/certifications/math.jsx"
+import { ProblemSolvingAnswerView } from "@/components/assessments/attempt/equation-answer-input.jsx"
+import { looksLikeWorkedAnswer } from "@/lib/problem-solving-answer.js"
 
 const ANSWER_TONES = {
   correct: {
@@ -309,10 +313,12 @@ function DifficultyChip({ level }) {
 export default function LearnerAssessmentResultPage() {
   const { examResultId: attemptId } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const location = useLocation()
   const resumePath = returnPath(location)
 
   const [reviewFilter, setReviewFilter] = useState("all")
+  const [isContinuing, setIsContinuing] = useState(false)
   const fromChallengeState = location.state?.fromChallenge === true
   const isWorldCup = location.state?.isWorldCup === true
 
@@ -343,6 +349,29 @@ export default function LearnerAssessmentResultPage() {
   const backPath =
     resumePath ??
     (result?.certificationId != null ? `/learner/learning/${result.certificationId}` : "/learner/learning")
+
+  async function continueLearning() {
+    if (isContinuing) return
+    setIsContinuing(true)
+
+    try {
+      // The attempt result is available before the shared learner portal query
+      // necessarily reflects it. Refresh that query before entering the
+      // curriculum so a completed diagnostic unlocks the path immediately.
+      if (String(result?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC") {
+        await queryClient.fetchQuery({
+          queryKey: ["learner-portal-data"],
+          queryFn: getLearnerPortalData,
+          staleTime: 0,
+        })
+      }
+    } catch {
+      // The curriculum will still make its normal refresh attempt on arrival.
+    } finally {
+      navigate(backPath)
+    }
+  }
+
   const marking = Boolean(result?.gradingPending)
   const wasMarkingRef = useRef(false)
   useEffect(() => {
@@ -767,10 +796,16 @@ export default function LearnerAssessmentResultPage() {
 
         <div className="flex flex-wrap gap-3">
 
-          <Link to={backPath} className="tg-btn tg-btn-primary !px-5 !py-2.5">
-            Continue learning
+          <button
+            type="button"
+            className="tg-btn tg-btn-primary !px-5 !py-2.5"
+            onClick={continueLearning}
+            disabled={isContinuing}
+            aria-busy={isContinuing}
+          >
+            {isContinuing ? "Opening learning…" : "Continue learning"}
             <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
+          </button>
           {result.assessmentType !== "DIAGNOSTIC" ? (
             <>
               <Link to={`/learner/assessments/${result.assessmentId}`} className="tg-btn !px-5 !py-2.5">
@@ -857,7 +892,7 @@ export default function LearnerAssessmentResultPage() {
                           {answer.displayOrder}
                         </span>
                         <span className="min-w-0">
-                          {answer.question}
+                          {withInlineMath(answer.question)}
                           {answer.difficultyLevel ? (
                             <DifficultyChip level={answer.difficultyLevel} />
                           ) : null}
@@ -911,14 +946,14 @@ export default function LearnerAssessmentResultPage() {
                       <div className="space-y-2 text-sm">
                         <p className="text-foreground">
                           <span className="text-muted-foreground">Your answer: </span>
-                          {answer.selectedChoiceText}
+                          {withInlineMath(answer.selectedChoiceText)}
                         </p>
                         {answer.isCorrect === false && answer.correctChoiceText ? (
                           <p className="rounded-xl bg-[var(--tg-softer)] px-3 py-2 text-[var(--tg-ink)]">
                             <span className="font-bold">
                               Correct answer:{" "}
                             </span>
-                            {answer.correctChoiceText}
+                            {withInlineMath(answer.correctChoiceText)}
                           </p>
                         ) : null}
                       </div>
@@ -933,7 +968,7 @@ export default function LearnerAssessmentResultPage() {
                           >
                             <p className="font-bold text-foreground">
                               <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
-                              {sub.questionText}
+                              {withInlineMath(sub.questionText)}
                             </p>
                             <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="my-3 max-h-80 w-auto rounded-lg border bg-white" />
                             <p className="mt-1.5 whitespace-pre-wrap rounded-xl bg-[var(--tg-softer)] p-2.5 text-muted-foreground">
@@ -955,16 +990,23 @@ export default function LearnerAssessmentResultPage() {
                     ) : answer.learnerAnswer && !answer.selectedChoiceText ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-muted-foreground">Your answer:</p>
-                        <p className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-foreground">
-                          {answer.learnerAnswer}
-                        </p>
+                        {looksLikeWorkedAnswer(answer.learnerAnswer) ? (
+                          <ProblemSolvingAnswerView
+                            value={answer.learnerAnswer}
+                            className="rounded-xl bg-muted/50 p-3"
+                          />
+                        ) : (
+                          <p className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-foreground">
+                            {withInlineMath(answer.learnerAnswer)}
+                          </p>
+                        )}
 
                         {answer.isCorrect === false && answer.correctChoiceText ? (
                           <p className="rounded-xl bg-[var(--tg-softer)] px-3 py-2 text-[var(--tg-ink)]">
                             <span className="font-bold">
                               Correct answer:{" "}
                             </span>
-                            {answer.correctChoiceText}
+                            {withInlineMath(answer.correctChoiceText)}
                           </p>
                         ) : null}
                       </div>
@@ -973,7 +1015,7 @@ export default function LearnerAssessmentResultPage() {
                     {answer.wrongChoiceExplanation ? (
                       <div className="rounded-xl border border-rb-cardinal/40 bg-rb-cardinal-wash px-3 py-2.5 text-sm">
                         <p className="text-xs font-bold text-rb-cardinal-lip">Why your answer is wrong</p>
-                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{answer.wrongChoiceExplanation}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{withInlineMath(answer.wrongChoiceExplanation)}</p>
                       </div>
                     ) : null}
 
@@ -982,7 +1024,7 @@ export default function LearnerAssessmentResultPage() {
                         <p className={cn("text-xs font-bold", tone.text)}>
                           {answer.isCorrect === true ? "Explanation" : "Why the correct answer is right"}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{answer.explanation}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-muted-foreground">{withInlineMath(answer.explanation)}</p>
                       </div>
                     ) : null}
 

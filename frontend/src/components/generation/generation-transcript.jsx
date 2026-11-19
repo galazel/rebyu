@@ -197,6 +197,7 @@ const FORMAT_LABELS = {
   SHORT_ANSWER: "Short answer",
   FILL_IN_BLANK: "Fill in the blanks",
   DESCRIPTIVE: "Descriptive",
+  PROBLEM_SOLVING: "Problem solving",
   PROGRAMMING: "Programming",
   DIAGRAM: "Diagram",
   CRITICAL_THINKING: "Programming and diagram",

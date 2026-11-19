@@ -22,6 +22,7 @@ import {
 } from "@/services/practiceService"
 import { IconButton } from "@/components/learner/tutor-game-kit.jsx"
 import { useSessionHistoryGuard } from "@/hooks/use-session-history-guard.js"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 const MCQ_SECONDS = 20
 const RECALL_SECONDS = 30
@@ -248,7 +249,7 @@ export default function LearnerPracticeAttemptPage() {
       </p>
 
       <h2 className="mb-6 rounded-2xl bg-[var(--tg-softer)] p-6 text-2xl leading-tight font-extrabold text-foreground ring-1 ring-[var(--tg-line)] sm:p-8 sm:text-3xl">
-        {item.questionText}
+        {withInlineMath(item.questionText)}
       </h2>
 
       {isFlashcard ? (

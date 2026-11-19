@@ -26,6 +26,8 @@ import {
   Save,
   Search,
   Table as TableIcon,
+  SquareRadical as FormulaIcon,
+  Lightbulb as ExampleIcon,
   Target,
   Trash2,
   Type,
@@ -309,6 +311,46 @@ const combinedActions = [
       language: "text",
       title: "",
       code: "",
+      caption: "",
+    }),
+  },
+  {
+    type: "formula",
+    name: "Formula",
+    description: "Typeset equations with their symbols explained",
+    icon: FormulaIcon,
+    createData: () => ({
+      smallHeader: "",
+      description: "",
+      items: [
+        {
+          id: createId(),
+          name: "",
+          latex: "",
+          where: [],
+          note: "",
+        },
+      ],
+      caption: "",
+      numbered: false,
+    }),
+  },
+  {
+    type: "example",
+    name: "Worked example",
+    description: "Any walkthrough: the set-up, the steps, and what they conclude",
+    icon: ExampleIcon,
+    createData: () => ({
+      smallHeader: "",
+      description: "",
+      label: "",
+      title: "",
+      scenario: "",
+      givens: [{ id: createId(), label: "", value: "" }],
+      steps: [{ id: createId(), title: "", detail: "" }],
+      resultLabel: "",
+      result: "",
+      takeaway: "",
       caption: "",
     }),
   },
@@ -672,6 +714,47 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
     normalizedData.footer = normalizedData.footer ?? ""
   }
 
+  if (type === "example") {
+    normalizedData.givens = (
+        Array.isArray(normalizedData.givens) ? normalizedData.givens : []
+    ).map((given) => ({
+      id: given?.id ?? createId(),
+      label: given?.label ?? "",
+      value: given?.value ?? "",
+    }))
+
+    normalizedData.steps = (
+        Array.isArray(normalizedData.steps) ? normalizedData.steps : []
+    ).map((step) => ({
+      id: step?.id ?? createId(),
+      title: step?.title ?? "",
+      detail: step?.detail ?? "",
+    }))
+
+    for (const key of ["label", "title", "scenario", "resultLabel", "result", "takeaway", "caption"]) {
+      normalizedData[key] = normalizedData[key] ?? ""
+    }
+  }
+
+  if (type === "formula") {
+    normalizedData.items = (
+        Array.isArray(normalizedData.items) ? normalizedData.items : []
+    ).map((item) => ({
+      id: item?.id ?? createId(),
+      name: item?.name ?? "",
+      latex: item?.latex ?? "",
+      note: item?.note ?? "",
+      where: (Array.isArray(item?.where) ? item.where : []).map((entry) => ({
+        id: entry?.id ?? createId(),
+        symbol: entry?.symbol ?? "",
+        meaning: entry?.meaning ?? "",
+      })),
+    }))
+
+    normalizedData.caption = normalizedData.caption ?? ""
+    normalizedData.numbered = Boolean(normalizedData.numbered)
+  }
+
   if (
       type === "intro-image-card" ||
       type === "header-description-grid" ||
@@ -681,7 +764,9 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
       type === "content-tabs-block" ||
       type === "media-text-block" ||
       type === "table" ||
-      type === "code"
+      type === "code" ||
+      type === "formula" ||
+      type === "example"
   ) {
     normalizedData.smallHeader = normalizedData.smallHeader ?? ""
     normalizedData.description = normalizedData.description ?? ""
@@ -1319,6 +1404,42 @@ function CreateLessons() {
       if (!(data.code ?? "").trim()) {
         return `${toolLabel}: paste the code.`
       }
+    }
+
+    if (tool.type === "example") {
+      const filled = (entries, keys) =>
+          (entries ?? []).filter((entry) => keys.some((key) => (entry[key] ?? "").trim()))
+
+      const givens = filled(data.givens, ["label", "value"])
+      const steps = filled(data.steps, ["title", "detail"])
+
+      if (givens.length === 0 && steps.length === 0 && !(data.scenario ?? "").trim()) {
+        return `${toolLabel}: an example needs a scenario, a set-up, or some steps.`
+      }
+      return null
+    }
+
+    if (tool.type === "formula") {
+      const items = data.items ?? []
+
+      if (items.length === 0) {
+        return `${toolLabel}: add at least one formula.`
+      }
+      if (items.some((item) => !(item.latex ?? "").trim())) {
+        return `${toolLabel}: every formula needs an expression.`
+      }
+      if (
+          items.some((item) =>
+              (item.where ?? []).some(
+                  (entry) =>
+                      Boolean((entry.symbol ?? "").trim()) !== Boolean((entry.meaning ?? "").trim())
+              )
+          )
+      ) {
+        return `${toolLabel}: every symbol needs both the symbol and what it means.`
+      }
+
+      return null
     }
 
     if (tool.type === "table") {

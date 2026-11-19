@@ -1,6 +1,7 @@
 import { useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 export function WorkspaceShell({ tabs, problem, workspace, side }) {
   const [pane, setPane] = useState("problem")
@@ -94,11 +95,11 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
 
       {question.title ? (
         <h2 className="font-rb-display text-lg font-extrabold leading-snug text-rb-eel sm:text-xl">
-          {question.title}
+          {withInlineMath(question.title)}
         </h2>
       ) : null}
 
-      <p className="whitespace-pre-wrap text-sm leading-7 text-rb-eel">{question.question}</p>
+      <p className="whitespace-pre-wrap text-sm leading-7 text-rb-eel">{withInlineMath(question.question)}</p>
 
       {question.instructions ? (
         <div className="rounded-xl border-l-4 border-rb-feather bg-rb-feather-wash/60 px-3.5 py-3">
@@ -106,7 +107,7 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
             Instructions
           </p>
           <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-rb-eel/85">
-            {question.instructions}
+            {withInlineMath(question.instructions)}
           </p>
         </div>
       ) : null}

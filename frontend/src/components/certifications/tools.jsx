@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ImagePlus, Plus, Trash2, Video as VideoIcon } from "@/components/icons"
 import { useDropzone } from "react-dropzone"
 
@@ -24,6 +24,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { CODE_LANGUAGES } from "./code-languages.js"
+import { renderMath } from "./math.jsx"
 
 function createId(prefix) {
     return `${prefix}-${crypto.randomUUID()}`
@@ -1144,6 +1145,399 @@ function TableEditor({ data, onDataChange }) {
                 First column labels its row
             </label>
         </div>
+    )
+}
+
+function FormulaPreview({ latex }) {
+    const result = useMemo(() => renderMath(latex, true), [latex])
+
+    if (!String(latex ?? "").trim()) {
+        return (
+            <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
+                The typeset formula appears here.
+            </p>
+        )
+    }
+
+    if (!result.html) {
+        return (
+            <div className="rounded-lg bg-muted/40 px-3 py-3">
+                <p className="text-center font-mono text-[15px] text-foreground">{String(latex).trim()}</p>
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                    Shown as plain text, because this is not valid LaTeX.
+                </p>
+            </div>
+        )
+    }
+
+    return (
+        <div
+            className="rb-math overflow-x-auto rounded-lg bg-muted/40 px-3 py-2 text-center text-foreground"
+            dangerouslySetInnerHTML={{ __html: result.html }}
+        />
+    )
+}
+
+function FormulaEditor({ data, onDataChange }) {
+    const items = data?.items ?? []
+
+    function updateItem(itemIndex, patch) {
+        onDataChange({
+            ...data,
+            items: items.map((item, index) => (index === itemIndex ? { ...item, ...patch } : item)),
+        })
+    }
+
+    function updateWhere(itemIndex, whereIndex, patch) {
+        const where = items[itemIndex]?.where ?? []
+        updateItem(itemIndex, {
+            where: where.map((entry, index) =>
+                index === whereIndex ? { ...entry, ...patch } : entry
+            ),
+        })
+    }
+
+    function addFormula() {
+        onDataChange({
+            ...data,
+            items: [
+                ...items,
+                { id: createId("formula"), name: "", latex: "", where: [], note: "" },
+            ],
+        })
+    }
+
+    function removeFormula(itemIndex) {
+        if (items.length <= 1) return
+        onDataChange({ ...data, items: items.filter((_item, index) => index !== itemIndex) })
+    }
+
+    return (
+        <div className="space-y-4">
+            <SectionHeading
+                title="Formulas"
+                action={<AddButton onClick={addFormula}>Add formula</AddButton>}
+            />
+
+            <p className="text-xs leading-5 text-muted-foreground">
+                LaTeX, plus chemistry and units:{" "}
+                <code className="font-mono">\ce{"{2H2 + O2 -> 2H2O}"}</code> for a reaction,{" "}
+                <code className="font-mono">\pu{"{123 kJ//mol}"}</code> for a quantity with a unit.
+                Anything that will not typeset is shown as you wrote it.
+            </p>
+
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                    type="checkbox"
+                    checked={Boolean(data?.numbered)}
+                    onChange={(event) => onDataChange({ ...data, numbered: event.target.checked })}
+                />
+                Number them as steps (for a derivation)
+            </label>
+
+            {items.map((item, itemIndex) => {
+                const where = item.where ?? []
+
+                return (
+                    <div
+                        key={item.id ?? itemIndex}
+                        className="space-y-3 rounded-xl border border-border/70 p-3"
+                    >
+                        <div className="flex items-start gap-2">
+                            <InlineField
+                                value={item.name}
+                                onChange={(value) => updateItem(itemIndex, { name: value })}
+                                placeholder="What this formula is called, e.g. Ohm&apos;s Law"
+                                className="flex-1 rounded-lg bg-muted/40 px-3 py-2 text-sm font-semibold"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeFormula(itemIndex)}
+                                disabled={items.length <= 1}
+                                title="Remove formula"
+                                aria-label={`Remove formula ${itemIndex + 1}`}
+                                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:pointer-events-none disabled:opacity-30"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+
+                        <textarea
+                            value={item.latex ?? ""}
+                            onChange={(event) => updateItem(itemIndex, { latex: event.target.value })}
+                            placeholder="The formula in LaTeX, for example  V = I \times R"
+                            rows={2}
+                            spellCheck={false}
+                            className="w-full rounded-lg bg-muted/40 p-3 font-mono text-[13px] leading-6 text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:bg-muted/60 focus:ring-2 focus:ring-ring/25"
+                        />
+
+                        <FormulaPreview latex={item.latex} />
+
+                        <div className="space-y-2">
+                            <SectionHeading
+                                title="Where"
+                                action={
+                                    <AddButton
+                                        onClick={() =>
+                                            updateItem(itemIndex, {
+                                                where: [...where, { id: createId("symbol"), symbol: "", meaning: "" }],
+                                            })
+                                        }
+                                    >
+                                        Add symbol
+                                    </AddButton>
+                                }
+                            />
+
+                            {where.map((entry, whereIndex) => (
+                                <div
+                                    key={entry.id ?? whereIndex}
+                                    className="grid gap-2 sm:grid-cols-[8rem_1fr_2.25rem]"
+                                >
+                                    <input
+                                        type="text"
+                                        value={entry.symbol ?? ""}
+                                        onChange={(event) =>
+                                            updateWhere(itemIndex, whereIndex, { symbol: event.target.value })
+                                        }
+                                        placeholder="V"
+                                        aria-label={`Symbol ${whereIndex + 1}`}
+                                        className="w-full rounded-lg bg-muted/60 px-3 py-2 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={entry.meaning ?? ""}
+                                        onChange={(event) =>
+                                            updateWhere(itemIndex, whereIndex, { meaning: event.target.value })
+                                        }
+                                        placeholder="voltage, in volts"
+                                        aria-label={`Meaning of symbol ${whereIndex + 1}`}
+                                        className="w-full rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            updateItem(itemIndex, {
+                                                where: where.filter((_entry, index) => index !== whereIndex),
+                                            })
+                                        }
+                                        aria-label={`Remove symbol ${whereIndex + 1}`}
+                                        title="Remove symbol"
+                                        className="grid place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <TextAreaField
+                            value={item.note}
+                            onChange={(value) => updateItem(itemIndex, { note: value })}
+                            placeholder="A worked example or a note on when it applies (optional)..."
+                            rows={2}
+                        />
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+export function FormulaTool({ data, onDataChange, onDelete }) {
+    const toolData = data ?? {}
+
+    return (
+        <ToolShell
+            title="Formula"
+            description="Typeset equations with their symbols explained, for mathematics rather than code."
+            onDelete={onDelete}
+        >
+            <CombinedHeaderFields
+                data={toolData}
+                onDataChange={onDataChange}
+                title="Formula intro"
+            />
+
+            <FormulaEditor data={toolData} onDataChange={onDataChange} />
+
+            <TextAreaField
+                value={toolData.caption}
+                onChange={(value) => onDataChange({ ...toolData, caption: value })}
+                placeholder="A closing line under the formulas (optional)..."
+                rows={2}
+            />
+        </ToolShell>
+    )
+}
+
+function RowListEditor({ title, addLabel, rows, columns, onChange }) {
+    return (
+        <div className="space-y-2">
+            <SectionHeading
+                title={title}
+                action={
+                    <AddButton
+                        onClick={() =>
+                            onChange([
+                                ...rows,
+                                { id: createId(title.toLowerCase()), ...Object.fromEntries(columns.map((column) => [column.key, ""])) },
+                            ])
+                        }
+                    >
+                        {addLabel}
+                    </AddButton>
+                }
+            />
+
+            {rows.map((row, rowIndex) => (
+                <div
+                    key={row.id ?? rowIndex}
+                    className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_2.25rem]"
+                >
+                    {columns.map((column) =>
+                        column.multiline ? (
+                            <textarea
+                                key={column.key}
+                                value={row[column.key] ?? ""}
+                                onChange={(event) =>
+                                    onChange(
+                                        rows.map((entry, index) =>
+                                            index === rowIndex ? { ...entry, [column.key]: event.target.value } : entry
+                                        )
+                                    )
+                                }
+                                placeholder={column.placeholder}
+                                aria-label={`${column.placeholder}, ${rowIndex + 1}`}
+                                rows={2}
+                                className="w-full resize-y rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground outline-none transition hover:bg-muted/60 placeholder:text-muted-foreground/50"
+                            />
+                        ) : (
+                            <input
+                                key={column.key}
+                                type="text"
+                                value={row[column.key] ?? ""}
+                                onChange={(event) =>
+                                    onChange(
+                                        rows.map((entry, index) =>
+                                            index === rowIndex ? { ...entry, [column.key]: event.target.value } : entry
+                                        )
+                                    )
+                                }
+                                placeholder={column.placeholder}
+                                aria-label={`${column.placeholder}, ${rowIndex + 1}`}
+                                className="w-full rounded-lg bg-muted/60 px-3 py-2 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/50"
+                            />
+                        )
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => onChange(rows.filter((_entry, index) => index !== rowIndex))}
+                        aria-label={`Remove ${title.toLowerCase()} ${rowIndex + 1}`}
+                        title="Remove"
+                        className="grid place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                </div>
+            ))}
+        </div>
+    )
+}
+
+export function ExampleTool({ data, onDataChange, onDelete }) {
+    const toolData = data ?? {}
+
+    return (
+        <ToolShell
+            title="Worked example"
+            description="Any walkthrough -- a calculation, a case study, a procedure, a diagnosis: the set-up, the steps, and what they conclude."
+            onDelete={onDelete}
+        >
+            <CombinedHeaderFields
+                data={toolData}
+                onDataChange={onDataChange}
+                title="Example intro"
+            />
+
+            <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+                <InlineField
+                    value={toolData.label}
+                    onChange={(value) => onDataChange({ ...toolData, label: value })}
+                    placeholder="Worked example / Case study / Walkthrough"
+                    className="rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                />
+                <InlineField
+                    value={toolData.title}
+                    onChange={(value) => onDataChange({ ...toolData, title: value })}
+                    placeholder="What this example shows, e.g. Tracing a failed deployment"
+                    className="rounded-lg bg-muted/40 px-3 py-2 text-sm font-semibold"
+                />
+            </div>
+
+            <TextAreaField
+                value={toolData.scenario}
+                onChange={(value) => onDataChange({ ...toolData, scenario: value })}
+                placeholder="The situation being worked through -- a problem, a case, a scenario (optional)..."
+                rows={3}
+            />
+
+            <RowListEditor
+                title="Set-up"
+                addLabel="Add line"
+                rows={toolData.givens ?? []}
+                columns={[
+                    { key: "label", placeholder: "Sample size (n), Environment, Claimant..." },
+                    { key: "value", placeholder: "125 units, Windows Server 2019...", multiline: false },
+                ]}
+                onChange={(givens) => onDataChange({ ...toolData, givens })}
+            />
+
+            <p className="text-xs leading-5 text-muted-foreground">
+                A set-up line can be a name and a value, or just one plain fact on its
+                own -- leave the other box empty and it runs the full width.
+            </p>
+
+            <RowListEditor
+                title="Steps"
+                addLabel="Add step"
+                rows={toolData.steps ?? []}
+                columns={[
+                    { key: "title", placeholder: "What is done at this step" },
+                    { key: "detail", placeholder: "What happens, and why...", multiline: true },
+                ]}
+                onChange={(steps) => onDataChange({ ...toolData, steps })}
+            />
+
+            <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+                <InlineField
+                    value={toolData.resultLabel}
+                    onChange={(value) => onDataChange({ ...toolData, resultLabel: value })}
+                    placeholder="Result / Decision / Outcome"
+                    className="rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                />
+                <TextAreaField
+                    value={toolData.result}
+                    onChange={(value) => onDataChange({ ...toolData, result: value })}
+                    placeholder="What the steps conclude..."
+                    rows={2}
+                />
+            </div>
+
+            <TextAreaField
+                value={toolData.takeaway}
+                onChange={(value) => onDataChange({ ...toolData, takeaway: value })}
+                placeholder="Why it matters, or what to watch for next time (optional)..."
+                rows={2}
+            />
+
+            <TextAreaField
+                value={toolData.caption}
+                onChange={(value) => onDataChange({ ...toolData, caption: value })}
+                placeholder="A closing line under the example (optional)..."
+                rows={2}
+            />
+        </ToolShell>
     )
 }
 

@@ -112,6 +112,8 @@ Dashboard and Administrative UI: TC-197 to TC-206 (10 cases)
 Reading Guard and Skim Challenge: TC-207 to TC-214 (8 cases)
 Challenge Arena Stages: TC-215 to TC-221 (7 cases)
 Assessment Navigation and Timers (addition): TC-222 (1 case)
+Problem-Solving Answers (addition): TC-223 (1 case)
+Assessment Back Navigation (addition): TC-224 (1 case)
 
 DETAILED TEST CASES
 

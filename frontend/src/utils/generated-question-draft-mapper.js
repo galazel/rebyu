@@ -132,6 +132,14 @@ export function mapGeneratedQuestionDraftToQuestionType(draft) {
                 questionTypeName: "Descriptive",
                 data: createDescriptiveData(draft),
             };
+        // Stored exactly as a descriptive item is -- a reference answer marked
+        // AI_SEMANTIC -- so the same data shape carries it.
+        case "PROBLEM_SOLVING":
+            return {
+                typeId: "PROBLEM_SOLVING",
+                questionTypeName: "Problem Solving",
+                data: { ...createDescriptiveData(draft), questionType: "PROBLEM_SOLVING" },
+            };
         case "PROGRAMMING":
             return {
                 typeId: "PROGRAMMING",

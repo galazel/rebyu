@@ -20,6 +20,7 @@ import {
   submitPracticeAnswer,
 } from "@/services/practiceService"
 import { useSessionHistoryGuard } from "@/hooks/use-session-history-guard.js"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 const RECALL_SECONDS = 25
 const ENROLLMENT_ACCESS_MESSAGE = "active certification enrollment is required"
@@ -243,7 +244,7 @@ export default function LearnerFlashcardAttemptPage() {
             <span className="tg-badge-icon !size-12"><GameIcon type="flashcards" className="size-5" /></span>
             <span className="tg-kicker">Question</span>
             <span className={`font-extrabold leading-tight ${faceType(item.questionText)}`}>
-              {item.questionText}
+              {withInlineMath(item.questionText)}
             </span>
             <span className="mt-2 text-sm font-semibold text-muted-foreground">
               Tap the card or press Space to reveal the answer
@@ -256,7 +257,7 @@ export default function LearnerFlashcardAttemptPage() {
               {item.correctAnswer || "Review this concept in the lesson."}
             </span>
             {item.explanation ? (
-              <span className="max-w-2xl text-sm leading-6 opacity-90">{item.explanation}</span>
+              <span className="max-w-2xl text-sm leading-6 opacity-90">{withInlineMath(item.explanation)}</span>
             ) : null}
           </span>
         </span>

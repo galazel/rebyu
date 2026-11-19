@@ -30,6 +30,12 @@ export const QUESTION_TYPE_OPTIONS = [
     description: "Explain, compare or justify in writing. Marked on meaning.",
   },
   {
+    value: "PROBLEM_SOLVING",
+    label: "Problem solving",
+    description:
+      "Work out a quantity and show the steps. The learner answers in equations; marked on the mathematics, with method marks.",
+  },
+  {
     value: "PROGRAMMING",
     label: "Programming",
     description:

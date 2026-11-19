@@ -34,13 +34,47 @@ try {
   await page.goto(`${server.resolvedUrls.local[0]}__skim_test`)
   await page.waitForFunction(() => window.skimFixture)
   await new Promise((resolve) => setTimeout(resolve, 2600))
+  // Returning to the top is itself a movement of several screens, and it lands
+  // straight after the previous case's scrolling. Go quiet first so the jump is
+  // not measured against that reading, then quiet again so the jump itself has
+  // left the measurement window before the scroll under test begins.
+  async function startFromTop() {
+    await page.evaluate(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      window.scrollTo(0, 0)
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+    })
+  }
+
   async function scroll(target) {
     await page.evaluate(async (target) => {
-      for (let n = 0; n < 9; n++) {
-        if (target) document.querySelector(target).dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 220 }))
+      for (let n = 0; n < 16; n++) {
+        if (target) document.querySelector(target).dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 260 }))
+        window.scrollBy(0, 260)
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      }
+    }, target)
+  }
+
+  // Brisk reading: real wheel gestures, several screens' worth, but not the
+  // runaway pace a skim is. This is the case that used to raise a challenge.
+  async function scrollBriskly(target) {
+    await page.evaluate(async (target) => {
+      for (let n = 0; n < 6; n++) {
+        document.querySelector(target).dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 220 }))
         window.scrollBy(0, 220)
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       }
+    }, target)
+  }
+
+  // One big jump: a nudge of the scrollbar, or End on a long lesson. Lots of
+  // travel, one movement -- navigation, not skimming.
+  async function jumpOnce(target) {
+    await page.evaluate(async (target) => {
+      document.querySelector(target).dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 6000 }))
+      window.scrollBy(0, 6000)
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     }, target)
   }
   async function scrollSlowly(target) {
@@ -52,13 +86,25 @@ try {
       }
     }, target)
   }
+  await startFromTop()
   await scroll(null)
+  await startFromTop()
   await scroll("#chat")
+  await startFromTop()
   await scroll("#draft")
+  await startFromTop()
   await scroll("#nested-text")
   assert.equal(await page.evaluate(() => window.skimFixture.rushes), 0, "programmatic, chat, input and nested scrolling must not count")
+  await startFromTop()
   await scrollSlowly("#lesson-text")
   assert.equal(await page.evaluate(() => window.skimFixture.rushes), 0, "deliberate lesson reading must not count as skimming")
+  await startFromTop()
+  await scrollBriskly("#lesson-text")
+  assert.equal(await page.evaluate(() => window.skimFixture.rushes), 0, "brisk reading must not count as skimming")
+  await startFromTop()
+  await jumpOnce("#lesson-text")
+  assert.equal(await page.evaluate(() => window.skimFixture.rushes), 0, "one long jump is navigation, not skimming")
+  await startFromTop()
   await scroll("#lesson-text")
   assert.equal(await page.evaluate(() => window.skimFixture.rushes), 1)
   for (let n = 0; n < 50 && creates < 1; n++) await new Promise((resolve) => setTimeout(resolve, 20))
@@ -71,26 +117,39 @@ try {
 
   await page.evaluate(() => window.skimFixture.dismiss())
   await page.waitForFunction(() => !window.skimFixture.offer)
+  await startFromTop()
+  await scroll("#lesson-text")
+  assert.equal(
+    await page.evaluate(() => window.skimFixture.warningOpen),
+    false,
+    "inside the cooldown, skimming again says nothing at all"
+  )
+  assert.equal(creates, 1, "and it certainly does not build a second challenge")
+
+  // Once the cooldown has passed, skimming again is a reminder rather than
+  // another challenge.
+  await page.evaluate(() => localStorage.removeItem("rebyu:skim-challenge:cooldown:v2:9"))
+  await startFromTop()
   await scroll("#lesson-text")
   await page.waitForFunction(() => window.skimFixture.warningOpen)
-  assert.equal(creates, 1, "a second rapid scroll warns instead of creating another challenge")
+  assert.equal(creates, 1, "a later rapid scroll warns instead of creating another challenge")
   await page.evaluate(() => window.skimFixture.dismissWarning())
 
+  await page.evaluate(() => localStorage.removeItem("rebyu:skim-challenge:cooldown:v2:9"))
   await page.evaluate(() => window.skimFixture.setLesson(2))
   await page.waitForFunction(() => window.skimFixture)
+  await startFromTop()
   await page.evaluate(async () => {
-    window.scrollTo(0, 0)
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     window.dispatchEvent(new MouseEvent("mousedown", { clientX: document.documentElement.clientWidth + 1 }))
-    for (let n = 0; n < 9; n++) {
-      window.scrollBy(0, 220)
+    for (let n = 0; n < 16; n++) {
+      window.scrollBy(0, 260)
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     }
     window.dispatchEvent(new MouseEvent("mouseup"))
   })
   for (let n = 0; n < 50 && creates < 2; n++) await new Promise((resolve) => setTimeout(resolve, 20))
-  assert.equal(await page.evaluate(() => window.skimFixture.rushes), 2, "fast scrollbar dragging must count as skimming")
-  assert.equal(creates, 2, "each lesson can trigger its own challenge")
+  assert.equal(await page.evaluate(() => window.skimFixture.rushes), 3, "fast scrollbar dragging must count as skimming")
+  assert.equal(creates, 2, "each lesson can raise its own challenge")
   await releaseChecks.shift()()
-  console.log("PASS: page-only fast gestures trigger once per lesson, then warns; scrollbar dragging also triggers per lesson.")
+  console.log("PASS: brisk reading and single long jumps are left alone; only a sustained fast scroll triggers, once per lesson; the cooldown then stays silent, and warns after it lapses; fast scrollbar dragging still counts.")
 } finally { await browser?.close(); await server.close() }

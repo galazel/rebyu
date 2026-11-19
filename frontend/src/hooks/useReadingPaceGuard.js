@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef } from "react"
 import { isLessonScrollGesture } from "@/lib/skim-challenge-state.js"
 
+// What counts as skimming: covering more than `rushScreens` viewport heights inside
+// `windowMs`, as `minSamples` separate movements, with a real gesture in the last
+// `gestureMs`.
+//
 // Desktop mouse-wheel input is precise, but a short mobile flick can carry several screen
-// heights of momentum. Keep desktop detection strict while requiring sustained movement on a
-// narrow, touch-first screen so normal phone reading does not raise a skim challenge.
-const DESKTOP_GUARD = { windowMs: 900, rushScreens: 2.25, gestureMs: 350 }
-const MOBILE_GUARD = { windowMs: 1250, rushScreens: 4.5, gestureMs: 500 }
+// heights of momentum, so a touch-first screen needs more travel before it counts.
+//
+// `minSamples` is what keeps ONE big movement from counting. A lesson can be ten
+// screens long, so nudging the scrollbar a centimetre, or pressing End, moves several
+// screens in a single jump -- that is navigating to a place, not reading past content,
+// and on its own it must never raise a challenge. Skimming is many fast movements in a
+// row, which is what this measures.
+const DESKTOP_GUARD = { windowMs: 900, rushScreens: 3.5, gestureMs: 350, minSamples: 4 }
+const MOBILE_GUARD = { windowMs: 1250, rushScreens: 6, gestureMs: 500, minSamples: 4 }
 
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
@@ -32,16 +41,19 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     const step = lastY.current == null ? 0 : y - lastY.current
     lastY.current = y
     const list = samples.current
+    if (list.length > 0 && now - list[list.length - 1].t > windowMs) list.length = 0
     list.push({ t: now, d: step })
-    while (list.length > 1 && now - list[0].t > windowMs) list.shift()
+    while (list.length > 0 && now - list[0].t > windowMs) list.shift()
 
     let travelled = 0
     let since = now
+    let moves = 0
     for (const sample of list) {
       travelled += sample.d
+      if (sample.d !== 0) moves += 1
       since = Math.min(since, sample.t)
     }
-    return { now, travelled, since }
+    return { now, travelled, since, moves }
   }, [])
 
   const pause = useCallback((ms = 1500) => {
@@ -55,7 +67,11 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
     const now = performance.now()
     const settings = guardSettings()
     if (now < pausedUntil.current || now - lastGesture.current > settings.gestureMs) return false
-    return Math.abs(measure(settings.windowMs).travelled) > window.innerHeight * settings.rushScreens
+    const { travelled, moves } = measure(settings.windowMs)
+    return (
+      moves >= settings.minSamples &&
+      Math.abs(travelled) > window.innerHeight * settings.rushScreens
+    )
   }, [enabled, measure])
 
   useEffect(() => {
@@ -123,9 +139,9 @@ export function useReadingPaceGuard({ enabled, onRush, resetKey, lessonRootRef }
         lastY.current = window.scrollY
         return
       }
-      const { travelled, since } = measure(settings.windowMs)
+      const { travelled, since, moves } = measure(settings.windowMs)
       const screen = window.innerHeight
-      if (Math.abs(travelled) > screen * settings.rushScreens) {
+      if (moves >= settings.minSamples && Math.abs(travelled) > screen * settings.rushScreens) {
         samples.current = []
         pausedUntil.current = now + 2000
         onRushRef.current?.(since)

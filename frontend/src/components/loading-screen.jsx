@@ -175,7 +175,7 @@ export function gradingMessagesFor(questions = []) {
   const has = (test) => types.some(test)
   // One line for the whole wait (the user asked for a single label, not a rotation): the most
   // telling kind of marking on this paper, else the general one.
-  if (has(({ type, format }) => type === "DESCRIPTIVE" || (type === "CRITICAL_THINKING" && (format === "" || format === "TEXT")))) return WRITTEN_GRADING
+  if (has(({ type, format }) => type === "DESCRIPTIVE" || type === "PROBLEM_SOLVING" || (type === "CRITICAL_THINKING" && (format === "" || format === "TEXT")))) return WRITTEN_GRADING
   if (has(({ type, format }) => type === "PROGRAMMING" || format === "PROGRAMMING")) return CODE_GRADING
   if (has(({ type, format }) => type === "DIAGRAM" || format === "DIAGRAM")) return DIAGRAM_GRADING
   return GRADING_MESSAGES.slice(0, 1)

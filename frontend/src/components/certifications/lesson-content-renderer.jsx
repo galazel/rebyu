@@ -1,11 +1,12 @@
 import { Table } from "@/components/ui/table"
 ﻿import { createPortal } from "react-dom"
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
 import { Check, Copy, ImageIcon, Maximize, RotateCcw, X } from "@/components/icons"
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
+import { MathExpression, withInlineMath } from "./math.jsx"
 import { CODE_LANGUAGES, registerCodeLanguages } from "./code-languages.js"
 import {
   Accordion,
@@ -279,7 +280,7 @@ function renderText(text, className) {
       .filter(Boolean)
       .map((line, index) => (
           <p key={`${line}-${index}`} className={className}>
-            {line}
+            {withInlineMath(line)}
           </p>
       ))
 }
@@ -308,7 +309,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
           <Table mobileLayout="scroll" className="w-full min-w-[34rem] border-collapse text-left text-[15px]">
             {data.caption ? (
                 <caption className="px-4 pt-3 pb-2 text-left text-sm text-muted-foreground">
-                  {data.caption}
+                  {withInlineMath(data.caption)}
                 </caption>
             ) : null}
 
@@ -320,7 +321,7 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
                         scope="col"
                         className="border-b border-[var(--tg-line)] px-4 py-3 text-[12px] font-extrabold uppercase tracking-wider text-[var(--tg-ink)]"
                     >
-                      {column.label ?? column}
+                      {withInlineMath(column.label ?? column)}
                     </th>
                 ))}
               </tr>
@@ -341,14 +342,14 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
                                   scope="row"
                                   className="px-4 py-3 align-top font-semibold text-foreground"
                               >
-                                {cell}
+                                {withInlineMath(cell)}
                               </th>
                           ) : (
                               <td
                                   key={cellIndex}
                                   className="px-4 py-3 align-top text-foreground/85"
                               >
-                                {cell}
+                                {withInlineMath(cell)}
                               </td>
                           )
                       )}
@@ -362,6 +363,211 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
         {data.footer ? (
             <p className="text-[15px] leading-7 text-muted-foreground">
               {data.footer}
+            </p>
+        ) : null}
+      </div>
+  )
+}
+
+// Formulas are mathematics, not code. A formula set out in a code box inherits
+// everything a code box means -- a language chip, line numbers, a copy button --
+// none of which is true of an equation. The expression itself is typeset by
+// math.jsx, which also carries mhchem for chemistry and physical units.
+
+function FormulaBlock({ data, accent = ACCENTS[0] }) {
+  const items = (Array.isArray(data.items) ? data.items : []).filter(
+      (item) => String(item?.latex ?? "").trim()
+  )
+  if (items.length === 0) return null
+
+  return (
+      <div className="space-y-4">
+        <SectionIntro
+            smallHeader={data.smallHeader}
+            description={data.description}
+            accent={accent}
+        />
+
+        <div className="space-y-3">
+          {items.map((item, index) => {
+            const where = (Array.isArray(item.where) ? item.where : []).filter(
+                (entry) => String(entry?.symbol ?? "").trim() || String(entry?.meaning ?? "").trim()
+            )
+
+            return (
+                <figure
+                    key={item.id ?? index}
+                    className="overflow-hidden rounded-2xl border border-[var(--tg-line)] bg-card"
+                >
+                  {item.name || data.numbered ? (
+                      <figcaption className={`flex items-center gap-2.5 border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-2 tg-kicker !text-[12px] ${accent.text}`}>
+                        {data.numbered ? (
+                            <span
+                                className={`grid size-5 shrink-0 place-items-center rounded-md text-[11px] font-bold tabular-nums ${accent.bgSoft} ${accent.text}`}
+                            >
+                              {index + 1}
+                            </span>
+                        ) : null}
+                        {withInlineMath(item.name)}
+                      </figcaption>
+                  ) : null}
+
+                  <div className="px-4 py-4">
+                    <MathExpression latex={item.latex} className="text-[17px] text-foreground" />
+
+                    {where.length > 0 ? (
+                        <dl className="mt-3 grid gap-x-6 gap-y-1.5 border-t border-[var(--tg-line)] pt-3 text-[15px] leading-7 sm:grid-cols-2">
+                          {where.map((entry, entryIndex) => (
+                              <div key={entry.id ?? entryIndex} className="flex gap-2">
+                                <dt className="shrink-0 font-mono font-semibold text-[var(--tg-ink)]">
+                                  {withInlineMath(entry.symbol)}
+                                </dt>
+                                <dd className="min-w-0 flex-1 text-foreground/85">{withInlineMath(entry.meaning)}</dd>
+                              </div>
+                          ))}
+                        </dl>
+                    ) : null}
+
+                    {item.note ? (
+                        <div className="mt-3 space-y-1.5">
+                          {renderText(item.note, "text-[15px] leading-7 text-muted-foreground")}
+                        </div>
+                    ) : null}
+                  </div>
+                </figure>
+            )
+          })}
+        </div>
+
+        {data.caption ? (
+            <p className="text-[15px] leading-7 text-muted-foreground">{withInlineMath(data.caption)}</p>
+        ) : null}
+      </div>
+  )
+}
+
+// A worked example: the setup, the numbers it starts from, the steps, and what
+// they conclude. This is what the misused `code` boxes were really carrying --
+// an acceptance sampling plan, a critical path, a simulation run -- material
+// that is a demonstration, not a program and not an equation. In a code box it
+// lost every piece of its structure: the givens, the steps and the conclusion
+// all arrived as one undifferentiated grey wall with line numbers down the side.
+function ExampleBlock({ data, accent = ACCENTS[0] }) {
+  const givens = (Array.isArray(data.givens) ? data.givens : []).filter(
+      (given) => String(given?.label ?? "").trim() || String(given?.value ?? "").trim()
+  )
+  const steps = (Array.isArray(data.steps) ? data.steps : []).filter(
+      (step) => String(step?.title ?? "").trim() || String(step?.detail ?? "").trim()
+  )
+  const hasBody =
+      givens.length > 0 || steps.length > 0 || data.scenario || data.result || data.takeaway
+  if (!hasBody) return null
+
+  return (
+      <div className="space-y-4">
+        <SectionIntro
+            smallHeader={data.smallHeader}
+            description={data.description}
+            accent={accent}
+        />
+
+        <div className="overflow-hidden rounded-2xl border border-[var(--tg-line)] bg-card">
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-b border-[var(--tg-line)] bg-[var(--tg-softer)] px-4 py-2.5">
+            <span className={`tg-kicker !text-[12px] ${accent.text}`}>
+              {data.label || "Worked example"}
+            </span>
+            {data.title ? (
+                <span className="min-w-0 flex-1 text-[15px] font-bold leading-6 text-foreground">
+                  {withInlineMath(data.title)}
+                </span>
+            ) : null}
+          </div>
+
+          <div className="space-y-4 px-4 py-4">
+            {data.scenario ? (
+                <div className="space-y-2">
+                  {renderText(data.scenario, "text-[15px] leading-7 text-foreground/85")}
+                </div>
+            ) : null}
+
+            {givens.length > 0 ? (
+                <dl className="grid gap-x-6 gap-y-1.5 rounded-xl bg-[var(--tg-softer)] px-3.5 py-3 text-[15px] leading-7 sm:grid-cols-2">
+                  {givens.map((given, index) => {
+                    const label = String(given.label ?? "").trim()
+                    const value = String(given.value ?? "").trim()
+
+                    if (!label || !value) {
+                      return (
+                          <div key={given.id ?? index} className="sm:col-span-2">
+                            <dt className="sr-only">Set-up</dt>
+                            <dd className="text-foreground/85">
+                              {withInlineMath(label || value)}
+                            </dd>
+                          </div>
+                      )
+                    }
+
+                    return (
+                        <div key={given.id ?? index} className="flex flex-wrap gap-x-2">
+                          <dt className="shrink-0 font-semibold text-[var(--tg-ink)]">
+                            {withInlineMath(label)}
+                          </dt>
+                          <dd className="min-w-0 flex-1 text-foreground/85">
+                            {withInlineMath(value)}
+                          </dd>
+                        </div>
+                    )
+                  })}
+                </dl>
+            ) : null}
+
+            {steps.length > 0 ? (
+                <ol className="space-y-3">
+                  {steps.map((step, index) => (
+                      <li key={step.id ?? index} className="flex gap-3">
+                        <span
+                            className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-xl text-[13px] font-extrabold tabular-nums ${accent.bgSoft} ${accent.text}`}
+                            aria-hidden="true"
+                        >
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          {step.title ? (
+                              <p className="text-[15px] font-bold leading-7 text-foreground">
+                                {withInlineMath(step.title)}
+                              </p>
+                          ) : null}
+                          {step.detail
+                              ? renderText(step.detail, "text-[15px] leading-7 text-foreground/85")
+                              : null}
+                        </div>
+                      </li>
+                  ))}
+                </ol>
+            ) : null}
+
+            {data.result ? (
+                <div className="rounded-xl border-l-4 border-[var(--tg)] bg-[var(--tg-softer)] px-3.5 py-3">
+                  <p className={`tg-kicker !text-[11px] ${accent.text}`}>
+                    {data.resultLabel || "Result"}
+                  </p>
+                  <div className="mt-1 space-y-1">
+                    {renderText(data.result, "text-[15px] font-semibold leading-7 text-foreground")}
+                  </div>
+                </div>
+            ) : null}
+          </div>
+
+          {data.takeaway ? (
+              <div className="border-t border-[var(--tg-line)] px-4 py-3">
+                {renderText(data.takeaway, "text-[15px] leading-7 text-muted-foreground")}
+              </div>
+          ) : null}
+        </div>
+
+        {data.caption ? (
+            <p className="text-[15px] leading-7 text-muted-foreground">
+              {withInlineMath(data.caption)}
             </p>
         ) : null}
       </div>
@@ -427,7 +633,7 @@ function CodeBlock({ data, accent = ACCENTS[0] }) {
 
           {data.caption ? (
               <figcaption className="border-t border-[var(--tg-line)] px-4 py-2.5 text-sm text-muted-foreground">
-                {data.caption}
+                {withInlineMath(data.caption)}
               </figcaption>
           ) : null}
         </figure>
@@ -442,7 +648,7 @@ function SectionIntro({ smallHeader, description, accent = ACCENTS[0] }) {
       <div>
         {smallHeader ? (
             <p className={`tg-kicker !text-[12px] ${accent.text}`}>
-              {smallHeader}
+              {withInlineMath(smallHeader)}
             </p>
         ) : null}
         {renderText(description, "mt-2 text-[17px] leading-8 text-foreground/85")}
@@ -465,14 +671,14 @@ function AccordionBlock({ items = [] }) {
                   </span>
 
                   <span className="min-w-0 flex-1 text-base font-bold text-foreground">
-                    {item.title}
+                    {withInlineMath(item.title)}
                   </span>
                 </AccordionTrigger>
 
                 <AccordionContent
                     className="border-t border-[var(--tg-line)] px-4 py-3 text-[15px] leading-7 text-foreground/80"
                 >
-                  {item.content ?? item.description}
+                  {withInlineMath(item.content ?? item.description)}
                 </AccordionContent>
               </AccordionItem>
           )
@@ -495,7 +701,7 @@ function TabsBlock({ items = [] }) {
                     value={String(index)}
                     className={`h-auto flex-1 rounded-full border border-[var(--tg-line)] bg-card px-3.5 py-2 text-sm font-bold text-muted-foreground after:hidden hover:text-[var(--tg-ink)] ${RB_PILL_ACTIVE}`}
                 >
-                  {item.label ?? item.title ?? `Tab ${index + 1}`}
+                  {withInlineMath(item.label ?? item.title ?? `Tab ${index + 1}`)}
                 </TabsTrigger>
             )
           })}
@@ -514,14 +720,14 @@ function TabsBlock({ items = [] }) {
                   </span>
 
                   <span className="min-w-0 flex-1 text-base font-bold text-foreground">
-                    {item.title ?? item.label}
+                    {withInlineMath(item.title ?? item.label)}
                   </span>
                 </div>
 
                 <div
                     className="border-t border-[var(--tg-line)] px-4 py-3 text-[15px] leading-7 text-foreground/80"
                 >
-                  {item.description}
+                  {withInlineMath(item.description)}
                 </div>
               </TabsContent>
           )
@@ -548,7 +754,7 @@ function FlipCard({ cardId, frontTitle, backTitle, description, accent = ACCENTS
             transition={{ duration: 0.5, ease: EASE }}
         >
           <div className="absolute inset-0 flex h-full flex-col justify-between rounded-2xl border border-[var(--tg-line)] bg-card p-5 shadow-[0_3px_0_var(--tg-line)] transition group-hover:border-[var(--tg)] [backface-visibility:hidden]">
-            <p className="text-lg font-bold leading-snug !text-foreground">{frontTitle}</p>
+            <p className="text-lg font-bold leading-snug !text-foreground">{withInlineMath(frontTitle)}</p>
             <span className="inline-flex items-center gap-1.5 self-start text-xs font-bold !text-[var(--tg-ink)]">
               <span className="tg-badge-icon !size-7 !rounded-lg"><RotateCcw className="size-3.5" aria-hidden="true" /></span>
               Tap to flip
@@ -562,13 +768,13 @@ function FlipCard({ cardId, frontTitle, backTitle, description, accent = ACCENTS
             {/* The answer may live in backTitle (with no description) or in description. */}
             {backTitle && backTitle !== frontTitle ? (
               <>
-                <p className="text-[11px] font-extrabold uppercase tracking-wider text-white/70">{frontTitle}</p>
-                <p className="mt-1.5 text-lg font-bold leading-snug text-white">{backTitle}</p>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-white/70">{withInlineMath(frontTitle)}</p>
+                <p className="mt-1.5 text-lg font-bold leading-snug text-white">{withInlineMath(backTitle)}</p>
               </>
             ) : (
-              <p className="font-bold text-white">{frontTitle ?? backTitle}</p>
+              <p className="font-bold text-white">{withInlineMath(frontTitle ?? backTitle)}</p>
             )}
-            {description ? <p className="mt-2 text-[15px] leading-6 text-white/90">{description}</p> : null}
+            {description ? <p className="mt-2 text-[15px] leading-6 text-white/90">{withInlineMath(description)}</p> : null}
           </div>
         </motion.div>
       </button>
@@ -810,7 +1016,7 @@ function LessonToolContent({ tool, index = 0 }) {
   if (tool.type === "heading") {
     return (
         <h2 className={`border-l-4 py-1 pl-4 text-2xl font-bold tracking-tight text-foreground sm:text-3xl ${accent.border}`}>
-          {data.text}
+          {withInlineMath(data.text)}
         </h2>
     )
   }
@@ -818,7 +1024,7 @@ function LessonToolContent({ tool, index = 0 }) {
   if (tool.type === "subheading") {
     return (
         <h3 className="text-lg font-semibold text-foreground sm:text-xl">
-          {data.text}
+          {withInlineMath(data.text)}
         </h3>
     )
   }
@@ -859,7 +1065,7 @@ function LessonToolContent({ tool, index = 0 }) {
                     />
                 )}
 
-                <span className="min-w-0 flex-1">{item.text}</span>
+                <span className="min-w-0 flex-1">{withInlineMath(item.text)}</span>
               </li>
           ))}
         </Tag>
@@ -872,6 +1078,14 @@ function LessonToolContent({ tool, index = 0 }) {
 
   if (tool.type === "table") {
     return <TableBlock data={data} accent={accent} />
+  }
+
+  if (tool.type === "formula") {
+    return <FormulaBlock data={data} accent={accent} />
+  }
+
+  if (tool.type === "example") {
+    return <ExampleBlock data={data} accent={accent} />
   }
 
   if (tool.type === "image") {
@@ -1007,9 +1221,9 @@ function LessonToolContent({ tool, index = 0 }) {
                       className={`rounded-2xl p-5 ring-1 ring-[var(--tg-line)] ${SOFT}`}
                   >
                     <span className={`${RB_INDEX_CHIP} !size-8 !text-xs`} aria-hidden="true">{itemIndex + 1}</span>
-                    <h4 className="mt-3 font-bold text-foreground">{item.title}</h4>
+                    <h4 className="mt-3 font-bold text-foreground">{withInlineMath(item.title)}</h4>
                     <p className="mt-1.5 text-[15px] leading-6 text-foreground/85">
-                      {item.description}
+                      {withInlineMath(item.description)}
                     </p>
                   </div>
               )

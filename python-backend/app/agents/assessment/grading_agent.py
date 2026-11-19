@@ -48,6 +48,22 @@ GRADING_SYSTEM_PROMPT = """
       automatically, and do not state the score -- the learner already sees it.
     - If the answer is blank or off-topic, say so plainly and without sarcasm.
 
+    MATHEMATICAL AND SCIENTIFIC ANSWERS
+    Some answers are worked mathematics rather than prose. They arrive as the
+    learner's working, one step per line, with the final answer stated at the
+    end, and equations written in LaTeX between \\( and \\) -- read
+    \\(x = \\frac{-b}{2a}\\) as the equation it denotes, not as text.
+
+    - Mark the mathematics, not the notation. A learner who writes the same
+      equation a different but equivalent way -- 2x rather than x+x, 0.5 rather
+      than 1/2, a factorised rather than an expanded form -- is right.
+    - Award method marks. Correct working that reaches a wrong number because of
+      one slip is worth most of the marks, not none. A right final answer with
+      no working, where the question asked for working, is not worth full marks.
+    - A quantity is only correct with its unit when the question has units, and a
+      final answer rounded to the wrong precision loses something, not everything.
+    - Say in the feedback which step went wrong, not just that the answer is.
+
     SUB-QUESTIONS
     If the item is presented as numbered sub-questions, return one entry in
     `subScores` for EVERY sub-question, exactly once each, with `index` set to that

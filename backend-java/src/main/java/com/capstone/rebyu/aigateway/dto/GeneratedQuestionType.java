@@ -7,6 +7,7 @@ public enum GeneratedQuestionType {
     MCQ,
     SHORT_ANSWER,
     DESCRIPTIVE,
+    PROBLEM_SOLVING,
     PROGRAMMING,
     DIAGRAM
 }

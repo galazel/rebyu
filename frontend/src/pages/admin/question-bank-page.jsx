@@ -31,7 +31,9 @@ import {
     Video,
     Workflow,
     XIcon,
+    SquareRadical,
 } from "@/components/icons";
+import { MathLines } from "@/components/certifications/math.jsx";
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -131,6 +133,7 @@ const questionTypeLabels = {
     SHORT_ANSWER: "Short Answer",
     FILL_IN_BLANK: "Fill in the Blanks",
     DESCRIPTIVE: "Descriptive",
+    PROBLEM_SOLVING: "Problem Solving",
     CRITICAL_THINKING: "Critical Thinking",
     PROGRAMMING: "Programming",
     DIAGRAM: "Diagram",
@@ -330,6 +333,21 @@ const questionTypes = [
         component: Descriptive,
         data: {
             questionType: "DESCRIPTIVE",
+            question: "",
+            image: null,
+            rubricBasedAnswer: "",
+            checkingMethod: "AI_SEMANTIC",
+            difficulty: "average",
+        },
+    },
+    {
+        id: "PROBLEM_SOLVING",
+        title: "Problem Solving",
+        description: "Worked calculation, graded on the mathematics",
+        icon: SquareRadical,
+        component: ProblemSolving,
+        data: {
+            questionType: "PROBLEM_SOLVING",
             question: "",
             image: null,
             rubricBasedAnswer: "",
@@ -614,6 +632,10 @@ function validateQuestionData(typeId, data) {
 
     if (typeId === "DESCRIPTIVE" && isBlank(data.rubricBasedAnswer)) {
         errors.rubricBasedAnswer = "Model answer or rubric is required.";
+    }
+
+    if (typeId === "PROBLEM_SOLVING" && isBlank(data.rubricBasedAnswer)) {
+        errors.rubricBasedAnswer = "Worked solution is required.";
     }
 
     if (typeId === "PROGRAMMING") {
@@ -1812,6 +1834,87 @@ function Descriptive({
 
                 <p className="text-xs text-muted-foreground">
                     Descriptive answers use the rubric automatically.
+                </p>
+
+                <FieldError message={errors.rubricBasedAnswer} />
+            </div>
+
+            <QuestionMetaFields
+                questionKey={questionKey}
+                data={data}
+                onFieldChange={onFieldChange}
+            />
+        </CompactQuestionCard>
+    );
+}
+
+function ProblemSolving({
+                            questionKey,
+                            questionNumber,
+                            onRemove,
+                            data,
+                            onDataChange,
+                            errors = {},
+                        }) {
+    function onFieldChange(path, value) {
+        onDataChange((currentData) => updateDataAtPath(currentData, path, value));
+    }
+
+    const solution = data.rubricBasedAnswer ?? "";
+
+    return (
+        <CompactQuestionCard
+            type="Problem Solving"
+            title="Problem Solving Question"
+            questionNumber={questionNumber}
+            onRemove={onRemove}
+            errors={errors}
+        >
+            <QuestionPromptFields
+                questionKey={questionKey}
+                data={data}
+                onFieldChange={onFieldChange}
+                errors={errors}
+            />
+
+            <div className="space-y-2 border-t border-border pt-4">
+                <Label
+                    htmlFor={`${questionKey}-solution`}
+                    className="text-sm font-medium"
+                >
+                    Worked Solution
+                    <span className="ml-1 text-destructive">*</span>
+                </Label>
+
+                <Textarea
+                    id={`${questionKey}-solution`}
+                    value={solution}
+                    spellCheck={false}
+                    aria-invalid={Boolean(errors.rubricBasedAnswer)}
+                    onChange={(event) =>
+                        onFieldChange("rubricBasedAnswer", event.target.value)
+                    }
+                    placeholder={"One step per line, maths between \\( and \\):\n\\(V = I \\times R\\)\n\\(V = \\pu{3 A} \\times \\pu{4 \\Omega} = \\pu{12 V}\\)\n\nFinal answer: \\(\\pu{12 V}\\)"}
+                    className={`min-h-36 resize-y font-mono text-[13px] leading-6 ${
+                        errors.rubricBasedAnswer
+                            ? "border-destructive focus-visible:ring-destructive"
+                            : ""
+                    }`}
+                />
+
+                <div className="rounded-lg border border-border bg-muted/40 px-3.5 py-3">
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                        As the learner will see it
+                    </p>
+                    <MathLines
+                        text={solution}
+                        placeholder="The typeset solution appears here."
+                    />
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                    The examiner marks against every step, so a solution with only
+                    the final answer leaves it no way to award method marks.
                 </p>
 
                 <FieldError message={errors.rubricBasedAnswer} />
@@ -3551,6 +3654,7 @@ function QuestionBank({
                     }
                     break;
                 }
+                case "PROBLEM_SOLVING":
                 case "DESCRIPTIVE": {
                     const savedDescriptive = await saveRootQuestion({
                         questionType: question.data.questionType,
@@ -3735,6 +3839,8 @@ QUESTION TYPE RULES:
 - MCQ: Use for concepts, definitions, processes, laws, calculations, terminology, scenarios, and exam-style review questions. Return exactly 4 choices, exactly 1 correct choice, correctChoiceIndex, explanation, difficulty, and lesson.
 - SHORT_ANSWER: Do not use for TOPCIT. Generate only when a non-TOPCIT certification explicitly allows exact one-answer factual questions. Use it for acronym expansions, terms, simple definitions, formulas, commands, standards, names, dates, single values, or one-phrase answers. Example: question "What does SQL stand for?" correctAnswer "Structured Query Language". Do not use SHORT_ANSWER for "explain", "describe", "compare", "why", "how", scenario analysis, or multi-sentence answers; use DESCRIPTIVE instead. Return a non-blank correctAnswer, checkingMethod EXACT_MATCH, explanation, difficulty, and lesson.
 - DESCRIPTIVE: Generate only when the certification allows explanation-based answers. Return a non-blank rubricBasedAnswer, checkingMethod AI_SEMANTIC, difficulty, and lesson.
+- PROBLEM_SOLVING: Use when the answer is worked out rather than explained -- a quantity, an expression, an equation, a balanced reaction. State every value the work needs in the question, and say what is asked for, including the unit and any rounding. Write quantities as maths, between \( and \): \(I = \pu{3 A}\), not "3 amps". Return a non-blank rubricBasedAnswer holding the FULL worked solution -- each step as an equation, then the final answer with its unit -- because that is what the examiner awards method marks against. Never put only the final number there. checkingMethod AI_SEMANTIC, plus difficulty and lesson.
+- A problem with answer options is an MCQ, not PROBLEM_SOLVING: write the problem as the stem and make each wrong choice the quantity a specific plausible slip produces (a dropped factor, the wrong unit, an inverted ratio), naming that slip in the choice's explanation.
 - PROGRAMMING: Generate only when BOTH conditions are true: the certification allows programming/performance-based questions, and the source contains code, algorithms, SQL/query writing, debugging, implementation tasks, or programming logic. Return starterCode when useful and expectedOutput: exactly what a correct program prints (the program reads no input).
 - DIAGRAM: Generate only when BOTH conditions are true: the certification allows diagram/performance-based questions, and the source contains workflows, activity diagrams, class diagrams, component diagrams, ER diagrams, flowcharts, sequence diagrams, UI designs, use case diagrams, database/schema design, architecture, network diagrams, or process modeling material. Return diagramType, instructions, authoringNotes, difficulty, and lesson.
 
@@ -4039,6 +4145,10 @@ OUTPUT RULES:
 
                                                 <SelectItem value="DESCRIPTIVE" className="min-h-10">
                                                     Descriptive
+                                                </SelectItem>
+
+                                                <SelectItem value="PROBLEM_SOLVING" className="min-h-10">
+                                                    Problem Solving
                                                 </SelectItem>
 
                                                 <SelectItem
@@ -5007,6 +5117,9 @@ OUTPUT RULES:
                                             </SelectItem>
                                             <SelectItem value="DESCRIPTIVE" className="min-h-10">
                                                 Descriptive
+                                            </SelectItem>
+                                            <SelectItem value="PROBLEM_SOLVING" className="min-h-10">
+                                                Problem Solving
                                             </SelectItem>
                                             <SelectItem
                                                 value="CRITICAL_THINKING"

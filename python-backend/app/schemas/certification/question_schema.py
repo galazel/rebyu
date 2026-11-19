@@ -10,8 +10,15 @@ from app.domain.diagrams.validation import check_reference
 logger = logging.getLogger(__name__)
 
 QuestionType = Literal[
-    "MCQ", "MULTIPLE_ANSWER", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"
+    "MCQ", "MULTIPLE_ANSWER", "SHORT_ANSWER", "DESCRIPTIVE", "PROBLEM_SOLVING",
+    "PROGRAMMING", "DIAGRAM",
 ]
+
+# PROBLEM_SOLVING is stored and marked exactly as DESCRIPTIVE is -- a reference
+# answer in the text question config, marked AI_SEMANTIC. It is its own type
+# because the learner answers in equations, which changes the editor they get
+# and how the examiner is told to mark.
+WRITTEN_AI_TYPES = ("DESCRIPTIVE", "PROBLEM_SOLVING")
 Difficulty = Literal["EASY", "AVERAGE", "HARD"]
 
 DIFFICULTY_ALIASES = {"DIFFICULT": "HARD"}
@@ -376,7 +383,7 @@ class QuestionDraft(BaseModel):
         elif self.question_type == "SHORT_ANSWER":
             if (self.correct_answer or "").strip() or not fallback:
                 return
-        elif self.question_type == "DESCRIPTIVE":
+        elif self.question_type in WRITTEN_AI_TYPES:
             if not (self.rubric_answer or "").strip() and fallback:
                 self.rubric_answer = fallback
             return
@@ -457,9 +464,9 @@ class QuestionDraft(BaseModel):
                     cleaned.append(text)
             self.accepted_variations = cleaned
 
-        elif self.question_type == "DESCRIPTIVE":
+        elif self.question_type in WRITTEN_AI_TYPES:
             if not (self.rubric_answer or "").strip():
-                raise ValueError("DESCRIPTIVE must set rubric_answer")
+                raise ValueError(f"{self.question_type} must set rubric_answer")
 
         elif self.question_type == "PROGRAMMING":
             lang = (self.programming_language or "").strip().upper()

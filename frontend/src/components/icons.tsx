@@ -115,6 +115,7 @@ import {
   faKeyboard,
   faKhanda,
   faLayerGroup,
+  faLightbulb,
   faLink,
   faList,
   faListCheck,
@@ -151,6 +152,7 @@ import {
   faShieldHalved,
   faSort,
   faSpinner,
+  faSquareRootVariable,
   faStar,
   faSun,
   faTableCells,
@@ -350,6 +352,7 @@ export const Layers = icon(faLayerGroup, "Layers")
 export const Layers3 = icon(faLayerGroup, "Layers3")
 export const LayoutDashboard = icon(faTableColumns, "LayoutDashboard")
 export const LibraryBig = icon(faBookBookmark, "LibraryBig")
+export const Lightbulb = icon(faLightbulb, "Lightbulb")
 export const Link = icon(faLink, "Link")
 export const List = icon(faList, "List")
 export const ListChecks = icon(faListCheck, "ListChecks")
@@ -428,6 +431,7 @@ export const SkipForwardIcon = icon(faForwardStep, "SkipForwardIcon")
 export const Sparkles = icon(faWandMagicSparkles, "Sparkles")
 export const SparklesIcon = icon(faWandMagicSparkles, "SparklesIcon")
 export const SquarePen = icon(faPenToSquare, "SquarePen")
+export const SquareRadical = icon(faSquareRootVariable, "SquareRadical")
 export const Star = icon(faStar, "Star")
 export const StarIcon = icon(faStar, "StarIcon")
 export const StickyNote = icon(faNoteSticky, "StickyNote")
@@ -461,7 +465,6 @@ export const UserPlus = icon(faUserPlus, "UserPlus")
 export const UserPlusIcon = icon(faUserPlus, "UserPlusIcon")
 export const UserRound = icon(faUser, "UserRound")
 export const Users = icon(faUsers, "Users")
-export const Users2 = icon(faUsers, "Users2")
 export const UsersIcon = icon(faUsers, "UsersIcon")
 export const UsersRound = icon(faUsers, "UsersRound")
 export const UsersRoundIcon = icon(faUsers, "UsersRoundIcon")

@@ -19,7 +19,8 @@ public class AdaptivePolicy {
 
     private static final Set<String> QUICK_ONLY_TYPES = Set.of(KNOWLEDGE_CHECK);
 
-    private static final Set<String> WORKSPACE_TYPES = Set.of("CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM", "DESCRIPTIVE");
+    private static final Set<String> WORKSPACE_TYPES = Set.of(
+            "CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM", "DESCRIPTIVE", "PROBLEM_SOLVING");
 
     public static boolean isServable(String questionType) {
         return questionType != null;

@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { AuthedImage } from "@/lib/authed-media.jsx"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 export default function SubQuestionTabs({
   subQuestions,
@@ -52,7 +53,7 @@ export default function SubQuestionTabs({
 
       {active ? (
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          <p className="text-sm leading-6">{active.questionText}</p>
+          <p className="text-sm leading-6">{withInlineMath(active.questionText)}</p>
           <AuthedImage imageKey={active.questionImageKey} alt="Sub-question reference" zoomable className="max-h-80 w-auto rounded-lg border bg-white" />
           <Label htmlFor={`sub-answer-${active.questionId}`} className="sr-only">
             Answer for sub question

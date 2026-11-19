@@ -1,6 +1,7 @@
 import { CheckCircle2, XCircle } from "@/components/icons"
 import { AuthedImage } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 /** Several choices are right; the learner ticks all of them (Cisco-style "Select 2"). */
 export function isMultipleAnswer(question) {
@@ -114,7 +115,7 @@ export function MultipleAnswerChoices({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="mr-1.5 font-extrabold text-[var(--tg-ink)]">{letter}.</span>
-                {choice.choiceText}
+                {withInlineMath(choice.choiceText)}
                 {missed ? (
                   <span className="ml-2 text-xs font-semibold">(you missed this one)</span>
                 ) : null}

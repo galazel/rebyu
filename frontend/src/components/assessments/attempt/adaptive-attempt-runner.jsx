@@ -1,3 +1,5 @@
+import { withInlineMath } from "@/components/certifications/math.jsx"
+import { EquationAnswerInput } from "./equation-answer-input.jsx"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
@@ -415,7 +417,7 @@ export function AdaptiveAttemptRunner({
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong || wrongNoKey ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
                           </span>
                           <span className="flex-1">
-                            {choice.choiceText}
+                            {withInlineMath(choice.choiceText)}
                             <AuthedImage imageKey={choice.imageKey} className="tg-media-img-paper mt-2 max-h-32 w-auto rounded-lg object-contain mix-blend-multiply dark:mix-blend-normal dark:p-1" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
                           </span>
                         </button>
@@ -426,7 +428,7 @@ export function AdaptiveAttemptRunner({
                   <div className="space-y-2">
                     {current.subQuestions.map((sub) => (
                       <div key={sub.subQuestionId} className="space-y-2">
-                        <p className="text-sm font-bold text-foreground">{sub.questionText}</p>
+                        <p className="text-sm font-bold text-foreground">{withInlineMath(sub.questionText)}</p>
                         <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="max-h-80 w-auto rounded-lg border bg-white" />
                         <Input
                           value={draft?.subAnswers?.[sub.subQuestionId] ?? ""}
@@ -440,6 +442,12 @@ export function AdaptiveAttemptRunner({
                       </div>
                     ))}
                   </div>
+                ) : current.questionType === "PROBLEM_SOLVING" ? (
+                  <EquationAnswerInput
+                    value={draft?.learnerAnswer ?? ""}
+                    onChange={(learnerAnswer) => setAnswer({ learnerAnswer })}
+                    disabled={revealed || grading}
+                  />
                 ) : current.questionType === "DESCRIPTIVE" ? (
                   <Textarea
                     value={draft?.learnerAnswer ?? ""}
@@ -574,7 +582,7 @@ function VerdictPanel({ verdict }) {
       {verdict.explanation ? (
         <div className="mt-2">
           {!correct ? <p className="text-xs font-bold text-rb-leaf-lip">Why the correct answer is right</p> : null}
-          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{verdict.explanation}</p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{withInlineMath(verdict.explanation)}</p>
         </div>
       ) : null}
       {verdict.feedback ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{verdict.feedback}</p> : null}
@@ -582,7 +590,7 @@ function VerdictPanel({ verdict }) {
         <ul className="mt-3 space-y-1 text-sm">
           {verdict.subQuestionAnswers.map((sub) => (
             <li key={sub.subQuestionId} className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">{sub.questionText}</span>
+              <span className="text-muted-foreground">{withInlineMath(sub.questionText)}</span>
               <span className="font-semibold text-foreground">
                 {sub.learnerAnswer || "—"} · {Number(sub.maxPoints) > 0 ? `${Math.round((Number(sub.earnedPoints ?? 0) / Number(sub.maxPoints)) * 100)}%` : "—"}
               </span>
@@ -624,7 +632,7 @@ function QuestionStem({ text }) {
   return (
     <>
       <p className={`whitespace-pre-wrap text-foreground ${size}`}>
-        {asked}
+        {withInlineMath(asked)}
       </p>
       {citation ? (
         <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{citation}</p>
@@ -639,6 +647,7 @@ function typeLabel(question) {
   if (type === "MULTIPLE_ANSWER") return "Multiple answer"
   if (type === "SHORT_ANSWER") return (question.subQuestions ?? []).length > 0 ? "Fill in the blanks" : "Short answer"
   if (type === "DESCRIPTIVE") return "Written answer"
+  if (type === "PROBLEM_SOLVING") return "Problem solving"
   return type.replaceAll("_", " ").toLowerCase()
 }
 

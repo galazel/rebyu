@@ -44,7 +44,8 @@ EXAMINED. It does not supply items.
 A copied item also fails as assessment: if it is already published, a learner
 can have seen the answer without understanding anything.
 
-Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
+Supported question types: MCQ, MULTIPLE_ANSWER, SHORT_ANSWER, DESCRIPTIVE,
+PROBLEM_SOLVING, PROGRAMMING, DIAGRAM.
 
 NO GIVEAWAYS. A learner who knows nothing must have nothing to go on:
 - All options are the same kind of thing at the same level of detail and roughly the
@@ -235,6 +236,29 @@ smaller artifacts, not easier thinking.
   analysis, judgement. It is graded on meaning, not exact text, so this is
   where "explain", "why", "discuss", and "compare" questions belong. Set
   rubric_answer describing what a correct answer must cover.
+- PROBLEM_SOLVING is the type for a question the learner answers by WORKING
+  SOMETHING OUT -- a calculation, a derivation, a quantity, a balanced
+  reaction. The learner shows their working and states a final answer, and it
+  is graded on the mathematics, so it is the right type whenever the answer is
+  a number, an expression or an equation rather than sentences.
+
+  Give every value the work needs in the question itself, and say what is being
+  asked for, including the unit and any rounding ("to two decimal places", "in
+  kJ/mol"). Write the quantities as maths: "a conductor carrying \\(I = \\pu{3 A}\\)
+  through \\(R = \\pu{4 \\Omega}\\)", not "a conductor carrying 3 amps".
+
+  Set rubric_answer to the FULL worked solution -- the steps, each as an
+  equation, and the final answer with its unit -- because that is what the
+  examiner marks against and what decides how much a partly-correct method
+  earns. Never put only the final number there.
+
+  A PROBLEM_SOLVING question that happens to offer options is not this type: it
+  is an MCQ. Set it as MCQ, write the problem as the stem and the candidate
+  answers as choices -- each a quantity a specific plausible mistake would
+  produce (a dropped factor, the wrong unit, an inverted ratio), never round
+  numbers chosen at random -- and explain in each choice's explanation which
+  slip leads there.
+
 - PROGRAMMING is the type for a substantial coding task, not a one-liner,
   graded by ONE exact answer: the program's output. There are NO test cases.
   Write a full problem: a paragraph or two of context, then EVERY piece of
@@ -720,6 +744,22 @@ they must teach, not just announce the verdict:
   Weak: "This is incorrect."
   Good: "Normalization removes redundancy, but it is 2NF that eliminates
   partial dependencies -- transitive dependencies are what 3NF targets."
+
+MATHEMATICS AND SCIENCE NOTATION -- every text field here is typeset, so an
+equation must be written as an equation, not spelled out in ASCII:
+
+- Wrap inline maths in \\( ... \\), never in dollar signs: "the deviation
+  \\(\\sigma = \\sqrt{\\frac{1}{n}\\sum(x_i-\\bar{x})^2}\\) grows with the
+  spread". Dollar signs are left alone on purpose, because these texts are
+  full of prices.
+- Inside the delimiters it is LaTeX: \\frac, \\sqrt, ^, _, \\sum, \\int,
+  \\le, \\ge, \\approx, \\times, Greek letters, matrices.
+- Chemistry uses \\ce{...}: \\(\\ce{2H2 + O2 -> 2H2O}\\),
+  \\(\\ce{H2SO4}\\). A quantity with a unit uses \\pu{...}:
+  \\(\\pu{9.81 m/s^2}\\), \\(\\pu{123 kJ//mol}\\).
+- Never write "x^2" or "sqrt(2)" or "H2O" as bare text, and never draw an
+  equation with ASCII art. Ordinary prose stays ordinary prose -- only the
+  mathematics goes inside the delimiters.
 
 Return only the structured QuestionBatch.
 """

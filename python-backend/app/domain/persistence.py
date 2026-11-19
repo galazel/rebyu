@@ -235,5 +235,10 @@ def exam_type_for_scope(scope: str) -> str:
 
 
 def checking_method_for(question_type: str) -> str:
-    """SHORT_ANSWER has one right string; DESCRIPTIVE needs semantic grading."""
+    """SHORT_ANSWER has one right string; everything else needs semantic grading.
+
+    PROBLEM_SOLVING lands here too: two correct solutions to the same problem
+    can be written entirely differently and still both be right, so there is no
+    string to match against.
+    """
     return CHECKING_METHOD_EXACT if question_type == "SHORT_ANSWER" else CHECKING_METHOD_SEMANTIC

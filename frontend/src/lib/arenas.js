@@ -110,7 +110,7 @@ export const ARENAS = [
     format: "8-player tournament",
     blurb:
       "An eight-player bracket on one certification track — quarterfinals, semis, and a timed grand final.",
-    questionTypes: ["MCQ", "SHORT_ANSWER", "DESCRIPTIVE"],
+    questionTypes: ["MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "PROBLEM_SOLVING"],
     tracked: true,
     questionsPerNode: null,
     weekly: true,

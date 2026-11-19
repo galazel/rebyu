@@ -8,10 +8,12 @@ import {
   ListChecks,
   Maximize,
   Plus,
+  SquareRadical,
   SquarePen,
   Trash2,
   Workflow,
 } from "@/components/icons"
+import { MathLines } from "@/components/certifications/math.jsx"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -176,6 +178,21 @@ export const QUESTION_TYPES = [
     component: null,
     data: {
       questionType: "DESCRIPTIVE",
+      question: "",
+      image: null,
+      rubricBasedAnswer: "",
+      checkingMethod: "AI_SEMANTIC",
+      difficulty: "average",
+    },
+  },
+  {
+    id: "PROBLEM_SOLVING",
+    title: "Problem Solving",
+    description: "Worked calculation, graded on the mathematics",
+    icon: SquareRadical,
+    component: null,
+    data: {
+      questionType: "PROBLEM_SOLVING",
       question: "",
       image: null,
       rubricBasedAnswer: "",
@@ -387,6 +404,10 @@ export function validateQuestionData(typeId, data) {
 
   if (typeId === "DESCRIPTIVE" && isBlank(data.rubricBasedAnswer)) {
     errors.rubricBasedAnswer = "Model answer or rubric is required."
+  }
+
+  if (typeId === "PROBLEM_SOLVING" && isBlank(data.rubricBasedAnswer)) {
+    errors.rubricBasedAnswer = "Worked solution is required."
   }
 
   if (typeId === "PROGRAMMING") {
@@ -966,6 +987,47 @@ export function Descriptive({ questionKey, questionNumber, onRemove, data, onDat
   )
 }
 
+export function ProblemSolving({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
+  function onFieldChange(path, value) {
+    onDataChange((currentData) => updateDataAtPath(currentData, path, value))
+  }
+
+  const solution = data.rubricBasedAnswer ?? ""
+
+  return (
+    <CompactQuestionCard type="Problem Solving" title="Problem Solving Question" questionNumber={questionNumber} onRemove={onRemove} errors={errors} headerExtra={headerExtra}>
+      <QuestionPromptFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} errors={errors} />
+
+      <div className="space-y-2 border-t border-border pt-4">
+        <Label htmlFor={`${questionKey}-solution`} className="text-sm font-medium">
+          Worked Solution
+          <span className="ml-1 text-destructive">*</span>
+        </Label>
+        <Textarea
+          id={`${questionKey}-solution`}
+          value={solution}
+          spellCheck={false}
+          aria-invalid={Boolean(errors.rubricBasedAnswer)}
+          onChange={(event) => onFieldChange("rubricBasedAnswer", event.target.value)}
+          placeholder={"One step per line, maths between \\( and \\):\n\\(V = I \\times R\\)\n\\(V = \\pu{3 A} \\times \\pu{4 \\Omega} = \\pu{12 V}\\)\n\nFinal answer: \\(\\pu{12 V}\\)"}
+          className={`min-h-36 resize-y font-mono text-[13px] leading-6 ${errors.rubricBasedAnswer ? "border-destructive focus-visible:ring-destructive" : ""}`}
+        />
+        <div className="rounded-lg border border-border bg-muted/40 px-3.5 py-3">
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">As the learner will see it</p>
+          <MathLines text={solution} placeholder="The typeset solution appears here." />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The examiner marks against every step, so a solution with only the final
+          answer leaves it no way to award method marks.
+        </p>
+        <FieldError message={errors.rubricBasedAnswer} />
+      </div>
+
+      <QuestionMetaFields questionKey={questionKey} data={data} onFieldChange={onFieldChange} />
+    </CompactQuestionCard>
+  )
+}
+
 export function Programming({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
   function onFieldChange(path, value) {
     onDataChange((currentData) => updateDataAtPath(currentData, path, value))
@@ -1469,6 +1531,7 @@ const QUESTION_EDITORS = {
   SHORT_ANSWER: ShortAnswer,
   FILL_IN_BLANK: FillInTheBlanks,
   DESCRIPTIVE: Descriptive,
+  PROBLEM_SOLVING: ProblemSolving,
   PROGRAMMING: Programming,
   DIAGRAM: Diagram,
 }
@@ -1635,6 +1698,7 @@ export async function saveAuthoredQuestion(
       }
       return savedShortAnswer
     }
+    case "PROBLEM_SOLVING":
     case "DESCRIPTIVE": {
       const savedDescriptive = await saveQuestion(
         {

@@ -6,8 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import katex from "katex"
-import "katex/dist/katex.min.css"
+import { MathExpression } from "@/components/certifications/math.jsx"
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
 import { registerCodeLanguages } from "@/components/certifications/code-languages.js"
 import { MindMap } from "@/components/learner/tutor-mindmap.jsx"
@@ -474,8 +473,7 @@ function CodeWidget({ data }) {
 }
 
 function TeX({ latex }) {
-  const html = useMemo(() => katex.renderToString(latex, { displayMode: true, throwOnError: false, strict: "ignore", trust: false }), [latex])
-  return <div className="overflow-x-auto py-1" dangerouslySetInnerHTML={{ __html: html }} />
+  return <MathExpression latex={latex} />
 }
 
 function MathWidget({ data }) {

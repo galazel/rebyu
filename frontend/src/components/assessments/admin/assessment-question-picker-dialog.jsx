@@ -31,6 +31,7 @@ const QUESTION_TYPE_LABELS = {
   MULTIPLE_CHOICE: "Multiple Choice",
   MULTIPLE_ANSWER: "Multiple Answer",
   DESCRIPTIVE: "Descriptive",
+  PROBLEM_SOLVING: "Problem Solving",
   SHORT_ANSWER: "Short Answer",
   CRITICAL_THINKING: "Critical Thinking",
   PROGRAMMING: "Programming",

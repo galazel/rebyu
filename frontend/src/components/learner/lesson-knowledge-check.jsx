@@ -27,6 +27,7 @@ import { answerAdaptiveItems, startAssessmentAttempt, submitAssessmentAttempt } 
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
+import { withInlineMath } from "@/components/certifications/math.jsx"
 
 export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain, onComplete }) {
   const queryClient = useQueryClient()
@@ -313,7 +314,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               <div key={current.attemptQuestionId} className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-6 sm:px-8 sm:py-7">
                 <div className="max-h-[38dvh] overflow-y-auto overscroll-contain pr-2 sm:max-h-96">
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-rb-wolf">Choose the best answer</p>
-                  <p className="text-base font-semibold leading-7 tracking-[-0.008em] text-rb-eel sm:text-lg sm:leading-8">{current.question}</p>
+                  <p className="text-base font-semibold leading-7 tracking-[-0.008em] text-rb-eel sm:text-lg sm:leading-8">{withInlineMath(current.question)}</p>
                   <AuthedImage
                     imageKey={current.questionImageKey ?? current.imageKey}
                     alt="Question reference"
@@ -365,7 +366,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                             {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
                           </span>
                           <span className="min-w-0 flex-1">
-                            {choice.choiceText ? <span className={hasImage ? "block" : undefined}>{choice.choiceText}</span> : null}
+                            {choice.choiceText ? <span className={hasImage ? "block" : undefined}>{withInlineMath(choice.choiceText)}</span> : null}
                             <AuthedImage
                               imageKey={choice.imageKey}
                               alt={choice.choiceText ? `Answer choice ${String.fromCharCode(65 + choiceIndex)}` : `Answer choice ${String.fromCharCode(65 + choiceIndex)} diagram`}
@@ -381,7 +382,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                   <div className="space-y-2">
                     {current.subQuestions.map((sub) => (
                       <div key={sub.subQuestionId} className="flex items-center gap-3">
-                        <span className="w-10 shrink-0 text-sm font-semibold text-rb-wolf">{sub.questionText}</span>
+                        <span className="w-10 shrink-0 text-sm font-semibold text-rb-wolf">{withInlineMath(sub.questionText)}</span>
                         <Input
                           value={currentAnswer?.subAnswers?.[sub.subQuestionId] ?? ""}
                           onChange={(event) =>
@@ -428,7 +429,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                     {currentKey?.explanation ? (
                       <div className="mt-3 border-t border-current/15 pt-3">
                         <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-rb-wolf">Explanation</p>
-                        <p className="mt-1 text-sm leading-6 text-rb-eel">{currentKey.explanation}</p>
+                        <p className="mt-1 text-sm leading-6 text-rb-eel">{withInlineMath(currentKey.explanation)}</p>
                       </div>
                     ) : null}
                   </div>
@@ -599,7 +600,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
                   {answer.explanation ? (
                     <div className="border-t border-current/10 pt-2">
                       <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-rb-wolf">Explanation</p>
-                      <p className="mt-1 text-sm leading-6 text-rb-eel">{answer.explanation}</p>
+                      <p className="mt-1 text-sm leading-6 text-rb-eel">{withInlineMath(answer.explanation)}</p>
                     </div>
                   ) : null}
                 </div>

@@ -107,7 +107,7 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
                 explanation=explanation,
             )
 
-    elif question_type in ("SHORT_ANSWER", "DESCRIPTIVE"):
+    elif question_type in ("SHORT_ANSWER", "DESCRIPTIVE", "PROBLEM_SOLVING"):
         answer = question.get("correct_answer") or question.get("rubric_answer") or ""
         variations = (
             "\n".join(question.get("accepted_variations") or [])

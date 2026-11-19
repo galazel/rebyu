@@ -7,7 +7,7 @@ from app.utils.helpers import create_id
 MIN_INTRODUCTION_CHARS = 40
 MIN_SUMMARY_CHARS = 40
 
-ITEM_COLLECTIONS = ("items", "cards", "gridItems")
+ITEM_COLLECTIONS = ("items", "cards", "gridItems", "givens", "steps")
 
 ACCORDION_BLOCK_TYPES = ("accordion", "content-accordion-block")
 
