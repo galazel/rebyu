@@ -40,6 +40,17 @@ export function setStudyPlanTaskStatus({ planId, eventId, status }) {
   })
 }
 
+/**
+ * Reads the learner's free-text "anything else" note into schedule rules.
+ * An empty note never reaches a model: the server answers with empty rules.
+ */
+export function readStudyPlanNote({ note, today, examDate, topics }) {
+  return base("study-plans/read-note", {
+    method: "POST",
+    data: { note, today, examDate, topics },
+  })
+}
+
 export const STUDY_PLAN_QUERY_KEY = "learner-study-plan"
 
 export const STUDY_PLAN_TASKS_QUERY_KEY = "learner-study-plan-tasks"

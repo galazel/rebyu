@@ -95,13 +95,53 @@ export function parseStudyPreferences(text) {
   return { days: days.size ? [...days].sort() : null, weekdaysOnly, time, shortSessions, noCatchUp }
 }
 
+/**
+ * The rules the plan is built from: what the AI read out of the note, falling
+ * back to the keyword parser for anything it did not set (and for everything,
+ * when the note was never sent or the call failed).
+ */
+export function mergeStudyPreferences(parsed, aiRules) {
+  if (!aiRules) return parsed
+  // The note could not be read -- no AI access, no uses left, or the service down.
+  // It is then ignored completely rather than half-applied by keyword guessing.
+  if (aiRules.unavailable) return null
+  const merged = {
+    days: aiRules.days?.length ? aiRules.days : parsed?.days ?? null,
+    weekdaysOnly: Boolean(parsed?.weekdaysOnly) && !aiRules.days?.length,
+    time: aiRules.time ?? parsed?.time ?? null,
+    shortSessions: Boolean(aiRules.shortSessions || parsed?.shortSessions),
+    noCatchUp: Boolean(aiRules.noCatchUp || parsed?.noCatchUp),
+    maxLessonsPerDay: aiRules.maxLessonsPerDay ?? null,
+    skipDates: aiRules.skipDates ?? [],
+    priorityTopics: aiRules.priorityTopics ?? [],
+    applied: aiRules.applied ?? [],
+    unsupported: aiRules.unsupported ?? [],
+  }
+  const changesSchedule =
+    merged.days ||
+    merged.weekdaysOnly ||
+    merged.time ||
+    merged.shortSessions ||
+    merged.noCatchUp ||
+    merged.maxLessonsPerDay ||
+    merged.skipDates.length ||
+    merged.priorityTopics.length
+  return changesSchedule || merged.applied.length || merged.unsupported.length ? merged : parsed
+}
+
 export function describeStudyPreferences(prefs) {
   if (!prefs) return []
+  // When the note was read by the AI it already says, in the learner's terms, what it set.
+  if (Array.isArray(prefs.applied) && prefs.applied.length > 0) return [...prefs.applied]
+
   const lines = []
   if (prefs.days) lines.push(`Study on ${prefs.days.map((day) => WEEKDAY_NAMES[day]).join(", ")}`)
   else if (prefs.weekdaysOnly) lines.push("Weekdays only")
   if (prefs.time) lines.push(`Sessions at ${clockLabel(prefs.time)}`)
   if (prefs.shortSessions) lines.push("Shorter sessions, at most 2 lessons a day")
+  if (prefs.maxLessonsPerDay) lines.push(`At most ${prefs.maxLessonsPerDay} ${prefs.maxLessonsPerDay === 1 ? "lesson" : "lessons"} a day`)
+  if (prefs.skipDates?.length) lines.push(`No studying on ${prefs.skipDates.length} ${prefs.skipDates.length === 1 ? "day" : "days"} you are away`)
+  if (prefs.priorityTopics?.length) lines.push(`${prefs.priorityTopics[0]} first`)
   if (prefs.noCatchUp) lines.push("No weekly catch-up")
   return lines
 }
@@ -181,7 +221,12 @@ export function planStudy({
   const examDate = new Date(`${targetExamDate}T00:00:00`)
   const perWeek = prefs?.days ? prefs.days.length : studyDaysPerWeek(studyDays)
   const studyOn = prefs?.days ? new Set(prefs.days) : null
-  const maxLessonsPerDay = prefs?.shortSessions ? 2 : MAX_LESSONS_PER_DAY
+  const maxLessonsPerDay = Math.max(
+    1,
+    Math.min(prefs?.maxLessonsPerDay ?? MAX_LESSONS_PER_DAY, prefs?.shortSessions ? 2 : MAX_LESSONS_PER_DAY)
+  )
+  // Days the learner said they are away. They are simply not study days.
+  const skipDates = new Set(Array.isArray(prefs?.skipDates) ? prefs.skipDates : [])
   const sessionMinutes = (minutes) => (prefs?.shortSessions && minutes ? Math.max(10, Math.round((minutes * 0.6) / 5) * 5) : minutes)
   const totalDays = daysBetween(startDate, examDate)
 
@@ -205,10 +250,22 @@ export function planStudy({
     lessons.push({ ...lesson, order: lessons.length })
   }
 
+  // Topics the learner asked for first, in the order they asked for them.
+  const askedFirst = new Map(
+    (Array.isArray(prefs?.priorityTopics) ? prefs.priorityTopics : [])
+      .map((title, index) => [String(title).trim().toLowerCase(), index])
+      .filter(([title]) => title)
+  )
+  const askedRank = (lesson) =>
+    askedFirst.has(lesson.title.trim().toLowerCase())
+      ? askedFirst.get(lesson.title.trim().toLowerCase())
+      : Number.MAX_SAFE_INTEGER
+
   let toStudy = lessons
     .filter((lesson) => !lesson.completed)
     .sort(
       (a, b) =>
+        askedRank(a) - askedRank(b) ||
         studyRank(a) - studyRank(b) ||
         (studyRank(a) === 0 ? a.mastery - b.mastery : a.order - b.order)
     )
@@ -235,7 +292,10 @@ export function planStudy({
     let weekly = 0
     for (let dayIndex = 0; dayIndex < totalDays; dayIndex += 1) {
       const weekday = cursor.getDay()
-      const isStudy = studyOn
+      const away = skipDates.has(dayKey(cursor))
+      const isStudy = away
+        ? false
+        : studyOn
         ? studyOn.has(weekday)
         : perWeek === 7 && !prefs?.weekdaysOnly
           ? true
@@ -276,7 +336,8 @@ export function planStudy({
   let skipped = []
   if (focusMode) {
     const priorityTitles = new Set((priorityTopics ?? []).map(topicTitle).filter(Boolean))
-    const ranked = [...toStudy].sort(focusCompare(priorityTitles, priorityByLesson))
+    const byFocus = focusCompare(priorityTitles, priorityByLesson)
+    const ranked = [...toStudy].sort((a, b) => askedRank(a) - askedRank(b) || byFocus(a, b))
     toStudy = ranked.slice(0, lessonCapacity)
     skipped = ranked.slice(lessonCapacity)
   }

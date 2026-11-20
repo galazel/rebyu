@@ -218,6 +218,23 @@ public class AiServiceClient {
         }
     }
 
+    private static final Duration STUDY_NOTE_TIMEOUT = Duration.ofSeconds(45);
+
+    /** Reads a learner's free-text study note into the rules the plan builder accepts. */
+    public com.capstone.rebyu.aigateway.dto.StudyPlanNoteDtos.Rules readStudyPlanNote(
+            com.capstone.rebyu.aigateway.dto.StudyPlanNoteDtos.Request request) {
+        try {
+            return webClient.post()
+                    .uri("/study-plans/read-note")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(com.capstone.rebyu.aigateway.dto.StudyPlanNoteDtos.Rules.class)
+                    .block(STUDY_NOTE_TIMEOUT);
+        } catch (Exception e) {
+            throw new AiServiceException("Could not read your study note right now.", e);
+        }
+    }
+
     private static final Duration GRADING_TIMEOUT = Duration.ofSeconds(60);
 
     public Optional<AnswerGradingResultDto> gradeAnswer(AnswerGradingRequestDto request) {

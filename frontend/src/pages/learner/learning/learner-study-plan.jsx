@@ -39,7 +39,13 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { describeStudyPreferences, parseStudyPreferences, planStudy } from "@/lib/study-plan-events.js"
+import {
+    describeStudyPreferences,
+    mergeStudyPreferences,
+    parseStudyPreferences,
+    planStudy,
+} from "@/lib/study-plan-events.js"
+import { readStudyPlanNote } from "@/services/studyPlanService.js"
 
 const readinessOptions = [
     "Ready 1 week before the exam",
@@ -757,8 +763,36 @@ export function StudyPlanContent({
               .reduce((latest, value) => (value > latest ? value : latest), "") || "—"
         : targetExamDate
 
-    const parsedPreferences = useMemo(() => parseStudyPreferences(studyPreferences), [studyPreferences])
+    const keywordPreferences = useMemo(() => parseStudyPreferences(studyPreferences), [studyPreferences])
+    // What the AI read out of the note, once it has been read. Cleared whenever the note changes.
+    const [noteRules, setNoteRules] = useState(null)
+    const [noteError, setNoteError] = useState(null)
+    const [readingNote, setReadingNote] = useState(false)
+    useEffect(() => {
+        setNoteRules(null)
+        setNoteError(null)
+    }, [studyPreferences])
+
+    const parsedPreferences = useMemo(
+        () => mergeStudyPreferences(keywordPreferences, noteRules),
+        [keywordPreferences, noteRules]
+    )
     const preferenceLines = describeStudyPreferences(parsedPreferences)
+    const unsupportedLines = parsedPreferences?.unsupported ?? []
+
+    // The lesson names the plan can actually schedule, so a priority the note names
+    // is matched against real curriculum entries rather than invented.
+    const noteTopics = useMemo(() => {
+        const ids = overall ? selectedCertificationIds : [certificationId]
+        const names = new Set()
+        for (const id of ids) {
+            for (const lesson of curriculumFor(data?.lessons, id, overall ? null : certification)) {
+                const title = lesson?.title ?? lesson?.name
+                if (title) names.add(String(title))
+            }
+        }
+        return [...names].slice(0, 120)
+    }, [overall, selectedCertificationIds, certificationId, certification, data?.lessons])
 
     const pacePreview = useMemo(() => {
         const entries = overall
@@ -801,13 +835,45 @@ export function StudyPlanContent({
         overallPriorities.priorityByCertification, overallPriorities.byCertification, singlePriority,
         priorityTopics, certification, certificationId, enrolledCertifications, parsedPreferences])
 
-    function handleGeneratePlan() {
+    async function handleGeneratePlan() {
         if (noCertificationsSelected) {
             return
         }
 
         if (datesOutOfOrder) {
             return
+        }
+
+        // A note in "Anything else" is read by the AI into the rules below. It only
+        // ever sets when to study and what to study first -- the calendar itself is
+        // still built here, so nothing can fall outside the exam date.
+        let effectivePreferences = parsedPreferences
+        const note = studyPreferences.trim()
+        if (note && !noteRules) {
+            setReadingNote(true)
+            setNoteError(null)
+            try {
+                const rules = await readStudyPlanNote({
+                    note,
+                    today: toDateKey(new Date()),
+                    examDate: previewExamDate && previewExamDate !== "—" ? previewExamDate : "",
+                    topics: noteTopics,
+                })
+                setNoteRules(rules)
+                setNoteError(rules?.unavailable ?? null)
+                effectivePreferences = mergeStudyPreferences(keywordPreferences, rules)
+            } catch (error) {
+                // Reading the note is the only way it reaches the schedule, so when that
+                // fails the note is left out rather than guessed at.
+                setNoteRules({ unavailable: true })
+                setNoteError(
+                    error?.response?.data?.message
+                        ?? "Your note could not be read just now, so it was left out of this plan."
+                )
+                effectivePreferences = null
+            } finally {
+                setReadingNote(false)
+            }
         }
 
         const certificationPlans = overall
@@ -832,7 +898,7 @@ export function StudyPlanContent({
                       studyTime: entry.studyTime ?? null,
                       selectedTechniqueInfo,
                       readiness: targetReadiness,
-                      preferences: parsedPreferences,
+                      preferences: effectivePreferences,
                       curriculum: curriculumFor(data?.lessons, entry.certificationId),
                       masteryByLesson:
                           overallPriorities.masteryByCertification[String(entry.certificationId)] ?? {},
@@ -854,7 +920,7 @@ export function StudyPlanContent({
                   studyWindowTimes: STUDY_WINDOW_TIMES,
                   selectedTechniqueInfo,
                   readiness: targetReadiness,
-                  preferences: parsedPreferences,
+                  preferences: effectivePreferences,
                   curriculum: curriculumFor(data?.lessons, certificationId, certification),
                   masteryByLesson: singleMastery,
                   priorityByLesson: singlePriority,
@@ -912,6 +978,7 @@ export function StudyPlanContent({
             selectedTechniqueInfo,
             priorityTopics,
             studyPreferences,
+            preferenceRules: effectivePreferences ?? null,
             events,
         }
 
@@ -1225,11 +1292,27 @@ export function StudyPlanContent({
                             {preferenceLines.length
                                 ? <>Applied to your schedule: <span className="font-semibold text-foreground">{preferenceLines.join(" · ")}</span></>
                                 : studyPreferences.trim()
-                                    ? "Saved with your plan. Mention days (e.g. Monday, Friday), a time (e.g. 7 PM), short sessions, or no catch-up to change the schedule."
+                                    ? noteRules?.unavailable
+                                        ? null
+                                        : noteRules
+                                            ? "Nothing in this note changes the schedule, but it is saved with your plan."
+                                            : "Write it however you like — days off, a time, dates you are away, topics to push first. It is read when you generate the calendar."
                                     : null}
                         </p>
                         <p className="shrink-0 tabular-nums">{studyPreferences.length} / 500</p>
                     </div>
+
+                    {unsupportedLines.length ? (
+                        <p className="mt-2 rounded-xl bg-[var(--tg-softer)] px-3 py-2 text-xs leading-5 text-muted-foreground ring-1 ring-[var(--tg-line)]">
+                            Not part of the schedule: {unsupportedLines.join(" · ")}
+                        </p>
+                    ) : null}
+
+                    {noteError ? (
+                        <p className="mt-2 rounded-xl bg-rb-bee-wash px-3 py-2 text-xs leading-5 text-rb-bee-ink">
+                            {noteError} The rest of the plan — your days, time and technique — is unchanged.
+                        </p>
+                    ) : null}
                 </PlanSection>
 
                 <div className="flex justify-end">
@@ -1237,9 +1320,11 @@ export function StudyPlanContent({
                         type="button"
                         className="tg-btn tg-btn-primary !px-6 !py-3 !text-base"
                         onClick={handleGeneratePlan}
-                        disabled={generating || datesOutOfOrder || noCertificationsSelected}
+                        disabled={generating || readingNote || datesOutOfOrder || noCertificationsSelected}
                     >
-                        {generating ? (
+                        {readingNote ? (
+                            "Reading your note…"
+                        ) : generating ? (
                             "Saving plan…"
                         ) : (
                             <>

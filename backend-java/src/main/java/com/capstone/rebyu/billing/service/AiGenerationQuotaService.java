@@ -37,12 +37,14 @@ public class AiGenerationQuotaService {
     public static final String KIND_TUTOR_CHAT = "tutor-chat";
     public static final String KIND_TUTOR_DIALOGUE = "tutor-dialogue";
     public static final String KIND_TUTOR_LIVE = "tutor-live";
+    /** Reading a learner's study-plan note is one model call, so it is metered like a tutor message. */
+    public static final String KIND_STUDY_PLAN_NOTE = "study-plan-note";
     private static final Map<String, String> HOLDS = Map.of(KIND_TUTOR_CHAT, "hold-chat", KIND_TUTOR_DIALOGUE, "hold-dialogue", KIND_TUTOR_LIVE, "hold-live");
     private static final Set<String> HOLD_KINDS = Set.copyOf(HOLDS.values());
 
     public enum Bucket {
         TUTOR("tutor", "AI uses",
-                Set.of(KIND_TUTOR_CHAT, KIND_TUTOR_DIALOGUE, KIND_TUTOR_LIVE),
+                Set.of(KIND_TUTOR_CHAT, KIND_TUTOR_DIALOGUE, KIND_TUTOR_LIVE, KIND_STUDY_PLAN_NOTE),
                 Entitlements.AI_TUTOR_DAILY_MESSAGES, Entitlements.DEFAULT_DAILY_TUTOR_MESSAGES,
                 Entitlements.AI_TUTOR_WEEKLY_MESSAGES, Entitlements.DEFAULT_WEEKLY_TUTOR_MESSAGES),
         STUDY_AIDS("studyAids", "Flashcard & quiz generations",
