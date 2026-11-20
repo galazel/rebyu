@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { PomodoroStart } from "@/components/learner/pomodoro-overlay.jsx"
-import { RecallSession } from "@/components/learner/recall-session.jsx"
-import { SpacedRepetitionSession } from "@/components/learner/spaced-repetition-session.jsx"
+import { StudyActivityDialog } from "@/components/learner/study-activity-dialog.jsx"
 import { usePomodoro } from "@/lib/pomodoro-store.js"
-import { formatWhen, isDue, isStale } from "@/lib/study-schedule.js"
+import { isDue, isStale } from "@/lib/study-schedule.js"
+import { SESSION_ACTIVITIES, studyActivityFor } from "@/lib/study-activity.js"
 import {
   STUDY_PLAN_QUERY_KEY,
   STUDY_PLAN_TASKS_QUERY_KEY,
@@ -25,12 +17,6 @@ import {
 const TICK_MS = 30_000
 
 const SESSION_COOLDOWN_MS = 10 * 60_000
-
-const ACTIVITY_TITLES = {
-  "pomodoro": "Pomodoro session",
-  "active-recall": "Active recall",
-  "spaced-repetition": "Spaced repetition review",
-}
 
 export function StudyActivityHost() {
   const queryClient = useQueryClient()
@@ -96,10 +82,16 @@ export function StudyActivityHost() {
         if (status && status !== "PENDING") continue
         if (firedRef.current.has(key)) continue
 
+        // Only the activities that run as a session interrupt the learner; a
+        // plain lesson day is opened from the plan instead of popping a dialog.
+        const activity = studyActivityFor(event)
+        if (!SESSION_ACTIVITIES.has(activity)) continue
+
         candidates.push({
           key,
           planId: plan.planId,
           event,
+          activity,
           certification: event.certification ?? plan.schedule?.certification ?? null,
           certificationId: event.certificationId ?? plan.certificationId ?? null,
         })
@@ -147,78 +139,13 @@ export function StudyActivityHost() {
 
   if (!activeTask) return null
 
-  const technique = activeTask.event.technique
-  const title = ACTIVITY_TITLES[technique] ?? "Scheduled study session"
-
-  const fullWindow = technique === "spaced-repetition"
-
   return (
-    <Dialog
-      open
-      onOpenChange={(next) => {
-        if (!next) finishTask("SKIPPED")
-      }}
-    >
-      <DialogContent
-        showCloseButton={!fullWindow}
-        className={
-          fullWindow
-            ? "inset-0 top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-0 bg-transparent p-0 shadow-none sm:max-w-none"
-            : "sm:max-w-lg"
-        }
-      >
-        {fullWindow ? (
-          <DialogHeader className="sr-only">
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>
-              {formatWhen(activeTask.event, now)}
-              {activeTask.certification ? ` · ${activeTask.certification}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-        ) : (
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-
-            <DialogDescription>
-              {formatWhen(activeTask.event, now)}
-              {activeTask.certification ? ` · ${activeTask.certification}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-        )}
-
-        {technique === "pomodoro" ? (
-          <PomodoroStart
-            task={activeTask}
-            onStarted={() => finishTask(null)}
-            onDismiss={() => finishTask("SKIPPED")}
-          />
-        ) : technique === "active-recall" ? (
-          <RecallSession
-            task={activeTask.event}
-            certificationId={activeTask.certificationId}
-            onStarted={() => finishTask("COMPLETED")}
-            onDismiss={() => finishTask("SKIPPED")}
-          />
-        ) : technique === "spaced-repetition" ? (
-          <SpacedRepetitionSession
-            task={activeTask.event}
-            certificationId={activeTask.certificationId}
-            onComplete={() => finishTask("COMPLETED")}
-            onDismiss={() => finishTask("SKIPPED")}
-          />
-        ) : (
-          <div className="space-y-3 py-2">
-            <p className="text-sm font-medium text-foreground">
-              {activeTask.event.title}
-            </p>
-            <p className="text-sm leading-6 text-muted-foreground">
-              This session is scheduled as {title.toLowerCase()}, which isn&apos;t ready
-              yet. Nothing has been marked complete — it will be offered again.
-            </p>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+    <StudyActivityDialog
+      activity={activeTask.activity}
+      task={activeTask}
+      now={now}
+      onFinish={finishTask}
+    />
   )
 }
 

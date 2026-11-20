@@ -129,14 +129,15 @@ function ScoreRing({ value, cleared, top, note, mark }) {
   )
 }
 
-function ScoreDial({ percentage, passingScore, passed }) {
+function ScoreDial({ percentage, passingScore, passed, practice = false }) {
   return (
     <ScoreRing
       value={percentage}
-      cleared={passed}
+      // Practice has no pass mark; the dial is only green once most of it came back.
+      cleared={practice ? percentage >= 70 : passed}
       top={`${percentage.toFixed(0)}%`}
-      note={passed ? "passed" : "not passed"}
-      mark={passingScore != null ? `Pass mark ${passingScore.toFixed(0)}%` : null}
+      note={practice ? "recalled" : passed ? "passed" : "not passed"}
+      mark={practice || passingScore == null ? null : `Pass mark ${passingScore.toFixed(0)}%`}
     />
   )
 }
@@ -343,6 +344,8 @@ export default function LearnerAssessmentResultPage() {
 
   const result = resultQuery.data
   const fromChallenge = fromChallengeState || String(result?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
+  // A recall quiz is practice off your own weak questions: it is scored, but not passed or failed.
+  const isRecall = String(result?.assessmentType ?? "").toUpperCase() === "RECALL"
 
   const leaderboardQuery = { data: [], isLoading: false } // challenges render ChallengeResult below
 
@@ -495,7 +498,7 @@ export default function LearnerAssessmentResultPage() {
           </div>
         ) : result.focusViolations > 0 ? (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-            You left this assessment {result.focusViolations}{" "}
+            You left this {isRecall ? "recall quiz" : "assessment"} {result.focusViolations}{" "}
             {result.focusViolations === 1 ? "time" : "times"} while taking it. Exits are recorded on the attempt.
           </p>
         ) : null}
@@ -654,7 +657,7 @@ export default function LearnerAssessmentResultPage() {
               <ClockIcon className="size-3" aria-hidden="true" />
               {formatDuration(result.durationSeconds)}
             </span>
-            {(proficiencyRating != null ? proficiencyRating >= PROFICIENT_RATING : Boolean(result.passed)) ? (
+            {isRecall ? null : (proficiencyRating != null ? proficiencyRating >= PROFICIENT_RATING : Boolean(result.passed)) ? (
               <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[var(--tg)] px-3 py-1 text-xs font-bold text-white">
                 <CheckCircle2Icon className="size-3.5" aria-hidden="true" />Passed
               </span>
@@ -665,7 +668,9 @@ export default function LearnerAssessmentResultPage() {
             )}
           </div>
 
-          <h1 className="mt-4 font-rb-display text-3xl font-extrabold leading-tight text-foreground">{result.assessmentTitle}</h1>
+          <h1 className="mt-4 font-rb-display text-3xl font-extrabold leading-tight text-foreground">
+            {isRecall ? "Recall quiz" : result.assessmentTitle}
+          </h1>
 
           <div className="mt-7 flex flex-col items-center gap-7 sm:flex-row sm:items-start">
             {proficiencyRating != null ? (
@@ -675,6 +680,7 @@ export default function LearnerAssessmentResultPage() {
                 percentage={percentage}
                 passingScore={passingScore}
                 passed={Boolean(result.passed)}
+                practice={isRecall}
               />
             )}
 
@@ -714,7 +720,18 @@ export default function LearnerAssessmentResultPage() {
                 </div>
               ) : (
                 <div>
-                  {passingScore != null ? (
+                  {isRecall ? (
+                    <>
+                      <p className="text-lg font-bold text-foreground">
+                        Practice, not a pass mark
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        A recall quiz is built from the questions you have missed, so it is
+                        not passed or failed. What you got wrong here is what the next one
+                        will come back to.
+                      </p>
+                    </>
+                  ) : passingScore != null ? (
                     <>
                       <p className="text-lg font-bold text-foreground">
                         {result.passed
@@ -810,7 +827,7 @@ export default function LearnerAssessmentResultPage() {
             <>
               <Link to={`/learner/assessments/${result.assessmentId}`} className="tg-btn !px-5 !py-2.5">
                 <RotateCcwIcon className="size-4" aria-hidden="true" />
-                Retake assessment
+                {isRecall ? "Retake recall quiz" : "Retake assessment"}
               </Link>
               <Link to={`/learner/assessments/${result.assessmentId}/history`} className="tg-btn !px-5 !py-2.5">
                 <HistoryIcon className="size-4" aria-hidden="true" />

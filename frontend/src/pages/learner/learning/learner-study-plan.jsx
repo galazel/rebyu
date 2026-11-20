@@ -82,21 +82,24 @@ const studyTechniques = [
         id: "spaced-repetition",
         title: "Spaced Repetition",
         description:
-            "Review lessons repeatedly across different days to improve long-term memory.",
+            "Every lesson comes back as a short review 1, 3 and 7 days later, so it sticks.",
+        opens: "Review tasks open a timed flashcard round you grade yourself on.",
         icon: Repeat2,
     },
     {
         id: "active-recall",
         title: "Active Recall",
         description:
-            "Practice remembering answers before checking notes or explanations.",
+            "The day after a lesson you answer questions on it from memory, before rereading.",
+        opens: "A recall quiz covers that one lesson; a review mixes it with earlier topics.",
         icon: Brain,
     },
     {
         id: "pomodoro",
         title: "Pomodoro",
         description:
-            "Study in focused sessions with short breaks to avoid burnout.",
+            "Longer lesson blocks: 25 minutes of focus, a 5-minute break, four times over.",
+        opens: "Lesson tasks start an on-screen timer that locks the screen during breaks.",
         icon: TimerReset,
     },
 ]
@@ -322,12 +325,12 @@ function TechniqueCard({ technique, selected, onSelect }) {
                     : "border-[var(--tg-line)] bg-card hover:-translate-y-0.5 hover:border-[var(--tg)]"
             }`}
         >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex h-9 items-start justify-between gap-3">
                 <span
                     className={
                         selected
                             ? "tg-badge-icon"
-                            : "grid size-9 place-items-center rounded-xl bg-[var(--tg-softer)] text-[var(--tg-ink)] ring-1 ring-[var(--tg-line)]"
+                            : "grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--tg-softer)] text-[var(--tg-ink)] ring-1 ring-[var(--tg-line)]"
                     }
                 >
                     <Icon className="size-4" aria-hidden="true" />
@@ -345,6 +348,12 @@ function TechniqueCard({ technique, selected, onSelect }) {
             <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
                 {technique.description}
             </p>
+
+            {technique.opens ? (
+                <p className="mt-2.5 border-t border-[var(--tg-line)] pt-2.5 text-xs leading-5 text-muted-foreground">
+                    {technique.opens}
+                </p>
+            ) : null}
         </button>
     )
 }
@@ -490,7 +499,7 @@ function StudyPlanCalendar({
                         <Repeat2 className="size-5 text-rb-leaf" />
                         <p className="mt-3 text-sm font-semibold">Reviews</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Short look-backs at topics you already studied
+                            Longer sessions that mix topics you already studied
                         </p>
                     </CardContent>
                 </Card>
@@ -500,7 +509,7 @@ function StudyPlanCalendar({
                         <Brain className="size-5 text-rb-bee-ink" />
                         <p className="mt-3 text-sm font-semibold">Recall quizzes</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Questions answered from memory, before checking
+                            One lesson, answered from memory the day after
                         </p>
                     </CardContent>
                 </Card>

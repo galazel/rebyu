@@ -17,6 +17,8 @@ import { BentoHeading, BentoSkeleton, BentoTile } from "@/components/commons/ben
 import { formatWhen, minutesOfDay, toDateKey } from "@/lib/study-schedule.js"
 import { EVENT_TYPE_LABELS, describeEvent, eventKind } from "@/lib/study-plan-events.js"
 import { returnState } from "@/lib/assessment-return"
+import { activityLabel, studyActivityFor } from "@/lib/study-activity.js"
+import { StudyActivityDialog } from "@/components/learner/study-activity-dialog.jsx"
 import { createPlanMockExam } from "@/services/recallService.js"
 import { getLessonById } from "@/services/learnerService.js"
 import {
@@ -46,15 +48,16 @@ function formatDay(dateKey) {
 }
 
 function actionFor(event) {
-  const kind = eventKind(event)
+  const activity = studyActivityFor(event)
+  if (!activity) return null
 
-  if (kind === "mock") {
-    return event.certificationId ? { label: "Start mock exam", mockFor: event.certificationId } : null
-  }
+  const action = { activity, label: activityLabel(activity, event) }
 
-  if ((kind === "lesson" || kind === "review" || kind === "quiz") && event.lessonId) {
+  if (activity === "mock") return { ...action, mockFor: event.certificationId }
+
+  if (activity === "lesson" || activity === "pomodoro") {
     return {
-      label: kind === "lesson" ? "Open lesson" : "Open topic",
+      ...action,
       lesson: {
         lessonId: event.lessonId,
         middleCategoryId: event.middleCategoryId ?? null,
@@ -63,7 +66,7 @@ function actionFor(event) {
     }
   }
 
-  return null
+  return action
 }
 
 /** `footer` renders under the plan, full width (the board puts this week's study summary there). */
@@ -73,6 +76,8 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
   // Only one pomodoro at a time: hide Start while a session is running.
   const pomodoro = usePomodoro()
   const [mock, setMock] = useState({ building: null, error: null })
+  // The recall quiz / flashcard review a task opened, run in a dialog here.
+  const [session, setSession] = useState(null)
 
   const plansQuery = useQuery({
     queryKey: [STUDY_PLAN_QUERY_KEY, "mine"],
@@ -101,6 +106,31 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
         ? `/learner/learning/${certId}/topics/${topicId}?lesson=${lessonId}`
         : `/learner/lessons/${lessonId}`
     )
+  }
+
+  function recordStatus(event, status) {
+    if (!event?.planId || !event?.id || !status) return
+    setStudyPlanTaskStatus({ planId: event.planId, eventId: event.id, status })
+      .then(() => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }))
+      .catch((error) => console.warn("Could not record the study task status.", error))
+  }
+
+  function openSession(event, activity) {
+    setSession({
+      activity,
+      planId: event.planId ?? null,
+      event,
+      certification: event.certificationLabel ?? null,
+      certificationId: event.certificationId ?? null,
+    })
+    recordStatus(event, "IN_PROGRESS")
+  }
+
+  function runAction(event, action) {
+    if (action.mockFor) return startMock(event.key, action.mockFor)
+    if (action.activity === "mistakes") return navigate("/learner/mistakes")
+    if (action.lesson) return openLesson(action.lesson)
+    return openSession(event, action.activity)
   }
 
   async function startMock(key, id) {
@@ -267,9 +297,7 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
                         <button
                           type="button"
                           disabled={mock.building != null}
-                          onClick={() =>
-                            action.mockFor ? startMock(event.key, action.mockFor) : openLesson(action.lesson)
-                          }
+                          onClick={() => runAction(event, action)}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 disabled:opacity-60"
                         >
                           {mock.building === event.key ? "Building your mock exam…" : action.label}
@@ -347,6 +375,20 @@ export function TodaysPlanTile({ onCreatePlan, footer = null }) {
       </div>
       {footer ? (
         <div className="shrink-0 border-t border-border/60 bg-muted/10 px-5 py-3.5 sm:px-6 sm:py-4">{footer}</div>
+      ) : null}
+
+      {session ? (
+        <StudyActivityDialog
+          activity={session.activity}
+          task={session}
+          onFinish={(status) => {
+            const event = session.event
+            setSession(null)
+            // Closing a session the learner opened themselves is not a skip: the
+            // task stays in progress on the plan so it can be picked up again.
+            if (status && status !== "SKIPPED") recordStatus(event, status)
+          }}
+        />
       ) : null}
     </BentoTile>
   )

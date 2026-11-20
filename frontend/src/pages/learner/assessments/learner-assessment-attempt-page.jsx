@@ -619,6 +619,8 @@ export default function LearnerAssessmentAttemptPage() {
   const assessmentType = String(attempt?.assessmentType ?? "").toUpperCase()
   const isDiagnostic = assessmentType === "DIAGNOSTIC"
   const isChallenge = assessmentType === "CHALLENGE"
+  // A recall quiz is study, not an exam sitting: it is finished, not submitted.
+  const isRecall = assessmentType === "RECALL"
 
   function showResult(attemptId, state) {
     if (leavingRef.current) return
@@ -642,13 +644,14 @@ export default function LearnerAssessmentAttemptPage() {
 
   // A diagnostic is a learning baseline, not a proctored sitting. Its answers must
   // reach the mastery model even when the learner changes tabs or needs to return.
-  useNoCopyDuringAttempt(attempt != null && !isDiagnostic)
+  // A recall quiz is the same: it is study off your own weak questions.
+  useNoCopyDuringAttempt(attempt != null && !isDiagnostic && !isRecall)
 
   const integrity = useAttemptIntegrity({
     attemptId: attempt?.assessmentAttemptId ?? null,
-    // Diagnostics and challenges are learning tools, not proctored sittings.
+    // Diagnostics, challenges and recall quizzes are learning tools, not proctored sittings.
     enabled: attempt != null && !timeUp && !handedIn
-        && !isDiagnostic && !isChallenge,
+        && !isDiagnostic && !isChallenge && !isRecall,
     onClock: setClockExpiresAt,
     getQuestionId: () => currentQuestionIdRef.current,
     initialViolations: attempt?.focusViolations,
@@ -831,15 +834,27 @@ export default function LearnerAssessmentAttemptPage() {
         leaveTitle: isWorldCup ? "Leave this round?" : "Leave this challenge?",
         keep: "Keep playing",
         leave: isWorldCup ? "Leave round" : "Leave challenge",
+        submit: isWorldCup ? "Submit round" : "Submit challenge",
       }
-    : {
-        title: attempt?.assessmentTitle,
-        finish: "Finish attempt",
-        submitTitle: "Submit assessment?",
-        leaveTitle: "Leave this attempt?",
-        keep: "Keep Taking Assessment",
-        leave: "Leave Attempt",
-      }
+    : isRecall
+      ? {
+          title: "Recall quiz",
+          finish: "Finish recall quiz",
+          submitTitle: "Finish this recall quiz?",
+          leaveTitle: "Leave this recall quiz?",
+          keep: "Keep answering",
+          leave: "Leave quiz",
+          submit: "Finish recall quiz",
+        }
+      : {
+          title: attempt?.assessmentTitle,
+          finish: "Finish attempt",
+          submitTitle: "Submit assessment?",
+          leaveTitle: "Leave this attempt?",
+          keep: "Keep Taking Assessment",
+          leave: "Leave Attempt",
+          submit: "Submit Assessment",
+        }
 
   const answeredIds = useMemo(() => {
     const set = new Set()
@@ -1628,7 +1643,7 @@ export default function LearnerAssessmentAttemptPage() {
                     }}
                     disabled={submitMutation.isPending}
                 >
-                  {submitMutation.isPending ? "Submitting..." : isChallenge ? copy.finish : "Submit Assessment"}
+                  {submitMutation.isPending ? "Submitting..." : copy.submit}
                 </AlertDialogAction>
               )}
             </AlertDialogFooter>

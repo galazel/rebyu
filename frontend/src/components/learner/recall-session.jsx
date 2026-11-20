@@ -6,7 +6,12 @@ import { Brain, Loader2 } from "@/components/icons"
 import { createRecallSession } from "@/services/recallService.js"
 import { returnState } from "@/lib/assessment-return"
 
-export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
+/**
+ * `scope` picks what the session is built from: "lesson" is the short day-after
+ * recall of the task's own topic, "interleaved" leads with that topic and then
+ * keeps going across the ones studied earlier, led by what is missed most.
+ */
+export function RecallSession({ task, certificationId, scope = "lesson", size, onStarted, onDismiss }) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -24,6 +29,7 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
     createRecallSession({
       certificationId,
       lessonId: task?.lessonId ?? null,
+      size,
     })
       .then((session) => {
         if (!cancelled) setState({ status: "ready", session })
@@ -35,7 +41,7 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
     return () => {
       cancelled = true
     }
-  }, [certificationId, task?.lessonId])
+  }, [certificationId, task?.lessonId, scope, size])
 
   if (state.status === "building") {
     return (
@@ -43,8 +49,9 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
         <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
         <p className="text-sm font-medium text-foreground">Building your recall session</p>
         <p className="max-w-sm text-xs leading-5 text-muted-foreground">
-          Picking the questions you have missed most, and the topics your mastery is
-          weakest on.
+          {scope === "interleaved"
+            ? "Starting from this topic, then spreading across the ones you studied earlier."
+            : "Picking the questions you have missed most on this topic, and the parts of it your mastery is weakest on."}
         </p>
       </div>
     )
@@ -84,7 +91,9 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
         <p className="mt-1 max-w-sm text-sm leading-6 text-muted-foreground">
           {session.basis === "coverage"
             ? "You have no missed questions on this certification yet, so this is a spread across its topics to find your starting point."
-            : "Built from the questions you have missed most and the topics your mastery is weakest on."}
+            : scope === "interleaved"
+              ? "This one leads with the topic on your plan and then keeps going across the ones you studied earlier, so the recall is mixed rather than one topic at a time. Answer from memory, then reread only what you miss."
+              : "Yesterday's topic, from memory. Built from the questions you have missed most on it. Open the lesson again only after you have answered."}
         </p>
       </div>
 

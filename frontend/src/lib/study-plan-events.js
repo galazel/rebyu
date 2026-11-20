@@ -401,7 +401,7 @@ export function planStudy({
             ...base(current),
             type: "quiz",
             title: `Recall quiz: ${recalled.title}`,
-            detail: "Answer questions on yesterday's lesson without looking at notes. Only check the lesson after you have answered.",
+            detail: "A short quiz on yesterday's lesson alone, with your notes closed. Only open the lesson again after you have answered.",
             minutes: sessionMinutes(15),
             ...lessonFields(recalled),
           })
@@ -420,7 +420,7 @@ export function planStudy({
             title: technique === "active-recall" ? `Recall quiz: ${lesson.title}` : `Review: ${lesson.title}`,
             detail:
               technique === "active-recall"
-                ? "A lighter day: answer questions on a recent lesson from memory, then check what you missed."
+                ? "A lighter day: a short quiz on one recent lesson, answered from memory before you check it."
                 : "A lighter day: reread your notes on a recent lesson and redo any questions you got wrong.",
             minutes: sessionMinutes(20),
             ...lessonFields(lesson),
@@ -441,7 +441,7 @@ export function planStudy({
             title: `Review: ${lesson.title}`,
             detail:
               technique === "active-recall"
-                ? "Test yourself on this topic from memory first, then reread only the parts you got wrong."
+                ? "A longer, mixed session: it starts on this topic and then keeps jumping to earlier ones, so you cannot coast on what is fresh. Answer from memory, then reread only what you missed."
                 : "Go back over this topic and redo the questions you got wrong. Your readiness date has passed -- this is the time to fix weak spots.",
             minutes: sessionMinutes(25),
             ...lessonFields(lesson),
