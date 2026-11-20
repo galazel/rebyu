@@ -477,6 +477,23 @@ public class LearnerService {
 
     public void delete(Long id) {
         findEntity(id);
+
+        String institutionName = institutionCertificationLearnerRepository
+                .findByLearner_LearnerId(id).stream()
+                .map(InstitutionCertificationLearner::getInstitutionCert)
+                .filter(institutionCert -> institutionCert != null
+                        && institutionCert.getInstitution() != null)
+                .map(institutionCert -> institutionCert.getInstitution().getInstitutionName())
+                .filter(name -> name != null && !name.isBlank())
+                .findFirst()
+                .orElse(null);
+
+        if (institutionName != null) {
+            throw new IllegalStateException(
+                    "This learner belongs to " + institutionName
+                            + ". Remove them from the institution before deleting the account.");
+        }
+
         accountDeletionService.deleteLearner(id);
     }
 

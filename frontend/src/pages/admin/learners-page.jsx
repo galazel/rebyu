@@ -289,7 +289,22 @@ export default function Learners({
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (learner) => deleteLearner(learner.learnerId ?? learner.id),
+    mutationFn: (learner) => {
+      const institutionName =
+          learner?.institutionName ??
+          learner?.institution?.name ??
+          learner?.institution?.institutionName
+
+      if (institutionName) {
+        return Promise.reject(
+            new Error(
+                `${getLearnerName(learner)} belongs to ${institutionName}. Remove them from the institution before deleting the account.`
+            )
+        )
+      }
+
+      return deleteLearner(learner.learnerId ?? learner.id)
+    },
     onSuccess: (_result, learner) => {
       setPendingDelete(null)
       queryClient.invalidateQueries({ queryKey: ["admin-learners"] })
@@ -719,17 +734,36 @@ export default function Learners({
                           </div>
                         </div>
 
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          aria-label={`Delete ${learnerName}`}
-                          onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}
-                        >
-                          <Trash2 className="mr-1 size-3.5" />
-                          <span>Delete</span>
-                        </Button>
+                        {institutionName ? (
+                          <span
+                            className="inline-flex"
+                            title={`${learnerName} belongs to ${institutionName}. Remove them from the institution before deleting the account.`}
+                          >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled
+                              className="h-7 px-2 text-xs font-medium"
+                              aria-label={`Delete ${learnerName} (unavailable: institution learner)`}
+                            >
+                              <Trash2 className="mr-1 size-3.5" />
+                              <span>Delete</span>
+                            </Button>
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete ${learnerName}`}
+                            onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}
+                          >
+                            <Trash2 className="mr-1 size-3.5" />
+                            <span>Delete</span>
+                          </Button>
+                        )}
                       </div>
                     </article>
                   )
@@ -923,9 +957,20 @@ export default function Learners({
                               </TableCell>
 
                               <TableCell className="text-right">
-                                <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-destructive/30 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Delete ${learnerName}`} onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}>
-                                  <Trash2 className="size-3.5" /> Delete
-                                </Button>
+                                {institutionName ? (
+                                    <span
+                                        className="inline-flex"
+                                        title={`${learnerName} belongs to ${institutionName}. Remove them from the institution before deleting the account.`}
+                                    >
+                                      <Button type="button" variant="outline" size="sm" disabled className="h-8 gap-1.5 text-xs font-semibold" aria-label={`Delete ${learnerName} (unavailable: institution learner)`}>
+                                        <Trash2 className="size-3.5" /> Delete
+                                      </Button>
+                                    </span>
+                                ) : (
+                                    <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 border-destructive/30 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Delete ${learnerName}`} onClick={() => onDelete ? onDelete(learner) : setPendingDelete(learner)}>
+                                      <Trash2 className="size-3.5" /> Delete
+                                    </Button>
+                                )}
                               </TableCell>
                             </TableRow>
                         )
