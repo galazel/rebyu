@@ -178,6 +178,12 @@ export function getGroupLearnerIntegrity(departmentId, learnerId) {
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}/integrity`)
 }
 
+/** This week's study behaviour for one learner on one of the department's certifications. */
+export function getGroupLearnerStudyBehavior(departmentId, learnerId, certificationId = null) {
+  const query = certificationId != null ? `?certificationId=${certificationId}` : ""
+  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/study-behavior${query}`)
+}
+
 export function getGroupLearnerAnalytics(departmentId, learnerId, certificationId = null) {
   const query = certificationId != null ? `?certificationId=${certificationId}` : ""
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics${query}`)

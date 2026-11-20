@@ -34,6 +34,7 @@ import {
   getGroupLearnerAwards,
   getGroupLearnerRoster,
   getDepartmentById,
+  getGroupLearnerStudyBehavior,
 } from "@/services/institutionService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
@@ -271,6 +272,136 @@ function ActivityGrid({ attempts }) {
         </span>
       </div>
     </div>
+  )
+}
+
+/** Staff wording for how the learner has been reading, not the learner's own. */
+const STUDY_PACE = {
+  Steady: {
+    chip: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300",
+    note: "Read at a steady pace this week.",
+  },
+  Fast: {
+    chip: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200",
+    note: "Skimmed a few sections quickly. Worth suggesting they slow down.",
+  },
+  Rushed: {
+    chip: "border-red-300 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300",
+    note: "Skimmed many sections quickly — lessons are being scrolled past rather than read.",
+  },
+}
+
+function studyDayLetter(date) {
+  const day = new Date(`${date}T00:00:00`)
+  return Number.isNaN(day.getTime()) ? "" : ["S", "M", "T", "W", "T", "F", "S"][day.getDay()]
+}
+
+function StudyWeekBars({ trend }) {
+  const days = Array.isArray(trend) ? trend.slice(-7) : []
+  if (days.length === 0) return null
+  const peak = Math.max(1, ...days.map((day) => Number(day.studyMinutes) || 0))
+  return (
+    <div
+      className="flex items-end gap-1.5"
+      role="img"
+      aria-label={`Minutes studied each day: ${days.map((day) => `${studyDayLetter(day.date)} ${day.studyMinutes}`).join(", ")}`}
+    >
+      {days.map((day, index) => {
+        const minutes = Number(day.studyMinutes) || 0
+        const isToday = index === days.length - 1
+        return (
+          <div
+            key={day.date}
+            className="flex flex-col items-center gap-1"
+            title={`${day.date}: ${minutes} min${day.rushes ? ` · ${day.rushes} skimmed` : ""}`}
+          >
+            <div className="relative flex h-12 w-3.5 items-end overflow-hidden rounded-sm bg-muted">
+              <div
+                className={cn("w-full rounded-sm", isToday ? "bg-emerald-600" : "bg-emerald-400/80")}
+                style={{ height: minutes ? `max(3px, ${(minutes / peak) * 100}%)` : 0 }}
+              />
+            </div>
+            <span className={cn("text-[10px] font-bold leading-none", isToday ? "text-foreground" : "text-muted-foreground")}>
+              {studyDayLetter(day.date)}
+            </span>
+            <span className={cn("size-1 rounded-full", day.rushes ? "bg-red-500" : "bg-transparent")} aria-hidden="true" />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * How the learner has studied this certification over the last seven days: time
+ * on lessons, how much of it was read rather than skimmed, and the focus checks
+ * they answered. The figures are the learner's own dashboard ones, so a head and
+ * a learner are looking at the same week.
+ */
+function StudyBehaviourSection({ query, certificationTitle }) {
+  const behavior = query.data
+  const minutes = Number(behavior?.weekStudyMinutes ?? 0)
+  const today = Number(behavior?.todayStudyMinutes ?? 0)
+  const focus = Number(behavior?.focusConsistency ?? 100)
+  const pace = behavior?.readingPace ?? "Steady"
+  const paceStyle = STUDY_PACE[pace] ?? STUDY_PACE.Steady
+  const rushes = Number(behavior?.rushEvents ?? 0)
+  const checks = Number(behavior?.challengeCompletions ?? 0)
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="text-sm font-semibold text-foreground">Study behaviour this week</h2>
+        {certificationTitle ? (
+          <p className="text-xs text-muted-foreground">{certificationTitle}</p>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl border border-border/70 bg-card p-4 sm:p-5">
+        {query.isLoading ? (
+          <div className="h-20 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading study behaviour" />
+        ) : query.isError ? (
+          <p className="text-sm text-muted-foreground">Their study behaviour could not be loaded.</p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <p className="leading-none">
+                <span className="font-rb-display text-3xl font-extrabold tabular-nums text-foreground">{minutes}</span>
+                <span className="ml-1 text-xs font-bold text-muted-foreground">min studied · {today} today</span>
+              </p>
+              <StudyWeekBars trend={behavior?.trend} />
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-0.5",
+                  focus >= 75 ? STUDY_PACE.Steady.chip : focus >= 50 ? STUDY_PACE.Fast.chip : STUDY_PACE.Rushed.chip
+                )}
+                title="How consistently they read without skimming. Every fast scroll lowers it."
+              >
+                {focus}% focus
+              </span>
+              <span
+                className={cn("rounded-full border px-2 py-0.5", paceStyle.chip)}
+                title={`${rushes} fast-scroll event${rushes === 1 ? "" : "s"} this week`}
+              >
+                {pace} pace
+              </span>
+              <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-muted-foreground">
+                {checks} focus check{checks === 1 ? "" : "s"} done
+              </span>
+            </div>
+
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {minutes > 0
+                ? paceStyle.note
+                : "No lesson reading recorded this week on this certification."}
+            </p>
+          </>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -637,6 +768,16 @@ export default function InstitutionDepartmentLearnerPage() {
   })
 
 
+  // This week's reading, for the certification whose tab is open.
+  const behaviorQuery = useQuery({
+    queryKey: ["group-learner-behavior", departmentIdNumber, learnerIdNumber, activeCertificationId],
+    queryFn: () => getGroupLearnerStudyBehavior(departmentIdNumber, learnerIdNumber, activeCertificationId),
+    placeholderData: (previous) => previous,
+    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    staleTime: 60_000,
+    retry: 1,
+  })
+
   const integrityQuery = useQuery({
     queryKey: ["group-learner-integrity", departmentIdNumber, learnerIdNumber],
     queryFn: () => getGroupLearnerIntegrity(departmentIdNumber, learnerIdNumber),
@@ -909,6 +1050,11 @@ export default function InstitutionDepartmentLearnerPage() {
         ) : null}
 
         <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} flags={integrityByAttempt} />
+
+        <StudyBehaviourSection
+          query={behaviorQuery}
+          certificationTitle={analytics?.certificationTitle ?? activeEnrolment?.certificationTitle ?? null}
+        />
 
         <AssessmentIntegritySection query={integrityQuery} onOpen={setReviewAttemptId} />
 

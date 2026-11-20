@@ -15,6 +15,8 @@ import com.capstone.rebyu.department.service.DepartmentService;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.progress.analytics.dto.ProgressAnalyticsDtos.ProgressAnalyticsResponse;
 import com.capstone.rebyu.progress.analytics.service.ProgressAnalyticsService;
+import com.capstone.rebyu.progress.telemetry.dto.StudyTelemetryDtos;
+import com.capstone.rebyu.progress.telemetry.service.StudyTelemetryService;
 import com.capstone.rebyu.user.entity.Learner;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,7 @@ public class InstitutionLearnerInsightsService {
     private final DepartmentLearnerRepository departmentLearnerRepository;
     private final DepartmentService departmentService;
     private final ProgressAnalyticsService progressAnalyticsService;
+    private final StudyTelemetryService studyTelemetryService;
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private final AssessmentAttemptRepository assessmentAttemptRepository;
@@ -197,6 +200,47 @@ public class InstitutionLearnerInsightsService {
                     "This learner has no certification in this department: " + departmentId);
         }
         return progressAnalyticsService.getProgressAnalytics(learnerId, certificationId);
+    }
+
+    /**
+     * How the learner has been studying one of this department's certifications this week:
+     * minutes read, how consistently they read without skimming, and the focus checks they
+     * answered. The same figures the learner sees on their own dashboard.
+     */
+    @Transactional(readOnly = true)
+    public StudyTelemetryDtos.BehaviorSummary learnerStudyBehavior(
+            Long departmentId, Long learnerId, Long requestedCertificationId,
+            Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
+        Long certificationId = certificationStudiedHere(departmentId, learnerId, requestedCertificationId);
+        return studyTelemetryService.summary(learnerId, certificationId);
+    }
+
+    /**
+     * The certification to report on: the one asked for, once it is confirmed the learner
+     * studies it in this department, else the first one they do.
+     */
+    private Long certificationStudiedHere(Long departmentId, Long learnerId, Long requested) {
+        java.util.List<Long> studied = departmentLearnerRepository
+                .findByDepartment_DepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
+                .filter(assignee -> {
+                    Learner learner = learnerOf(assignee);
+                    return learner != null && learner.getLearnerId().equals(learnerId);
+                })
+                .map(this::certificationIdOf)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (requested != null && !studied.contains(requested)) {
+            throw new EntityNotFoundException("This learner does not study that certification in this department.");
+        }
+        Long certificationId = requested != null ? requested : studied.isEmpty() ? null : studied.get(0);
+        if (certificationId == null) {
+            throw new EntityNotFoundException(
+                    "This learner has no certification in this department: " + departmentId);
+        }
+        return certificationId;
     }
 
     /**

@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { CheckCircle2, Clock, MinusCircleIcon, ShieldAlert, XCircle } from "@/components/icons"
 import { IntegrityAttemptBadges, IntegrityTimeline } from "@/components/institution/assessment-integrity-section.jsx"
@@ -8,6 +9,89 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AuthedImage } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
 import { getMemberAttemptResult } from "@/services/institutionService.js"
+
+/** How many lessons to list before the rest are folded away. */
+const LESSONS_SHOWN = 6
+
+/**
+ * Where the learner lost marks, lesson by lesson.
+ *
+ * A diagnostic covers one question per lesson, so the full breakdown of a 64-item
+ * paper is 64 rows of "0/1" -- longer than the answers below it and no easier to
+ * read. What a department head is looking for is the lessons that went wrong, so
+ * those are listed worst first and the rest stay behind a toggle.
+ */
+function LessonBreakdown({ lessons }) {
+  const [showAll, setShowAll] = useState(false)
+
+  const { missed, clean, total } = useMemo(() => {
+    const rows = (Array.isArray(lessons) ? lessons : []).map((lesson) => {
+      const items = Number(lesson.itemCount ?? 0)
+      const correct = Number(lesson.correctCount ?? 0)
+      return { ...lesson, items, correct, share: items > 0 ? correct / items : 1 }
+    })
+    return {
+      missed: rows.filter((row) => row.share < 1).sort((a, b) => a.share - b.share || b.items - a.items),
+      clean: rows.filter((row) => row.share >= 1),
+      total: rows.length,
+    }
+  }, [lessons])
+
+  if (total === 0) return null
+
+  const listed = showAll ? [...missed, ...clean] : missed.slice(0, LESSONS_SHOWN)
+  const hidden = total - listed.length
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h3 className="text-sm font-semibold text-foreground">By lesson</h3>
+        <p className="text-xs text-muted-foreground">
+          {missed.length === 0
+            ? `All ${total} lessons answered correctly`
+            : `${missed.length} of ${total} ${missed.length === 1 ? "lesson" : "lessons"} missed marks`}
+        </p>
+      </div>
+
+      {listed.length ? (
+        <ul className="mt-2 divide-y rounded-lg border">
+          {listed.map((lesson) => (
+            <li
+              key={lesson.lessonId ?? lesson.lessonTitle}
+              className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+            >
+              <span className="min-w-0 truncate text-foreground">{lesson.lessonTitle ?? "Lesson"}</span>
+              <span
+                className={cn(
+                  "shrink-0 tabular-nums",
+                  lesson.share >= 1
+                    ? "text-muted-foreground"
+                    : lesson.share > 0
+                      ? "text-amber-700 dark:text-amber-300"
+                      : "font-semibold text-red-700 dark:text-red-300"
+                )}
+              >
+                {lesson.correct}/{lesson.items}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {hidden > 0 || showAll ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((open) => !open)}
+          className="mt-2 text-xs font-semibold text-primary hover:underline"
+        >
+          {showAll
+            ? `Show only the ${missed.length} missed`
+            : `Show all ${total} lessons (${hidden} more)`}
+        </button>
+      ) : null}
+    </section>
+  )
+}
 
 function formatDuration(totalSeconds) {
   if (totalSeconds == null) return "—"
@@ -267,21 +351,7 @@ export default function MemberAttemptReviewSheet({ departmentId, learnerId, lear
                 {result.proficiency?.label ? <Stat label="Proficiency" value={result.proficiency.label} /> : null}
               </div>
 
-              {result.lessonBreakdown?.length ? (
-                <section>
-                  <h3 className="text-sm font-semibold text-foreground">By lesson</h3>
-                  <ul className="mt-2 divide-y rounded-lg border">
-                    {result.lessonBreakdown.map((lesson) => (
-                      <li key={lesson.lessonId ?? lesson.lessonTitle} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                        <span className="min-w-0 truncate text-foreground">{lesson.lessonTitle ?? "Lesson"}</span>
-                        <span className="shrink-0 text-muted-foreground">
-                          {lesson.correctCount ?? 0}/{lesson.itemCount ?? 0}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
+              <LessonBreakdown lessons={result.lessonBreakdown} />
 
               <section>
                 <h3 className="text-sm font-semibold text-foreground">Answers</h3>

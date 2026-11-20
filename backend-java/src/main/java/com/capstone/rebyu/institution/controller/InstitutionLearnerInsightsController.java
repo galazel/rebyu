@@ -65,6 +65,18 @@ public class InstitutionLearnerInsightsController {
                 departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
     }
 
+    /** How this learner has studied one certification this week: time, focus and skimming. */
+    @GetMapping("/{departmentId}/learners/{learnerId}/study-behavior")
+    public com.capstone.rebyu.progress.telemetry.dto.StudyTelemetryDtos.BehaviorSummary studyBehavior(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long departmentId,
+            @PathVariable Long learnerId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long certificationId) {
+        CurrentUserDto user = requireInstitution(jwt);
+        return insightsService.learnerStudyBehavior(
+                departmentId, learnerId, certificationId, user.institutionId(), user.userId(), isOwner(user));
+    }
+
     @GetMapping("/{departmentId}/assessments/{examId}/results")
     public InstitutionLearnerInsightsService.AssessmentResults assessmentResults(
             @AuthenticationPrincipal Jwt jwt,
