@@ -61,6 +61,7 @@ import { friendlyActivityRequest } from "@/lib/friendly-activity-request.js"
 import { tutorActivityScope } from "@/lib/tutor-widget-progress.js"
 import { MicButton } from "@/components/learner/mic-button.jsx"
 import { LiveTutor, LiveTutorVoiceOrb } from "@/components/learner/live-tutor.jsx"
+import { showLiveTutor } from "@/lib/live-tutor-visibility.js"
 
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
@@ -1363,21 +1364,23 @@ export function LessonAiTutor({
                       </span>
                     </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuItem
-                  onSelect={() => onStartLive ? onStartLive() : setLiveTutorOpen(true)}
-                  className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]"
-                  aria-label="Open live tutor"
-                >
-                  <span className="tg-badge-icon !rounded-lg">
-                    <Radio className="size-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-foreground">Live tutor</span>
-                    <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
-                      Talk, dictate, and chat with your tutor
+                {showLiveTutor ? (
+                  <DropdownMenuItem
+                    onSelect={() => onStartLive ? onStartLive() : setLiveTutorOpen(true)}
+                    className="!min-h-0 !items-start !gap-3 !rounded-xl !px-2.5 !py-2.5 focus:!bg-[var(--tg-softer)]"
+                    aria-label="Open live tutor"
+                  >
+                    <span className="tg-badge-icon !rounded-lg">
+                      <Radio className="size-4" aria-hidden="true" />
                     </span>
-                  </span>
-                </DropdownMenuItem>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-foreground">Live tutor</span>
+                      <span className="mt-0.5 block text-xs leading-4 text-muted-foreground">
+                        Talk, dictate, and chat with your tutor
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ) : null}
                 {/* AI usage lives on the ring beside the send button, not here too. */}
               </DropdownMenuContent>
             </DropdownMenu>

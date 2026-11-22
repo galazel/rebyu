@@ -33,4 +33,11 @@ test("TC-100: Tutor answer success", async (context) => {
   expect(
     screen.getByRole("button", { name: "Send message" })
   ).not.toBeDisabled()
+
+  fireEvent.keyDown(screen.getByRole("button", { name: "Create study aid" }), {
+    key: "ArrowDown",
+  })
+  expect(await screen.findByRole("menuitem", { name: /Practice & games/ })).toBeInTheDocument()
+  expect(screen.getByRole("menuitem", { name: /Guided dialogue/ })).toBeInTheDocument()
+  expect(screen.queryByRole("menuitem", { name: /Live tutor/ })).not.toBeInTheDocument()
 }, 15000)

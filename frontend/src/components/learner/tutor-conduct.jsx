@@ -56,7 +56,7 @@ export function TutorConductModal({ notice }) {
     icon: Lock,
     tone: "bg-destructive/10 text-destructive",
     title: "AI tutor paused",
-    body: `After repeated warnings, your access to the AI Tutor, Dialogue and Live Tutor is paused until ${untilLabel(notice.lockedUntil)}. You can keep studying your lessons in the meantime.`,
+    body: `After repeated warnings, your AI tutor access is paused until ${untilLabel(notice.lockedUntil)}. You can keep studying your lessons in the meantime.`,
     action: "I understand",
   } : level === "final" ? {
     icon: ShieldAlert,
@@ -105,7 +105,7 @@ export function TutorLockedPanel({ lockedUntil }) {
         </span>
         <p className="font-rb-display text-lg font-extrabold text-foreground">AI tutor paused</p>
         <p className="max-w-xs text-sm text-muted-foreground">
-          Your AI Tutor, Dialogue and Live Tutor access is paused because of repeated unsafe messages,
+          Your AI tutor access is paused because of repeated unsafe messages,
           even after warnings. You can still read your lessons and take your quizzes.
         </p>
         <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-bold text-foreground">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { showLiveTutor } from "@/lib/live-tutor-visibility.js"
 import { cn } from "@/lib/utils"
 
 import {
@@ -42,6 +43,15 @@ import { ReadingGuardSettingsCard } from "@/components/admin/reading-guard-setti
 const money = (value) =>
   value === null || value === undefined ? "—" : `$${Number(value).toFixed(2)}`
 
+const proAiLimitsSection = {
+  id: showLiveTutor ? "section-live-tutor" : "section-pro-ai-limits",
+  label: showLiveTutor ? "Live Tutor & Voice Limits" : "Pro AI Usage Limits",
+  shortLabel: showLiveTutor ? "Live Tutor" : "Pro AI Limits",
+  group: "Core Services",
+  icon: Sparkles,
+  badge: showLiveTutor ? "ElevenLabs" : null,
+}
+
 function priceOf(model) {
   if (!model) return ""
   if (model.free) return "Free"
@@ -49,7 +59,7 @@ function priceOf(model) {
 }
 
 export default function AiSettingsPage() {
-  const [activeSection, setActiveSection] = useState("section-live-tutor")
+  const [activeSection, setActiveSection] = useState(proAiLimitsSection.id)
   const [sidebarFilter, setSidebarFilter] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   // While a click's smooth scroll runs, scroll tracking must not move the highlight.
@@ -67,14 +77,7 @@ export default function AiSettingsPage() {
   // Navigation items index for each section of information
   const sections = useMemo(() => {
     const list = [
-      {
-        id: "section-live-tutor",
-        label: "Live Tutor & Voice Limits",
-        shortLabel: "Live Tutor",
-        group: "Core Services",
-        icon: Sparkles,
-        badge: "ElevenLabs",
-      },
+      proAiLimitsSection,
       {
         id: "section-reading-guard",
         label: "Lessons · Skim Challenge",
@@ -378,8 +381,7 @@ export default function AiSettingsPage() {
 
         {/* Main Content Sections */}
         <div className="min-w-0 space-y-6">
-          {/* Section 1: Live Tutor */}
-          <div id="section-live-tutor" className="scroll-mt-28 sm:scroll-mt-20">
+          <div id={proAiLimitsSection.id} className="scroll-mt-28 sm:scroll-mt-20">
             <LiveTutorSettingsCard />
           </div>
 

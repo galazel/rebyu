@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { base } from "@/services/base"
 import { LockIcon } from "@/components/icons"
 import { useTutorConduct } from "@/lib/tutor-conduct.js"
+import { showLiveTutor } from "@/lib/live-tutor-visibility.js"
 
 import {
   DropdownMenu,
@@ -143,7 +144,7 @@ function TutorStanding({ compact = false }) {
   const hours = status.data?.lockoutHours ?? 7
 
   if (locked) {
-    const detail = `Chat, Guided Dialogue and Live Tutor are paused after ${lockAt} conduct warnings. Unlocks at ${unlockAt(lockedUntil)}.`
+    const detail = `AI tutor access is paused after ${lockAt} conduct warnings. Unlocks at ${unlockAt(lockedUntil)}.`
     // Sidebar: one quiet line, details on hover -- it must not push the navigation away.
     if (compact) {
       return (
@@ -209,7 +210,9 @@ export function AiUsageSummary({ className = "", showHeading = true, compact = f
     <div className={`rounded-md border bg-muted/20 p-4 ${className}`}>
       {showHeading ? <><p className="text-sm font-semibold text-foreground">AI usage</p>
       <p className="mb-3 text-xs text-muted-foreground">
-        Tutor chat, guided dialogue and Live Tutor share one allowance. Successful responses and Live Tutor sessions count once; failed attempts do not count.
+        {showLiveTutor
+          ? "Tutor chat, guided dialogue and Live Tutor share one allowance. Successful responses and Live Tutor sessions count once. Failed attempts are excluded."
+          : "Tutor chat and guided dialogue share one allowance. Successful responses count once. Failed attempts are excluded."}
       </p></> : null}
       <TutorStanding compact={compact} />
       <AiUsageBars bucketKey="tutor" showLabel={false} compact={compact} />
@@ -325,7 +328,7 @@ export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
       </p>
       <p className="mt-0.5 text-xs font-semibold opacity-90">
         {reached
-          ? `${reset}. Tutor chat, guided dialogue and new Live Tutor sessions all share this allowance.`
+          ? `${reset}. ${showLiveTutor ? "Tutor chat, guided dialogue and Live Tutor share this allowance." : "Tutor chat and guided dialogue share this allowance."}`
           : `${reset}.`}{" "}
         <UsageDialogLink />
       </p>
@@ -333,7 +336,7 @@ export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
   )
 }
 
-const MESSAGE_KINDS = { "tutor-chat": "Tutor chat", "tutor-dialogue": "Guided dialogue", "tutor-live": "Live Tutor sessions" }
+const MESSAGE_KINDS = { "tutor-chat": "Tutor chat", "tutor-dialogue": "Guided dialogue" }
 const TOOL_LABELS = {
   quiz: "Practice quiz", flashcards: "Flashcards", mindmap: "Mind map", table: "Comparison table",
   cards: "Example cards", steps: "Worked example", matching: "Matching", ordering: "Put in order",
@@ -380,6 +383,10 @@ export function AiUsageBreakdown({ className = "" }) {
 
   const counts = data[range] ?? {}
   const messages = Object.entries(MESSAGE_KINDS).map(([kind, label]) => [label, counts[kind] ?? 0])
+  const liveSessions = counts["tutor-live"] ?? 0
+  if (showLiveTutor || liveSessions > 0) {
+    messages.push([showLiveTutor ? "Live Tutor sessions" : "Other tutor activity", liveSessions])
+  }
   const messageTotal = messages.reduce((sum, [, count]) => sum + count, 0)
   const tools = Object.entries(counts)
     .filter(([kind]) => kind.startsWith("tool:"))
@@ -424,7 +431,12 @@ export function AiUsageBreakdown({ className = "" }) {
           </div>
         </div>
       ) : null}
-      <p className="text-xs text-muted-foreground">A successful chat reply, guided dialogue response or Live Tutor session counts once toward the shared limits. Failed connections, provider errors and incomplete replies do not count. Tools are shown for reference and do not count again.</p>
+      <p className="text-xs text-muted-foreground">
+        {showLiveTutor
+          ? "A successful chat reply, guided dialogue response or Live Tutor session counts once toward the shared limits."
+          : "A successful chat reply or guided dialogue response counts once toward the shared limits."}{" "}
+        Failed attempts are excluded. Tools are shown for reference.
+      </p>
     </div>
   )
 }

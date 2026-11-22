@@ -46,6 +46,7 @@ import {
 
 import { BrandLogo } from "@/components/brand-logo";
 import { useTheme } from "@/hooks/use-theme";
+import { showLiveTutor } from "@/lib/live-tutor-visibility.js";
 import { FolderShelf } from "@/components/classroom/folder-shelf.jsx";
 import { PinBoard } from "@/components/classroom/pin-board.jsx";
 import { DiagnosticMock, ProgressMock, StudyLoopMock } from "@/pages/public/landing-product-mocks.jsx";
@@ -1948,8 +1949,8 @@ function AiTutorSection() {
           />
           <p className="rb-body-lg mt-4 max-w-lg">
             Stuck mid-lesson? Snip the part you mean and ask. The tutor knows which topics you are
-            weak at, answers with something you can do — not just a wall of text — and can teach
-            the lesson out loud.
+            weak at and answers with something you can do, like a quiz or a diagram.
+            {showLiveTutor ? " It can also teach the lesson out loud." : null}
           </p>
 
           <div className="mt-8 space-y-3">
@@ -1957,7 +1958,7 @@ function AiTutorSection() {
               [Crop, "Snip any part of the lesson and ask about exactly that"],
               [Zap, "Answers with quizzes, diagrams, mind maps and lesson games"],
               [MessageCircle, "Guided dialogue: explain it back, Feynman-style, and get feedback"],
-              [Mic, "Live voice tutor that teaches aloud — raise your hand to interrupt"],
+              ...(showLiveTutor ? [[Mic, "Live voice tutor that teaches aloud — raise your hand to interrupt"]] : []),
               [Bookmark, "Quizzes, flashcards and mind maps save to your Library"],
             ].map(([Icon, text], index) => (
               <div key={text} className="flex items-start gap-3">

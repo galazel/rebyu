@@ -6,7 +6,7 @@ import { createServer } from "vite"
 
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const executablePath = ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe", "/usr/bin/chromium"].find(existsSync)
-const server = await createServer({ root, server: { host: "127.0.0.1", port: 0, hmr: false }, plugins: [{ name: "admin-live-test", configureServer(vite) {
+const server = await createServer({ root, define: { "import.meta.env.VITE_SHOW_LIVE_TUTOR": '"true"' }, server: { host: "127.0.0.1", port: 0, hmr: false }, plugins: [{ name: "admin-live-test", configureServer(vite) {
   vite.middlewares.use(async (req, res, next) => {
     if (req.url !== "/__live_admin_test") return next()
     res.setHeader("Content-Type", "text/html")
@@ -33,10 +33,10 @@ try {
     }
     return request.continue()
   })
-  await page.goto(`${server.resolvedUrls.local[0]}__live_admin_test`)
+  await page.goto(`${server.resolvedUrls.local[0]}__live_admin_test`, { waitUntil: "domcontentloaded", timeout: 60000 })
   await page.waitForSelector('input[type="number"]', { timeout: 60000 })
-  await page.waitForFunction(() => document.body.textContent.includes("4 of 5"))
-  assert.equal(await page.evaluate(() => (document.body.textContent.match(/Weekly/g) ?? []).length), 1, "live sessions must not invent a weekly cap")
+  await page.waitForFunction(() => document.body.textContent.includes("1 of 50"))
+  assert.doesNotMatch(await page.$eval("body", (node) => node.textContent), /4 of 5|Live sessions per learner/)
   await page.select("select", "voiceB")
   await page.evaluate(() => {
     const input = document.querySelector('input[type="number"]')
@@ -45,13 +45,13 @@ try {
   })
   await page.click('button[type="submit"]')
   await page.waitForFunction(() => document.querySelector('button[type="submit"]').disabled)
-  assert.equal(savedRequest.dailySessionLimit, 8)
+  assert.equal(savedRequest.dailySessionLimit, undefined)
   assert.equal(savedRequest.voiceId, "voiceB")
   assert.equal(savedRequest.proDailyMessages, 50)
-  assert.equal(savedRequest.maxDurationSeconds, 1800)
+  assert.equal(savedRequest.maxDurationSeconds, 480)
   assert.equal(savedRequest.apiKey, undefined)
   creditsAvailable = false
-  await page.reload()
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 })
   await page.waitForFunction(() => document.body.textContent.includes("Balance permission unavailable"))
   assert.equal(await page.$eval('input[type="number"]', (input) => input.value), "8")
   console.log("PASS: admin voice/cap form, safe save payload, unavailable-credit state and persisted-value restoration.")
