@@ -3,18 +3,21 @@ import { socialTime } from "@/lib/social-time.js"
 
 const COMMUNITY_FEED_SNAPSHOT_KEY = "rebyu:community-feed-snapshot"
 
-export function readCommunityFeedSnapshot() {
+export function readCommunityFeedSnapshot(learnerId) {
+  if (learnerId == null) return null
   try {
     const raw = sessionStorage.getItem(COMMUNITY_FEED_SNAPSHOT_KEY)
-    return raw ? JSON.parse(raw) : null
+    const snapshot = raw ? JSON.parse(raw) : null
+    return snapshot?.learnerId === learnerId ? snapshot.feed : null
   } catch {
     return null
   }
 }
 
-export function writeCommunityFeedSnapshot(data) {
+export function writeCommunityFeedSnapshot(learnerId, feed) {
+  if (learnerId == null) return
   try {
-    sessionStorage.setItem(COMMUNITY_FEED_SNAPSHOT_KEY, JSON.stringify(data))
+    sessionStorage.setItem(COMMUNITY_FEED_SNAPSHOT_KEY, JSON.stringify({ learnerId, feed }))
   } catch {
   }
 }

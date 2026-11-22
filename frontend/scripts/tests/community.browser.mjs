@@ -3,15 +3,18 @@ import { fileURLToPath } from "node:url"
 import assert from "node:assert/strict"
 import puppeteer from "puppeteer-core"
 import { createServer } from "vite"
-import { ai, live, alternative } from "./admin-mobile-data.mjs"
 const root = fileURLToPath(new URL("../../", import.meta.url))
 const executablePath = ["C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"].find(existsSync)
-const mocks = ["/src/context/auth-context.jsx", "/src/hooks/use-notifications.js", "/src/components/question-bank/tagging-job-watcher.jsx"]
+const authMock = "\0community-test-auth"
+const mocks = ["/src/hooks/use-notifications.js", "/src/components/question-bank/tagging-job-watcher.jsx"]
 globalThis.__dirname = root
 const server = await createServer({ configLoader: "native", root, server: { host: "127.0.0.1", port: 0, hmr: false }, plugins: [{
-  name: "admin-mobile", enforce: "pre", resolveId(id) {
+  name: "community-test", enforce: "pre", resolveId(id) {
     const normalized = id.replaceAll("\\", "/").replace("@/", "/src/")
+    if (normalized.endsWith("/src/context/auth-context.jsx")) return authMock
     if (mocks.some((mock) => normalized.endsWith(mock))) return fileURLToPath(new URL("./admin-sidebar-mocks.js", import.meta.url))
+  }, load(id) {
+    if (id === authMock) return 'export function useAuth() { return { user: { learnerId: Number(localStorage.getItem("learnerId")), displayName: localStorage.getItem("name") } } }'
   }, configureServer(vite) {
     vite.middlewares.use(async (req, res, next) => {
       if (!req.url?.startsWith("/__admin_mobile")) return next()
@@ -31,12 +34,20 @@ try {
   let posts=[{postId:1,authorName:"Alex Morgan",initials:"AM",authorLevel:5,ownedByMe:true,title:"Study strategies for information security",description:"How do you prepare for the security module?\nShare your approach here.",postType:"discussion",createdAt:"2026-11-14T01:00:00",reactions:0,saves:0,comments:0,liked:false,saved:false},{postId:2,authorName:"Jamie Lee",initials:"JL",authorLevel:4,title:"Network study group discussion",description:"Discuss network diagrams with our study circle.",postType:"discussion",circleId:1,community:"Security group",createdAt:"2026-11-14T00:00:00",reactions:0,saves:1,comments:0,saved:true,liked:false}]
   let circles=[{circleId:1,name:"Security group",initials:"SG",topic:"IT Passport Exam",description:"Prepare together",members:2,joined:true,owner:false}]
   let comments=[],likeCalls=0,saveCalls=0,commentCalls=0
+  let secondLearner = false
+  let releaseSecondFeed
+  const secondFeedReady = new Promise((resolve) => { releaseSecondFeed = resolve })
   await page.setRequestInterception(true)
   page.on("request",async req=>{
     if(!req.url().includes("/api/"))return req.continue()
     const path=new URL(req.url()).pathname.split("/api/")[1],method=req.method(),body=JSON.parse(req.postData()||"{}")
     let data=[]
-    if(path==="community/posts"&&method==="GET")data=posts
+    if(path==="community/posts"&&method==="GET"){
+      if (secondLearner) {
+        await secondFeedReady
+        data = [{ ...posts[0], postId: 4, title: "Second learner's feed", ownedByMe: false, saved: false, liked: false }]
+      } else data = posts
+    }
     else if(path==="community/circles"&&method==="GET")data=circles
     else if(path==="community/posts"&&method==="POST"){const post={...posts[0],...body,postId:3};posts=[post,...posts];data=post}
     else if(path==="community/circles"&&method==="POST"){const circle={...body,circleId:2,initials:"NC",owner:true,joined:true,members:1};circles=[circle,...circles];data=circle}
@@ -49,7 +60,7 @@ try {
     else if(path==="community/circles/1/membership"){circles[0].joined=!circles[0].joined;data={joined:circles[0].joined}}
     await req.respond({status:200,contentType:"application/json",body:JSON.stringify(data)})
   })
-  await page.goto(server.resolvedUrls.local[0]+"__admin_mobile")
+  await page.goto(server.resolvedUrls.local[0]+"__admin_mobile", { waitUntil: "domcontentloaded", timeout: 60000 })
   await page.waitForSelector('#community-post-1')
   for(const width of [320,390,768,1280,1920]){
     await page.setViewport({width,height:900})
@@ -104,15 +115,23 @@ try {
   await clickText("Leave page","a");await clickText("Return to community","a")
   await page.waitForSelector('#community-post-1')
   assert.equal(await page.$eval('#community-post-1',el=>[...el.querySelectorAll('button')].find(b=>b.textContent.includes('saves')).getAttribute('aria-pressed')),"true","saved state survives navigation")
+  await clickText("For you",'nav[aria-label="Community feed"] button')
   await page.click('[title="Start a discussion"]')
   await page.type('[aria-label="Post title"]',"New discussion")
   await page.type('[aria-label="Post description"]',"A discussion created in a browser test")
   await clickText("Post")
+  await page.waitForSelector('[role="dialog"]')
+  await clickText("Publish post",'[role="dialog"] button')
   await page.waitForSelector('#community-post-3')
-  await page.click('#community-post-3 [aria-label="Post actions"]')
+  await page.waitForSelector('[role="dialog"]', { hidden: true })
+  await page.focus('#community-post-3 [aria-label="Post actions"]')
+  await page.keyboard.press("ArrowDown")
   await page.waitForSelector('[role="menuitem"]')
   await clickText("Delete post",'[role="menuitem"]')
+  await page.waitForSelector('[role="dialog"]')
+  await clickText("Delete post",'[role="dialog"] button')
   await page.waitForFunction(()=>!document.querySelector('#community-post-3'))
+  await page.waitForSelector('[role="dialog"]', { hidden: true })
   await page.click('[aria-label="Create study circle"]')
   await page.waitForSelector('#circle-name')
   await page.type('#circle-name',"New circle")
@@ -128,6 +147,17 @@ try {
   await page.evaluate(()=>[...document.querySelectorAll('[role="tab"]')].find(el=>el.textContent.trim()==="For you").click())
   await new Promise(r=>setTimeout(r,300))
   await page.screenshot({path:"scripts/tests/community-mobile.png",fullPage:true})
+  await clickText("Leave page","a")
+  await page.waitForFunction(() => document.body.textContent.includes("Away"))
+  assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem("rebyu:community-feed-snapshot"))?.learnerId), 1)
+  secondLearner = true
+  await page.evaluate(() => localStorage.setItem("learnerId", "2"))
+  await clickText("Return to community","a")
+  await page.waitForFunction(() => document.body.textContent.includes("Loading the feed"))
+  assert.equal(await page.$("#community-post-1"), null, "previous learner's cached post is not shown")
+  releaseSecondFeed()
+  await page.waitForSelector("#community-post-4")
+  assert.match(await page.$eval("#community-post-4", (post) => post.textContent), /Second learner's feed/)
   assert.deepEqual(errors,[])
-  console.log("Community: independent center scrolling, mobile/dark layouts, no shadows, likes/saves/comments, search/circle/saved filters, navigation cache, post create/delete, circle create passed")
+  console.log("Community: desktop and mobile layouts, likes, saves, comments, filters, post publishing/deletion, circle creation and account-scoped feed cache passed")
 }finally{await browser?.close();await server.close()}

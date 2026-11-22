@@ -27,7 +27,7 @@ import {
     UsersRound,
     X,
 } from "@/components/icons"
-import { getCurrentLearnerIdentity } from "@/services/learnerService.js"
+import { useAuth } from "@/context/auth-context.jsx"
 import { getFileViewLink } from "@/services/fileService"
 import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { toast } from "sonner"
@@ -106,8 +106,6 @@ const FEED_TABS = [
     { value: "reviewer", label: "Reviewers" },
     { value: "circle", label: "Study circles" },
 ]
-
-const COMMUNITY_FEED_KEY = ["community-feed"]
 
 // Library kinds that can be shared from the Library (picked, not typed).
 const LIBRARY_SHARE_TYPES = ["quiz", "flashcard", "activity", "mindmap"]
@@ -728,9 +726,15 @@ function CommunityPost({
 }
 
 export default function Community() {
+    const { user } = useAuth()
+    return <CommunityFeed key={user?.learnerId} user={user} />
+}
+
+function CommunityFeed({ user }) {
     const plan = useLearnerEntitlements()
-    const identity = getCurrentLearnerIdentity()
-    const myInitials = (identity.name || identity.email || "Learner").split(/[\s@]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
+    const learnerId = user?.learnerId ?? null
+    const feedKey = useMemo(() => ["community-feed", learnerId], [learnerId])
+    const myInitials = (user?.displayName || user?.email || "Learner").split(/[\s@]+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase()
     const [searchParams] = useSearchParams()
     const requestedPost = Number(searchParams.get("post")) || null
     const pendingActions = useRef(new Set())
@@ -753,7 +757,7 @@ export default function Community() {
     }, [])
     const navigate = useNavigate()
     const queryClient = useQueryClient()
-    const cachedFeed = queryClient.getQueryData(COMMUNITY_FEED_KEY) ?? readCommunityFeedSnapshot()
+    const cachedFeed = queryClient.getQueryData(feedKey) ?? readCommunityFeedSnapshot(learnerId)
 
     const [posts, setPosts] = useState(() => cachedFeed?.posts ?? [])
     const [circles, setCircles] = useState(() => cachedFeed?.circles ?? [])
@@ -795,7 +799,7 @@ export default function Community() {
 
 
     const feedQuery = useQuery({
-        queryKey: COMMUNITY_FEED_KEY,
+        queryKey: feedKey,
         queryFn: async () => {
             const optional = (promise) => promise.catch(() => [])
             const [nextPosts, nextCircles, nextCertifications, nextStudyItems] =
@@ -814,7 +818,7 @@ export default function Community() {
                 ),
             }
         },
-        initialData: () => readCommunityFeedSnapshot() ?? undefined,
+        initialData: () => readCommunityFeedSnapshot(learnerId) ?? undefined,
         initialDataUpdatedAt: 0,
         staleTime: 60_000,
         retry: 1,
@@ -822,9 +826,9 @@ export default function Community() {
 
     useEffect(() => {
         if (feedQuery.data) {
-            writeCommunityFeedSnapshot(feedQuery.data)
+            writeCommunityFeedSnapshot(learnerId, feedQuery.data)
         }
-    }, [feedQuery.data])
+    }, [feedQuery.data, learnerId])
 
     useEffect(() => {
         const data = feedQuery.data
@@ -846,12 +850,12 @@ export default function Community() {
     useEffect(() => {
         if (!feedQuery.data) return
         latestFeed.current = { posts, circles, certifications, studyItems }
-        writeCommunityFeedSnapshot(latestFeed.current)
-    }, [posts, circles, certifications, studyItems, feedQuery.data])
+        writeCommunityFeedSnapshot(learnerId, latestFeed.current)
+    }, [posts, circles, certifications, studyItems, feedQuery.data, learnerId])
 
     useEffect(() => () => {
-        if (latestFeed.current) queryClient.setQueryData(COMMUNITY_FEED_KEY, latestFeed.current)
-    }, [queryClient])
+        if (latestFeed.current) queryClient.setQueryData(feedKey, latestFeed.current)
+    }, [queryClient, feedKey])
 
     useEffect(() => {
         if (requestedPost && posts.length) document.getElementById(`community-post-${requestedPost}`)?.scrollIntoView({ block: "center" })
