@@ -59,7 +59,6 @@ function RecordTable({ rows, showLeft = false }) {
             <th className="px-2 py-2 text-left">Joined</th>
             {showLeft ? <th className="px-2 py-2 text-left">Left</th> : null}
             <th className="px-2 py-2 text-right">Completion</th>
-            <th className="px-2 py-2 text-right">Avg score</th>
             <th className="px-3 py-2 text-left">Badge</th>
           </tr>
         </thead>
@@ -83,7 +82,6 @@ function RecordTable({ rows, showLeft = false }) {
               <td className="px-2 py-2 text-right tabular-nums">
                 {r.progressPercentage == null ? "—" : `${Math.round(Number(r.progressPercentage))}%`}
               </td>
-              <td className="px-2 py-2 text-right tabular-nums">{r.averageScore == null ? "—" : `${r.averageScore}%`}</td>
               <td className="px-3 py-2">{r.badgeEarned ? <Badge variant="outline" className="text-[10px]">Earned</Badge> : "—"}</td>
             </tr>
           ))}
