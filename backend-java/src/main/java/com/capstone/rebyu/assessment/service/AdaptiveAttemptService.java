@@ -118,7 +118,7 @@ public class AdaptiveAttemptService {
         Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
         Map<String, Integer> poolCountByType = new LinkedHashMap<>();
         for (QuestionSelectionView view : pool) {
-            if (!AdaptivePolicy.isWorkspaceType(view.getQuestionType())) {
+            if (!AdaptivePolicy.belongsInFinalRound(examType, view.getQuestionType())) {
                 poolCountByLesson.merge(view.getLessonId(), 1, Integer::sum);
                 poolCountByType.merge(AdaptiveItemSelector.normaliseType(view.getQuestionType()), 1, Integer::sum);
             }
@@ -170,7 +170,7 @@ public class AdaptiveAttemptService {
                 }
             }
             long freshMain = pool.stream()
-                    .filter(v -> !AdaptivePolicy.isWorkspaceType(v.getQuestionType()))
+                    .filter(v -> !AdaptivePolicy.belongsInFinalRound(examType, v.getQuestionType()))
                     .filter(v -> !cycleSeen.contains(v.getQuestionId()))
                     .count();
             if (!cycleSeen.isEmpty() && freshMain < mainTarget) {
@@ -469,6 +469,8 @@ public class AdaptiveAttemptService {
 
         List<LearnerAttemptQuestionDto> reserve = List.of();
         if (attempt.getCurrentQuestionId() != null) {
+            // A retry of an already recorded answer still needs the learner's next item.
+            if (next == null) next = servedDto(attempt, attempt.getCurrentQuestionId());
             reserve = topUpReserve(attempt, state);
         } else if (!state.done()) {
             finish(attempt, state);
@@ -662,9 +664,12 @@ public class AdaptiveAttemptService {
         }
         List<Pick> picks = new ArrayList<>();
         Map<Long, Candidate> pool = cachedPool(attempt.getExam()).candidates();
+        String examType = attempt.getExam().getExamType().getExamTypeText();
         for (int i = 0; i < count && state.getServedCount() < state.getTargetCount(); i++) {
             boolean finalRound = state.getServedCount() + 1 > state.getMainCount();
-            List<Candidate> candidates = pool.values().stream().filter(c -> c.workspace() == finalRound).toList();
+            List<Candidate> candidates = pool.values().stream()
+                    .filter(c -> AdaptivePolicy.belongsInFinalRound(examType, c.questionType()) == finalRound)
+                    .toList();
             AdaptiveItemSelector.Settings settings = new AdaptiveItemSelector.Settings(
                     properties.getLessonExplorationWeight(), properties.getRandomesqueTopK(), !finalRound);
             Optional<Selection> selection = AdaptiveItemSelector.select(state, candidates, settings, ThreadLocalRandom.current());

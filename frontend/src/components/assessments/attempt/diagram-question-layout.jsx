@@ -51,6 +51,7 @@ export default function DiagramQuestionLayout({
             subQuestions={subQuestions.map((sub) => ({
               questionId: sub.subQuestionId,
               questionText: sub.questionText,
+              questionImageKey: sub.questionImageKey,
             }))}
             answers={answer?.subAnswers ?? {}}
             readOnly={editingLocked}

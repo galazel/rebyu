@@ -141,7 +141,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
       .then(async (check) => {
         if (contextRef.current !== requestContext) return
         if (!check?.examId) {
-          // Keep this lesson quiet when it has no available quick questions.
+          // The lesson needs enough eligible questions to build a challenge.
           askedRef.current = false
           skimmedRef.current = false
           return

@@ -1,5 +1,6 @@
 package com.capstone.rebyu.knowledgecheck.service;
 
+import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.assessment.entity.Exam;
 import com.capstone.rebyu.assessment.entity.ExamQuestion;
 import com.capstone.rebyu.assessment.entity.ExamType;
@@ -50,8 +51,6 @@ public class LessonKnowledgeCheckService {
 
     private static final int CHECK_SIZE = 5;
 
-    private static final Set<String> QUICK_TYPES = Set.of("MCQ", "MULTIPLE_CHOICE", "SHORT_ANSWER");
-
     private static final Duration COOLDOWN = Duration.ofDays(1);
 
     private static final Duration SKIM_COOLDOWN = Duration.ofMinutes(1);
@@ -64,6 +63,7 @@ public class LessonKnowledgeCheckService {
     private final ExamQuestionRepository examQuestions;
     private final QuestionRepository questions;
     private final LearnerQuestionHistoryService history;
+    private final AdaptivePolicy adaptivePolicy;
 
     @Transactional(readOnly = true)
     public CheckOffer offer(Long learnerId, Long triggerLessonId) {
@@ -106,10 +106,6 @@ public class LessonKnowledgeCheckService {
             return CheckOffer.unavailable("not-enough-completed-lessons");
         }
 
-        List<Long> chosen = currentLessonOnly
-                ? List.of()
-                : selectQuestions(learnerId, candidates);
-
         Certification certification = certificationOf(trigger);
 
         ExamType examType = examTypes.findByExamTypeText(KNOWLEDGE_CHECK_EXAM_TYPE)
@@ -125,7 +121,7 @@ public class LessonKnowledgeCheckService {
                 .isGenerated(true)
                 .learner(Learner.builder().learnerId(learnerId).build())
                 .lesson(currentLessonOnly ? trigger : null)
-                .totalQuestions(currentLessonOnly ? CHECK_SIZE : chosen.size())
+                .totalQuestions(CHECK_SIZE)
                 .passingScore(new BigDecimal("60.00"))
                 .status(Exam.Status.PUBLISHED)
                 .targetScope(KNOWLEDGE_CHECK_TARGET_SCOPE)
@@ -134,6 +130,8 @@ public class LessonKnowledgeCheckService {
                 .releaseAnswersAfterSubmit(true)
                 .build());
 
+        boolean adaptive = adaptivePolicy.isAdaptive(exam);
+        List<Long> chosen = adaptive ? List.of() : selectQuestions(learnerId, candidates);
         int displayOrder = 1;
         for (Long questionId : chosen) {
             Question question = questions.getReferenceById(questionId);
@@ -144,12 +142,12 @@ public class LessonKnowledgeCheckService {
                     .build());
         }
 
-        int items = currentLessonOnly ? CHECK_SIZE : chosen.size();
+        int items = adaptive ? CHECK_SIZE : chosen.size();
         log.info("Knowledge check {} minted for learner {} on certification {} "
                         + "({} items from {} lesson(s), triggered on lesson {}{})",
                 exam.getExamId(), learnerId, certification.getCertificationId(),
                 items, candidates.lessonNames().size(), triggerLessonId,
-                currentLessonOnly ? ", adaptive" : "");
+                adaptive ? ", adaptive" : "");
 
         return CheckOffer.minted(exam.getExamId(), items, candidates.lessonNames());
     }
@@ -199,7 +197,7 @@ public class LessonKnowledgeCheckService {
             List<String> accepted = new ArrayList<>();
             String explanation = correct != null ? correct.getExplanation() : null;
             TextQuestionConfig text = question.getTextQuestionConfig();
-            if (text != null) {
+            if (text != null && "EXACT_MATCH".equalsIgnoreCase(text.getCheckingMethod())) {
                 if (text.getCorrectAnswer() != null) accepted.add(text.getCorrectAnswer());
                 if (text.getAcceptedVariations() != null) {
                     for (String v : text.getAcceptedVariations().split("\n")) {
@@ -237,10 +235,9 @@ public class LessonKnowledgeCheckService {
             List<Long> questionIds = eligibleQuestions
                     .resolveScopeViews(null, null, null, trigger.getLessonId()).stream()
                     .filter(view -> view.getOwnerDepartmentId() == null)
+                    .filter(view -> AdaptivePolicy.isServable(view.getQuestionType()))
                     .map(QuestionSelectionView::getQuestionId)
-                    .filter(questionId -> questions.findById(questionId)
-                            .map(question -> QUICK_TYPES.contains(question.getQuestionType()))
-                            .orElse(false))
+                    .distinct()
                     .toList();
             return new Candidates(questionIds,
                     questionIds.isEmpty() ? List.of() : List.of(trigger.getName()));

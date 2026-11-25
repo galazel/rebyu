@@ -17,8 +17,6 @@ public class AdaptivePolicy {
 
     public static final String KNOWLEDGE_CHECK = "KNOWLEDGE_CHECK";
 
-    private static final Set<String> QUICK_ONLY_TYPES = Set.of(KNOWLEDGE_CHECK);
-
     private static final Set<String> WORKSPACE_TYPES = Set.of(
             "CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM", "DESCRIPTIVE", "PROBLEM_SOLVING");
 
@@ -57,8 +55,9 @@ public class AdaptivePolicy {
         return "MIDDLE_EXAM".equals(t) || "MAJOR_EXAM".equals(t);
     }
 
-    public static boolean allowsFinalRound(String examTypeText) {
-        return examTypeText == null || !QUICK_ONLY_TYPES.contains(examTypeText);
+    public static boolean belongsInFinalRound(String examTypeText, String questionType) {
+        // The five-item lesson challenge mixes all formats in its main round.
+        return !KNOWLEDGE_CHECK.equals(examTypeText) && isWorkspaceType(questionType);
     }
 
     public int targetCount(String examTypeText) {
@@ -67,7 +66,7 @@ public class AdaptivePolicy {
     }
 
     public int finalRoundCount(String examTypeText) {
-        if (!allowsFinalRound(examTypeText)) {
+        if (KNOWLEDGE_CHECK.equals(examTypeText)) {
             return 0;
         }
         Integer configured = properties.getFinalRoundCounts().get(examTypeText);

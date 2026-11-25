@@ -1,5 +1,8 @@
 package com.capstone.rebyu.knowledgecheck.service;
 
+import com.capstone.rebyu.adaptive.config.AdaptiveProperties;
+import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
+import com.capstone.rebyu.adaptive.service.QuestionBankSizeService;
 import com.capstone.rebyu.assessment.entity.Exam;
 import com.capstone.rebyu.assessment.entity.ExamType;
 import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
@@ -76,7 +79,7 @@ class LessonKnowledgeCheckServiceTest {
 
         service = new LessonKnowledgeCheckService(
                 completedLessons, lessons, eligibleQuestions,
-                exams, examTypes, examQuestions, questions, history);
+                exams, examTypes, examQuestions, questions, history, new AdaptivePolicy(new AdaptiveProperties()));
 
         when(history.missedQuestionIds(anyLong(), any(), any())).thenReturn(List.of());
 
@@ -306,6 +309,32 @@ class LessonKnowledgeCheckServiceTest {
         verify(questions, times(5)).getReferenceById(anyLong());
     }
 
+
+    @Test
+    void skimChallengeAcceptsALessonWithOnlyWorkspaceQuestions() {
+        var pool = new ArrayList<QuestionSelectionView>();
+        long id = 0;
+        for (String type : List.of("PROGRAMMING", "DIAGRAM", "DESCRIPTIVE", "PROBLEM_SOLVING", "CRITICAL_THINKING")) {
+            var question = mock(QuestionSelectionView.class);
+            when(question.getQuestionId()).thenReturn(++id);
+            when(question.getQuestionType()).thenReturn(type);
+            when(question.getOwnerDepartmentId()).thenReturn(null);
+            pool.add(question);
+            assertFalse(AdaptivePolicy.belongsInFinalRound("KNOWLEDGE_CHECK", type));
+            assertTrue(AdaptivePolicy.belongsInFinalRound("LESSON_QUIZ", type));
+        }
+        when(eligibleQuestions.resolveScopeViews(null, null, null, TRIGGER_LESSON_ID)).thenReturn(pool);
+        assertTrue(service.offer(LEARNER_ID, TRIGGER_LESSON_ID, true).available());
+        assertEquals(5, service.create(LEARNER_ID, TRIGGER_LESSON_ID, true).itemCount());
+        verify(examQuestions, never()).save(any());
+
+        var saved = org.mockito.ArgumentCaptor.forClass(Exam.class);
+        verify(exams).save(saved.capture());
+        when(eligibleQuestions.resolveScopeViews(CERTIFICATION_ID, null, null, TRIGGER_LESSON_ID)).thenReturn(pool);
+        var properties = new AdaptiveProperties();
+        var bank = new QuestionBankSizeService(eligibleQuestions, new AdaptivePolicy(properties), properties);
+        assertEquals(5, bank.measure(saved.getValue()).main());
+    }
 
     private void givenCompletedLessons(Long... lessonIds) {
         List<LearnerCompletedLesson> rows = completedRows(lessonIds);

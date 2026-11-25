@@ -1639,8 +1639,7 @@ public class AssessmentAttemptService {
     }
 
     static boolean isMultipleChoice(String questionType) {
-        return "MULTIPLE_CHOICE".equalsIgnoreCase(questionType)
-                || "MCQ".equalsIgnoreCase(questionType);
+        return AdaptivePolicy.isMultipleChoice(questionType);
     }
 
     /** Several choices are right and the learner must tick all of them (Cisco "Select 2"). */
