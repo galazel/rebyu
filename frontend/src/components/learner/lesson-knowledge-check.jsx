@@ -145,6 +145,9 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const locked = revealed || busy
   const type = questionFormat(current)
   const Workspace = type === "PROGRAMMING" ? ProgrammingQuestionLayout : type === "DIAGRAM" ? DiagramQuestionLayout : null
+  const checkHint = !answered && Workspace
+    ? type === "DIAGRAM" ? "Add to the diagram and wait for the canvas to save." : "Enter your code before checking."
+    : null
 
   // Image-based questions need their secured media before the learner reaches them.
   // This also keeps the modal responsive when all answer choices are diagrams.
@@ -273,7 +276,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogHeader>
 
             {Workspace ? (
-              <div className="min-h-0 flex-1 overflow-auto p-3">
+              <div className="min-h-0 flex-1 overflow-auto p-3 lg:overflow-hidden">
                 <Suspense fallback={<p role="status">Loading workspace…</p>}>
                   <Workspace key={current.attemptQuestionId} question={current} index={index}
                     answer={currentAnswer} onAnswer={setAnswer} attemptId={attempt.assessmentAttemptId}
@@ -409,6 +412,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               <span className="max-w-[22rem] self-center text-xs leading-5 text-rb-wolf">
                 {sources[0] ? <><span className="font-semibold text-rb-eel">Lesson · </span>{sources[0]}</> : null}
               </span>
+              {checkHint && <p role="status" className="self-center text-sm text-rb-wolf">{checkHint}</p>}
               <Button onClick={next} disabled={!answered || busy} className="h-11 gap-2 rounded-xl px-5 shadow-[0_10px_20px_-14px_rgba(19,70,52,0.8)]">
                 {busy ? (
                   <>
@@ -667,11 +671,12 @@ function isAnswered(question, answer) {
     const count = parseChoiceIds(answer.learnerAnswer).length
     return count > 0 && (!question.selectCount || count === Number(question.selectCount))
   }
-  if (question.subQuestions?.some((sub) => !answer.subAnswers?.[sub.subQuestionId]?.trim())) return false
   const type = questionFormat(question)
   if (type === "PROGRAMMING") return Boolean(answer.submittedCode?.trim())
   if (type === "DIAGRAM") return Boolean(answer.diagramSubmissionData?.trim())
-  if (question.subQuestions?.length) return true
+  if (question.subQuestions?.length) {
+    return question.subQuestions.every((sub) => answer.subAnswers?.[sub.subQuestionId]?.trim())
+  }
   return Boolean(answer.learnerAnswer?.trim())
 }
 

@@ -45,7 +45,7 @@ test("records mixed adaptive answers and reviews the graded submissions", async 
     { questionType: "MULTIPLE_ANSWER", questionImageKey: "/prompt.png", selectCount: 2, choices: [{ choiceId: 5, choiceText: "DNS", imageKey: "/choice.png" }, { choiceId: 6, choiceText: "HTTP" }] },
     { questionType: "DESCRIPTIVE" },
     { questionType: "PROGRAMMING" },
-    { questionType: "CRITICAL_THINKING", criticalThinkingType: "DIAGRAM" },
+    { questionType: "CRITICAL_THINKING", criticalThinkingType: "DIAGRAM", subQuestions: [{ subQuestionId: 8, questionText: "Explain the decision branch" }] },
     { questionType: "SHORT_ANSWER", subQuestions: [{ subQuestionId: 9, questionText: "Protocol", questionImageKey: "/sub-question.png" }] },
   ].map((item, i) => ({ ...item, question: `Prompt ${i + 1}`, displayOrder: i + 1, attemptQuestionId: i + 1 }))
   const recorded = []
