@@ -6,6 +6,7 @@ import {
   render,
   screen,
   fireEvent,
+  within,
 } from "@testing-library/react"
 import { wrapper } from "./support/ui.jsx"
 import { request } from "./support/services.js"
@@ -14,6 +15,7 @@ vi.mock("@/components/learner/xp-award-modal.jsx", () => ({
   snapshotRewards: vi.fn(),
 }))
 import { LessonKnowledgeCheck, testLocalVerdict } from "@/components/learner/lesson-knowledge-check.jsx"
+import SubQuestionReview from "@/components/assessments/attempt/sub-question-review.jsx"
 
 vi.mock("@/lib/sound.js", () => ({ playCorrectMark: vi.fn(), playWrongMark: vi.fn() }))
 vi.mock("@/components/assessments/attempt/programming-question-layout.jsx", () => ({
@@ -61,7 +63,7 @@ test("records mixed adaptive answers and reviews the graded submissions", async 
         correctCount: 3, pendingCount: 1, answers: items.map((item, i) => ({
           ...item, ...recorded[i], isCorrect: i !== 1, credit: i === 1 ? 0.5 : 1,
           pendingManualEvaluation: i === 3, diagramSubmitted: i === 3,
-          subQuestionAnswers: i === 4 ? [{ subQuestionId: 9, questionText: "Protocol", learnerAnswer: "TCP" }] : [],
+          subQuestionAnswers: i === 4 ? [{ subQuestionId: 9, questionText: "Protocol", learnerAnswer: "TCP", earnedPoints: 1, maxPoints: 1 }] : [],
         })),
       }
     }
@@ -92,14 +94,38 @@ test("records mixed adaptive answers and reviews the graded submissions", async 
   expect(await screen.findByText("Challenge results")).toBeInTheDocument()
   expect(screen.getByAltText("Selected choice")).toHaveAttribute("src", "/choice.png")
   expect(screen.getByAltText("Sub-question reference")).toHaveAttribute("src", "/sub-question.png")
+  expect(screen.getByText("Full credit")).toBeInTheDocument()
+  expect(screen.getByText("1 / 1 pts")).toBeInTheDocument()
   expect(recorded[0].learnerAnswer).toBe("[5,6]")
   expect(recorded[1].learnerAnswer).toBe("Layered design")
   expect(recorded[2]).toMatchObject({ submittedCode: "print(7)", programmingLanguage: "Python" })
   expect(recorded[3].diagramSubmissionData).toBe("<mxGraphModel/>")
   expect(JSON.parse(recorded[4].learnerAnswer)).toEqual({ 9: "TCP" })
-  for (const value of ["DNS", "HTTP", "Layered design", "print(7)", "Diagram submitted", "TCP", "Partial credit · 50%", "Awaiting review"]) {
+  for (const value of ["DNS", "HTTP", "Layered design", "print(7)", "Diagram submitted", "Explain the decision branch", "TCP", "Partial credit · 50%", "Awaiting review"]) {
     expect(screen.getByText(value)).toBeInTheDocument()
   }
+})
+
+test("shows the grade, points, and feedback for each assessment sub-question", () => {
+  const subQuestions = [
+    { subQuestionId: 1, questionText: "Routing protocol", learnerAnswer: "OSPF", earnedPoints: 2, maxPoints: 2 },
+    { subQuestionId: 2, questionText: "Explain convergence", learnerAnswer: "Routers exchange updates.", earnedPoints: 0.5, maxPoints: 2, feedback: "Describe when the network stabilizes." },
+    { subQuestionId: 3, questionText: "Packet lifetime", learnerAnswer: "Bandwidth", earnedPoints: 0, maxPoints: 1 },
+    { subQuestionId: 4, questionText: "Compare protocols", learnerAnswer: "They use distinct metrics." },
+    { subQuestionId: 5, questionText: "Optional note" },
+  ]
+  const { rerender } = render(<SubQuestionReview subQuestions={subQuestions} pending />)
+  const rows = within(screen.getByRole("region", { name: "Sub-questions" })).getAllByRole("listitem")
+  expect(within(rows[0]).getByText("Full credit")).toBeInTheDocument()
+  expect(within(rows[1]).getByText("Partial credit")).toBeInTheDocument()
+  expect(within(rows[1]).getByText("0.5 / 2 pts")).toBeInTheDocument()
+  expect(within(rows[1]).getByText("Describe when the network stabilizes.")).toBeInTheDocument()
+  expect(within(rows[2]).getByText("No credit")).toBeInTheDocument()
+  expect(within(rows[3]).getByText("Awaiting review")).toBeInTheDocument()
+  expect(within(rows[4]).getByText("Not graded")).toBeInTheDocument()
+  rerender(<SubQuestionReview subQuestions={subQuestions} invalid />)
+  expect(screen.getAllByText("Voided")).toHaveLength(5)
+  expect(screen.queryByText("0.5 / 2 pts")).not.toBeInTheDocument()
 })
 
 test("submits a fixed problem-solving item with its working and displays its weighted score", async () => {

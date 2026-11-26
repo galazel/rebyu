@@ -48,6 +48,13 @@ export function updateExam(examId, exam) {
   return base(`exams/${examId}`, { method: "PUT", data: exam })
 }
 
+export function updateAssessmentDurations(certificationId, durations) {
+  return base(`exams/certification/${certificationId}/durations`, {
+    method: "PUT",
+    data: durations,
+  })
+}
+
 export function deleteExam(examId) {
   return base(`exams/${examId}`, { method: "DELETE" })
 }
@@ -309,4 +316,11 @@ export function getAssessmentTypeLabel(examTypeText) {
     examTypeText ??
     "Assessment"
   )
+}
+
+export function usesIrtProficiency(examTypeText) {
+  return [
+    "QUIZ", "LESSON_QUIZ", "MODULE_EXAM", "MIDDLE_EXAM", "MIDDLE_CATEGORY_QUIZ",
+    "MAJOR_EXAM", "MAJOR_CATEGORY_QUIZ", "MAJOR_CATEGORY_EXAM",
+  ].includes(String(examTypeText ?? "").toUpperCase())
 }

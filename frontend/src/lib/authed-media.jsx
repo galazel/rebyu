@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { createPortal } from "react-dom"
+import { Dialog } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { fetchFileBlob } from "@/services/fileService.js"
@@ -113,15 +113,6 @@ export function AuthedImage({
 
   useEffect(() => { setFailed(false); setZoomed(false) }, [imageKey])
 
-  useEffect(() => {
-    if (!zoomed) return undefined
-    const onKey = (event) => {
-      if (event.key === "Escape") setZoomed(false)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [zoomed])
-
   if (!imageKey) return null
   if (failed || (!src && !loading)) return <p role="status" className="my-3 rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">{alt || "Image"} could not be loaded. Please refresh to try again.</p>
   if (!src) {
@@ -143,47 +134,46 @@ export function AuthedImage({
   if (!zoomable) return image
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setZoomed(true)}
-        title="Click to enlarge"
-        aria-label="Enlarge figure"
-        className="group relative mx-auto block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-feather"
-      >
-        {image}
-        <span className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">
-          click to enlarge
-        </span>
-      </button>
+    <Dialog.Root open={zoomed} onOpenChange={setZoomed}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          title="Click to enlarge"
+          aria-label="Enlarge figure"
+          className="group relative mx-auto block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-feather"
+        >
+          {image}
+          <span className="pointer-events-none absolute bottom-2 right-2 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">
+            click to enlarge
+          </span>
+        </button>
+      </Dialog.Trigger>
 
-      {zoomed
-        ? createPortal(
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label={alt || "Figure"}
-              onClick={() => setZoomed(false)}
-              className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            >
-              <img
-                src={src}
-                alt={alt}
-                onClick={(event) => event.stopPropagation()}
-                className="max-h-[92vh] max-w-[92vw] cursor-default rounded-lg bg-white object-contain shadow-2xl"
-              />
-              <button
-                type="button"
-                onClick={() => setZoomed(false)}
-                aria-label="Close figure"
-                className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
-              >
-                close
-              </button>
-            </div>,
-            document.body,
-          )
-        : null}
-    </>
+      <Dialog.Portal>
+        <Dialog.Content
+          aria-modal="true"
+          aria-describedby={undefined}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (event.target === event.currentTarget) setZoomed(false)
+          }}
+          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <Dialog.Title className="sr-only">{alt || "Figure"}</Dialog.Title>
+          <img
+            src={src}
+            alt={alt}
+            className="max-h-[92vh] max-w-[92vw] cursor-default rounded-lg bg-white object-contain shadow-2xl"
+          />
+          <Dialog.Close
+            type="button"
+            aria-label="Close figure"
+            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
+          >
+            close
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }

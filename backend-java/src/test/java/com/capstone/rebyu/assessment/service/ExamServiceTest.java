@@ -1,6 +1,7 @@
 package com.capstone.rebyu.assessment.service;
 
 import com.capstone.rebyu.assessment.dto.ExamDto;
+import com.capstone.rebyu.assessment.dto.AssessmentDurationsRequest;
 import com.capstone.rebyu.assessment.entity.Exam;
 import com.capstone.rebyu.assessment.entity.ExamQuestion;
 import com.capstone.rebyu.assessment.entity.ExamType;
@@ -65,6 +66,36 @@ class ExamServiceTest {
                 examTypeRepository, certificationRepository, majorCategoryRepository,
                 middleCategoryRepository, lessonRepository, examMapper, majorCategoryService,
                 adaptivePolicy, questionBankSize);
+    }
+
+    @Test
+    void bulkDurationsUpdateEveryMatchingAssessmentWithoutChangingOtherTypes() {
+        Exam diagnostic = examWithType("DIAGNOSTIC");
+        Exam quizOne = examWithType("LESSON_QUIZ");
+        Exam quizTwo = examWithType("QUIZ");
+        Exam middle = examWithType("MIDDLE_EXAM");
+        Exam major = examWithType("MAJOR_EXAM");
+        Exam mock = examWithType("MOCK_EXAM");
+        when(examRepository.findByCertification_CertificationId(13L))
+                .thenReturn(List.of(diagnostic, quizOne, quizTwo, middle, major, mock));
+        when(examRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.updateAssessmentDurations(13L, new AssessmentDurationsRequest(60, 15, 45, 90));
+
+        assertEquals(60, diagnostic.getDurationMinutes());
+        assertEquals(15, quizOne.getDurationMinutes());
+        assertEquals(15, quizTwo.getDurationMinutes());
+        assertEquals(45, middle.getDurationMinutes());
+        assertEquals(90, major.getDurationMinutes());
+        assertEquals(null, mock.getDurationMinutes());
+    }
+
+    private Exam examWithType(String typeText) {
+        Exam exam = new Exam();
+        ExamType type = new ExamType();
+        type.setExamTypeText(typeText);
+        exam.setExamType(type);
+        return exam;
     }
 
     @Test

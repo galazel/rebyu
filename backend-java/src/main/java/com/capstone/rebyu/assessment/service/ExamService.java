@@ -1,6 +1,7 @@
 package com.capstone.rebyu.assessment.service;
 
 import com.capstone.rebyu.assessment.dto.AddExamQuestionsRequest;
+import com.capstone.rebyu.assessment.dto.AssessmentDurationsRequest;
 import com.capstone.rebyu.assessment.dto.ExamDto;
 import com.capstone.rebyu.assessment.mapper.ExamMapper;
 import com.capstone.rebyu.assessment.entity.Exam;
@@ -152,6 +153,38 @@ public class ExamService {
         ExamDto result = toDtoWithQuestions(saved);
         log.info("Exam id: {} updated", id);
         return result;
+    }
+
+    public List<ExamDto> updateAssessmentDurations(Long certificationId, AssessmentDurationsRequest request) {
+        if (request.diagnosticMinutes() == null && request.lessonQuizMinutes() == null && request.middleExamMinutes() == null
+                && request.majorExamMinutes() == null) {
+            throw new IllegalArgumentException("Enter at least one assessment duration");
+        }
+        List<Exam> exams = examRepository.findByCertification_CertificationId(certificationId).stream()
+                .filter(exam -> exam.getOwnerDepartment() == null && exam.getLearner() == null)
+                .filter(exam -> exam.getExamType() != null)
+                .toList();
+        LocalDateTime now = LocalDateTime.now();
+        List<Exam> changed = new ArrayList<>();
+        for (Exam exam : exams) {
+            Integer minutes = durationForType(exam.getExamType().getExamTypeText(), request);
+            if (minutes == null) continue;
+            exam.setDurationMinutes(minutes);
+            exam.setUpdatedAt(now);
+            changed.add(exam);
+        }
+        return examRepository.saveAll(changed).stream().map(examMapper::toDto).toList();
+    }
+
+    private Integer durationForType(String type, AssessmentDurationsRequest request) {
+        if (type == null) return null;
+        return switch (type) {
+            case "DIAGNOSTIC", "DIAGNOSTIC_EXAM" -> request.diagnosticMinutes();
+            case "LESSON_QUIZ", "QUIZ" -> request.lessonQuizMinutes();
+            case "MIDDLE_EXAM", "MODULE_EXAM", "MIDDLE_CATEGORY_QUIZ" -> request.middleExamMinutes();
+            case "MAJOR_EXAM", "MAJOR_CATEGORY_EXAM", "MAJOR_CATEGORY_QUIZ" -> request.majorExamMinutes();
+            default -> null;
+        };
     }
 
     public ExamDto publish(

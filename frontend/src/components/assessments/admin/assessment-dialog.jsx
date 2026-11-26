@@ -361,7 +361,7 @@ export default function AssessmentDialog({
         isGenerated: exam?.isGenerated ?? false,
         durationMinutes: durationMinutes ? Number(durationMinutes) : null,
         totalQuestions: questionIds.length,
-        passingScore: passingScore ? Number(passingScore) : null,
+        passingScore: isAdaptiveType ? (exam?.passingScore ?? null) : passingScore ? Number(passingScore) : null,
         releaseAnswersAfterSubmit,
         questions,
         questionIds,
@@ -567,7 +567,7 @@ export default function AssessmentDialog({
       return
     }
 
-    if (
+    if (!isAdaptiveType &&
         passingScore &&
         (Number(passingScore) < 0 || Number(passingScore) > 100)
     ) {
@@ -771,7 +771,7 @@ export default function AssessmentDialog({
                       />
                     </div>
 
-                    <div className="space-y-2">
+                    {!isAdaptiveType ? <div className="space-y-2">
                       <Label htmlFor="assessment-passing">
                         Passing score (%)
                         <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -788,7 +788,11 @@ export default function AssessmentDialog({
                           onChange={(event) => setPassingScore(event.target.value)}
                           placeholder="70"
                       />
-                    </div>
+                    </div> : (
+                      <p className="self-end text-sm text-muted-foreground">
+                        Adaptive assessments clear at IRT proficiency 50+. There is no percentage pass mark.
+                      </p>
+                    )}
 
                     <div className="flex items-start gap-2.5 md:col-span-2">
                       <Checkbox
@@ -1021,10 +1025,10 @@ export default function AssessmentDialog({
                     </div>
 
                     <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">Passing score</dt>
+                      <dt className="text-muted-foreground">{isAdaptiveType ? "Completion rule" : "Passing score"}</dt>
 
                       <dd className="font-medium">
-                        {passingScore ? `${passingScore}%` : "Not set"}
+                        {isAdaptiveType ? "IRT proficiency 50+" : passingScore ? `${passingScore}%` : "Not set"}
                       </dd>
                     </div>
                   </dl>

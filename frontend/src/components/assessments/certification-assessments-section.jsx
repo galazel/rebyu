@@ -21,6 +21,7 @@ import {
   getExamQuestions,
   getExamTypes,
   getExams,
+  usesIrtProficiency,
   getLearnerAttempts,
 } from "@/services/assessmentService.js"
 
@@ -170,7 +171,9 @@ export default function CertificationAssessmentsSection({
                     {exam.durationMinutes} min
                   </span>
                 ) : null}
-                {exam.passingScore != null ? (
+                {usesIrtProficiency(typeText) ? (
+                  <span>IRT proficiency 50+ to complete</span>
+                ) : exam.passingScore != null ? (
                   <span>
                     Passing {Number(exam.passingScore).toFixed(0)}%
                   </span>

@@ -146,7 +146,9 @@ const QUESTION_TYPE_FILTER_MATCHES = {
 };
 
 function workspaceKindOf(question) {
-    return question?.criticalThinkingType ?? question?.questionType ?? null;
+    return question?.questionType === "CRITICAL_THINKING"
+        ? question.criticalThinkingType ?? question.questionType
+        : question?.questionType ?? null;
 }
 
 function matchesQuestionTypeFilter(question, filterValue) {
@@ -2757,7 +2759,11 @@ function getQuestionTypeLabel(questionType) {
 }
 
 function getDifficultyLabel(difficulty) {
-    return difficultyLabels[difficulty] ?? difficulty ?? "Unknown";
+    return difficultyLabels[normalizeDifficulty(difficulty)] ?? difficulty ?? "Unknown";
+}
+
+function normalizeDifficulty(difficulty) {
+    return String(difficulty ?? "").trim().toLowerCase();
 }
 
 // A saved bank question in the builder's draft shape, so it renders with the
@@ -3117,7 +3123,7 @@ function QuestionBank({
 
             if (
                 filterDifficulty !== ALL_FILTER_VALUE &&
-                question.difficultyLevel !== filterDifficulty
+                normalizeDifficulty(question.difficultyLevel) !== filterDifficulty
             ) {
                 return false;
             }
@@ -3317,7 +3323,7 @@ function QuestionBank({
             questionId: question.questionId,
             parentQuestionId: question.parentQuestionId ?? null,
             questionType: question.questionType ?? "MCQ",
-            difficultyLevel: question.difficultyLevel ?? "average",
+            difficultyLevel: normalizeDifficulty(question.difficultyLevel) || "average",
             questionText: question.questionText ?? "",
             imageKey: question.imageKey ?? null,
             lessonId: String(question.lessonId ?? ""),
@@ -3367,7 +3373,9 @@ function QuestionBank({
             await updateQuestion(questionForm.questionId, {
                 parentQuestionId: questionForm.parentQuestionId,
                 questionType: questionForm.questionType,
-                difficultyLevel: questionForm.difficultyLevel,
+                difficultyLevel: normalizeDifficulty(questionDialog.question?.difficultyLevel) === questionForm.difficultyLevel
+                    ? questionDialog.question.difficultyLevel
+                    : questionForm.difficultyLevel,
                 questionText: questionForm.questionText,
                 imageKey: questionForm.imageKey,
                 lessonId: Number(questionForm.lessonId),
@@ -5134,7 +5142,7 @@ OUTPUT RULES:
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Difficulty</Label>
+                                    <Label htmlFor="saved-question-difficulty">Difficulty</Label>
 
                                     <Select
                                         value={questionForm.difficultyLevel}
@@ -5143,8 +5151,8 @@ OUTPUT RULES:
                                         }
                                         disabled={questionDialog.mode !== "edit"}
                                     >
-                                        <SelectTrigger className="h-10 rounded-lg bg-background px-3 text-sm">
-                                            <SelectValue />
+                                        <SelectTrigger id="saved-question-difficulty" className="h-10 w-full rounded-lg bg-background px-3 text-sm">
+                                            <SelectValue placeholder="Select difficulty" />
                                         </SelectTrigger>
 
                                         <SelectContent

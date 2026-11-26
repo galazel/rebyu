@@ -5,6 +5,7 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   Loader2,
   PencilIcon,
   Sparkles,
@@ -483,6 +484,17 @@ export default function ViewCertificationAdmin() {
                   </TooltipTrigger>
                   <TooltipContent side="left">Open question bank</TooltipContent>
                 </Tooltip>
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-white/25 bg-white/10 text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
+                    onClick={() => navigate(`/admin/certification/${certification.certificationId}/assessments`)}
+                >
+                  <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+                  Assessments
+                </Button>
               </div>
             </div>
           </div>

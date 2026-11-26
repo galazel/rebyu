@@ -1045,7 +1045,7 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
             <span aria-hidden="true">·</span>
             <span className="inline-flex items-center gap-1.5"><Clock className="size-4" aria-hidden="true" />{quiz.durationMinutes ? `${quiz.durationMinutes} min` : "Self-paced"}</span>
             <span aria-hidden="true">·</span>
-            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" aria-hidden="true" />Pass at {PROFICIENT_RATING}</span>
+            <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" aria-hidden="true" />Proficiency {PROFICIENT_RATING}+ to complete</span>
           </p>
 
 

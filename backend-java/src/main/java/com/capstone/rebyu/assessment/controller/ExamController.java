@@ -1,6 +1,7 @@
 package com.capstone.rebyu.assessment.controller;
 
 import com.capstone.rebyu.assessment.dto.AddExamQuestionsRequest;
+import com.capstone.rebyu.assessment.dto.AssessmentDurationsRequest;
 import com.capstone.rebyu.assessment.dto.ExamDto;
 import com.capstone.rebyu.assessment.service.ExamService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
@@ -58,6 +59,18 @@ public class ExamController {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         return examService.update(id, dto, isAdmin, user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    @PutMapping("/certification/{certificationId}/durations")
+    public List<ExamDto> updateAssessmentDurations(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long certificationId,
+            @Valid @RequestBody AssessmentDurationsRequest request) {
+        CurrentUserDto user = requireAdminOrInstitution(jwt);
+        if (!isAdmin(user)) {
+            throw new IllegalArgumentException("Admin access is required");
+        }
+        return examService.updateAssessmentDurations(certificationId, request);
     }
 
     @DeleteMapping("/{id}")

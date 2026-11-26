@@ -165,7 +165,8 @@ public class AssessmentAttemptService {
                 exam.getInstructions(),
                 exam.getDurationMinutes(),
                 (int) questionCount,
-                exam.getPassingScore(),
+                adaptivePolicy.isAdaptive(exam) && AdaptivePolicy.ADAPTIVE_TYPES.contains(examType)
+                        ? null : exam.getPassingScore(),
                 lockReason == null,
                 lockReason
         );
@@ -731,7 +732,26 @@ public class AssessmentAttemptService {
         attempt.setTotalPoints(weighted ? totalPoints.setScale(2, RoundingMode.HALF_UP) : null);
         attempt.setEarnedPoints(weighted ? earnedPoints.setScale(2, RoundingMode.HALF_UP) : null);
         attempt.setPercentage(percentage);
-        attempt.setPassed(percentage.compareTo(passingScore) >= 0);
+        attempt.setPassed(usesIrtPassing(attempt)
+                ? Boolean.TRUE.equals(irtPassed(attempt))
+                : percentage.compareTo(passingScore) >= 0);
+    }
+
+    private boolean usesIrtPassing(AssessmentAttempt attempt) {
+        return attempt.isAdaptive() && attempt.getExam() != null
+                && attempt.getExam().getExamType() != null
+                && AdaptivePolicy.ADAPTIVE_TYPES.contains(attempt.getExam().getExamType().getExamTypeText());
+    }
+
+    private Boolean irtPassed(AssessmentAttempt attempt) {
+        ProficiencyDto proficiency = proficiencyOf(attempt);
+        return proficiency == null || proficiency.rating() == null
+                ? false : proficiency.rating().compareTo(PROFICIENT_RATING) >= 0;
+    }
+
+    private Boolean effectivePassed(AssessmentAttempt attempt) {
+        return usesIrtPassing(attempt) && attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED
+                ? irtPassed(attempt) : attempt.getPassed();
     }
 
     double scoreOf(AssessmentAttemptQuestion question, AssessmentAttemptAnswer answer) {
@@ -1027,8 +1047,8 @@ public class AssessmentAttemptService {
                 attempt.getSubmittedAt(),
                 attempt.getDurationSeconds(),
                 attempt.getPercentage(),
-                attempt.getPassed(),
-                exam.getPassingScore(),
+                effectivePassed(attempt),
+                usesIrtPassing(attempt) ? null : exam.getPassingScore(),
                 correct, incorrect, pending, unanswered,
                 proficiencyOf(attempt),
                 attempt.getTotalPoints(),
@@ -1062,7 +1082,7 @@ public class AssessmentAttemptService {
             summary.put("startedAt", attempt.getStartedAt());
             summary.put("submittedAt", attempt.getSubmittedAt());
             summary.put("percentage", attempt.getPercentage());
-            summary.put("passed", attempt.getPassed());
+            summary.put("passed", effectivePassed(attempt));
             summary.put("correctCount", attempt.getCorrectCount());
             summary.put("answeredCount", attempt.getAnsweredCount());
             summary.put("itemCount", attempt.getItemCount());
@@ -1091,7 +1111,7 @@ public class AssessmentAttemptService {
                     attempt.getSubmittedAt(),
                     attempt.getDurationSeconds(),
                     attempt.getPercentage(),
-                    attempt.getPassed(),
+                    effectivePassed(attempt),
                     attempt.getCorrectCount(),
                     attempt.getAnsweredCount(),
                     attempt.getItemCount(),

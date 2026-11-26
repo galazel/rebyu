@@ -406,6 +406,24 @@ class AssessmentAttemptServiceTest {
     }
 
     @Test
+    void adaptiveQuizPassesByIrtProficiencyInsteadOfPercentage() {
+        ExamType quizType = new ExamType();
+        quizType.setExamTypeText("LESSON_QUIZ");
+        exam.setExamType(quizType);
+        exam.setPassingScore(new BigDecimal("70"));
+        AssessmentAttempt attempt = AssessmentAttempt.builder()
+                .exam(exam).adaptive(true).thetaCurrent(0.1).build();
+
+        service.applyTotals(attempt, List.of(), Map.of());
+        assertEquals(0, BigDecimal.ZERO.compareTo(attempt.getPercentage()));
+        assertTrue(attempt.getPassed());
+
+        attempt.setThetaCurrent(-0.1);
+        service.applyTotals(attempt, List.of(), Map.of());
+        assertFalse(attempt.getPassed());
+    }
+
+    @Test
     void submitGradesDescriptiveAnswerWithAiAndAppliesPartialCredit() {
         Question descriptiveQuestion = new Question();
         descriptiveQuestion.setQuestionId(200L);

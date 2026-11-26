@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { EquationAnswerInput, ProblemSolvingAnswerView } from "@/components/assessments/attempt/equation-answer-input.jsx"
 import { isMultipleAnswer, MultipleAnswerChoices, parseChoiceIds } from "@/components/assessments/attempt/multiple-answer-choices.jsx"
 import { DiagramAnswerBreakdown, ProgrammingAnswerBreakdown } from "@/components/assessments/attempt/answer-breakdown.jsx"
+import SubQuestionReview from "@/components/assessments/attempt/sub-question-review.jsx"
 import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
@@ -33,6 +34,7 @@ import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-
 import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 import { withInlineMath } from "@/components/certifications/math.jsx"
+import { skimQuestionFormat } from "./skim-question-format.js"
 
 const ProgrammingQuestionLayout = lazy(() => import("@/components/assessments/attempt/programming-question-layout.jsx"))
 const DiagramQuestionLayout = lazy(() => import("@/components/assessments/attempt/diagram-question-layout.jsx"))
@@ -143,7 +145,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const verdict = revealed ? (serverVerdict ?? local) : null
   const busy = phase === "checking" || phase === "submitting"
   const locked = revealed || busy
-  const type = questionFormat(current)
+  const type = skimQuestionFormat(current)
   const Workspace = type === "PROGRAMMING" ? ProgrammingQuestionLayout : type === "DIAGRAM" ? DiagramQuestionLayout : null
   const checkHint = !answered && Workspace
     ? type === "DIAGRAM" ? "Add to the diagram and wait for the canvas to save." : "Enter your code before checking."
@@ -247,7 +249,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogFooter>
           </>
         ) : phase === "result" && result ? (
-          <ResultScreen result={result} questions={questions} onDone={() => { onComplete?.(result); onDismiss?.() }} onReadAgain={onReadAgain ? () => { onComplete?.(result); onDismiss?.(); onReadAgain() } : null} />
+          <ResultScreen result={result} questions={questions} submittedAnswers={answers} onDone={() => { onComplete?.(result); onDismiss?.() }} onReadAgain={onReadAgain ? () => { onComplete?.(result); onDismiss?.(); onReadAgain() } : null} />
         ) : phase === "playing" || busy ? (
           <>
             <AlertDialogHeader className="shrink-0 items-start border-b border-rb-swan/80 bg-[linear-gradient(118deg,var(--tg-soft),var(--card)_62%)] px-5 py-4 text-left sm:px-8 sm:py-4">
@@ -501,7 +503,7 @@ export function SkimWarningDialog({ open, onContinue, onReadAgain }) {
   )
 }
 
-function ResultScreen({ result, questions, onDone, onReadAgain }) {
+function ResultScreen({ result, questions, submittedAnswers, onDone, onReadAgain }) {
   const answers = result.answers ?? []
   const pending = result.pendingCount ?? answers.filter((answer) => answer.pendingManualEvaluation).length
   const marking = result.gradingPending || pending > 0
@@ -525,7 +527,8 @@ function ResultScreen({ result, questions, onDone, onReadAgain }) {
       <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8">
         {answers.map((answer, index) => {
           const question = questions.find((item) => item.attemptQuestionId === answer.attemptQuestionId) ?? answer
-          return <AnswerReview key={answer.attemptQuestionId} answer={answer} question={question} index={index} />
+          return <AnswerReview key={answer.attemptQuestionId} answer={answer} question={question}
+            submittedSubAnswers={submittedAnswers[answer.attemptQuestionId]?.subAnswers} index={index} marking={result.gradingPending} />
         })}
       </ol>
       <AlertDialogFooter className="shrink-0 border-t border-rb-swan px-5 py-4 sm:justify-between sm:px-8">
@@ -536,9 +539,17 @@ function ResultScreen({ result, questions, onDone, onReadAgain }) {
   )
 }
 
-function AnswerReview({ answer, question, index }) {
+function AnswerReview({ answer, question, submittedSubAnswers, index, marking }) {
   const { submittedCode, diagramSubmitted, learnerAnswer } = answer
-  const subQuestionAnswers = answer.subQuestionAnswers ?? []
+  const subQuestions = new Map((question.subQuestions ?? []).map((sub) => [sub.subQuestionId, sub]))
+  for (const review of answer.subQuestionAnswers ?? []) {
+    const prompt = subQuestions.get(review.subQuestionId)
+    subQuestions.set(review.subQuestionId, {
+      ...review,
+      questionText: review.questionText ?? prompt?.questionText,
+      questionImageKey: review.questionImageKey ?? prompt?.questionImageKey,
+    })
+  }
   const partial = answer.credit > 0 && answer.credit < 1
   const label = answer.pendingManualEvaluation ? "Awaiting review" : markLabel(answer.isCorrect, answer.credit)
   const choices = question.choices ?? []
@@ -547,7 +558,7 @@ function AnswerReview({ answer, question, index }) {
   const selectedImages = (answer.choiceImages ?? []).filter((image) => pickedIds.includes(image.choiceId))
   const imageByChoiceId = new Map(selectedImages.map((image) => [image.choiceId, image.imageKey]))
   const choice = isMultipleChoice(question) || isMultipleAnswer(question)
-  const type = questionFormat(question)
+  const type = skimQuestionFormat(question)
   return (
     <li className="space-y-3 rounded-xl border border-rb-swan bg-rb-snow p-4 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -575,18 +586,20 @@ function AnswerReview({ answer, question, index }) {
           </>
         )}
       </div>}
-      {!choice && learnerAnswer && !subQuestionAnswers?.length && (
+      {!choice && learnerAnswer && !subQuestions.size && (
         type === "PROBLEM_SOLVING" ? <ProblemSolvingAnswerView value={learnerAnswer} />
           : <p className="whitespace-pre-wrap break-words">{withInlineMath(learnerAnswer)}</p>
       )}
-      {subQuestionAnswers?.map((sub) => (
-        <div className="border-l-2 border-rb-swan pl-3" key={sub.subQuestionId}>
-          <p className="font-medium">{withInlineMath(sub.questionText)}</p>
-          <AuthedImage imageKey={sub.questionImageKey ?? question.subQuestions?.find((item) => item.subQuestionId === sub.subQuestionId)?.questionImageKey} alt="Sub-question reference" zoomable className="max-h-40" />
-          <p className="whitespace-pre-wrap">{withInlineMath(sub.learnerAnswer || "Unanswered")}</p>
-          {sub.feedback && <p className="text-rb-wolf">{withInlineMath(sub.feedback)}</p>}
-        </div>
-      ))}
+      <SubQuestionReview
+        subQuestions={[...subQuestions.values()].map((sub) => ({
+          ...sub,
+          learnerAnswer: sub.learnerAnswer ?? submittedSubAnswers?.[sub.subQuestionId],
+        }))}
+        pending={answer.pendingManualEvaluation}
+        marking={marking}
+        invalid={answer.invalid}
+        showUnanswered={!choice}
+      />
       {submittedCode && <div>
         <p className="font-medium">Submitted code{answer.programmingLanguage && ` · ${answer.programmingLanguage}`}</p>
         <pre className="max-h-64 overflow-auto rounded-lg bg-rb-polar p-3"><code>{submittedCode}</code></pre>
@@ -637,16 +650,10 @@ function localVerdict(question, answer, key) {
   return { correct: given.length > 0 && accepted.includes(given), expected: key.acceptedAnswers?.[0] ?? null }
 }
 
-function questionFormat(question) {
-  const subtype = question?.criticalThinkingType
-  return question?.questionType === "CRITICAL_THINKING" && (subtype === "PROGRAMMING" || subtype === "DIAGRAM")
-    ? subtype : question?.questionType
-}
-
 function formatLabel(question) {
   if (isMultipleChoice(question)) return "Multiple choice"
   if (question?.questionType === "SHORT_ANSWER" && question.subQuestions?.length) return "Fill in the blanks"
-  return String(questionFormat(question) ?? "Question").toLowerCase().replaceAll("_", " ")
+  return String(skimQuestionFormat(question) ?? "Question").toLowerCase().replaceAll("_", " ")
 }
 
 function markLabel(correct, credit) {
@@ -671,7 +678,7 @@ function isAnswered(question, answer) {
     const count = parseChoiceIds(answer.learnerAnswer).length
     return count > 0 && (!question.selectCount || count === Number(question.selectCount))
   }
-  const type = questionFormat(question)
+  const type = skimQuestionFormat(question)
   if (type === "PROGRAMMING") return Boolean(answer.submittedCode?.trim())
   if (type === "DIAGRAM") return Boolean(answer.diagramSubmissionData?.trim())
   if (question.subQuestions?.length) {

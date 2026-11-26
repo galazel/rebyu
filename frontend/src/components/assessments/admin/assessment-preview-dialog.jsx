@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { getAssessmentTypeLabel } from "@/services/assessmentService.js"
+import { getAssessmentTypeLabel, usesIrtProficiency } from "@/services/assessmentService.js"
 import { withInlineMath } from "@/components/certifications/math.jsx"
 
 export default function AssessmentPreviewDialog({
@@ -62,7 +62,9 @@ export default function AssessmentPreviewDialog({
                     <span>· {exam.durationMinutes} min</span>
                 ) : null}
 
-                {exam.passingScore != null ? (
+                {usesIrtProficiency(typeText) ? (
+                    <span>· IRT proficiency 50+</span>
+                ) : exam.passingScore != null ? (
                     <span>· Passing {Number(exam.passingScore).toFixed(0)}%</span>
                 ) : null}
               </DialogDescription>

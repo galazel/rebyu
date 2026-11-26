@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { diagramPartLabel, failedChecks } from "@/lib/diagram-checks.js"
 import { DiagramAnswerBreakdown, ProgrammingAnswerBreakdown } from "@/components/assessments/attempt/answer-breakdown.jsx"
+import SubQuestionReview from "@/components/assessments/attempt/sub-question-review.jsx"
 import {
   Chip,
   RebyuCard,
@@ -977,33 +978,8 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
 
                     {answer.subQuestionAnswers?.length > 0 ? (
-                      <ol className="space-y-2.5 text-sm">
-                        {answer.subQuestionAnswers.map((sub, index) => (
-                          <li
-                            key={sub.subQuestionId}
-                            className="rounded-rb-tile border border-[var(--tg-line)] bg-card p-3"
-                          >
-                            <p className="font-bold text-foreground">
-                              <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
-                              {withInlineMath(sub.questionText)}
-                            </p>
-                            <AuthedImage imageKey={sub.questionImageKey} alt="Sub-question reference" zoomable className="my-3 max-h-80 w-auto rounded-lg border bg-white" />
-                            <p className="mt-1.5 whitespace-pre-wrap rounded-xl bg-[var(--tg-softer)] p-2.5 text-muted-foreground">
-                              {sub.learnerAnswer?.trim()
-                                ? sub.learnerAnswer
-                                : "No answer submitted."}
-                            </p>
-                            {sub.earnedPoints != null && sub.maxPoints != null && Number(sub.maxPoints) > 0 ? (
-                              <p className="rb-numeric mt-1.5 text-xs text-muted-foreground">
-                                {Math.round((Number(sub.earnedPoints) / Number(sub.maxPoints)) * 100)}% credit for this part
-                              </p>
-                            ) : null}
-                            {sub.feedback ? (
-                              <p className="mt-1 text-sm text-muted-foreground">{sub.feedback}</p>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ol>
+                      <SubQuestionReview subQuestions={answer.subQuestionAnswers} pending={answer.pendingManualEvaluation}
+                        marking={marking} invalid={answer.invalid} />
                     ) : answer.learnerAnswer && !answer.selectedChoiceText ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-muted-foreground">Your answer:</p>
