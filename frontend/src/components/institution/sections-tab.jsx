@@ -828,7 +828,7 @@ function EarnedBadges({ learnerId }) {
           key={award.certificationId}
           variant="default"
           className="gap-1 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold text-[10px] tracking-wide"
-          title={`Certified - Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
+          title={`Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
         >
           {award.hasBadgeImage ? (
             <img
@@ -840,7 +840,7 @@ function EarnedBadges({ learnerId }) {
           ) : (
             <AwardIcon className="size-3" aria-hidden="true" />
           )}
-          <span>Certified</span>
+          <span>Badge earned</span>
         </Badge>
       ))}
     </span>
