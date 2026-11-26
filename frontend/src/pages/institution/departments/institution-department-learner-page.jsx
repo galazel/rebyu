@@ -37,15 +37,17 @@ import {
   getGroupLearnerStudyBehavior,
 } from "@/services/institutionService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
+import { getExams } from "@/services/assessmentService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import MemberAttemptReviewSheet from "@/components/institution/member-attempt-review-sheet.jsx"
 import { ExportButton } from "@/components/commons/export-button.jsx"
 import { learnerReportBlocks } from "@/lib/learner-export.js"
-import { LEARNER_STATUS, relativeDays, useDepartmentOverview } from "@/hooks/use-my-department.js"
+import { LEARNER_STATUS, relativeDays } from "@/hooks/use-my-department.js"
 import { AssessmentIntegritySection, INTEGRITY_RISK } from "@/components/institution/assessment-integrity-section.jsx"
 import { ShieldAlert } from "@/components/icons"
 
 function toPercent(value) {
+  if (value == null || value === "") return null
   const number = Number(value)
   return Number.isFinite(number) ? number : null
 }
@@ -53,6 +55,51 @@ function toPercent(value) {
 function formatPercent(value) {
   const percent = toPercent(value)
   return percent == null ? "—" : `${Math.round(percent)}%`
+}
+
+function scopedIntegrity(attempts, exams) {
+  const examIds = new Set(exams.map((exam) => exam.examId))
+  const rows = attempts.filter((attempt) => examIds.has(attempt.examId))
+  const totals = {
+    attempts: rows,
+    flaggedAttempts: rows.length,
+    totalExits: 0,
+    forfeits: 0,
+    copyPasteTries: 0,
+    otherBlocked: 0,
+    totalAwaySeconds: 0,
+  }
+  for (const row of rows) {
+    totals.totalExits += row.exits ?? 0
+    totals.forfeits += Number(Boolean(row.forfeited))
+    totals.copyPasteTries += row.copyPasteTries ?? 0
+    totals.otherBlocked += row.otherBlocked ?? 0
+    totals.totalAwaySeconds += row.awaySeconds ?? 0
+  }
+  // Match the integrity endpoint's thresholds using only this certification's attempts.
+  const risk = totals.forfeits > 0 || totals.copyPasteTries >= 5 ? "HIGH"
+    : totals.totalExits + totals.copyPasteTries + totals.otherBlocked > 0 ? "MEDIUM" : "NONE"
+  return { ...totals, risk }
+}
+
+function certificationStatus(analytics, enrolment, awards, gradedAttempts) {
+  if (awards.some((award) => award.badgeAwardedAt != null)) return { status: "completed" }
+  const lessonCount = analytics?.completedLessonCount ?? enrolment?.completedLessonCount ?? 0
+  if (!analytics) return null
+  if (!lessonCount && !analytics.hasAssessmentActivity && !analytics.hasChallengeActivity && !gradedAttempts.length) {
+    return { status: "not_started", reason: "No lesson finished and no graded attempt yet" }
+  }
+  const average = toPercent(analytics.averageAssessmentScore)
+  const gradedOutcomes = gradedAttempts.filter((attempt) => typeof attempt.passed === "boolean")
+  const passed = gradedOutcomes.filter((attempt) => attempt.passed).length
+  // The department overview also flags averages or pass rates under 50%.
+  if (gradedAttempts.length && average != null && average < 50) {
+    return { status: "at_risk", reason: `Averaging ${Math.round(average)}% over ${gradedAttempts.length} graded attempts` }
+  }
+  if (gradedOutcomes.length && passed / gradedOutcomes.length < 0.5) {
+    return { status: "at_risk", reason: `Passed ${passed} of ${gradedOutcomes.length} attempts` }
+  }
+  return { status: "on_track" }
 }
 
 function TopicList({ title, description, icon: Icon, topics }) {
@@ -741,16 +788,13 @@ export default function InstitutionDepartmentLearnerPage() {
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
   const [reviewAttemptId, setReviewAttemptId] = useState(null)
+  const [selectedCertificationId, setSelectedCertificationId] = useState(null)
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", departmentIdNumber],
     queryFn: () => getGroupLearnerRoster(departmentIdNumber),
     enabled: Number.isFinite(departmentIdNumber),
   })
-  // Status and the reason for it, exactly as the dashboard and roster show them.
-  const overviewQuery = useDepartmentOverview(Number.isFinite(departmentIdNumber) ? departmentIdNumber : null)
-
-  const [activeCertificationId, setActiveCertificationId] = useState(null)
   // The department's certifications name the learner's enrolments (the roster has ids only).
   const departmentQuery = useQuery({
     queryKey: ["department", departmentIdNumber],
@@ -758,12 +802,26 @@ export default function InstitutionDepartmentLearnerPage() {
     enabled: Number.isFinite(departmentIdNumber),
     staleTime: 5 * 60_000,
   })
+  const certificationTitles = new Map(
+    (departmentQuery.data?.certifications ?? []).map((cert) => [cert.certificationId, cert.title])
+  )
+  const enrolments = (Array.isArray(rosterQuery.data) ? rosterQuery.data : [])
+    .filter((row) => row.learnerId === learnerIdNumber && row.status !== "removed" && row.certificationId != null)
+    .map((row) => ({ ...row, certificationTitle: row.certificationTitle ?? certificationTitles.get(row.certificationId) }))
+  const activeEnrolment = enrolments.find((row) => row.certificationId === selectedCertificationId) ?? enrolments[0]
+  const activeCertificationId = activeEnrolment?.certificationId
+  const learner = enrolments[0]
+
+  function selectCertification(id) {
+    setReviewAttemptId(null)
+    setSelectedCertificationId(id)
+  }
+
   const analyticsQuery = useQuery({
     queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber, activeCertificationId],
     // The chosen certification tab decides which certification's results and stats load.
     queryFn: () => getGroupLearnerAnalytics(departmentIdNumber, learnerIdNumber, activeCertificationId),
-    placeholderData: (previous) => previous,
-    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    enabled: activeCertificationId != null,
     retry: 1,
   })
 
@@ -772,8 +830,7 @@ export default function InstitutionDepartmentLearnerPage() {
   const behaviorQuery = useQuery({
     queryKey: ["group-learner-behavior", departmentIdNumber, learnerIdNumber, activeCertificationId],
     queryFn: () => getGroupLearnerStudyBehavior(departmentIdNumber, learnerIdNumber, activeCertificationId),
-    placeholderData: (previous) => previous,
-    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    enabled: activeCertificationId != null,
     staleTime: 60_000,
     retry: 1,
   })
@@ -781,8 +838,15 @@ export default function InstitutionDepartmentLearnerPage() {
   const integrityQuery = useQuery({
     queryKey: ["group-learner-integrity", departmentIdNumber, learnerIdNumber],
     queryFn: () => getGroupLearnerIntegrity(departmentIdNumber, learnerIdNumber),
-    enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    enabled: activeCertificationId != null,
     retry: 1,
+  })
+  const flaggedAttempts = integrityQuery.data?.attempts ?? []
+  const examsQuery = useQuery({
+    queryKey: ["department-learner-exams", departmentIdNumber, activeCertificationId],
+    queryFn: () => getExams(departmentIdNumber, activeCertificationId),
+    enabled: activeCertificationId != null && flaggedAttempts.length > 0,
+    staleTime: 60_000,
   })
 
   const awardsQuery = useQuery({
@@ -793,15 +857,6 @@ export default function InstitutionDepartmentLearnerPage() {
     retry: 1,
   })
 
-  // One roster row per certification the learner studies in this department.
-  const certificationTitles = new Map(
-    (departmentQuery.data?.certifications ?? []).map((cert) => [cert.certificationId, cert.title])
-  )
-  const enrolments = (Array.isArray(rosterQuery.data) ? rosterQuery.data : [])
-    .filter((row) => row.learnerId === learnerIdNumber && row.status !== "removed")
-    .map((row) => ({ ...row, certificationTitle: row.certificationTitle ?? certificationTitles.get(row.certificationId) }))
-  const learner = enrolments[0]
-  const status = (overviewQuery.data?.learners ?? []).find((row) => row.learnerId === learnerIdNumber)
   const initials = initialsOf(learner?.name)
   const avatarUrl = useAvatarUrl(learner?.avatarKey ?? null)
   const analytics = analyticsQuery.data
@@ -850,19 +905,45 @@ export default function InstitutionDepartmentLearnerPage() {
       .sort((a, b) => (b.lastSubmittedAt?.getTime() ?? 0) - (a.lastSubmittedAt?.getTime() ?? 0))
   }, [gradedAttempts])
 
-  if (analyticsQuery.isLoading || rosterQuery.isLoading) {
+  if (rosterQuery.isLoading) {
     return <InstitutionLoadingSkeleton rows={4} />
   }
-  if (analyticsQuery.isError) {
+  if (rosterQuery.isError) {
     return (
       <InstitutionErrorState
-        title="Unable to load this learner's statistics"
+        title="Unable to load this learner's enrollments"
         description="They may no longer be assigned to this department."
-        onRetry={analyticsQuery.refetch}
+        onRetry={rosterQuery.refetch}
       />
     )
   }
+  if (!activeEnrolment) {
+    return <InstitutionEmptyState icon={AwardIcon} title="No certifications assigned" description="This learner has no active certification enrollment in this department." />
+  }
 
+  const scopedAwards = (Array.isArray(awardsQuery.data) ? awardsQuery.data : [])
+    .filter((award) => award.certificationId === activeCertificationId)
+  const status = certificationStatus(analytics, activeEnrolment, scopedAwards, gradedAttempts)
+  const integrity = {
+    isLoading: integrityQuery.isLoading || examsQuery.isLoading,
+    isError: integrityQuery.isError || (flaggedAttempts.length > 0 && examsQuery.isError),
+    data: scopedIntegrity(flaggedAttempts, examsQuery.data ?? []),
+  }
+  const latestSubmission = analytics?.recentActivity?.[0]?.occurredAt ?? gradedAttempts.at(-1)?.submittedAt
+  const submittedTime = latestSubmission ? new Date(latestSubmission).getTime() : NaN
+  const daysSinceSubmission = Number.isFinite(submittedTime)
+    ? Math.max(0, Math.floor((Date.now() - submittedTime) / 86_400_000))
+    : null
+  const mockAttempts = (analytics?.scoreTrend ?? []).filter((attempt) => formatAssessmentType(attempt.assessmentType) === "Mock exam")
+  const mockPassed = Boolean(activeEnrolment.mockExamPassed || mockAttempts.some((attempt) => attempt.passed === true))
+  const mockScores = mockAttempts.map((attempt) => toPercent(attempt.percentage)).filter((score) => score != null)
+  const bestMockScore = mockScores.reduce(
+    (best, score) => best == null ? score : Math.max(best, score),
+    toPercent(activeEnrolment.bestMockExamScore),
+  )
+  const mockLabel = mockPassed ? "Mock exam passed"
+    : bestMockScore != null ? "Mock exam not passed"
+      : mockAttempts.length ? "Mock exam awaiting score" : "No mock exam attempt yet"
   const weakestTopics = analytics?.weakestTopics ?? []
   const completedLessons = analytics?.completedLessonCount ?? 0
   const totalLessons = analytics?.totalLessonCount ?? 0
@@ -871,17 +952,12 @@ export default function InstitutionDepartmentLearnerPage() {
   const totalAttempts = analytics?.totalAssessmentAttempts ?? 0
   const lessonShare = totalLessons ? (completedLessons / totalLessons) * 100 : 0
   const statusStyle = status ? LEARNER_STATUS[status.status] : null
-  const integrityRisk = INTEGRITY_RISK[integrityQuery.data?.risk]
+  const integrityRisk = INTEGRITY_RISK[integrity.data.risk]
   const integrityByAttempt = new Map(
-    (integrityQuery.data?.attempts ?? []).map((row) => [row.attemptId, row])
+    integrity.data.attempts.map((row) => [row.attemptId, row])
   )
 
-  // The export is for the certification on screen: its enrolment row, and its analytics.
-  const activeEnrolment =
-    enrolments.find((row) => row.certificationId === (activeCertificationId ?? analytics?.certificationId)) ??
-    enrolments[0] ??
-    learner
-  const exportCertification = analytics?.certificationTitle ?? activeEnrolment?.certificationTitle ?? "certification"
+  const exportCertification = activeEnrolment.certificationTitle ?? analytics?.certificationTitle ?? "certification"
   const exportName = `rebyu-${String(learner?.name ?? "learner")}-${exportCertification}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -894,11 +970,10 @@ export default function InstitutionDepartmentLearnerPage() {
       ["Why", status?.reason ?? ""],
       ["Section", activeEnrolment?.sectionName ?? "No section"],
       ["Enrolled in this certification on", activeEnrolment?.assignedAt ?? ""],
-      ["Last active", status?.lastActivityAt ?? "Never"],
-      ["Passed a mock exam", Boolean(activeEnrolment?.mockExamPassed)],
-      ["Best mock exam score (%)", activeEnrolment?.bestMockExamScore == null ? null : Math.round(Number(activeEnrolment.bestMockExamScore))],
+      ["Last submitted attempt", latestSubmission ?? "None"],
+      ["Passed a mock exam", mockPassed],
+      ["Best mock exam score (%)", bestMockScore == null ? null : Math.round(bestMockScore)],
       ["Mock exam passed on", activeEnrolment?.mockExamPassedAt ?? ""],
-      ["Other certifications here", enrolments.filter((row) => row !== activeEnrolment).map((row) => row.certificationTitle).filter(Boolean).join(", ") || "None"],
     ])
 
   const averageScore = toPercent(analytics?.averageAssessmentScore)
@@ -932,13 +1007,11 @@ export default function InstitutionDepartmentLearnerPage() {
                 {integrityRisk.label}
               </Badge>
             ) : null}
-            {learner?.mockExamPassed ? (
-              <Badge className="gap-1 text-[11px]">
+            {analytics || mockPassed ? (
+              <Badge variant={mockPassed ? "default" : "outline"} className="gap-1 text-[11px]">
                 <AwardIcon className="size-3" aria-hidden="true" />
-                Mock exam passed
-                {Number.isFinite(Number(learner.bestMockExamScore))
-                  ? ` · ${Math.round(Number(learner.bestMockExamScore))}%`
-                  : ""}
+                {mockLabel}
+                {bestMockScore != null ? ` · ${Math.round(bestMockScore)}%` : ""}
               </Badge>
             ) : null}
           </div>
@@ -957,7 +1030,7 @@ export default function InstitutionDepartmentLearnerPage() {
                   enrolments={enrolments}
                   fallbackTitle={analytics?.certificationTitle}
                   activeCertificationId={activeCertificationId}
-                  onSelect={setActiveCertificationId}
+                  onSelect={selectCertification}
                 />
               </li>
             ) : analytics?.certificationTitle ? (
@@ -968,12 +1041,12 @@ export default function InstitutionDepartmentLearnerPage() {
             ) : null}
             <li className="flex items-center gap-2">
               <ClipboardListIcon className="size-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">{learner?.sectionName ?? "No section"}</span>
+              <span className="truncate">{activeEnrolment.sectionName ?? "No section"}</span>
             </li>
-            {status ? (
+            {analytics ? (
               <li className="flex items-center gap-2">
                 <HistoryIcon className="size-4 shrink-0" aria-hidden="true" />
-                <span>Last active {relativeDays(status.daysInactive).toLowerCase()}</span>
+                <span>{daysSinceSubmission == null ? "No submitted attempts yet" : `Last submitted attempt ${relativeDays(daysSinceSubmission).toLowerCase()}`}</span>
               </li>
             ) : null}
           </ul>
@@ -989,13 +1062,13 @@ export default function InstitutionDepartmentLearnerPage() {
               ]}
               className="h-9"
               label={enrolments.length > 1 ? `Export ${exportCertification}` : "Export"}
-              disabled={analyticsQuery.isPlaceholderData || !analytics}
+              disabled={!analytics}
               sections={csv}
             />
           </div>
         </div>
 
-        <dl className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card">
+        {analytics ? <dl className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card">
           <ProfileStat
             icon={BookOpen}
             label="Lessons completed"
@@ -1024,13 +1097,23 @@ export default function InstitutionDepartmentLearnerPage() {
             progress={toPercent(analytics?.readinessPercentage) ?? 0}
             hint="Chance of passing the real exam"
           />
-        </dl>
+        </dl> : analyticsQuery.isLoading ? <InstitutionLoadingSkeleton rows={2} /> : null}
 
-        <CredentialsCard query={awardsQuery} />
+        <CredentialsCard query={{ ...awardsQuery, data: scopedAwards }} />
       </aside>
 
       {/* Main column */}
       <div className="min-w-0 space-y-6">
+        {analyticsQuery.isLoading ? (
+          <InstitutionLoadingSkeleton rows={4} />
+        ) : analyticsQuery.isError ? (
+          <InstitutionErrorState
+            title="Unable to load this certification's statistics"
+            description="Try again to load the learner's progress for the selected certification."
+            onRetry={analyticsQuery.refetch}
+          />
+        ) : (
+          <>
 
         <section className="space-y-2">
           <h2 className="text-sm font-semibold text-foreground">
@@ -1049,14 +1132,14 @@ export default function InstitutionDepartmentLearnerPage() {
           />
         ) : null}
 
-        <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} flags={integrityByAttempt} />
+        <AssessmentResultsSection key={activeCertificationId} groups={assessmentGroups} onOpen={setReviewAttemptId} flags={integrityByAttempt} />
 
         <StudyBehaviourSection
           query={behaviorQuery}
-          certificationTitle={analytics?.certificationTitle ?? activeEnrolment?.certificationTitle ?? null}
+          certificationTitle={activeEnrolment.certificationTitle ?? analytics?.certificationTitle ?? null}
         />
 
-        <AssessmentIntegritySection query={integrityQuery} onOpen={setReviewAttemptId} />
+        <AssessmentIntegritySection query={integrity} onOpen={setReviewAttemptId} />
 
         <TopicList
           title="Weakest topics"
@@ -1068,6 +1151,8 @@ export default function InstitutionDepartmentLearnerPage() {
           icon={TrendingDownIcon}
           topics={weakestTopics}
         />
+          </>
+        )}
       </div>
 
       <MemberAttemptReviewSheet

@@ -60,25 +60,32 @@ const behaviourFor = {
 }
 
 const roster = [
-  { learnerId: 9, certificationId: 14, certificationTitle: "IT Passport Exam", name: "Glyzel Galagar", username: "glyzelgalagar27", status: "active", sectionName: "BSCS-3A" },
-  { learnerId: 9, certificationId: 21, certificationTitle: "TOPCIT", name: "Glyzel Galagar", username: "glyzelgalagar27", status: "active", sectionName: "BSCS-3A" },
+  { learnerId: 9, certificationId: 14, certificationTitle: "IT Passport Exam", name: "Sample Learner", username: "samplelearner", status: "active", sectionName: "Passport section", completedLessonCount: 63, totalLessonCount: 63, mockExamPassed: true, bestMockExamScore: 100 },
+  { learnerId: 9, certificationId: 21, certificationTitle: "TOPCIT", name: "Sample Learner", username: "samplelearner", status: "active", sectionName: "TOPCIT section", completedLessonCount: 29, totalLessonCount: 64, mockExamPassed: false, bestMockExamScore: null },
 ]
 
+const attemptFor = {
+  14: { assessmentAttemptId: 114, examId: 514, assessmentTitle: "Passport Mock Exam", assessmentType: "MOCK_EXAM", percentage: 100, passed: true, submittedAt: `${day(0)}T00:00:00` },
+  21: { assessmentAttemptId: 121, examId: 521, assessmentTitle: "TOPCIT Software Quiz", assessmentType: "LESSON_QUIZ", percentage: 40, passed: false, submittedAt: `${day(4)}T00:00:00` },
+}
 const analyticsFor = (certificationId) => ({
   certificationId,
   certificationTitle: certificationId === 21 ? "TOPCIT" : "IT Passport Exam",
-  completedLessonCount: 5,
-  totalLessonCount: 63,
-  passedAssessmentCount: 3,
+  completedLessonCount: certificationId === 21 ? 29 : 63,
+  totalLessonCount: certificationId === 21 ? 64 : 63,
+  passedAssessmentCount: certificationId === 21 ? 0 : 1,
   totalAssessmentCount: 96,
-  totalAssessmentAttempts: 18,
+  totalAssessmentAttempts: 1,
   hasAssessmentActivity: true,
-  scoreTrend: [],
-  weakestTopics: [],
+  averageAssessmentScore: attemptFor[certificationId].percentage,
+  scoreTrend: [attemptFor[certificationId]],
+  weakestTopics: [{ lessonTitle: certificationId === 21 ? "TOPCIT topic" : "Passport topic", masteryPercentage: 40 }],
 })
 
 const asked = []
+const analyticsAsked = []
 let browser
+let respondToTopcit
 
 try {
   await server.listen()
@@ -101,15 +108,33 @@ try {
       asked.push(certificationId)
       return respond(behaviourFor[certificationId] ?? behaviourFor[14])
     }
-    if (pathname.endsWith("/analytics")) return respond(analyticsFor(certificationId))
-    if (pathname.endsWith("/overview")) return respond({ learners: [{ learnerId: 9, status: "at_risk", reason: "Averaging 39%" }] })
+    if (pathname.endsWith("/analytics")) {
+      analyticsAsked.push(new URLSearchParams(search).get("certificationId"))
+      if (certificationId === 21 && !respondToTopcit) {
+        respondToTopcit = () => respond(analyticsFor(certificationId))
+        return
+      }
+      return respond(analyticsFor(certificationId))
+    }
+    if (pathname.endsWith("/awards")) {
+      return respond([{ certificationId: 14, certificationTitle: "Passport badge", badgeAwardedAt: `${day(2)}T00:00:00` }])
+    }
+    if (pathname === "/api/exams") {
+      return respond([{ examId: attemptFor[certificationId].examId, certificationId }])
+    }
     if (/\/departments\/\d+\/learners$/.test(pathname)) return respond(roster)
     if (/\/departments\/\d+$/.test(pathname)) {
       return respond({ departmentId: 1, name: "BSCS", certifications: [
         { certificationId: 14, title: "IT Passport Exam" }, { certificationId: 21, title: "TOPCIT" },
       ] })
     }
-    if (pathname.endsWith("/integrity")) return respond({ risk: null, attempts: [] })
+    if (pathname.endsWith("/integrity")) return respond({
+      risk: "HIGH",
+      attempts: [
+        { attemptId: 115, examId: 514, examTitle: "Passport-only integrity event", copyPasteTries: 5, events: [] },
+        { attemptId: 121, examId: 521, examTitle: "TOPCIT-only integrity event", exits: 1, events: [] },
+      ],
+    })
     return respond([])
   })
 
@@ -117,8 +142,11 @@ try {
   await page.goto(url.href, { waitUntil: "domcontentloaded" })
 
   const text = () => page.evaluate(() => document.body.innerText)
+  const sidebar = () => page.$eval("aside", (element) => element.innerText)
 
   await page.waitForFunction(() => document.body.innerText.includes("Study behaviour this week"))
+  await page.waitForFunction(() => document.body.innerText.includes("Passport-only integrity event"))
+  await page.waitForFunction(() => document.body.innerText.includes("Passport badge"))
   if (process.env.SHOT_DIR) {
     const box = await page.$("::-p-xpath(//h2[normalize-space()='Study behaviour this week']/ancestor::section)")
     await box?.screenshot({ path: `${process.env.SHOT_DIR}/dept-study-behaviour.png` })
@@ -133,15 +161,47 @@ try {
     "the skimming is spelled out for staff, not for the learner",
   )
   assert.ok(shown.includes("IT Passport Exam"), "the section names the certification it covers")
+  const firstSidebar = await sidebar()
+  assert.match(firstSidebar, /Mock exam passed · 100%/)
+  assert.ok(firstSidebar.includes("Passport section") && firstSidebar.includes("Passport badge"))
+  assert.match(firstSidebar, /63\/63 lessons/)
+  assert.match(firstSidebar, /Last submitted attempt today/)
+  assert.ok(shown.includes("Passport Mock Exam") && shown.includes("Passport topic"))
+  assert.ok(!shown.includes("TOPCIT-only integrity event"))
+  assert.deepEqual(analyticsAsked, ["14"], "even the default certification is requested explicitly")
 
   // The figures follow the certification tab.
   await page.locator("::-p-xpath(//button[normalize-space()='TOPCIT'])").click()
+  assert.doesNotMatch(await text(), /Passport Mock Exam|Mock exam passed|Passport topic/, "previous results disappear while loading")
+  assert.match(await sidebar(), /Export TOPCIT/)
+  await page.waitForFunction(() => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent === "TOPCIT")
+  for (let retry = 0; retry < 40 && !respondToTopcit; retry++) {
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  assert.ok(respondToTopcit, "the selected certification requested new analytics")
+  await respondToTopcit()
+  await page.waitForFunction(() => document.body.innerText.includes("TOPCIT-only integrity event"))
   await page.waitForFunction(() => document.body.innerText.includes("Steady pace"))
   const second = await text()
+  const secondSidebar = await sidebar()
   assert.match(second, /90\s*min studied · 12 today/, "the other certification has its own week")
+  assert.match(secondSidebar, /No mock exam attempt yet/)
+  assert.match(secondSidebar, /29\/64 lessons/)
+  assert.match(secondSidebar, /TOPCIT section/)
+  assert.match(secondSidebar, /Last submitted attempt [45] days ago/)
+  assert.match(secondSidebar, /Averaging 40%/)
+  assert.doesNotMatch(secondSidebar, /Passport section|Passport badge|Possible cheating|Mock exam passed/)
+  assert.match(second, /TOPCIT Software Quiz/)
+  assert.match(second, /TOPCIT topic/)
+  assert.doesNotMatch(second, /Passport-only integrity event|Passport Mock Exam|Passport topic/)
   assert.ok(asked.includes(21), "the second certification is asked for by id")
+  assert.deepEqual(analyticsAsked, ["14", "21"])
 
-  console.log("department-learner-study: a head sees the learner's week, per certification")
+  await page.locator("::-p-xpath(//button[normalize-space()='IT Passport Exam'])").click()
+  await page.waitForFunction(() => document.body.innerText.includes("Passport Mock Exam"))
+  assert.match(await sidebar(), /Mock exam passed · 100%/)
+  assert.doesNotMatch(await text(), /TOPCIT Software Quiz|TOPCIT-only integrity event/)
+  console.log("department-learner-study: results, study behaviour, sidebar, export, badges and integrity follow the selected certification")
 } finally {
   await browser?.close()
   await server.close()
