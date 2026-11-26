@@ -175,6 +175,16 @@ async def ainvoke_with_fallback(
                 # The model answered, just never validly. Another model would
                 # rerun the same doomed loop; let the caller top up instead.
                 raise
+            if getattr(exc, "status_code", None) in (401, 403):
+                provider = _provider_of(model, profile)
+                sharing = [other for other in chain if _provider_of(other, profile) == provider]
+                rest = [other for other in available if other not in ruled_out and other not in sharing]
+                if rest:
+                    ruled_out.update(sharing)
+                    last_exc = exc
+                    logger.warning("%s rejected the %s credentials; trying %s", provider, task, rest[0])
+                    continue
+                raise
             if (is_account_daily_cap(exc) or is_out_of_credits(exc)) and _provider_of(model, profile) == "openrouter":
                 free_cap = is_account_daily_cap(exc)
                 sharing = [

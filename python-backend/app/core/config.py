@@ -95,7 +95,7 @@ class Settings(BaseSettings):
 
     ai_grading_provider: str = "openrouter"
     ai_grading_model: str = "openai/gpt-4.1-mini"
-    ai_grading_fallbacks: str = "google/gemini-2.5-flash-lite,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
+    ai_grading_fallbacks: str = "gemini:gemini-3.5-flash-lite,google/gemini-2.5-flash-lite,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_grading_max_tokens: int = 1500
     ai_grading_temperature: float = 0.0
 

@@ -76,7 +76,7 @@ import {
   markSectionUnread,
   parseLessonStructure,
 } from "@/services/learnerService.js"
-import { getExams, getExamTypes, getLearnerAssessment } from "@/services/assessmentService.js"
+import { getExams, getExamTypes, getLearnerAssessment, getAssessmentAttempts } from "@/services/assessmentService.js"
 import { getTopicReflection } from "@/services/reflectionService.js"
 import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
@@ -975,7 +975,7 @@ function LevelMeter({ standing, latest, best, taken }) {
           {cleared ? "Level cleared" : taken ? "Keep going" : "New challenge"}
         </p>
         <p className="font-rb-display text-xl font-extrabold text-rb-eel">
-          {rating != null ? `Proficiency ${rating} / 100` : "Not attempted yet"}
+          {rating != null ? `Proficiency ${rating} / 100` : taken ? "Attempt recorded · no proficiency rating" : "Not attempted yet"}
         </p>
         <div className="relative mt-2 h-3 overflow-hidden rounded-full bg-rb-swan">
           <div
@@ -1601,9 +1601,32 @@ export default function LearnerTopicPage() {
   const completing = completeMutation.isPending
 
   const activeQuiz = active?.kind === "lesson" ? active.quiz : null
-  const quizStanding = activeQuiz ? examStanding(data?.examResults, activeQuiz.examId) : null
-  const quizLatest = activeQuiz ? latestSitting(data?.examResults, activeQuiz.examId) : null
-  const quizBest = activeQuiz ? bestSitting(data?.examResults, activeQuiz.examId) : null
+  const quizAttemptsQuery = useQuery({
+    queryKey: ["assessment-attempts", String(activeQuiz?.examId), data?.learnerId],
+    queryFn: () => getAssessmentAttempts(activeQuiz.examId, data.learnerId),
+    enabled: activeQuiz?.examId != null && data?.learnerId != null,
+    staleTime: 0,
+  })
+  const quizResults = useMemo(() => {
+    if (!activeQuiz || !Array.isArray(quizAttemptsQuery.data)) return data?.examResults ?? []
+    const otherResults = (data?.examResults ?? []).filter(
+      (result) => String(result.examId) !== String(activeQuiz.examId),
+    )
+    const attempts = quizAttemptsQuery.data
+      .filter((attempt) => attempt.submittedAt != null)
+      .map((attempt) => ({
+        examId: activeQuiz.examId,
+        attemptNo: attempt.attemptNumber,
+        takenAt: attempt.submittedAt,
+        score: attempt.percentage,
+        rating: attempt.proficiency?.rating ?? null,
+        passed: attempt.passed === true,
+      }))
+    return [...otherResults, ...attempts]
+  }, [activeQuiz, quizAttemptsQuery.data, data?.examResults])
+  const quizStanding = activeQuiz ? examStanding(quizResults, activeQuiz.examId) : null
+  const quizLatest = activeQuiz ? latestSitting(quizResults, activeQuiz.examId) : null
+  const quizBest = activeQuiz ? bestSitting(quizResults, activeQuiz.examId) : null
   const quizPending = Boolean(activeQuiz) && !quizStanding?.cleared
 
   const readLesson = useCallback(() => {
@@ -1762,7 +1785,7 @@ export default function LearnerTopicPage() {
               onToggleSection={toggleSection}
               onReadLesson={readLesson}
               onToggleLesson={readLesson}
-              takenExamIds={takenExamIds}
+              takenExamIds={new Set([...takenExamIds, ...(quizStanding?.taken ? [String(activeQuiz.examId)] : [])])}
               quizPending={quizPending}
               quizStanding={quizStanding}
               quizLatest={quizLatest}

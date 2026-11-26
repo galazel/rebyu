@@ -445,6 +445,18 @@ def _only_chain(monkeypatch, models):
 PAID = ["paid/one", "paid/two"]
 FREE = ["free/one:free", "free/two:free"]
 GROQ = ["groq:openai/gpt-oss-120b"]
+GEMINI = ["gemini:gemini-3.5-flash-lite"]
+
+
+async def test_auth_failure_skips_other_models_using_the_rejected_key(monkeypatch):
+    _only_chain(monkeypatch, PAID + GEMINI)
+    calls: list[str] = []
+    factory = _factory({PAID[0]: _FakeRateLimit("User not found", status=401)}, calls)
+
+    result = await ainvoke_with_fallback(factory, {"messages": []})
+
+    assert result == {"structured_response": f"ok from {GEMINI[0]}"}
+    assert calls == [PAID[0], GEMINI[0]]
 
 
 async def test_no_credit_fails_immediately_when_only_openrouter_paid_models_remain(monkeypatch):

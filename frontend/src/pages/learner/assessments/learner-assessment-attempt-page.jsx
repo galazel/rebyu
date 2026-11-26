@@ -648,6 +648,7 @@ export default function LearnerAssessmentAttemptPage() {
       sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
       toastWhenReady.error("You left the assessment too many times. It has ended with a score of 0.")
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+      queryClient.invalidateQueries({ queryKey: ["assessment-attempts", String(examId)] })
       showResult(forfeitedAttemptId, { returnTo: returnPath(location), forfeited: true })
     },
   })
@@ -995,6 +996,7 @@ export default function LearnerAssessmentAttemptPage() {
       queryClient.invalidateQueries({ queryKey: ["learner-streak"] })
 
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+      queryClient.invalidateQueries({ queryKey: ["assessment-attempts", String(examId)] })
     },
     onError: (error) => {
       // Back in the attempt after a failed submit: the guard applies again.
