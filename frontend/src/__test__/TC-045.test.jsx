@@ -121,3 +121,39 @@ test("submits a fixed problem-solving item with its working and displays its wei
   expect(screen.getByLabelText("Final score")).toHaveTextContent("75%")
   expect(screen.getByText("Partial credit · 75%")).toBeInTheDocument()
 })
+
+test.each([
+  ["MCQ", { choices: [{ choiceId: 1, choiceText: "Router" }] }, "Router", { selectedChoiceId: 1 }],
+  ["MULTIPLE_CHOICE", { choices: [{ choiceId: 1, choiceText: "Router" }] }, "Router", { selectedChoiceId: 1 }],
+  ["TRUE_FALSE", { choices: [{ choiceId: 1, choiceText: "True" }, { choiceId: 2, choiceText: "False" }] }, "True", { selectedChoiceId: 1 }],
+  ["SHORT_ANSWER", {}, "TCP", { learnerAnswer: "TCP" }],
+  ["CRITICAL_THINKING", {}, "Compare the trade-offs", { learnerAnswer: "Compare the trade-offs" }],
+  ["CRITICAL_THINKING", { criticalThinkingType: "PROGRAMMING" }, "Enter code", { submittedCode: "print(7)" }],
+  ["DIAGRAM", { diagramType: "ERD" }, "Draw diagram", { diagramSubmissionData: "<mxGraphModel/>" }],
+])("checks and reviews %s with %j", async (questionType, config, response, draft) => {
+  const question = { ...config, questionType, question: "Sample prompt", attemptQuestionId: 1, displayOrder: 1 }
+  request.mockImplementationOnce(async (_path, options) => {
+    expect(options.data.answers).toEqual([expect.objectContaining(draft)])
+    return { verdicts: { 1: { isCorrect: true, credit: 1 } }, completed: true }
+  }).mockResolvedValueOnce({
+    percentage: 100, passed: true, correctCount: 1,
+    answers: [{ ...question, ...draft, isCorrect: true, credit: 1, diagramSubmitted: questionType === "DIAGRAM" }],
+  })
+  render(<LessonKnowledgeCheck open learnerId={7} attempt={{
+    assessmentAttemptId: 43, adaptive: { total: 1 }, questions: [question],
+  }} />, { wrapper })
+  fireEvent.click(screen.getByText("Start focus check"))
+  const check = screen.getByRole("button", { name: "Check" })
+  expect(check).toBeDisabled()
+  if (draft.learnerAnswer) {
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: response } })
+  } else {
+    fireEvent.click(await screen.findByText(response))
+  }
+  expect(check).toBeEnabled()
+  fireEvent.click(check)
+  fireEvent.click(await screen.findByRole("button", { name: "See my score" }))
+  expect(await screen.findByText("Challenge results")).toBeInTheDocument()
+  expect(screen.getByLabelText("Final score")).toHaveTextContent("100%")
+  expect(screen.getByText(draft.submittedCode ?? (draft.diagramSubmissionData ? "Diagram submitted" : response))).toBeInTheDocument()
+})
