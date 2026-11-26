@@ -1356,7 +1356,6 @@ export default function LearnerAssessmentAttemptPage() {
                       learnerId={learnerId}
                       navigator={isSingleProblemChallenge ? null : navigatorPanel}
                       editingLocked={editingLocked}
-                      isChallenge={isSingleProblemChallenge}
                   />
                 </div>
               </div>

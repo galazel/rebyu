@@ -1,13 +1,9 @@
-import { useEffect, useState } from "react"
-
-import { ClipboardCheck, FileText, Workflow } from "@/components/icons"
+import { FileText, List, Workflow } from "@/components/icons"
 import { cn } from "@/lib/utils"
-import { getFileViewUrl } from "@/services/fileService.js"
 import { useAuthedMediaSrc } from "@/lib/authed-media.jsx"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import { getDiagramTypeLabel } from "@/components/questions/question-editors.jsx"
 import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace-shell.jsx"
-import RubricPanel from "./rubric-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 
 export default function DiagramQuestionLayout({
@@ -21,19 +17,10 @@ export default function DiagramQuestionLayout({
   navigator,
   checker = null,
   editingLocked = false,
-  isChallenge = false,
 }) {
-  const [rubric, setRubric] = useState(question.rubric ?? [])
-  const [notice, setNotice] = useState(null)
-
   const diagramType = question.diagramType ?? "ERD"
   const diagramLabel = getDiagramTypeLabel(diagramType)
   const subQuestions = question.subQuestions ?? []
-
-  useEffect(() => {
-    setRubric(question.rubric ?? [])
-    setNotice(null)
-  }, [question.attemptQuestionId, question.rubric])
 
   const questionImageSrc = useAuthedMediaSrc(question.questionImageKey)
 
@@ -88,21 +75,13 @@ export default function DiagramQuestionLayout({
     </div>
   )
 
-  const side = isChallenge ? null : (
-    <>
-      <SidePanel className="hidden lg:block">{navigator}</SidePanel>
-
-      <SidePanel>
-        <RubricPanel rubric={rubric} notice={notice} />
-      </SidePanel>
-    </>
-  )
+  const side = navigator ? <SidePanel>{navigator}</SidePanel> : null
 
   const tabs = [
     { id: "problem", label: "Problem", icon: FileText },
     { id: "workspace", label: "Diagram", icon: Workflow },
   ]
-  if (!isChallenge) tabs.push({ id: "side", label: "Rubric", icon: ClipboardCheck })
+  if (side) tabs.push({ id: "side", label: "Questions", icon: List })
 
   return (
     <WorkspaceShell
