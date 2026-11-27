@@ -103,17 +103,18 @@ public class AdaptiveAttemptService {
         List<QuestionSelectionView> pool = cachedPool(exam).views();
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "pool");
         QuestionBankSizeService.BankSize size = bankSize.measure(exam, pool);
+        String examType = exam.getExamType().getExamTypeText();
+        boolean fullLength = AdaptivePolicy.ADAPTIVE_TYPES.contains(examType);
         if (pool.isEmpty() || size.main() == 0) {
+            poolCache.remove(exam.getExamId());
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
-                    bankSize.shortfallMessage(exam, size));
+                    fullLength ? "This assessment has no eligible main-round questions."
+                            : bankSize.shortfallMessage(exam, size));
         }
 
-        String examType = exam.getExamType().getExamTypeText();
-        int target = policy.targetCount(examType);
-        int finalRound = Math.min(policy.finalRoundCount(examType), size.workspace());
-        int mainTarget = Math.max(1, target - finalRound);
-        mainTarget = Math.min(mainTarget, Math.max(1, size.main()));
-        target = mainTarget + finalRound;
+        int finalRound = policy.targetCount(examType) - size.requiredMain();
+        int mainTarget = fullLength ? size.requiredMain() : Math.min(size.requiredMain(), size.main());
+        int target = mainTarget + finalRound;
 
         Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
         Map<String, Integer> poolCountByType = new LinkedHashMap<>();
@@ -173,11 +174,12 @@ public class AdaptiveAttemptService {
                     .filter(v -> !AdaptivePolicy.belongsInFinalRound(examType, v.getQuestionType()))
                     .filter(v -> !cycleSeen.contains(v.getQuestionId()))
                     .count();
-            if (!cycleSeen.isEmpty() && freshMain < mainTarget) {
+            int distinctMainNeeded = Math.min(mainTarget, size.main());
+            if (!cycleSeen.isEmpty() && freshMain < distinctMainNeeded) {
                 cycle.setCycleNo(cycle.getCycleNo() + 1);
                 cycle.setStartedAt(LocalDateTime.now());
                 log.info("Learner {} has used up pass {} over the bank of certification {} ({} fresh of {} needed): starting pass {}",
-                        learnerId, cycle.getCycleNo() - 1, certificationId, freshMain, mainTarget, cycle.getCycleNo());
+                        learnerId, cycle.getCycleNo() - 1, certificationId, freshMain, distinctMainNeeded, cycle.getCycleNo());
                 cycleSeen.clear();
             }
             if (cycle.getLearnerBankCycleId() == null || cycleSeen.isEmpty()) {
@@ -540,6 +542,13 @@ public class AdaptiveAttemptService {
         attempts.scoreAnswer(item, answer, batch, sources, subs);
         attemptAnswerRepository.save(answer);
 
+        // Recycled questions still earn a grade, but a second exposure is not fresh ability evidence.
+        int firstPosition = state.getServedQuestionIds().indexOf(source.getQuestionId()) + 1;
+        if (answer.isPendingManualEvaluation()
+                || (firstPosition > 0 && firstPosition < item.getDisplayOrder())) {
+            return verdictOf(attempt, item, answer, source, subs);
+        }
+
         double score = attempts.scoreOf(item, answer);
         boolean correct = attempts.countsAsCorrect(answer);
 
@@ -665,6 +674,7 @@ public class AdaptiveAttemptService {
         List<Pick> picks = new ArrayList<>();
         Map<Long, Candidate> pool = cachedPool(attempt.getExam()).candidates();
         String examType = attempt.getExam().getExamType().getExamTypeText();
+        boolean fullLength = AdaptivePolicy.ADAPTIVE_TYPES.contains(examType);
         for (int i = 0; i < count && state.getServedCount() < state.getTargetCount(); i++) {
             boolean finalRound = state.getServedCount() + 1 > state.getMainCount();
             List<Candidate> candidates = pool.values().stream()
@@ -672,10 +682,12 @@ public class AdaptiveAttemptService {
                     .toList();
             AdaptiveItemSelector.Settings settings = new AdaptiveItemSelector.Settings(
                     properties.getLessonExplorationWeight(), properties.getRandomesqueTopK(), !finalRound);
-            Optional<Selection> selection = AdaptiveItemSelector.select(state, candidates, settings, ThreadLocalRandom.current());
+            Optional<Selection> selection = AdaptiveItemSelector.select(
+                    state, candidates, settings, ThreadLocalRandom.current(), fullLength);
             if (selection.isEmpty()) {
                 log.warn("Adaptive attempt {}: no candidate left for stage {} after {} items",
                         attempt.getAssessmentAttemptId(), state.getStage(), state.getServedCount());
+                if (fullLength) throw bankChanged(attempt);
                 break;
             }
             Candidate chosen = selection.get().candidate();
@@ -711,7 +723,10 @@ public class AdaptiveAttemptService {
         List<LearnerAttemptQuestionDto> served = new ArrayList<>(picks.size());
         for (Pick pick : picks) {
             Question question = questions.get(pick.candidate().questionId());
-            if (question == null) continue;
+            if (question == null) {
+                if (fullLength) throw bankChanged(attempt);
+                continue;
+            }
             AssessmentAttemptQuestion item = AssessmentAttemptQuestion.builder()
                     .attempt(attempt)
                     .sourceQuestionId(question.getQuestionId())
@@ -733,6 +748,12 @@ public class AdaptiveAttemptService {
             served.add(dto);
         }
         return served;
+    }
+
+    private BusinessRuleException.InvalidAssessmentSubmissionException bankChanged(AssessmentAttempt attempt) {
+        poolCache.remove(attempt.getExam().getExamId());
+        return new BusinessRuleException.InvalidAssessmentSubmissionException(
+                "The question bank could not supply the remaining questions. Reload to try again.");
     }
 
     private Map<Long, Question> loadQuestions(List<Long> ids) {
@@ -826,10 +847,18 @@ public class AdaptiveAttemptService {
     }
 
     private void finish(AssessmentAttempt attempt, AdaptiveSessionState state) {
+        String type = attempt.getExam().getExamType().getExamTypeText();
+        if (AdaptivePolicy.ADAPTIVE_TYPES.contains(type)) {
+            if (state.getServedCount() != state.getTargetCount()
+                    || state.getAnsweredCount() != state.getTargetCount()) {
+                throw bankChanged(attempt);
+            }
+        } else {
+            state.setTargetCount(state.getServedCount());
+            attempt.setTargetQuestionCount(state.getServedCount());
+        }
         state.setStage(AdaptiveSessionState.STAGE_DONE);
-        state.setTargetCount(state.getServedCount());
         attempt.setPhase(AdaptiveSessionState.STAGE_DONE);
-        attempt.setTargetQuestionCount(state.getServedCount());
         attempt.setCurrentQuestionId(null);
         persistLearner(attempt, state);
     }

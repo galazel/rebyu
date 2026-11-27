@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -171,23 +172,21 @@ public class AdaptiveGradingService {
                              Map<Long, Question> sources) {
         double theta = attempt.getThetaCurrent() == null ? IrtModel.THETA_BASELINE : attempt.getThetaCurrent();
         double se = attempt.getThetaSe() == null ? IrtModel.PRIOR_SIGMA : attempt.getThetaSe();
-        Map<Long, Question> all = questionRepository.findForAttemptByIdIn(questions.stream()
-                        .map(AssessmentAttemptQuestion::getSourceQuestionId).filter(Objects::nonNull).distinct().toList())
-                .stream().collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
+        Set<Long> seenSources = new HashSet<>();
         for (AssessmentAttemptQuestion question : questions) {
-            Question source = all.getOrDefault(question.getSourceQuestionId(), sources.get(question.getSourceQuestionId()));
+            Long sourceId = question.getSourceQuestionId();
+            if (!seenSources.add(sourceId) || !justMarked.contains(question.getAttemptQuestionId())) continue;
+            Question source = sources.get(sourceId);
             AssessmentAttemptAnswer answer = answersByQuestion.get(question.getAttemptQuestionId());
             if (source == null || answer == null || answer.isPendingManualEvaluation()) continue;
             IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel(), AdaptivePolicy.discrimination(source.getQuestionType()));
             double score = attempts.scoreOf(question, answer);
-            if (justMarked.contains(question.getAttemptQuestionId())) {
-                question.setThetaBefore(theta);
-                IrtModel.Estimate estimate = IrtModel.update(theta, se, params, score);
-                theta = estimate.theta();
-                se = estimate.standardError();
-                question.setThetaAfter(theta);
-                attemptQuestionRepository.save(question);
-            }
+            question.setThetaBefore(theta);
+            IrtModel.Estimate estimate = IrtModel.update(theta, se, params, score);
+            theta = estimate.theta();
+            se = estimate.standardError();
+            question.setThetaAfter(theta);
+            attemptQuestionRepository.save(question);
         }
         attempt.setThetaCurrent(theta);
         attempt.setThetaSe(se);

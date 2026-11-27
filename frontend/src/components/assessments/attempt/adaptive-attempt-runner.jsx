@@ -174,7 +174,7 @@ export function AdaptiveAttemptRunner({
         advance()
       }
     } catch {
-      setPhase("ANSWERING")
+      if (!failedRef.current) setPhase("ANSWERING")
     }
   }
 
@@ -189,6 +189,7 @@ export function AdaptiveAttemptRunner({
       setAwaitingServer(false)
       next = reserveRef.current.get(position) ?? null
     }
+    if (failedRef.current) return
     setVerdict(null)
     setDraft({})
     reserveRef.current.delete(position)

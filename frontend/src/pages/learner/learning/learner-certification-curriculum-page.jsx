@@ -53,6 +53,7 @@ import {
   findCertificationProgress,
 } from "@/lib/certification-progress.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
+import { questionCountLabel, useLearnerAssessment } from "@/hooks/useLearnerAssessment.js"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { PROFICIENT_RATING, buildCurriculum, examStanding, hasSatDiagnostic } from "./curriculum-model.js"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
@@ -503,6 +504,12 @@ function PathNode({ node, index, onSelect, onLocked }) {
   const tone = TONE[node.tone]
   const Icon = node.icon
   const { state } = node
+  const isUnitExam = node.kind === "exam" && !node.grand
+  const { data: assessment } = useLearnerAssessment(isUnitExam ? node.exam?.examId : null)
+  const questionCount = questionCountLabel(assessment)
+  const meta = isUnitExam
+    ? `unit exam${questionCount ? ` · ${questionCount}` : ""}${node.meta}`
+    : node.meta
 
   const locked = state === "locked"
   const done = state === "done"
@@ -671,8 +678,8 @@ function PathNode({ node, index, onSelect, onLocked }) {
             {node.label}
           </p>
 
-          {node.meta ? (
-            <p className="mt-1 text-[12px] font-bold text-rb-wolf">{node.meta}</p>
+          {meta ? (
+            <p className="mt-1 text-[12px] font-bold text-rb-wolf">{meta}</p>
           ) : null}
           {node.urgent && !locked ? (
             <p className="mt-0.5 text-[11px] font-bold text-rb-cardinal-lip">
@@ -843,7 +850,7 @@ function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
       tone: "fox",
       icon: ClipboardCheck,
       label: major.assessment.title,
-      meta: `unit exam · ${major.assessment.totalQuestions} questions${attemptsSuffix(
+      meta: `${attemptsSuffix(
         attemptsByExamId,
         major.assessment.examId,
       )}${standingSuffix(examStanding(examResults, major.assessment.examId))}`,

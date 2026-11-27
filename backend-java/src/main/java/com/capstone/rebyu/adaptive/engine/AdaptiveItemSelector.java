@@ -52,6 +52,12 @@ public final class AdaptiveItemSelector {
 
     public static Optional<Selection> select(
             AdaptiveSessionState state, List<Candidate> pool, Settings settings, Random random) {
+        return select(state, pool, settings, random, false);
+    }
+
+    public static Optional<Selection> select(
+            AdaptiveSessionState state, List<Candidate> pool, Settings settings, Random random,
+            boolean allowQuestionReuse) {
 
         Set<Long> served = new HashSet<>(state.getServedQuestionIds());
         List<Set<String>> servedTokens = state.getServedStems().stream()
@@ -59,10 +65,20 @@ public final class AdaptiveItemSelector {
                 .toList();
 
         List<Candidate> open = new ArrayList<>();
+        List<Candidate> similar = new ArrayList<>();
         for (Candidate candidate : pool) {
             if (served.contains(candidate.questionId())) continue;
-            if (isTwinOfServed(candidate, servedTokens, state.getServedStems())) continue;
+            String stem = QuestionStem.of(candidate.questionText());
+            if (!stem.isEmpty() && state.getServedStems().contains(stem)) continue;
+            if (isSimilarToServed(stem, servedTokens)) {
+                if (allowQuestionReuse) similar.add(candidate);
+                continue;
+            }
             open.add(candidate);
+        }
+        if (open.isEmpty()) open = similar;
+        if (open.isEmpty() && allowQuestionReuse && !pool.isEmpty()) {
+            open = leastUsedCandidates(pool, state.getServedQuestionIds());
         }
 
         {
@@ -124,8 +140,26 @@ public final class AdaptiveItemSelector {
         };
     }
 
+    private static List<Candidate> leastUsedCandidates(List<Candidate> pool, List<Long> servedIds) {
+        Map<Long, Integer> uses = new LinkedHashMap<>();
+        for (Long id : servedIds) uses.merge(id, 1, Integer::sum);
+
+        Long lastId = servedIds.isEmpty() ? null : servedIds.getLast();
+        List<Candidate> candidates = pool.stream()
+                .filter(candidate -> !candidate.questionId().equals(lastId))
+                .toList();
+        if (candidates.isEmpty()) candidates = pool;
+        int fewestUses = candidates.stream()
+                .mapToInt(candidate -> uses.getOrDefault(candidate.questionId(), 0))
+                .min().orElseThrow();
+        return candidates.stream()
+                .filter(candidate -> uses.getOrDefault(candidate.questionId(), 0) == fewestUses)
+                .toList();
+    }
+
     private static String tierOf(Candidate candidate, AdaptiveSessionState state) {
         Long id = candidate.questionId();
+        if (state.getServedQuestionIds().contains(id)) return TIER_REPEAT;
         if (!state.getSeenQuestionIds().contains(id)) return TIER_UNSEEN;
         Set<Long> cycleSeen = state.getCycleSeenQuestionIds();
         if (cycleSeen == null || !cycleSeen.contains(id)) return TIER_NEW_THIS_CYCLE;
@@ -150,12 +184,9 @@ public final class AdaptiveItemSelector {
         return "MCQ".equals(t) ? "MULTIPLE_CHOICE" : t;
     }
 
-    private static boolean isTwinOfServed(
-            Candidate candidate, List<Set<String>> servedTokens, List<String> servedStems) {
-        String stem = QuestionStem.of(candidate.questionText());
+    private static boolean isSimilarToServed(String stem, List<Set<String>> servedTokens) {
         if (stem.isEmpty()) return false;
-        if (servedStems.contains(stem)) return true;
-        Set<String> tokens = QuestionStem.tokens(candidate.questionText());
+        Set<String> tokens = QuestionStem.tokens(stem);
         for (Set<String> existing : servedTokens) {
             if (QuestionStem.sameQuestion(tokens, existing)) return true;
         }

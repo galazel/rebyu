@@ -76,7 +76,8 @@ import {
   markSectionUnread,
   parseLessonStructure,
 } from "@/services/learnerService.js"
-import { getExams, getExamTypes, getLearnerAssessment, getAssessmentAttempts } from "@/services/assessmentService.js"
+import { getExams, getExamTypes, getAssessmentAttempts } from "@/services/assessmentService.js"
+import { questionCountLabel, useLearnerAssessment } from "@/hooks/useLearnerAssessment.js"
 import { getTopicReflection } from "@/services/reflectionService.js"
 import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
@@ -193,7 +194,7 @@ const ROW_ICON = { lesson: FileText, assessment: GraduationCap, reflection: Penc
 const ROW_META = {
   lesson: (item) => (item.quiz ? "Lesson · quick check" : "Lesson"),
   reflection: () => "Practice · AI-graded",
-  assessment: (item) => `Unit exam · ${item.exam.totalQuestions} questions`,
+  assessment: () => "Topic exam",
 }
 
 function OutlineRow({
@@ -212,6 +213,9 @@ function OutlineRow({
 }) {
   const Icon = ROW_ICON[item.kind] ?? BookOpen
   const hasChildren = item.kind === "lesson"
+  const assessmentId = item.exam?.examId ?? (expanded ? item.quiz?.examId : null)
+  const { data: assessment } = useLearnerAssessment(collapsed ? null : assessmentId)
+  const questionCount = questionCountLabel(assessment)
 
   return (
     <motion.li variants={fadeUp}>
@@ -274,6 +278,7 @@ function OutlineRow({
               <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] font-medium text-rb-wolf">
                 {item.kind !== "lesson" ? <Icon className="size-3 shrink-0" aria-hidden="true" /> : null}
                 {(ROW_META[item.kind] ?? ROW_META.lesson)(item)}
+                {item.kind === "assessment" && questionCount ? ` · ${questionCount}` : null}
                 {done ? <span className="text-[var(--tg-ink)]">· done</span> : null}
               </span>
             </span>
@@ -362,7 +367,7 @@ function OutlineRow({
                   <ListChecks className="size-3" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 truncate">
-                  Quick check · {item.quiz.totalQuestions} questions
+                  Quick check{questionCount ? ` · ${questionCount}` : null}
                 </span>
               </button>
             </li>
@@ -1001,23 +1006,16 @@ function LevelMeter({ standing, latest, best, taken }) {
 
 function QuizBand({ quiz, taken, standing, latest, best }) {
   const location = useLocation()
-  // The server's start rules (earlier lesson quiz not cleared, diagnostic first, Pro-only
-  // retakes, ...) shown here, before the learner clicks, not after the attempt page loads.
-  const gateQuery = useQuery({
-    queryKey: ["learner-assessment-gate", quiz.examId],
-    queryFn: () => getLearnerAssessment(quiz.examId),
-    // Re-checked on every visit: passing the previous quiz unlocks this one right away.
-    staleTime: 0,
-    retry: 1,
-  })
-  const lockReason = gateQuery.data && gateQuery.data.canStart === false ? gateQuery.data.lockReason : null
+  const { data: assessment } = useLearnerAssessment(quiz.examId)
+  const lockReason = assessment?.canStart === false ? assessment.lockReason : null
+  const questionCount = questionCountLabel(assessment)
   return (
     <section id={`quiz-${quiz.examId}`} data-no-snip className="tg-cat-explain relative scroll-mt-8 overflow-hidden tg-solid px-5 py-12 sm:px-10 lg:px-14">
       <div className="relative w-full">
         <Reveal amount={0.2}>
           <p className="font-rb-display text-2xl font-extrabold text-white">Test your skills</p>
           <p className="mt-1 text-sm font-bold text-white/80">
-            {quiz.title} · {quiz.totalQuestions} questions
+            {quiz.title}
           </p>
         </Reveal>
 
@@ -1041,8 +1039,12 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
           />
 
           <p className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm font-semibold text-rb-wolf">
-            <span className="inline-flex items-center gap-1.5"><CircleHelp className="size-4" aria-hidden="true" />{quiz.totalQuestions} questions</span>
-            <span aria-hidden="true">·</span>
+            {questionCount ? (
+              <>
+                <span className="inline-flex items-center gap-1.5"><CircleHelp className="size-4" aria-hidden="true" />{questionCount}</span>
+                <span aria-hidden="true">·</span>
+              </>
+            ) : null}
             <span className="inline-flex items-center gap-1.5"><Clock className="size-4" aria-hidden="true" />{quiz.durationMinutes ? `${quiz.durationMinutes} min` : "Self-paced"}</span>
             <span aria-hidden="true">·</span>
             <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="size-4" aria-hidden="true" />Proficiency {PROFICIENT_RATING}+ to complete</span>
@@ -1107,6 +1109,8 @@ function AssessmentView({
   outlineHidden,
 }) {
   const location = useLocation()
+  const { data: assessment } = useLearnerAssessment(exam.examId)
+  const questionCount = questionCountLabel(assessment)
 
   return (
     <div className="tg-cat-explain w-full pb-10">
@@ -1173,10 +1177,10 @@ function AssessmentView({
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
-            [ClipboardCheck, `${exam.totalQuestions} questions`],
+            [ClipboardCheck, questionCount],
             [CheckCircle2, `proficiency ${PROFICIENT_RATING} to pass`],
             [Clock, exam.durationMinutes ? `${exam.durationMinutes} minutes` : "Unlimited attempts"],
-          ].map(([Icon, label]) => (
+          ].filter(([, label]) => label).map(([Icon, label]) => (
             <li
               key={label}
               className="flex items-center gap-3 rounded-rb-card border-2 border-rb-swan bg-rb-polar p-4"
