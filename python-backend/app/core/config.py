@@ -210,14 +210,14 @@ class Settings(BaseSettings):
     mastery_accuracy_guard_min_evidence: int = 10
     mastery_accuracy_guard_headroom: float = 0.35
 
-    readiness_mastery_weight: float = 0.20
-    readiness_progress_weight: float = 0.10
-    readiness_mock_exam_weight: float = 0.40
-    readiness_quiz_weight: float = 0.10
-    readiness_major_exam_weight: float = 0.08
-    readiness_middle_exam_weight: float = 0.07
-    readiness_diagnostic_weight: float = 0.03
-    readiness_streak_weight: float = 0.02
+    readiness_mastery_weight: float = 0.13
+    readiness_progress_weight: float = 0.07
+    readiness_mock_exam_weight: float = 0.60
+    readiness_quiz_weight: float = 0.07
+    readiness_major_exam_weight: float = 0.05
+    readiness_middle_exam_weight: float = 0.05
+    readiness_diagnostic_weight: float = 0.02
+    readiness_streak_weight: float = 0.01
 
     priority_weight_mastery: float = 0.45
     priority_weight_incorrect: float = 0.20
