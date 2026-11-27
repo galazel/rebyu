@@ -1,7 +1,6 @@
 import "./directory.css"
 
-// Admin pages carry no introduction: the title is for screen readers only, and
-// `description` is accepted but not shown. Stats and actions stay.
+
 export function DirectoryHeader({ title, description, stats, children }) {
   return (
     <header className="space-y-5">

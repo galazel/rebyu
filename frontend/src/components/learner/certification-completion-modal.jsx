@@ -1,63 +1,24 @@
-import React, { useEffect, useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { faStar } from "@fortawesome/free-solid-svg-icons"
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts"
-import {
-  BookOpen,
-  X,
   Award,
+  BookOpen,
   GraduationCap,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
-  Layers3,
+  Medal,
+  Sparkles,
+  Trophy,
+  X,
+  Zap,
 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
+import { CountUp, motion } from "@/components/motion/rebyu-motion.jsx"
+import { Confetti } from "@/components/motion/confetti.jsx"
+import { achievementBadge, achievementKey } from "@/lib/achievements.js"
+import { playAchievementChime } from "@/lib/sound.js"
+import { getCurrentLearnerIdentity, getMyRewards } from "@/services/learnerService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
-import {
-  getProgressAnalytics,
-  getMyPriorities,
-  getMyConfidence,
-  flattenPriorityAreas,
-  PRIORITY_META,
-  comparePriority,
-} from "@/services/learnerAnalyticsService.js"
-import { masteryColor, useChartTheme } from "@/components/charts/rebyu-charts.jsx"
-
-
-function pct(n) {
-  return n == null ? "—" : `${Math.round(Number(n))}%`
-}
-
-function scoreLabel(n) {
-  if (n == null) return "—"
-  const v = Math.round(Number(n))
-  if (v >= 75) return "Strong"
-  if (v >= 50) return "Developing"
-  return "Weak"
-}
-
-function priorityBg(tag) {
-  switch (tag) {
-    case "CRITICAL_PRIORITY": return "bg-red-100 text-red-700 border-red-300"
-    case "HIGH_PRIORITY":     return "bg-orange-100 text-orange-700 border-orange-300"
-    case "MEDIUM_PRIORITY":   return "bg-yellow-100 text-yellow-700 border-yellow-300"
-    case "LOW_PRIORITY":      return "bg-blue-100 text-blue-700 border-blue-300"
-    case "ON_TRACK":          return "bg-green-100 text-green-700 border-green-300"
-    case "STRONG":            return "bg-emerald-100 text-emerald-700 border-emerald-300"
-    default:                  return "bg-muted text-muted-foreground border-border"
-  }
-}
 
 
 function CompletionStamp({ hasBadgeImage, certificationId, award }) {
@@ -106,109 +67,68 @@ function CompletionStamp({ hasBadgeImage, certificationId, award }) {
 }
 
 
-function ModuleChart({ areas, theme }) {
-  const majorAreas = areas.filter(a => a.categoryType === "MAJOR")
-  if (!majorAreas.length) return null
-
-  const data = majorAreas.map(a => ({
-    name: a.title.length > 18 ? a.title.slice(0, 16) + "…" : a.title,
-    fullName: a.title,
-    score: a.masteryProbability != null
-      ? Math.round(Number(a.masteryProbability) * 100)
-      : a.priorityScore != null
-        ? Math.round(Number(a.priorityScore))
-        : 0,
-    tag: a.priorityTag,
-  }))
+function EarnedCard({ icon: Icon, label, value, sub, tone = "feather", valueClassName = "text-base" }) {
+  const tones = {
+    feather: { bg: "bg-rb-feather/10", ring: "ring-rb-feather/25", ink: "var(--color-rb-feather)" },
+    bee:     { bg: "bg-rb-bee/15",     ring: "ring-rb-bee/35",     ink: "#b8860b" },
+    macaw:   { bg: "bg-blue-500/10",   ring: "ring-blue-500/25",   ink: "#2563eb" },
+  }
+  const palette = tones[tone] ?? tones.feather
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={data} layout="vertical" margin={{ left: 4, right: 32, top: 4, bottom: 4 }}>
-        <CartesianGrid horizontal={false} stroke={theme.grid} />
-        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: theme.ink.secondary }} tickFormatter={v => `${v}%`} />
-        <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: theme.ink.primary }} />
-        <Tooltip
-          formatter={(v, _, props) => [`${v}% · ${scoreLabel(v)}`, props.payload.fullName]}
-          contentStyle={{ background: theme.surface, border: `1px solid ${theme.grid}`, borderRadius: 8, fontSize: 12 }}
-        />
-        <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={22}>
-          {data.map((d, i) => (
-            <Cell key={i} fill={masteryColor(theme, d.score)} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  )
-}
-
-
-function WeaknessList({ areas }) {
-  const weakLessons = areas
-    .filter(a => a.categoryType === "LESSON")
-    .sort(comparePriority)
-    .slice(0, 8)
-
-  if (!weakLessons.length) return (
-    <p className="text-sm text-muted-foreground">No lesson data available yet.</p>
-  )
-
-  return (
-    <div className="space-y-2">
-      {weakLessons.map((lesson, i) => {
-        const meta = PRIORITY_META[lesson.priorityTag]
-        const mastery = lesson.masteryProbability != null
-          ? Math.round(Number(lesson.masteryProbability) * 100)
-          : null
-        return (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-              {i + 1}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">{lesson.title}</p>
-              {lesson.primaryReason && (
-                <p className="truncate text-xs text-muted-foreground">{lesson.primaryReason}</p>
-              )}
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1">
-              {mastery != null && (
-                <span className="text-xs font-bold" style={{ color: mastery >= 75 ? "#2f6b4f" : mastery >= 50 ? "#c9962b" : "#c8553d" }}>
-                  {mastery}%
-                </span>
-              )}
-              {meta && (
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${priorityBg(lesson.priorityTag)}`}>
-                  {meta.label}
-                </span>
-              )}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-
-function StatTile({ icon: Icon, label, value, sub, accent }) {
-  return (
-    <div className="flex flex-col gap-1.5 rounded-2xl border-2 border-border bg-card p-4">
-      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        <Icon className="size-3.5" aria-hidden />
-        {label}
+    <div className={`flex items-center gap-3 rounded-2xl border border-border p-3.5 ring-1 ${palette.ring} ${palette.bg}`}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-background/80 shadow-sm">
+        <Icon className="size-5" style={{ color: palette.ink }} aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className={`break-words font-rb-display font-extrabold leading-tight ${valueClassName}`} style={{ color: palette.ink }}>
+          {value}
+        </p>
+        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       </div>
-      <p className="font-rb-display text-2xl font-extrabold" style={{ color: accent ?? "var(--color-rb-feather-ink)" }}>
-        {value}
-      </p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
+  )
+}
+
+
+function AchievementChips({ achievements }) {
+  if (!achievements.length) return null
+
+  return (
+    <section className="mt-6">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+        <Medal className="size-4" aria-hidden />
+        Badges unlocked
+      </h3>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {achievements.map((achievement) => {
+          const art = achievementBadge(achievement)
+          return (
+            <div
+              key={achievementKey(achievement)}
+              className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-card px-3 py-3 text-center"
+              title={achievement.description ?? ""}
+            >
+              {art ? (
+                <img src={art} alt="" className="size-12 object-contain" />
+              ) : (
+                <span className="grid size-12 place-items-center rounded-full bg-rb-bee/20">
+                  <Medal className="size-6 text-rb-eel" aria-hidden />
+                </span>
+              )}
+              <p className="line-clamp-2 text-xs font-bold leading-tight text-foreground">{achievement.title}</p>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
 
 export function CertificationCompletionModal({ certification, award, onClose }) {
   const navigate = useNavigate()
-  const theme = useChartTheme()
 
   useEffect(() => {
     const onKey = (event) => { if (event.key === "Escape") onClose() }
@@ -216,42 +136,31 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
 
+  useEffect(() => {
+    playAchievementChime()
+  }, [])
+
   const certId = certification?.certificationId ?? certification?.id
   const certTitle = certification?.title ?? "Certification"
+  const firstName = String(getCurrentLearnerIdentity().name ?? "").trim().split(/\s+/)[0] || null
 
-  const analyticsQ = useQuery({
-    queryKey: ["completion-analytics", certId],
-    queryFn: () => getProgressAnalytics(certId),
-    staleTime: 30_000,
-    enabled: !!certId,
-  })
-
-  const prioritiesQ = useQuery({
-    queryKey: ["completion-priorities", certId],
-    queryFn: () => getMyPriorities(certId),
+  const rewardsQ = useQuery({
+    queryKey: ["completion-rewards"],
+    queryFn: getMyRewards,
     staleTime: 60_000,
-    enabled: !!certId,
   })
 
-  const confidenceQ = useQuery({
-    queryKey: ["completion-confidence", certId],
-    queryFn: () => getMyConfidence(certId),
-    staleTime: 60_000,
-    enabled: !!certId,
-  })
+  const totalXp = rewardsQ.data?.totalXp ?? null
 
-  const analytics = analyticsQ.data ?? {}
-  const areas = useMemo(() => flattenPriorityAreas(prioritiesQ.data), [prioritiesQ.data])
-  const confidence = confidenceQ.data ?? {}
+  const recentAchievements = useMemo(() => {
+    const list = Array.isArray(rewardsQ.data?.achievements) ? rewardsQ.data.achievements : []
+    return list
+      .filter((a) => a?.earned)
+      .sort((a, b) => new Date(b.earnedAt ?? 0) - new Date(a.earnedAt ?? 0))
+      .slice(0, 4)
+  }, [rewardsQ.data])
 
-  const completedLessons = analytics.completedLessons ?? 0
-  const totalLessons = analytics.totalLessons ?? 0
-  const passedAssessments = analytics.passedAssessments ?? 0
-  const totalAssessments = analytics.totalAssessments ?? 0
-
-  const overallMastery = confidence.overallMastery != null
-    ? Math.round(Number(confidence.overallMastery) * 100)
-    : null
+  const score = award?.scorePercentage != null ? Math.round(Number(award.scorePercentage)) : null
 
   const certDate = award?.certificateAwardedAt
     ? new Date(award.certificateAwardedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
@@ -259,210 +168,163 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
       ? new Date(award.badgeAwardedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
       : null
 
-  const weakAreas = areas.filter(a =>
-    a.categoryType === "LESSON" &&
-    ["CRITICAL_PRIORITY", "HIGH_PRIORITY", "MEDIUM_PRIORITY"].includes(a.priorityTag)
-  ).length
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div role="dialog" aria-modal="true" aria-label={`${certTitle} complete`} className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border-2 border-border bg-background shadow-2xl">
+      <Confetti fire={String(certId ?? "cert")} />
+
+      <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${certTitle} complete`}
+        className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border-2 border-border bg-background shadow-2xl"
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.42, ease: [0.34, 1.56, 0.64, 1] }}
+      >
 
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 grid size-8 place-items-center rounded-full border border-border bg-card text-muted-foreground transition hover:text-foreground"
+          className="absolute right-4 top-4 z-20 grid size-8 place-items-center rounded-full border border-white/40 bg-white/15 text-white transition hover:bg-white/25"
           aria-label="Close"
         >
           <X className="size-4" />
         </button>
 
-        <div className="relative flex flex-col items-center gap-4 overflow-hidden bg-rb-feather px-6 pb-8 pt-10 text-white sm:flex-row sm:items-start sm:pb-10">
-          <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-white/10" />
-          <div className="pointer-events-none absolute -left-6 bottom-0 size-24 rounded-full bg-white/5" />
+        <div className="relative overflow-hidden bg-rb-feather px-6 pb-9 pt-10 text-center text-white">
+          <div className="pointer-events-none absolute -right-12 -top-16 size-56 rounded-full bg-white/10" />
+          <div className="pointer-events-none absolute -bottom-16 -left-10 size-44 rounded-full bg-white/5" />
 
-          <div className="relative z-10 shrink-0">
-            <CompletionStamp
-              hasBadgeImage={!!award?.hasBadgeImage}
-              certificationId={certId}
-              award={award}
-            />
-          </div>
+          <motion.p
+            className="relative z-10 inline-flex items-center gap-2 rounded-full bg-white/15 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em]"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Sparkles className="size-3.5" aria-hidden />
+            Certification complete
+          </motion.p>
 
-          <div className="relative z-10 min-w-0 text-center sm:text-left">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] opacity-75">
-              Certification Complete
-            </p>
-            <h2 className="mt-1 font-rb-display text-2xl font-extrabold leading-tight text-white">
-              {certTitle}
-            </h2>
-            {certification?.department && (
-              <p className="mt-1 text-sm opacity-80">{certification.department}</p>
-            )}
-            {award?.certificateNumber && (
-              <p className="mt-2 font-mono text-xs opacity-70">
-                Certificate · <span className="font-semibold">{award.certificateNumber}</span>
-              </p>
+          <motion.h2
+            className="relative z-10 mt-3 font-rb-display text-3xl font-extrabold leading-tight text-white sm:text-4xl"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.16, ease: [0.34, 1.56, 0.64, 1] }}
+          >
+            Congratulations{firstName ? `, ${firstName}` : ""}!
+          </motion.h2>
+
+          <motion.div
+            className="relative z-10 mt-5 flex justify-center"
+            initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ delay: 0.24, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}
+          >
+            <div className="relative">
+              <div className="pointer-events-none absolute -inset-5 rounded-full bg-white/15 blur-2xl" />
+              <CompletionStamp
+                hasBadgeImage={!!award?.hasBadgeImage}
+                certificationId={certId}
+                award={award}
+              />
+            </div>
+          </motion.div>
+
+          <p className="relative z-10 mt-4 text-sm opacity-85">You earned the badge for</p>
+          <h3 className="relative z-10 font-rb-display text-2xl font-extrabold leading-tight text-white">
+            {certTitle}
+          </h3>
+          {certification?.department && (
+            <p className="relative z-10 mt-0.5 text-sm opacity-80">{certification.department}</p>
+          )}
+
+          <div className="relative z-10 mt-4 flex flex-wrap items-center justify-center gap-2">
+            {score != null && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+                <Trophy className="size-3.5" aria-hidden />
+                Mock exam passed · {score}%
+              </span>
             )}
             {certDate && (
-              <p className="mt-0.5 text-xs opacity-70">Issued {certDate}</p>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
+                Issued {certDate}
+              </span>
             )}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile
-              icon={BookOpen}
-              label="Lessons"
-              value={`${completedLessons}/${totalLessons}`}
-              sub="completed"
-              accent="#2f6b4f"
+          <div className="grid gap-3 sm:grid-cols-3">
+            <EarnedCard
+              icon={Medal}
+              label="Badge"
+              value={certTitle}
+              sub="added to your certification card"
+              tone="bee"
             />
-            <StatTile
-              icon={CheckCircle}
-              label="Assessments"
-              value={`${passedAssessments}/${totalAssessments}`}
-              sub="passed"
-              accent="#2f6b4f"
+            <EarnedCard
+              icon={Award}
+              label="Certificate"
+              value={award?.certificateNumber ?? "Issued"}
+              sub={certDate ? `Issued ${certDate}` : "Ready to download"}
+              tone="feather"
+              valueClassName="text-sm tracking-tight"
             />
-            <StatTile
-              icon={TrendingUp}
-              label="Mastery"
-              value={overallMastery != null ? `${overallMastery}%` : "—"}
-              sub={overallMastery != null ? scoreLabel(overallMastery) : "not enough data"}
-              accent={overallMastery != null ? (overallMastery >= 75 ? "#2f6b4f" : overallMastery >= 50 ? "#c9962b" : "#c8553d") : undefined}
-            />
-            <StatTile
-              icon={AlertTriangle}
-              label="Needs Review"
-              value={weakAreas}
-              sub={weakAreas === 1 ? "lesson area" : "lesson areas"}
-              accent={weakAreas > 0 ? "#c8553d" : "#2f6b4f"}
+            <EarnedCard
+              icon={Zap}
+              label="Total XP"
+              value={totalXp != null ? <CountUp value={Number(totalXp)} /> : "—"}
+              sub={totalXp != null ? "experience earned so far" : "no XP recorded yet"}
+              tone="macaw"
             />
           </div>
 
-          <section className="mt-6">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              <Layers3 className="size-4" aria-hidden />
-              Module Performance
-            </h3>
-            {prioritiesQ.isLoading ? (
-              <div className="flex h-48 items-center justify-center">
-                <div className="size-6 animate-spin rounded-full border-2 border-rb-feather border-t-transparent" />
-              </div>
-            ) : areas.length > 0 ? (
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <ModuleChart areas={areas} theme={theme} />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No module data available yet.</p>
-            )}
-          </section>
+          <AchievementChips achievements={recentAchievements} />
 
-          <section className="mt-6">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              <AlertTriangle className="size-4" aria-hidden />
-              Lesson Weaknesses &amp; Priority Areas
-            </h3>
-            {prioritiesQ.isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-12 animate-pulse rounded-xl bg-muted/40" />
-                ))}
-              </div>
-            ) : (
-              <WeaknessList areas={areas} />
-            )}
-          </section>
-
-          {(confidence.weakCount > 0 || confidence.strongCount > 0) && (
-            <section className="mt-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-                <TrendingUp className="size-4" aria-hidden />
-                Confidence Breakdown
-              </h3>
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-                  <span>Weak</span>
-                  <span>Developing</span>
-                  <span>Strong</span>
-                </div>
-                <div className="flex h-5 w-full overflow-hidden rounded-full bg-muted">
-                  {confidence.weakCount > 0 && (
-                    <div
-                      className="flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ width: `${(confidence.weakCount / (confidence.weakCount + (confidence.developingCount ?? 0) + (confidence.strongCount ?? 0))) * 100}%`, background: "#c8553d" }}
-                    >
-                      {confidence.weakCount}
-                    </div>
-                  )}
-                  {confidence.developingCount > 0 && (
-                    <div
-                      className="flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ width: `${(confidence.developingCount / (confidence.weakCount + confidence.developingCount + (confidence.strongCount ?? 0))) * 100}%`, background: "#c9962b" }}
-                    >
-                      {confidence.developingCount}
-                    </div>
-                  )}
-                  {confidence.strongCount > 0 && (
-                    <div
-                      className="flex items-center justify-center text-[10px] font-bold text-white"
-                      style={{ width: `${(confidence.strongCount / ((confidence.weakCount ?? 0) + (confidence.developingCount ?? 0) + confidence.strongCount)) * 100}%`, background: "#2f6b4f" }}
-                    >
-                      {confidence.strongCount}
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2 flex justify-between text-xs font-semibold">
-                  <span style={{ color: "#c8553d" }}>{confidence.weakCount ?? 0} weak</span>
-                  <span style={{ color: "#c9962b" }}>{confidence.developingCount ?? 0} developing</span>
-                  <span style={{ color: "#2f6b4f" }}>{confidence.strongCount ?? 0} strong</span>
-                </div>
-              </div>
-            </section>
-          )}
-
-          <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-border pt-5">
+          <div className="mt-7 space-y-2.5 border-t border-border pt-5">
             <Button
-              className="flex-1 sm:flex-none"
+              size="lg"
+              className="w-full"
               style={{ background: "var(--color-rb-feather)", color: "#fff" }}
               onClick={() => { onClose(); navigate(`/learner/certifications/${certId}/certificate`) }}
             >
-              <Award className="mr-1.5 size-4" />
+              <Award className="mr-2 size-4" />
               View Certificate
             </Button>
-            <Button
-              variant="outline"
-              className="flex-1 sm:flex-none border-2"
-              onClick={() => { onClose(); navigate(`/learner/learning/${certId}`) }}
-            >
-              <BookOpen className="mr-1.5 size-4" />
-              View Curriculum
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 sm:flex-none border-2"
-              onClick={() => { onClose(); navigate(`/learner/certifications/${certId}`) }}
-            >
-              <GraduationCap className="mr-1.5 size-4" />
-              Certification Details
-            </Button>
-            <Button
-              variant="outline"
-              className="ml-auto flex-none border-2 border-rb-bee text-rb-eel hover:bg-rb-bee-wash"
-              onClick={() => { onClose(); navigate("/learner/certifications") }}
-            >
-              <Award className="mr-1.5 size-4" />
-              Back to Certifications
-            </Button>
+
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <Button
+                variant="outline"
+                className="w-full border-2"
+                onClick={() => { onClose(); navigate(`/learner/learning/${certId}`) }}
+              >
+                <BookOpen className="mr-1.5 size-4" />
+                Curriculum
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full border-2"
+                onClick={() => { onClose(); navigate(`/learner/certifications/${certId}`) }}
+              >
+                <GraduationCap className="mr-1.5 size-4" />
+                Details
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full border-2 border-rb-bee text-rb-eel hover:bg-rb-bee-wash"
+                onClick={() => { onClose(); navigate("/learner/certifications") }}
+              >
+                <Award className="mr-1.5 size-4" />
+                All Certifications
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

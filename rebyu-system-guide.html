@@ -1,0 +1,580 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>REBYU System Walkthrough</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a single reading column with a sticky chapter rail; code and tables scroll in their own tracks. */
+  :root {
+    --bg: #fbfaf7;
+    --surface: #ffffff;
+    --surface-2: #f3f1ec;
+    --fg: #1d1b16;
+    --fg-muted: #5f5a4e;
+    --line: #ddd8cc;
+    --accent: #9a5b2c;
+    --accent-soft: #f0e3d6;
+    --java: #b4651a;
+    --python: #2f6f5e;
+    --react: #35618f;
+    --data: #6b4a8a;
+    --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16150f;
+      --surface: #1f1d16;
+      --surface-2: #272419;
+      --fg: #f0ece0;
+      --fg-muted: #a8a294;
+      --line: #38342a;
+      --accent: #d99356;
+      --accent-soft: #3a2a1b;
+      --java: #e0a05c;
+      --python: #6bbfa4;
+      --react: #7aa9d9;
+      --data: #b490d4;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16150f;
+    --surface: #1f1d16;
+    --surface-2: #272419;
+    --fg: #f0ece0;
+    --fg-muted: #a8a294;
+    --line: #38342a;
+    --accent: #d99356;
+    --accent-soft: #3a2a1b;
+    --java: #e0a05c;
+    --python: #6bbfa4;
+    --react: #7aa9d9;
+    --data: #b490d4;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 5rem;
+  }
+  .hero {
+    margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+    padding-top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+    padding-bottom: 2.5rem;
+    background: linear-gradient(170deg, var(--accent-soft), transparent 85%);
+    border-bottom: 1px solid var(--line);
+  }
+  .hero-in {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: .74rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .7rem;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5.2vw, 3.1rem);
+    line-height: 1.08;
+    margin: 0 0 .8rem;
+    text-wrap: balance;
+    letter-spacing: -.02em;
+  }
+  .lede { font-size: 1.07rem; color: var(--fg-muted); max-width: 62ch; margin: 0; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.8rem; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 9px; padding: .55rem .85rem; min-width: 0;
+  }
+  .stat b { font-family: var(--font-display); font-size: 1.15rem; display: block; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .76rem; color: var(--fg-muted); }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3vw, 1.85rem);
+    margin: 3.4rem 0 .4rem;
+    letter-spacing: -.01em;
+    scroll-margin-top: 1rem;
+  }
+  h2 .num {
+    font-family: var(--font-mono); font-size: .8rem; color: var(--accent);
+    display: block; margin-bottom: .3rem; letter-spacing: .1em;
+  }
+  h3 {
+    font-family: var(--font-display); font-size: 1.08rem;
+    margin: 2rem 0 .5rem; letter-spacing: -.005em;
+  }
+  p { margin: .7rem 0; max-width: 72ch; }
+  .sub { color: var(--fg-muted); max-width: 72ch; margin-bottom: 1.2rem; }
+
+  code {
+    font-family: var(--font-mono); font-size: .86em;
+    background: var(--surface-2); padding: .12em .38em; border-radius: 4px;
+  }
+  pre {
+    background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; overflow-x: auto;
+    font-family: var(--font-mono); font-size: .82rem; line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; margin: 1.1rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; min-width: 480px; }
+  th, td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 600; font-family: var(--font-display); font-size: .82rem; }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); margin: 1.2rem 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 11px; padding: 1rem 1.1rem; min-width: 0;
+  }
+  .card h4 {
+    margin: 0 0 .4rem; font-family: var(--font-display); font-size: .97rem;
+    display: flex; align-items: center; gap: .45rem;
+  }
+  .card p { margin: .3rem 0 0; font-size: .87rem; color: var(--fg-muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .d-java { background: var(--java); } .d-py { background: var(--python); }
+  .d-react { background: var(--react); } .d-data { background: var(--data); }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--surface); padding: .85rem 1.1rem;
+    border-radius: 0 9px 9px 0; margin: 1.3rem 0;
+  }
+  .callout strong { font-family: var(--font-display); }
+  .callout p { margin: .25rem 0 0; font-size: .9rem; }
+
+  .qa { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: .6rem 0; overflow: hidden; }
+  .qa summary {
+    cursor: pointer; padding: .8rem 1rem; font-weight: 600;
+    font-family: var(--font-display); font-size: .94rem; list-style: none;
+  }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary::before { content: "▸ "; color: var(--accent); }
+  .qa[open] summary::before { content: "▾ "; }
+  .qa .body { padding: 0 1rem 1rem; font-size: .9rem; color: var(--fg-muted); }
+  .qa .body p { margin: .4rem 0; }
+
+  .flow { font-family: var(--font-mono); font-size: .8rem; line-height: 1.9; }
+  .flow .step { display: flex; gap: .7rem; align-items: baseline; padding: .35rem 0; border-bottom: 1px dashed var(--line); }
+  .flow .step:last-child { border-bottom: none; }
+  .flow .n { color: var(--accent); flex: none; width: 1.5rem; }
+  .flow .who { flex: none; width: 5.5rem; font-weight: 500; }
+  .w-java { color: var(--java); } .w-py { color: var(--python); }
+  .w-react { color: var(--react); } .w-db { color: var(--data); }
+  .flow .what { color: var(--fg-muted); min-width: 0; }
+  @media (max-width: 560px) {
+    .flow .step { flex-wrap: wrap; }
+    .flow .who { width: auto; }
+  }
+
+  .toc { background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 1rem 1.2rem; margin: 2rem 0; }
+  .toc ol { margin: .4rem 0 0; padding-left: 1.2rem; columns: 2; column-gap: 2rem; }
+  @media (max-width: 560px) { .toc ol { columns: 1; } }
+  .toc li { font-size: .89rem; margin: .22rem 0; break-inside: avoid; }
+  .toc a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .toc a:hover { color: var(--accent); border-color: var(--accent); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="hero">
+  <div class="hero-in">
+    <p class="eyebrow">Capstone defense preparation</p>
+    <h1>REBYU System Walkthrough</h1>
+    <p class="lede">Where the code lives, how the three services talk, what the algorithms actually do, and how data moves from a learner's click to the database and back.</p>
+    <div class="stats">
+      <div class="stat"><b>3</b><span>services</span></div>
+      <div class="stat"><b>115</b><span>JPA entities</span></div>
+      <div class="stat"><b>886</b><span>Java files</span></div>
+      <div class="stat"><b>1,212</b><span>frontend files</span></div>
+      <div class="stat"><b>588</b><span>Python files</span></div>
+      <div class="stat"><b>156</b><span>routes</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<div class="toc">
+  <strong style="font-family:var(--font-display)">Contents</strong>
+  <ol>
+    <li><a href="#arch">The three services</a></li>
+    <li><a href="#where">Where the code lives</a></li>
+    <li><a href="#java">Java backend anatomy</a></li>
+    <li><a href="#python">Python AI service</a></li>
+    <li><a href="#frontend">Frontend structure</a></li>
+    <li><a href="#auth">Authentication &amp; roles</a></li>
+    <li><a href="#db">Database &amp; schema</a></li>
+    <li><a href="#algo">The algorithms</a></li>
+    <li><a href="#flow">End-to-end data flow</a></li>
+    <li><a href="#questions">Likely panel questions</a></li>
+  </ol>
+</div>
+
+<h2 id="arch"><span class="num">01</span>The three services</h2>
+<p class="sub">REBYU is not one program. It is three services plus two infrastructure containers, wired together by <code>docker-compose.yml</code> at the repository root. This is the first thing to be able to draw on a whiteboard.</p>
+
+<div class="grid">
+  <div class="card">
+    <h4><span class="dot d-react"></span>frontend</h4>
+    <p>React + Vite, served by nginx. Port <code>3000 → 80</code>. All UI, routing and state.</p>
+  </div>
+  <div class="card">
+    <h4><span class="dot d-java"></span>backend</h4>
+    <p>Spring Boot (Java). Port <code>8080</code>. The system of record — auth, business rules, all persistence.</p>
+  </div>
+  <div class="card">
+    <h4><span class="dot d-py"></span>python-api</h4>
+    <p>FastAPI. Port <code>8000</code>. AI generation, the tutor, and the BKT mastery engine.</p>
+  </div>
+  <div class="card">
+    <h4><span class="dot d-data"></span>redis</h4>
+    <p>Port <code>6379</code>. Response caching, so repeated reads don't hit the database.</p>
+  </div>
+  <div class="card">
+    <h4><span class="dot d-data"></span>rabbitmq</h4>
+    <p>Ports <code>5672</code> / <code>15672</code>. Message queue for background AI work.</p>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>The sentence that answers "how does it work?"</strong>
+  <p>The React frontend talks only to Spring Boot. Spring Boot owns the database and all business rules, and calls the Python service over HTTP when it needs AI generation or a mastery calculation. The frontend never calls Python directly.</p>
+</div>
+
+<p>Knowing the <em>direction</em> of the arrows matters more than any single file. A panelist asking "how do the components connect?" wants exactly this: one inbound path, one internal hop, one database.</p>
+
+<h2 id="where"><span class="num">02</span>Where the code lives</h2>
+<p class="sub">Memorize this table. "Where are the files and codes located?" is an explicit item on your checklist.</p>
+
+<div class="tablewrap">
+<table>
+  <tr><th>What</th><th>Path</th></tr>
+  <tr><td>Java source</td><td><code>backend-java/src/main/java/com/capstone/rebyu/</code></td></tr>
+  <tr><td>Java entry point</td><td><code>RebyuApplication.java</code></td></tr>
+  <tr><td>Security rules</td><td><code>auth/security/SecurityConfig.java</code></td></tr>
+  <tr><td>Python source</td><td><code>python-backend/app/</code></td></tr>
+  <tr><td>Python entry point</td><td><code>python-backend/app/main.py</code></td></tr>
+  <tr><td>Python endpoints</td><td><code>app/api/routes/</code> (18 modules)</td></tr>
+  <tr><td>React source</td><td><code>frontend/src/</code></td></tr>
+  <tr><td>React routing</td><td><code>frontend/src/App.jsx</code></td></tr>
+  <tr><td>API call layer</td><td><code>frontend/src/services/</code></td></tr>
+  <tr><td>Service wiring</td><td><code>docker-compose.yml</code> (root)</td></tr>
+</table>
+</div>
+
+<h2 id="java"><span class="num">03</span>Java backend anatomy</h2>
+<p class="sub">886 files across 30 feature packages. The key insight: <strong>every package has the same internal shape</strong>, so learning one teaches you all thirty.</p>
+
+<pre><code>assessment/
+├── controller/   ← HTTP endpoints (@RestController)
+├── service/      ← business logic; the rules live here
+├── repository/   ← database access (Spring Data JPA)
+├── entity/       ← @Entity classes = database tables
+├── dto/          ← request/response shapes sent to the browser
+├── mapper/       ← converts entity ↔ dto
+└── config/       ← package-specific settings</code></pre>
+
+<p>This is the <strong>layered architecture</strong> pattern. A request flows down: <code>controller → service → repository → database</code>, and the response maps back up through the DTO. Say that sentence in the defense; it demonstrates you understand the structure rather than just the file names.</p>
+
+<h3>The packages, by size</h3>
+<p>Size is a fair proxy for importance. These are your system's real feature set:</p>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Package</th><th>Files</th><th>What it does</th></tr>
+  <tr><td><code>assessment</code></td><td>98</td><td>Exams, attempts, grading, scoring</td></tr>
+  <tr><td><code>aigateway</code></td><td>82</td><td>Java's bridge to AI models and the tutor</td></tr>
+  <tr><td><code>certification</code></td><td>55</td><td>Certifications, lessons, curriculum tree</td></tr>
+  <tr><td><code>institution</code></td><td>41</td><td>Partner schools / B2B tenants</td></tr>
+  <tr><td><code>billing</code></td><td>40</td><td>Subscriptions, licensing, entitlements</td></tr>
+  <tr><td><code>progress</code></td><td>39</td><td>Learner progress tracking</td></tr>
+  <tr><td><code>learningtools</code></td><td>37</td><td>Flashcards, study aids</td></tr>
+  <tr><td><code>enrollment</code></td><td>36</td><td>Joining certifications</td></tr>
+  <tr><td><code>user</code></td><td>31</td><td>Accounts and profiles</td></tr>
+  <tr><td><code>gamification</code></td><td>29</td><td>Points, streaks, achievements</td></tr>
+  <tr><td><code>department</code></td><td>29</td><td>Department heads and their learners</td></tr>
+  <tr><td><code>bkt</code></td><td>24</td><td>Mastery tracking, outbox to Python</td></tr>
+  <tr><td><code>adaptive</code></td><td>15</td><td>Adaptive question selection (IRT)</td></tr>
+</table>
+</div>
+
+<h2 id="python"><span class="num">04</span>Python AI service</h2>
+<p class="sub">FastAPI. This is where anything involving a language model or a statistical model happens.</p>
+
+<p>Its endpoints live in <code>app/api/routes/</code>:</p>
+<pre><code>tutor.py          ← the AI tutor conversation
+question_bank.py  ← AI question generation
+study_aids.py     ← flashcards, summaries
+study_plans.py    ← personalized study plans
+mastery.py        ← BKT mastery state
+priorities.py     ← which lesson to study next
+analytics.py      ← learner analytics
+past_papers.py    ← official exam paper import
+certification.py  ← curriculum / lesson generation</code></pre>
+
+<p>Internally the interesting directories are <code>app/graphs/</code> (LangGraph workflows for multi-step AI generation — curriculum, question bank, tutor), <code>app/rag/</code> (retrieval over lesson content), and <code>app/ml/</code> (the smart-defaults model).</p>
+
+<div class="callout">
+  <strong>Why two backends?</strong>
+  <p>Java handles transactions, security and relational data — things Spring is strong at. Python handles AI and statistics, because the LLM and ML ecosystem lives there. Splitting them means a slow AI generation job never blocks a learner loading their dashboard.</p>
+</div>
+
+<h2 id="frontend"><span class="num">05</span>Frontend structure</h2>
+<p class="sub">React with Vite, 1,212 files, 156 routes defined in <code>App.jsx</code>.</p>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Folder</th><th>Holds</th></tr>
+  <tr><td><code>pages/</code></td><td>One file per screen, grouped by role: <code>admin/</code>, <code>learner/</code>, <code>institution/</code>, <code>public/</code></td></tr>
+  <tr><td><code>components/</code></td><td>Reusable UI, grouped by feature</td></tr>
+  <tr><td><code>services/</code></td><td>API calls — every <code>fetch</code> to Spring Boot</td></tr>
+  <tr><td><code>hooks/</code></td><td>Reusable stateful logic (<code>use…</code>)</td></tr>
+  <tr><td><code>layouts/</code></td><td>Page shells with navigation</td></tr>
+  <tr><td><code>context/</code></td><td>Global state, including auth</td></tr>
+  <tr><td><code>lib/</code> &amp; <code>utils/</code></td><td>Helpers and pure functions</td></tr>
+</table>
+</div>
+
+<h3>Three layouts, one per audience</h3>
+<p><code>DashboardLayout</code> wraps admin screens, <code>LearnerLayout</code> wraps the student experience, and <code>InstitutionLayout</code> wraps the partner-school portal. Routes are lazy-loaded with <code>lazyRoute(() =&gt; import(…))</code>, so a learner never downloads the admin code.</p>
+
+<h2 id="auth"><span class="num">06</span>Authentication &amp; roles</h2>
+<p class="sub">Four roles, enforced in two places.</p>
+
+<div class="grid">
+  <div class="card"><h4>ADMIN</h4><p>Full system access — content, users, settings.</p></div>
+  <div class="card"><h4>LEARNER</h4><p>Studies, takes assessments, tracks progress.</p></div>
+  <div class="card"><h4>INSTITUTION</h4><p>Partner school managing its own learners.</p></div>
+  <div class="card"><h4>DEPARTMENT_HEAD</h4><p>Oversees one department's learners.</p></div>
+</div>
+
+<p><strong>On the frontend</strong>, <code>ProtectedRoute</code> gates each route group:</p>
+<pre><code>&lt;Route element={&lt;ProtectedRoute allowedRoles={["ADMIN"]} /&gt;}&gt;
+    &lt;Route path="/admin" element={&lt;DashboardLayout /&gt;}&gt;</code></pre>
+
+<p><strong>On the backend</strong>, <code>SecurityConfig.java</code> declares which URL patterns require authentication, and <code>RoleGuard</code> checks the role inside the service layer.</p>
+
+<div class="callout">
+  <strong>The critical point to make</strong>
+  <p>Frontend route guards are only convenience — they stop a wrong menu appearing. Real security is server-side, because anyone can edit JavaScript in their browser. If a panelist asks whether hiding a button is enough, this is the answer they want.</p>
+</div>
+
+<h2 id="db"><span class="num">07</span>Database &amp; schema</h2>
+<p class="sub">PostgreSQL, hosted on Supabase, reached through the session pooler.</p>
+
+<p>The schema is defined by <strong>115 JPA entity classes</strong>. Each <code>@Entity</code> class maps to one table; its fields map to columns; and its <code>@ManyToOne</code> / <code>@OneToMany</code> annotations define the foreign keys. Hibernate reads those classes and keeps the tables in step.</p>
+
+<p>So when you are asked "what is your database design?", the honest and accurate answer is: <em>the entity classes are the schema</em>. To describe any table, open its entity.</p>
+
+<h3>Core tables to be able to name</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Area</th><th>Represents</th></tr>
+  <tr><td>User</td><td>Accounts, roles, profiles</td></tr>
+  <tr><td>Certification</td><td>A reviewable exam track (e.g. IT Passport, FE, TOPCIT)</td></tr>
+  <tr><td>Lesson</td><td>A unit of content inside a certification</td></tr>
+  <tr><td>Question</td><td>An item, with type, options, answer, explanation</td></tr>
+  <tr><td>Assessment</td><td>A quiz / unit exam / mock exam definition</td></tr>
+  <tr><td>Attempt</td><td>One learner's run at an assessment</td></tr>
+  <tr><td>Progress / Mastery</td><td>What the learner knows, per lesson</td></tr>
+  <tr><td>Institution / Department</td><td>B2B tenant structure</td></tr>
+</table>
+</div>
+
+<h2 id="algo"><span class="num">08</span>The algorithms</h2>
+<p class="sub">Your checklist names algorithms explicitly. REBYU has three working together, each answering a different question. Everything below is read from your actual source — file and line, not textbook theory.</p>
+
+<div class="grid">
+  <div class="card"><h4><span class="dot d-data"></span>BKT</h4><p>Does this learner know this lesson? → a probability per lesson.</p></div>
+  <div class="card"><h4><span class="dot d-data"></span>IRT</h4><p>How able is this learner overall? → a single number, theta.</p></div>
+  <div class="card"><h4><span class="dot d-data"></span>Selector</h4><p>Given both, which question comes next?</p></div>
+</div>
+
+<h3>BKT — Bayesian Knowledge Tracing</h3>
+<p><code>adaptive/engine/BktModel.java</code> — only 33 lines, and you should be able to reproduce it.</p>
+
+<p>Four parameters, each clamped to a safe range in your code:</p>
+<div class="tablewrap">
+<table>
+  <tr><th>Param</th><th>Meaning</th><th>Your clamp</th></tr>
+  <tr><td><code>prior</code></td><td>P(knew it already)</td><td>0.01 – 0.99</td></tr>
+  <tr><td><code>learn</code></td><td>P(learns it on this step)</td><td>0.001 – 0.9</td></tr>
+  <tr><td><code>guess</code></td><td>P(correct while not knowing)</td><td>0.01 – 0.49</td></tr>
+  <tr><td><code>slip</code></td><td>P(wrong while knowing)</td><td>0.01 – 0.49</td></tr>
+</table>
+</div>
+
+<p>The update is two steps — <strong>evidence, then learning</strong>:</p>
+<pre><code>// Step 1: Bayes on what we just observed
+if (correct)  posterior = p(1-slip) / [ p(1-slip) + (1-p)·guess ]
+else          posterior = p·slip    / [ p·slip    + (1-p)(1-guess) ]
+
+// Step 2: they may have just learned it
+return posterior + (1 - posterior) · learn</code></pre>
+
+<p>That second line is the part most students forget in a defense. Bayes alone only revises belief about what was <em>already</em> true; the learning term accounts for the learner acquiring the skill during the exercise itself. Mastery can therefore rise even after a wrong answer.</p>
+
+<div class="callout">
+  <strong>Why guess and slip must be capped below 0.5</strong>
+  <p>If guess could reach 0.5 or above, a correct answer would be weak or negative evidence of knowing, and the update would misbehave. Capping both at 0.49 keeps a correct answer always positive evidence. That is the reasoning behind the clamp, and it is a strong thing to volunteer.</p>
+</div>
+
+<h3>IRT — a three-parameter logistic model</h3>
+<p><code>adaptive/engine/IrtModel.java</code>. Each item has three parameters, not one:</p>
+<div class="tablewrap">
+<table>
+  <tr><th>Param</th><th>Name</th><th>Meaning</th><th>Range</th></tr>
+  <tr><td><code>a</code></td><td>discrimination</td><td>How sharply the item separates able from unable learners</td><td>0.2 – 4.0</td></tr>
+  <tr><td><code>b</code></td><td>difficulty</td><td>The ability level where P(correct) is halfway up</td><td>−4 – 4</td></tr>
+  <tr><td><code>c</code></td><td>guessing</td><td>Floor probability — a 4-option MCQ is never 0</td><td>0 – 0.5</td></tr>
+</table>
+</div>
+
+<p>The probability a learner of ability θ answers correctly:</p>
+<pre><code>P(θ) = c + (1 - c) · 1/(1 + e^(-a(θ - b)))</code></pre>
+
+<p>Your difficulty labels map onto the θ scale as <code>EASY = -1.5</code>, <code>AVERAGE = 0.0</code>, <code>HARD = +1.5</code>, and θ itself is clamped to <code>[-3, +3]</code>.</p>
+
+<h3>How theta updates — the part that impresses</h3>
+<p>Your system does <strong>not</strong> just nudge θ up on a right answer. <code>IrtModel.update()</code> is a Bayesian update that also tracks how <em>confident</em> it is, as a standard error σ:</p>
+<pre><code>info     = a²·(q/p)·((p-c)/(1-c))²      // Fisher information
+gradient = a·(u - p)·(p - c) / (p(1-c))  // u = 1 correct, 0 wrong
+gain     = σ² / (1 + σ²·info)
+
+θ_new = θ + gain · gradient
+σ_new = sqrt( 1 / (1/σ² + info) )        // floor 0.75</code></pre>
+
+<p>Two consequences worth stating out loud:</p>
+<ul>
+  <li><strong>Surprising answers move θ more.</strong> <code>(u − p)</code> is the surprise: if the model expected 0.9 and the learner got it wrong, the gradient is large.</li>
+  <li><strong>Confidence grows, so later answers move θ less.</strong> σ shrinks with every item, which shrinks <code>gain</code>. Early answers matter most — exactly how a real adaptive test behaves.</li>
+</ul>
+
+<p>θ is then reported to learners on a friendly scale via <code>proficiencyRating</code>:</p>
+<pre><code>rating = (θ + 3) / 6 × 100     →  ≥75 Advanced
+                                  ≥50 Proficient
+                                  ≥25 Developing
+                                  else Novice</code></pre>
+
+<h3>Item information — why "near θ" is optimal</h3>
+<p>Fisher information peaks when the item's difficulty sits near the learner's ability. An item far too easy or far too hard carries almost no information: you already knew the outcome. The selector maximizes information, which is the formal version of "ask something at their level".</p>
+
+<h3>The selector — how the two models combine</h3>
+<p><code>adaptive/engine/AdaptiveItemSelector.java</code>, the <code>select()</code> method. It runs six stages:</p>
+
+<div class="card flow">
+  <div class="step"><span class="n">1</span><span class="who">Dedupe</span><span class="what">Drop served ids, identical stems, and <em>near-duplicate</em> stems by token overlap</span></div>
+  <div class="step"><span class="n">2</span><span class="who">Level</span><span class="what">Keep only items with <code>|b − θ|</code> within 0.75 of the closest item</span></div>
+  <div class="step"><span class="n">3</span><span class="who">Tier</span><span class="what">Take the best tier present and discard the rest entirely</span></div>
+  <div class="step"><span class="n">4</span><span class="who">Group</span><span class="what">Bucket survivors by lesson and tier</span></div>
+  <div class="step"><span class="n">5</span><span class="who">Lesson</span><span class="what">Score each lesson, pick the highest</span></div>
+  <div class="step"><span class="n">6</span><span class="who">Item</span><span class="what">Rank by information × type weight, sample from the top-K</span></div>
+</div>
+
+<p>The four tiers are a strict no-repeat ladder:</p>
+<pre><code>TIER_UNSEEN           ← never shown to this learner  (preferred)
+TIER_NEW_THIS_CYCLE   ← seen before, new this cycle
+TIER_SEEN_THIS_CYCLE  ← already seen this cycle
+TIER_REPEAT           ← last resort</code></pre>
+
+<h3>How a lesson is chosen</h3>
+<pre><code>lessonScore = coverageDeficit
+            + explorationWeight × uncertainty
+            + small random noise
+
+uncertainty = pKnown × (1 - pKnown)</code></pre>
+
+<p>That <code>uncertainty</code> term is the elegant bit, and it's where BKT feeds IRT. It is maximized at <code>pKnown = 0.5</code> — exactly where the system is <em>least sure</em> whether the learner knows the lesson. A lesson at 0.95 or 0.05 is settled and scores near zero. So the engine naturally spends questions where they resolve the most doubt.</p>
+
+<p><code>coverageDeficit</code> is how far behind a lesson is versus its target share, which stops the exam fixating on one weak topic and ignoring the syllabus.</p>
+
+<h3>Weak-lesson focus</h3>
+<p><code>focusPlan()</code> reserves a share of the paper (<code>weakShare</code>) for lessons below a mastery threshold, split in proportion to <code>(1 − pKnown)</code> so the weakest lesson gets the largest slice. It has a deliberate guard: if <em>every</em> lesson counts as weak it returns an empty plan and falls back to proportional coverage, because "focus on everything" is not focus.</p>
+
+<h3>Two touches that show care</h3>
+<p><strong>Top-K sampling, not greedy.</strong> <code>chooseItem</code> sorts by information then picks randomly among the best <code>topK</code>. Always taking the single best item would make the exam deterministic and gameable, and would hammer the same few questions.</p>
+<p><strong>Type balancing.</strong> <code>typeWeight</code> compares each question type's share of the pool against its share of what's been served, and boosts under-served types by <code>1 + 3 × deficit</code>. Without it, maximizing information alone would drift toward whichever type happens to discriminate best.</p>
+
+<div class="callout">
+  <strong>The nuance to volunteer unprompted</strong>
+  <p>Not every assessment is adaptive. Quizzes and unit exams adapt; <strong>diagnostic and mock exams are fixed papers by design</strong>. A mock must mirror the real certification paper, and a diagnostic must touch every lesson once to establish a baseline — adapting it would defeat its purpose. <code>AdaptivePolicy.isAdaptive(exam)</code> is where that decision is made.</p>
+</div>
+
+<h2 id="flow"><span class="num">09</span>End-to-end data flow</h2>
+<p class="sub">If you can narrate one request end to end, you can answer most "how does it work" questions. Here is a learner answering a question.</p>
+
+<div class="card flow">
+  <div class="step"><span class="n">1</span><span class="who w-react">React</span><span class="what">Learner clicks an answer; the component calls a function in <code>services/</code></span></div>
+  <div class="step"><span class="n">2</span><span class="who w-react">React</span><span class="what">HTTP POST to Spring Boot with the JWT in the Authorization header</span></div>
+  <div class="step"><span class="n">3</span><span class="who w-java">Spring</span><span class="what"><code>SecurityConfig</code> validates the token and identifies the user</span></div>
+  <div class="step"><span class="n">4</span><span class="who w-java">Spring</span><span class="what">Controller receives the DTO and calls the service layer</span></div>
+  <div class="step"><span class="n">5</span><span class="who w-java">Spring</span><span class="what">Service grades the answer and applies the business rules</span></div>
+  <div class="step"><span class="n">6</span><span class="who w-db">Postgres</span><span class="what">Repository saves the response and updates the attempt</span></div>
+  <div class="step"><span class="n">7</span><span class="who w-java">Spring</span><span class="what">A mastery event is written to the <strong>BKT outbox</strong> table</span></div>
+  <div class="step"><span class="n">8</span><span class="who w-java">Spring</span><span class="what">A dispatcher posts it to Python: <code>POST /mastery/events/batch</code></span></div>
+  <div class="step"><span class="n">9</span><span class="who w-py">FastAPI</span><span class="what">BKT recalculates mastery probability for that lesson</span></div>
+  <div class="step"><span class="n">10</span><span class="who w-java">Spring</span><span class="what">Adaptive selector uses the updated state to pick the next question</span></div>
+  <div class="step"><span class="n">11</span><span class="who w-react">React</span><span class="what">Response returns; the UI renders the next question</span></div>
+</div>
+
+<h3>Why an outbox, and not a direct call?</h3>
+<p>This is the single best detail to volunteer, because it shows engineering judgment rather than memorization.</p>
+<p>If Spring called Python directly while saving the answer and Python were down, the learner's answer could be lost or the request would hang. Instead the event is written to a database table <em>in the same transaction</em> as the answer. A separate dispatcher reads that table and forwards it.</p>
+<p>So the learner's answer is never at risk from an AI-service outage; the mastery update simply catches up afterwards. That is the <strong>transactional outbox pattern</strong>.</p>
+
+<h2 id="questions"><span class="num">10</span>Likely panel questions</h2>
+<p class="sub">Open each one and say the answer out loud. Speaking it is what makes it stick.</p>
+
+<details class="qa"><summary>Walk us through your system architecture.</summary>
+<div class="body"><p>Three services in Docker: a React frontend on 3000, a Spring Boot backend on 8080, and a FastAPI AI service on 8000, plus Redis for caching and RabbitMQ for background jobs. The frontend talks only to Spring Boot. Spring Boot owns the PostgreSQL database and all business rules, and calls the Python service over HTTP for AI generation and mastery calculations.</p></div></details>
+
+<details class="qa"><summary>Why did you use two different backend languages?</summary>
+<div class="body"><p>Separation of concerns. Spring Boot gives us mature transaction management, security and ORM for relational data. The AI and machine-learning ecosystem — LangGraph, the model clients, the BKT implementation — lives in Python. Splitting them also means a slow AI generation job never blocks a learner loading their dashboard.</p></div></details>
+
+<details class="qa"><summary>Where is your database schema defined?</summary>
+<div class="body"><p>In the 115 JPA entity classes under the Java source tree. Each <code>@Entity</code> is a table, its fields are columns, and its relationship annotations define the foreign keys. Hibernate derives the schema from those classes. We run PostgreSQL on Supabase.</p></div></details>
+
+<details class="qa"><summary>What algorithm personalizes the learning?</summary>
+<div class="body"><p>Two. Bayesian Knowledge Tracing estimates the probability a learner has mastered each lesson, updating on every answer and accounting for guessing and slipping. Item Response Theory models learner ability as theta and picks the question most informative at that ability. Quizzes and unit exams adapt; diagnostics and mock exams are fixed papers on purpose.</p></div></details>
+
+<details class="qa"><summary>How do you secure the application?</summary>
+<div class="body"><p>Authentication is token-based; every request carries a JWT that <code>SecurityConfig</code> validates. There are four roles — ADMIN, LEARNER, INSTITUTION, DEPARTMENT_HEAD. The frontend uses <code>ProtectedRoute</code> to hide screens, but that is only convenience. The real enforcement is server-side in <code>SecurityConfig</code> and <code>RoleGuard</code>, because browser code can be modified by the user.</p></div></details>
+
+<details class="qa"><summary>What happens if the AI service goes down?</summary>
+<div class="body"><p>Core learning keeps working. Mastery events are written to an outbox table in the same transaction as the learner's answer, and a separate dispatcher forwards them. If Python is unavailable the events stay queued and are delivered when it recovers. Answers are never lost and the learner is never blocked.</p></div></details>
+
+<details class="qa"><summary>How is the frontend organized?</summary>
+<div class="body"><p>By role and by feature. <code>pages/</code> has one file per screen grouped into admin, learner, institution and public. <code>components/</code> holds reusable UI, <code>services/</code> holds every API call, <code>hooks/</code> holds reusable stateful logic. There are three layouts, one per audience, and routes are lazy-loaded so each role only downloads its own code.</p></div></details>
+
+<details class="qa"><summary>How do you know the system works?</summary>
+<div class="body"><p>There are 225 frontend test files covering the numbered test cases, run with Vitest, plus JUnit tests on the Java side. The build runs a TypeScript typecheck and a production Vite build. Say the real number and offer to run them — a live green suite during a defense is persuasive.</p></div></details>
+
+<div class="callout" style="margin-top:3rem">
+  <strong>Two habits for the day</strong>
+  <p>First: when you don't know a detail, say which file you would open to find it. Naming <code>AdaptiveItemSelector.java</code> or <code>SecurityConfig.java</code> shows ownership even when you can't recite the contents. Second: every member should be able to give the architecture answer in section 1 — the checklist says all members must explain the system, not one person.</p>
+</div>
+
+</div>

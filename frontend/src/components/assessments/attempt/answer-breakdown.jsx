@@ -2,12 +2,6 @@ import { cn } from "@/lib/utils"
 import { DiagramChecks } from "@/components/challenges/score-breakdown.jsx"
 import { diagramPartLabel, summarizeDiagramChecks } from "@/lib/diagram-checks.js"
 
-/*
- * How one diagram or code answer was marked, shown on the assessment result page:
- * for a diagram, the points each kind of part earned (in the diagram type's own terms --
- * Actors, «include», Decisions...) and every rule it was held to; for code, whether it ran
- * and whether its output (or, for SQL, its statement) matched.
- */
 
 function amount(value) {
   const n = Number(value ?? 0)

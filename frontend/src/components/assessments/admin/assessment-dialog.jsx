@@ -33,8 +33,7 @@ import {
 import AssessmentQuestionPickerDialog from "./assessment-question-picker-dialog.jsx"
 import ExamFormatPanel from "./exam-format-panel.jsx"
 
-// Mirrors AdaptivePolicy.ADAPTIVE_TYPES. The diagnostic and mock are fixed papers:
-// the questions picked here are exactly what every learner sits.
+
 const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM"])
 
 const TIMER_FIELDS = {
@@ -357,7 +356,6 @@ export default function AssessmentDialog({
     setError("")
     setPickerOpen(openQuestionPicker)
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, exam?.examId, mode, isEdit && questionById.size > 0, openQuestionPicker])
 
   const alreadySelectedIds = useMemo(

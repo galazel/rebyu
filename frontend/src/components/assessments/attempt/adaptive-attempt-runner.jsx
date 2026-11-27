@@ -346,10 +346,8 @@ export function AdaptiveAttemptRunner({
         </div>
       ) : current ? (
         <>
-        {/* Fixed header above, fixed footer below; the question starts at the top of the space between them. */}
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:py-12">
-            {/* No card: the question sits straight on the page. */}
             <div key={current.attemptQuestionId}>
               <div className="flex items-center gap-2">
                 <span className="tg-chip">{typeLabel(current)}</span>
@@ -622,7 +620,6 @@ function QuestionStem({ text }) {
   const asked = at === -1 ? full : full.slice(0, at).trimEnd()
   const citation = at === -1 ? "" : full.slice(at).trim()
 
-  // A one-line question reads as a headline; a long past-paper scenario reads as body text.
   const size =
     asked.length <= 140
       ? "text-lg font-bold leading-7 sm:text-xl sm:leading-8"
@@ -706,7 +703,6 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
   }
 }
 
-/** "Option: why it is wrong" for each picked option that is not right -- same text the server sends. */
 function wrongPickExplanation(question, key, pickedIds) {
   const right = new Set([key.correctChoiceId, ...(key.correctChoiceIds ?? [])].filter((id) => id != null).map(Number))
   const lines = (question?.choices ?? [])

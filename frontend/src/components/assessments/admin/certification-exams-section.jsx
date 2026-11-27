@@ -37,11 +37,7 @@ function lessonIdsOf(certification) {
   return ids
 }
 
-/**
- * The certification's two fixed papers, on the certification page itself.
- * Lesson quizzes and unit/major exams are adaptive -- they draw from the bank as
- * the learner answers and have no question list to manage -- so they are not here.
- */
+
 export default function CertificationExamsSection({ certification }) {
   const certificationId = certification?.certificationId ?? null
   const data = useAssessmentData(certificationId)

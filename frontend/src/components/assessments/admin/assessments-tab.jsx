@@ -106,9 +106,7 @@ const DETAIL_QUERIES = {
   },
 }
 
-// This certification's questions only. Every question on the platform -- thousands,
-// with their choices -- took long enough that the request was dropped, which left
-// every assessment's preview and edit list showing 0 questions.
+
 function questionsQueryFor(certificationId) {
   const id = certificationId == null ? null : Number(certificationId)
   return {

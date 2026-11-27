@@ -120,7 +120,6 @@ function buildCreateRequest(item) {
   }
 }
 
-// Every fix opens the question builder for that one assessment.
 function builderPath(certificationId, params) {
   const query = new URLSearchParams({ tab: "question-builder", mode: "manual" })
   Object.entries(params).forEach(([key, value]) => {
@@ -153,10 +152,6 @@ export default function CertificationPublishingChecklist({
         queryKey: ["certification-publishing-requirements", certificationId],
       })
       queryClient.invalidateQueries({ queryKey: ["exams"] })
-      // The certification page caches its certification for 5 minutes; left
-      // alone, leaving and coming back inside that window showed it as a draft
-      // again although it was published. Refreshing "admin-certifications"
-      // covers that page's query and the certification list.
       queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
       queryClient.invalidateQueries({ queryKey: ["certifications"] })
       onPublished?.()
@@ -377,9 +372,6 @@ export default function CertificationPublishingChecklist({
   )
 }
 
-// An adaptive exam draws its questions from the certification's bank, so a
-// bank that is too small is fixed by adding bank questions in the exam's scope
-// -- not by editing the exam itself.
 function BankTooSmallFix({ examId, title, certificationId }) {
   const navigate = useNavigate()
   const size = useQuery({

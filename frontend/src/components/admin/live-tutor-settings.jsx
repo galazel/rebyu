@@ -34,7 +34,7 @@ export function LiveTutorSettingsCard() {
 
   function submit(event) {
     event.preventDefault()
-    // The settings API requires the saved voice configuration even for quota-only edits.
+
     save.mutate({
       enabled: values.enabled,
       maxDurationSeconds: Number(values.maxDurationSeconds),

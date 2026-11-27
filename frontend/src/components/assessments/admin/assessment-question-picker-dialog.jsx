@@ -67,10 +67,7 @@ export default function AssessmentQuestionPickerDialog({
                                                          initialMiddleCategoryId = null,
                                                          initialMajorCategoryId = null,
                                                          ownerDepartmentId = null,
-                                                         // Official papers give each question to one exam; a department
-                                                         // reuses its bank freely, so it turns this off.
                                                          excludeUsedElsewhere = true,
-                                                         // A department picks only from the questions it wrote.
                                                          departmentQuestionsOnly = false,
                                                        }) {
   const navigate = useNavigate()
@@ -97,8 +94,7 @@ export default function AssessmentQuestionPickerDialog({
   }, [open, initialMiddleCategoryId])
 
   const certificationId = certification?.certificationId ?? null
-  // This certification's questions only: the whole platform's bank is thousands of
-  // questions with their choices, and fetching it timed out.
+
   const questionsQuery = useQuery({
     queryKey: departmentQuestionsOnly
         ? ["institution-questions", "all", ownerDepartmentId != null ? String(ownerDepartmentId) : null]
@@ -139,8 +135,6 @@ export default function AssessmentQuestionPickerDialog({
     )
   }, [examQuestionsQuery.data, currentExamId])
 
-  // Modules grouped under their category, each with how many pickable questions it holds,
-  // so the filter lists only modules that have something to add.
   const moduleGroups = useMemo(() => {
     const list = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
     const counts = new Map()

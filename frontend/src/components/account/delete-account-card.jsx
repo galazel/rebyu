@@ -26,7 +26,6 @@ import {
 
 const QUERY_KEY = ["my-deletion-request"]
 
-// What an approved request removes, per account kind.
 const SCOPE = {
   learner:
     "Your profile, progress, attempts and results, enrollments, notes, library files and community posts will be permanently deleted, and you will no longer be able to sign in.",
@@ -42,12 +41,7 @@ function formatWhen(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString()
 }
 
-/**
- * "Delete account" danger zone. Deleting is not instant: it files a request an administrator
- * reviews, and the user can cancel it while it waits.
- *
- * @param {{ kind: "learner" | "department-head" | "institution" }} props
- */
+
 export default function DeleteAccountCard({ kind = "learner" }) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)

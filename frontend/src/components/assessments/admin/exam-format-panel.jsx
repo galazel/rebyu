@@ -55,10 +55,7 @@ function draftOf(format) {
   }
 }
 
-/**
- * The real exam a certification's mock imitates. `editable` lets an admin
- * correct it; `selectedCount` compares a mock exam's question count against it.
- */
+
 export default function ExamFormatPanel({
   certificationId,
   editable = false,
