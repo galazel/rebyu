@@ -243,7 +243,6 @@ function WeekBars({ trend }) {
   )
 }
 
-/** This week's study behaviour, as the footer of Today's plan. */
 function StudyWeekSummary({ behavior, isLoading }) {
   if (isLoading) return <div className="h-16 animate-pulse rounded-lg bg-muted" role="status" aria-label="Loading" />
   const minutes = Number(behavior?.weekStudyMinutes ?? 0)
@@ -389,7 +388,6 @@ function NextUpTile({
   )
 }
 
-/** Estimated chance of passing. */
 function ExamReadinessTile({ readiness }) {
   return (
     <BentoTile col={1} row={2}>
@@ -404,7 +402,6 @@ function ExamReadinessTile({ readiness }) {
   )
 }
 
-/** Countdown to the target exam date from the study plan. */
 function ExamDayTile({ certificationId }) {
   return (
     <BentoTile col={1} row={2}>

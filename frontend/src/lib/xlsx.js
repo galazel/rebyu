@@ -191,7 +191,6 @@ ${sheetEntries}
 </workbook>`
   )
 
-  // Generate each worksheet
   sheets.forEach((sheet, sheetIdx) => {
     let maxCols = 1
     for (const sec of sheet.sections) {
@@ -199,7 +198,6 @@ ${sheetEntries}
       if (secCols > maxCols) maxCols = secCols
     }
 
-    // Measure max content width per column
     const colWidths = Array.from({ length: maxCols }, (_, c) => {
       let maxLen = 10
       for (const sec of sheet.sections) {
@@ -227,11 +225,9 @@ ${sheetEntries}
     for (let sIdx = 0; sIdx < sheet.sections.length; sIdx++) {
       const sec = sheet.sections[sIdx]
       if (sIdx > 0) {
-        // Empty spacer row between sections on the same sheet
         rowIdx++
       }
 
-      // Section Title
       if (sec.title) {
         rowLines.push(
           `    <row r="${rowIdx}">\n` +
@@ -241,7 +237,6 @@ ${sheetEntries}
         rowIdx++
       }
 
-      // Column Headers
       if (sec.columns?.length) {
         const headerCells = sec.columns
           .map((colName, c) => {
@@ -253,7 +248,6 @@ ${sheetEntries}
         rowIdx++
       }
 
-      // Rows
       const secColCount = sec.columns?.length || maxCols
       for (const r of sec.rows ?? []) {
         const cells = []

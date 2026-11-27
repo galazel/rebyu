@@ -552,7 +552,6 @@ export function LiveTutor({ lessonId, lessonName, lessonStructure, lessonRootRef
       <div aria-hidden="true" className="absolute inset-y-0 left-0 w-6" style={{ background: "linear-gradient(to right, color-mix(in oklab, var(--tg) 22%, transparent), transparent)" }} />
       <div aria-hidden="true" className="absolute inset-y-0 right-0 w-6" style={{ background: "linear-gradient(to left, color-mix(in oklab, var(--tg) 22%, transparent), transparent)" }} />
 
-      {/* The live dock: a small pill centred at the bottom. Icon buttons carry their names as tooltips. */}
       <div
         className="pointer-events-auto absolute bottom-5 left-1/2 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--tg-line)] bg-card/95 py-1.5 pl-1.5 pr-1.5 text-foreground shadow-[0_3px_0_var(--tg-line),0_16px_36px_-16px_rgba(16,42,37,0.45)] backdrop-blur-xl"
         title={usesLeft != null ? `Live tutor · ${lessonName} · ${usesLeft} AI uses left` : `Live tutor · ${lessonName}`}

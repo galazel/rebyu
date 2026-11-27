@@ -182,7 +182,6 @@ export default function ArenaDetailPage() {
         </Button>
       </div>
 
-      {/* What it is, whether learners can play it, and the key facts */}
       <header className="space-y-4 rounded-2xl border-2 border-border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${arena.tone}`}>

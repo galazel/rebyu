@@ -285,9 +285,7 @@ export default function InstitutionAssessmentResultsPage() {
         </div>
       ) : null}
 
-      {/* Desktop / Tablet view: Wrapped in overflow-x-auto with right-fade affordance */}
       <section className="relative overflow-hidden rounded-xl border bg-card">
-        {/* Right fade gradient overlay for scroll affordance */}
         <div
           className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-card to-transparent sm:hidden"
           aria-hidden="true"
@@ -321,7 +319,6 @@ export default function InstitutionAssessmentResultsPage() {
           </div>
         ) : (
           <>
-            {/* Mobile Card-per-row layout (< sm) */}
             <div className="divide-y sm:hidden">
               {filteredMembers.map((member) => {
                 const status = memberStatus(member)
@@ -384,7 +381,6 @@ export default function InstitutionAssessmentResultsPage() {
               })}
             </div>
 
-            {/* Desktop / Tablet Table (sm and up) with horizontal scroll support */}
             <div className="hidden sm:block overflow-x-auto">
               <div className="min-w-[640px]">
                 <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_6rem_9.5rem] gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground">

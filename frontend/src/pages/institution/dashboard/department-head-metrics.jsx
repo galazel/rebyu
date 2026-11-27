@@ -518,7 +518,6 @@ export default function DepartmentHeadMetrics({ embedded = false, exportRef = nu
                       note="Badge earned = finished the review and earned the REBYU badge. It is not the official certification."
                     />
                   </div>
-                  {/* Faint right-fade gradient overlay to signal horizontal overflow on small screens */}
                   <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background/80 to-transparent sm:hidden" />
                 </div>
               )}

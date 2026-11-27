@@ -120,7 +120,6 @@ export default function SafetyAlertsPage() {
     onError: () => toast.error("Could not save the review. Please try again."),
   })
 
-  // Quick stats
   const openCount = useMemo(() => alerts.filter((a) => a.status === "OPEN").length, [alerts])
   const reviewedCount = useMemo(() => alerts.filter((a) => a.status !== "OPEN").length, [alerts])
   const threatCount = useMemo(() => alerts.filter((a) => a.kind === "THREAT").length, [alerts])
@@ -129,21 +128,16 @@ export default function SafetyAlertsPage() {
     [alerts]
   )
 
-  // Filtering
   const filteredAlerts = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return alerts.filter((alert) => {
-      // Status filter
       if (statusFilter === "OPEN" && alert.status !== "OPEN") return false
       if (statusFilter === "REVIEWED" && alert.status === "OPEN") return false
 
-      // Kind filter
       if (kindFilter !== ALL_FILTER && alert.kind !== kindFilter) return false
 
-      // Surface filter
       if (surfaceFilter !== ALL_FILTER && alert.surface !== surfaceFilter) return false
 
-      // Search query
       if (needle) {
         const kindLabel = SAFETY_KIND[alert.kind]?.label ?? ""
         const surfaceLabel = SURFACE[alert.surface] ?? ""
@@ -165,7 +159,6 @@ export default function SafetyAlertsPage() {
     })
   }, [alerts, search, statusFilter, kindFilter, surfaceFilter])
 
-  // Sorting
   const sortedAlerts = useMemo(
     () =>
       sortRows(filteredAlerts, {
@@ -314,7 +307,6 @@ export default function SafetyAlertsPage() {
             searchPlaceholder="Search learner, username, or message"
           >
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-40" aria-label="Filter by status">
                   <SelectValue placeholder="All statuses" />
@@ -326,7 +318,6 @@ export default function SafetyAlertsPage() {
                 </SelectContent>
               </Select>
 
-              {/* Category / Kind Filter */}
               <Select value={kindFilter} onValueChange={setKindFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-48" aria-label="Filter by category">
                   <SelectValue placeholder="All categories" />
@@ -340,7 +331,6 @@ export default function SafetyAlertsPage() {
                 </SelectContent>
               </Select>
 
-              {/* Surface Filter */}
               <Select value={surfaceFilter} onValueChange={setSurfaceFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-36" aria-label="Filter by surface">
                   <SelectValue placeholder="All surfaces" />
@@ -353,7 +343,6 @@ export default function SafetyAlertsPage() {
                 </SelectContent>
               </Select>
 
-              {/* Mobile Sort Dropdown */}
               <Select
                 value={sort?.key ? `${sort.key}-${sort.direction}` : "default"}
                 onValueChange={(val) => {
@@ -382,7 +371,6 @@ export default function SafetyAlertsPage() {
             </div>
           </TableToolbar>
 
-          {/* Mobile Cards View: Compact & Aesthetic */}
           <div className="divide-y divide-border/60 md:hidden">
             {query.isLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
@@ -417,7 +405,6 @@ export default function SafetyAlertsPage() {
                       !isOpen && "opacity-85"
                     )}
                   >
-                    {/* Row 1: Avatar + Learner Name & Username + Status Badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-xs font-bold text-primary shadow-2xs">
@@ -453,7 +440,6 @@ export default function SafetyAlertsPage() {
                       </div>
                     </div>
 
-                    {/* Row 2: Category Badge + Surface & Timestamp */}
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                       <Badge variant="outline" className={cn("text-[10px] font-semibold", kind.tone)}>
                         {kind.label}
@@ -465,14 +451,12 @@ export default function SafetyAlertsPage() {
                       </div>
                     </div>
 
-                    {/* Row 3: Triggered Message Excerpt */}
                     {alert.message ? (
                       <blockquote className="truncate rounded border-l-2 border-border bg-muted/40 px-2 py-1 font-mono text-xs text-foreground/90">
                         "{alert.message}"
                       </blockquote>
                     ) : null}
 
-                    {/* Row 4: Action / Follow-up Status */}
                     <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5">
                       {isOpen ? (
                         <span className="truncate text-[11px] text-muted-foreground">
@@ -525,7 +509,6 @@ export default function SafetyAlertsPage() {
             )}
           </div>
 
-          {/* Desktop Table View */}
           <div className="hidden min-h-0 flex-1 overflow-auto md:block">
             <Table mobileLayout="scroll">
               <TableHeader>
@@ -716,7 +699,6 @@ export default function SafetyAlertsPage() {
         </TableCard>
       </div>
 
-      {/* Safety Alert Follow-up & Detail Modal */}
       <Dialog
         open={selectedAlert != null}
         onOpenChange={(open) => {
@@ -749,7 +731,6 @@ export default function SafetyAlertsPage() {
 
             return (
               <div className="space-y-4 py-2 text-sm">
-                {/* Category & Surface Overview */}
                 <div className="grid grid-cols-2 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3.5">
                   <div className="space-y-1">
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -771,7 +752,6 @@ export default function SafetyAlertsPage() {
                   </div>
                 </div>
 
-                {/* Safeguarding guidance / Action required */}
                 {kind.action && (
                   <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive dark:text-red-300">
                     <p className="font-bold text-destructive dark:text-red-200">Safeguarding Guidance:</p>
@@ -779,7 +759,6 @@ export default function SafetyAlertsPage() {
                   </div>
                 )}
 
-                {/* Message quote */}
                 <div className="space-y-1.5">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Triggered Learner Message:
@@ -795,7 +774,6 @@ export default function SafetyAlertsPage() {
                   )}
                 </div>
 
-                {/* Follow-up Note Form or Followed Up Info */}
                 {isOpen ? (
                   <div className="space-y-2 border-t border-border/70 pt-3">
                     <label htmlFor="followup-note" className="text-xs font-semibold text-foreground">

@@ -195,7 +195,6 @@ function InvoiceList() {
         />
       ) : (
         <div>
-          {/* Mobile compressed invoice cards */}
           <div className="sm:hidden space-y-3">
             {invoices.map((invoice) => (
               <div
@@ -245,7 +244,6 @@ function InvoiceList() {
             ))}
           </div>
 
-          {/* Desktop Table View */}
           <Card className="hidden sm:block">
             <CardContent className="p-0">
               <Table>

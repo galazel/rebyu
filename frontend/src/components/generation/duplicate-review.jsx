@@ -193,7 +193,6 @@ function ChoiceToggle({ value, saved, disabled, onChange }) {
   )
 }
 
-/** Read-only view of a duplicate review, for the version history and artifacts. */
 export function DuplicateGroupsView({ payload }) {
   const groups = payload?.groups ?? []
   if (!groups.length) {

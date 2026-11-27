@@ -160,15 +160,12 @@ export function DepartmentManagementBoard({
   const queryClient = useQueryClient()
   const primaryDeptId = departmentId ?? department?.departmentId ?? department?.id
 
-  // Section Management States
   const [createSectionOpen, setCreateSectionOpen] = useState(false)
   const [editingSection, setEditingSection] = useState(null)
   const [archivingSection, setArchivingSection] = useState(null)
 
-  // Co-Authorities States
   const [coAuthoritiesOpen, setCoAuthoritiesOpen] = useState(false)
 
-  // Learner Roster States
   const [selectedSectionFilter, setSelectedSectionFilter] = useState(String(initialSectionFilter ?? "all"))
   const [rosterStatusFilter, setRosterStatusFilter] = useState(
     ROSTER_FILTERS.some((f) => f.id === initialRosterFilter) ? initialRosterFilter : "all"
@@ -176,7 +173,6 @@ export function DepartmentManagementBoard({
   const [rosterSearch, setRosterSearch] = useState("")
   const [removingLearner, setRemovingLearner] = useState(null)
 
-  // Announcements States
   const [announcementTitle, setAnnouncementTitle] = useState("")
   const [announcementBody, setAnnouncementBody] = useState("")
   const [announcementPinned, setAnnouncementPinned] = useState(false)
@@ -191,7 +187,6 @@ export function DepartmentManagementBoard({
   const [editingAnnouncement, setEditingAnnouncement] = useState(null)
   const [deletingAnnouncement, setDeletingAnnouncement] = useState(null)
 
-  // Queries
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", primaryDeptId],
     queryFn: () => getGroupSections(primaryDeptId),
@@ -265,7 +260,6 @@ export function DepartmentManagementBoard({
     })
   }, [announcements])
 
-  // Mutations
   const removeSectionMutation = useMutation({
     mutationFn: (sectionId) => deleteGroupSection(primaryDeptId, sectionId),
     onSuccess: () => {
@@ -350,7 +344,6 @@ export function DepartmentManagementBoard({
     },
   })
 
-  // Learner filtering
   const statusCounts = useMemo(() => {
     const counts = { all: deptLearners.length, unsectioned: 0 }
     for (const learner of deptLearners) {
@@ -387,7 +380,6 @@ export function DepartmentManagementBoard({
 
     return (
     <div className="space-y-6">
-      {/* 1. Sections & Cohorts Page View */}
       {activeFeature === "dept-section-breakdown" && (
         <div id="dept-section-breakdown" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
           <DashboardCardHeader
@@ -538,7 +530,6 @@ export function DepartmentManagementBoard({
         </div>
       )}
 
-      {/* 2. Student Roster Page View */}
       {activeFeature === "dept-learner-table" && (
         <div id="dept-learner-table" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
           <DashboardCardHeader
@@ -578,7 +569,6 @@ export function DepartmentManagementBoard({
                   }
                 />
 
-                {/* Filter bar */}
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-border/50">
                   <div className="relative w-full sm:w-64">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -636,7 +626,6 @@ export function DepartmentManagementBoard({
                   </div>
                 </div>
 
-                {/* Table */}
                 <div className="min-h-0 max-h-[560px] overflow-x-auto overflow-y-auto mt-3">
                   <Table className="w-full text-xs border-separate border-spacing-0">
                     <thead className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b border-border/50">
@@ -746,7 +735,6 @@ export function DepartmentManagementBoard({
         </div>
       )}
 
-      {/* 3. Co-Authorities Page View */}
       {activeFeature === "dept-co-authorities" && (
         <div id="dept-co-authorities" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
           <DashboardCardHeader
@@ -868,7 +856,6 @@ export function DepartmentManagementBoard({
         </div>
       )}
 
-      {/* 4. Announcements Page View */}
       {activeFeature === "dept-announcements" && (
         <div id="dept-announcements" className="rounded-2xl border border-border/70 bg-card p-4 sm:p-6 shadow-xs space-y-5 animate-in fade-in-50 duration-200">
           <DashboardCardHeader
@@ -891,7 +878,6 @@ export function DepartmentManagementBoard({
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start my-auto">
-                  {/* Left: Compose */}
                   <div className="lg:col-span-5 rounded-xl border border-border/70 bg-muted/20 p-3 space-y-2.5">
                     <span className="text-xs font-bold text-foreground">
                       {editingAnnouncement ? "Edit Announcement" : "Quick Compose"}
@@ -969,7 +955,6 @@ export function DepartmentManagementBoard({
                     </div>
                   </div>
 
-                  {/* Right: Feed */}
                   <div className="lg:col-span-7 space-y-2">
                     <div className="flex items-center justify-between px-0.5 text-xs font-semibold text-muted-foreground">
                       <span>Recent Department Bulletins</span>
@@ -1052,7 +1037,6 @@ export function DepartmentManagementBoard({
         </div>
       )}
 
-      {/* Modal Dialogs */}
       {createSectionOpen && primaryDeptId ? (
         <SectionDialog
           key="create-section"

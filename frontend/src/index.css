@@ -1745,7 +1745,6 @@ span:not(.font-rb-display):not(.font-display):not(.font-heading),
   font-synthesis: weight;
 }
 
-/* Card & Dashboard Widget Typography Reset */
 :is(h1, h2, h3, h4, h5, h6).card-title,
 :is(h1, h2, h3, h4, h5, h6).font-sans,
 :is(.rb-bento-tile, [data-slot="card"], .rb-card, .dashboard-card)

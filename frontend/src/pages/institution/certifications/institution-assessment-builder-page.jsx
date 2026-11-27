@@ -653,7 +653,6 @@ export default function InstitutionAssessmentBuilderPage() {
         </p>
       ) : null}
 
-      {/* Mobile segmented tabs for switching between Settings, Questions canvas, and Add tools */}
       <div className="flex border-b border-border bg-background p-1.5 md:hidden" role="tablist">
         {[
           ["settings", "Settings"],

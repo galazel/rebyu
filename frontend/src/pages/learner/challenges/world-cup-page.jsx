@@ -259,7 +259,6 @@ function LiveBracket({ bracket, myLearnerId }) {
 
   return (
     <div>
-      {/* Round labels over each column */}
       <div className="mb-3 flex items-center justify-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-rb-wolf">
         <div className="flex">
           {ROUND_HEADINGS.map((label) => (
@@ -1025,7 +1024,6 @@ function FitToWidth({ children, className = "" }) {
   )
 }
 
-/* The learner's own matches in a tournament, round by round. */
 function MyResults({ bracket, myLearnerId }) {
   const mine = (bracket.matches ?? [])
     .filter((m) => m.player1?.learnerId === myLearnerId || m.player2?.learnerId === myLearnerId)

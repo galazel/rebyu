@@ -102,7 +102,6 @@ function AnswerPair({ mistake }) {
   )
 }
 
-/** One mistake at a time: think, reveal, then keep it or mark it learned. */
 function ReviewSession({ queue, onMark, onClose }) {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)

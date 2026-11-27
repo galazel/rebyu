@@ -10,7 +10,6 @@ import { AuthedImage } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
 import { getMemberAttemptResult } from "@/services/institutionService.js"
 
-/** How many lessons to list before the rest are folded away. */
 const LESSONS_SHOWN = 6
 
 /**
@@ -224,7 +223,6 @@ function AnswerCard({ answer, index }) {
   )
 }
 
-/** A member's attempt, question by question with the correct answers, for the department head. */
 /** What happened during the attempt that may be cheating: exits, copy/paste tries, a forfeit. */
 function IntegrityPanel({ integrity, result }) {
   const forfeited = integrity?.forfeited || result?.forfeited

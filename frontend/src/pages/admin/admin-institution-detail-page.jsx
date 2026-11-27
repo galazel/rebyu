@@ -333,7 +333,6 @@ export default function AdminInstitutionDetail() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Back Link & Header */}
       <div className="space-y-2 sm:space-y-3">
         <Link
           to="/admin/institutions"
@@ -379,7 +378,6 @@ export default function AdminInstitutionDetail() {
         </div>
       </div>
 
-      {/* KPI Cards: 2x2 on mobile, 4-col on desktop */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-4 xl:grid-cols-4">
         <CompactStatCard
           icon={UsersIcon}
@@ -435,7 +433,6 @@ export default function AdminInstitutionDetail() {
         </div>
       ) : null}
 
-      {/* Certifications Allocation Card */}
       <Card className={TABLE_SURFACE}>
         <CardHeader className="p-3.5 sm:p-5 pb-2.5 sm:pb-3">
           <CardTitle className="text-base sm:text-lg">Certifications</CardTitle>
@@ -452,7 +449,6 @@ export default function AdminInstitutionDetail() {
             />
           ) : (
             <>
-              {/* Mobile View: Compact Cards */}
               <div className="divide-y divide-border/60 md:hidden">
                 {allocationRows.map((row) => (
                   <div key={row.institutionCert.institutionCertId} className="p-3.5 space-y-2.5">
@@ -513,7 +509,6 @@ export default function AdminInstitutionDetail() {
                 ))}
               </div>
 
-              {/* Desktop View: Table */}
               <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -583,7 +578,6 @@ export default function AdminInstitutionDetail() {
         </CardContent>
       </Card>
 
-      {/* Progress & Enrolments Bars */}
       <div className="grid gap-3 sm:gap-6 lg:grid-cols-2">
         <Card className={TABLE_SURFACE}>
           <CardHeader className="p-3.5 sm:p-5 pb-2 sm:pb-3">
@@ -618,7 +612,6 @@ export default function AdminInstitutionDetail() {
         </Card>
       </div>
 
-      {/* Departments & Partnership Details */}
       <div className="grid gap-3 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card className={TABLE_SURFACE}>
           <CardHeader className="p-3.5 sm:p-5 pb-2 sm:pb-3">
@@ -646,7 +639,6 @@ export default function AdminInstitutionDetail() {
               />
             ) : (
               <>
-                {/* Mobile View: Compact Cards */}
                 <div className="divide-y divide-border/60 md:hidden">
                   {departments.map((department) => {
                     const covered = asArray(department.certifications)
@@ -676,7 +668,6 @@ export default function AdminInstitutionDetail() {
                   })}
                 </div>
 
-                {/* Desktop View: Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>

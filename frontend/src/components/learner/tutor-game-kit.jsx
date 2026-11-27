@@ -123,7 +123,6 @@ export function FlipCard({ flipped, onFlip, front, back, frontLabel = "Question"
   )
 }
 
-/** Big red/green self-rating buttons, shown once the card is flipped. */
 export function Confidence({ onMiss, onHit, missLabel = "Still learning", hitLabel = "Got it" }) {
   return (
       <div className="mt-4 grid animate-in fade-in slide-in-from-bottom-2 grid-cols-2 gap-3 duration-300">
@@ -178,7 +177,6 @@ export function Celebration({ right, total, noun = "correct", detail, onRestart,
   )
 }
 
-/** One instruction line under every game's heading. */
 export function GameHint({ children }) { return <p className="mb-3 text-sm text-muted-foreground">{children}</p> }
 
 /** The one control row every game ends with: Check answers · score · Restart. */

@@ -569,7 +569,6 @@ export default function Learners({
                 </SelectContent>
               </Select>
 
-              {/* Mobile Sort Dropdown */}
               <Select
                 value={
                   sort
@@ -604,7 +603,6 @@ export default function Learners({
               </Select>
             </TableToolbar>
 
-            {/* Mobile Cards View: Compact & Aesthetic */}
             <div className="divide-y divide-border/60 md:hidden">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
@@ -668,7 +666,6 @@ export default function Learners({
                       key={getLearnerId(learner, index)}
                       className="space-y-2 p-3 transition-colors hover:bg-muted/20 sm:p-3.5"
                     >
-                      {/* Row 1: Initials Avatar + Name & Email + Status Badge */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-xs font-bold text-primary shadow-2xs">
@@ -689,7 +686,6 @@ export default function Learners({
                         </div>
                       </div>
 
-                      {/* Row 2: Institution / Affiliation + Date Joined */}
                       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                         <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           {institutionName ? (
@@ -715,7 +711,6 @@ export default function Learners({
                         </div>
                       </div>
 
-                      {/* Row 3: Certifications & Progress + Delete Button */}
                       <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1 text-xs font-medium text-foreground" title={`${certificationCount} certifications`}>
@@ -783,7 +778,6 @@ export default function Learners({
               )}
             </div>
 
-            {/* Desktop Table View */}
             <div className="hidden min-h-0 flex-1 overflow-auto md:block">
               <Table mobileLayout="scroll">
                 <TableHeader>

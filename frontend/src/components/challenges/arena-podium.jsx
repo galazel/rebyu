@@ -79,7 +79,6 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
         </div>
       ) : (
         <div className="mx-auto mt-6 max-w-xl">
-          {/* Podium: second, first, third */}
           <div className="flex items-end justify-center gap-2 sm:gap-5" role="list" aria-label="Top three">
             {top.map((row, slot) =>
               row ? (
@@ -90,7 +89,6 @@ export function ArenaPodium({ arenaId, title = "Rankings", limit = 20 }) {
             )}
           </div>
 
-          {/* Everyone after the podium */}
           {rest.length > 0 ? (
             <ol className="mt-6 space-y-2">
               {rest.map((row, i) => (
@@ -149,7 +147,6 @@ function PodiumSeat({ row, index, reduceMotion }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 220, damping: 18, delay: [0.15, 0, 0.3][index] }}
     >
-      {/* Avatar, with a bobbing crown on first place */}
       <div className="relative mb-2 flex flex-col items-center">
         {first ? (
           <motion.span
@@ -173,7 +170,6 @@ function PodiumSeat({ row, index, reduceMotion }) {
         </span>
       </div>
 
-      {/* Podium block with the rank on its front */}
       <div className="relative" style={{ width: BLOCK_W, height }}>
         <Plinth w={BLOCK_W} h={BLOCK_H} d={style.depth} lift={0} top={style.top} face={style.face} lip={style.lip} />
         <span
@@ -184,7 +180,6 @@ function PodiumSeat({ row, index, reduceMotion }) {
         </span>
       </div>
 
-      {/* Name and points */}
       <p className="mt-2 w-full truncate text-center text-sm font-bold text-rb-eel" title={row.name}>
         {row.name}
       </p>

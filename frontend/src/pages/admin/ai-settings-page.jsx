@@ -85,7 +85,6 @@ export default function AiSettingsPage() {
   const data = query.data
   const taskLabel = (name) => data?.tasks?.find((task) => task.task === name)?.label ?? name
 
-  // Navigation items index for each section of information
   const sections = useMemo(() => {
     const list = [
       proAiLimitsSection,
@@ -200,7 +199,6 @@ export default function AiSettingsPage() {
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-5 sm:gap-6 pb-12">
       <h1 className="sr-only">Others</h1>
 
-      {/* Sticky Mobile Quick-Jump Nav Bar (lg:hidden) */}
       <div className="sticky top-14 z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur-md border-b border-border/70 lg:hidden shadow-xs flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -223,7 +221,6 @@ export default function AiSettingsPage() {
           </Button>
         </div>
 
-        {/* Horizontal Quick-Scroll Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {sections.map((item) => (
             <button
@@ -242,7 +239,6 @@ export default function AiSettingsPage() {
           ))}
         </div>
 
-        {/* Expandable Mobile Section Menu Drawer */}
         {mobileMenuOpen ? (
           <div className="rounded-xl border border-border/80 bg-card p-3 shadow-md space-y-3 max-h-80 overflow-y-auto overscroll-contain">
             <div className="relative">
@@ -306,9 +302,7 @@ export default function AiSettingsPage() {
         ) : null}
       </div>
 
-      {/* Main Grid: Sidebar + Content */}
       <div className="grid grid-cols-1 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)] gap-6 items-start">
-        {/* Desktop Sticky Sidebar Menu */}
         <aside className="hidden lg:flex sticky top-20 max-h-[calc(100vh-6rem)] flex-col rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
           <div className="p-3.5 border-b border-border/70 space-y-2.5 shrink-0 bg-muted/10">
             <div className="flex items-center justify-between">
@@ -397,13 +391,11 @@ export default function AiSettingsPage() {
           </div>
         </aside>
 
-        {/* Main Content Sections */}
         <div className="min-w-0 space-y-6">
           <div id={proAiLimitsSection.id} className="scroll-mt-28 sm:scroll-mt-20">
             <LiveTutorSettingsCard />
           </div>
 
-          {/* Section 2: Reading Guard */}
           <div id="section-reading-guard" className="scroll-mt-28 sm:scroll-mt-20">
             <ReadingGuardSettingsCard />
           </div>
@@ -424,12 +416,10 @@ export default function AiSettingsPage() {
             </p>
           ) : (
             <>
-              {/* Section 3: OpenRouter Credits */}
               <div id="section-credits" className="scroll-mt-28 sm:scroll-mt-20">
                 <CreditsCard credits={data.credits} providers={data.providers} />
               </div>
 
-              {/* Section 4: Model Health */}
               {data.modelHealth ? (
                 <div id="section-health" className="scroll-mt-28 sm:scroll-mt-20">
                   <HealthOverview
@@ -447,7 +437,6 @@ export default function AiSettingsPage() {
                 </p>
               ) : null}
 
-              {/* Section 5: Feature Models */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between border-b border-border/70 pb-3">
                   <div>

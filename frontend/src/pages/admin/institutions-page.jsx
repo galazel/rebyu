@@ -404,7 +404,6 @@ export default function Institutions() {
               </div>
             </TableToolbar>
 
-            {/* Mobile Cards View */}
             <div className="divide-y divide-border/60 md:hidden">
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
@@ -558,7 +557,6 @@ export default function Institutions() {
               )}
             </div>
 
-            {/* Desktop Table View */}
             <div className="hidden min-h-0 flex-1 overflow-auto md:block">
               <Table mobileLayout="scroll">
                 <TableHeader>

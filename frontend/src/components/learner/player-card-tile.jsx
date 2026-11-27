@@ -62,7 +62,6 @@ function StreakFlame({ lit }) {
   )
 }
 
-/** The streak number rolls up from 0 when the card appears. */
 function CountUp({ value, className, style }) {
   const [shown, setShown] = useState(0)
   useEffect(() => {

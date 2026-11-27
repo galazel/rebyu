@@ -104,7 +104,6 @@ export function InstitutionMetricsSidebar({
 
   return (
     <aside aria-label="Institution metrics sidebar" className="hidden lg:block space-y-4 lg:sticky lg:top-20 lg:self-start">
-      {/* Header */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-3.5 shadow-xs backdrop-blur-xs space-y-3">
         <div className="flex items-center gap-2 pb-2 border-b border-border/40">
           <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -120,7 +119,6 @@ export function InstitutionMetricsSidebar({
           </div>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
           <Input
@@ -143,7 +141,6 @@ export function InstitutionMetricsSidebar({
         </div>
       </div>
 
-      {/* Tiles navigation list */}
       <div className="rounded-2xl border border-border/60 bg-card/80 p-2 shadow-xs backdrop-blur-xs">
         <div className="relative">
           <div className="flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0 scrollbar-none pr-8 lg:pr-0">
@@ -179,7 +176,6 @@ export function InstitutionMetricsSidebar({
         </div>
       </div>
 
-      {/* Board Controls */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-muted/20 p-3 space-y-2 text-xs">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Board Customization
@@ -209,7 +205,6 @@ export function InstitutionMetricsSidebar({
         )}
       </div>
 
-      {/* Quick Links */}
       <div className="hidden lg:block rounded-2xl border border-border/60 bg-card/60 p-3 space-y-1.5 text-xs">
         <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           Quick Links

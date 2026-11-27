@@ -82,7 +82,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
   const [cancelTargetInvite, setCancelTargetInvite] = useState(null)
   const [removeTargetAuthority, setRemoveTargetAuthority] = useState(null)
 
-  // 1. Fetch active authorities assigned to this department
   const authoritiesQuery = useQuery({
     queryKey: ["department-head-assignments", departmentId],
     queryFn: () => getDepartmentHeadAssignments({ departmentId }),
@@ -90,7 +89,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     retry: 1,
   })
 
-  // 2. Fetch pending / past co-authority invitations
   const invitationsQuery = useQuery({
     queryKey: ["department-head-codes", departmentId],
     queryFn: () => getDepartmentHeadCodeInvitations(departmentId),
@@ -142,7 +140,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     return map
   }, [members])
 
-  // Institution members not yet assigned to this department
   const assignableMembers = useMemo(() => {
     const assignedUserIds = new Set(activeAuthorities.map((a) => Number(a.userId)))
     return members.filter(
@@ -150,7 +147,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     )
   }, [members, activeAuthorities])
 
-  // Mutation: Invite co-authority by email
   const sendInviteMutation = useMutation({
     mutationFn: (email) =>
       sendDepartmentHeadCode({
@@ -172,7 +168,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     },
   })
 
-  // Mutation: Cancel pending invitation
   const cancelInviteMutation = useMutation({
     mutationFn: (invitationId) => cancelDepartmentHeadCode(invitationId),
     onSuccess: () => {
@@ -185,7 +180,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     },
   })
 
-  // Mutation: Assign existing member directly
   const assignMemberMutation = useMutation({
     mutationFn: (userId) =>
       assignDepartmentHeadAssignment({
@@ -202,7 +196,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
     },
   })
 
-  // Mutation: Remove assigned authority
   const removeAuthorityMutation = useMutation({
     mutationFn: (assignmentId) => removeDepartmentHeadAssignment(assignmentId),
     onSuccess: () => {
@@ -269,7 +262,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
 
   return (
     <div className={`space-y-6 ${embedded ? "" : "p-1"}`}>
-      {/* Overview Stat Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <div className="flex items-center text-left gap-2.5 sm:gap-3.5 rounded-xl border border-border/70 bg-card p-2.5 sm:p-4 min-w-0">
           <span className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
@@ -314,7 +306,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
         </div>
       </div>
 
-      {/* Primary Action Card: Invite Co-Authority by Email */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -387,7 +378,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
         </CardContent>
       </Card>
 
-      {/* Invitations Table (List & Cancel Flow) */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -429,7 +419,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
             </div>
           ) : (
             <>
-              {/* Desktop & Tablet Table (sm+) */}
               <div className="hidden sm:block relative overflow-hidden rounded-lg border border-border/60">
                 <Table className="min-w-[560px]">
                   <TableHeader>
@@ -485,7 +474,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
                 </Table>
               </div>
 
-              {/* Mobile Card Layout (< sm) */}
               <div className="sm:hidden space-y-2.5">
                 {invitations.map((inv) => {
                   const isPending = (inv.status ?? "").toUpperCase() === "PENDING"
@@ -528,7 +516,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
         </CardContent>
       </Card>
 
-      {/* Active Co-Authorities Section */}
       <Card className="border-border/70">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -564,7 +551,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
             </div>
           ) : (
 <>
-              {/* Desktop & Tablet Table (sm+) */}
               <div className="hidden sm:block relative overflow-hidden rounded-lg border border-border/60">
                 <Table className="min-w-[500px]">
                   <TableHeader>
@@ -626,7 +612,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
                 </Table>
               </div>
 
-              {/* Mobile Card Layout (< sm) */}
               <div className="sm:hidden space-y-2.5">
                 {activeAuthorities.map((auth) => {
                   const profile = memberLookup.get(Number(auth.userId))
@@ -725,7 +710,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
         </CardContent>
       </Card>
 
-      {/* Confirmation Dialog: Cancel Invitation */}
       <AlertDialog
         open={cancelTargetInvite != null}
         onOpenChange={(open) => !open && setCancelTargetInvite(null)}
@@ -763,7 +747,6 @@ export function CoAuthoritiesPanel({ departmentId, departmentName, embedded = fa
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmation Dialog: Remove Assigned Authority */}
       <AlertDialog
         open={removeTargetAuthority != null}
         onOpenChange={(open) => !open && setRemoveTargetAuthority(null)}

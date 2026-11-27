@@ -280,7 +280,6 @@ export function CurriculumOverview({ certificationId, departmentId }) {
 
   return (
     <div className="space-y-5">
-      {/* Summary */}
       <section className="space-y-3 rounded-2xl border border-border/70 bg-card p-5 shadow-xs">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div className="min-w-0">
@@ -327,7 +326,6 @@ export function CurriculumOverview({ certificationId, departmentId }) {
         ) : null}
       </section>
 
-      {/* Modules */}
       <section className="space-y-3">
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <h3 className="text-base font-bold text-foreground">Modules</h3>

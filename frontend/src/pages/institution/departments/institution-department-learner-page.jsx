@@ -980,7 +980,6 @@ export default function InstitutionDepartmentLearnerPage() {
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
-      {/* Profile column (GitHub style) */}
       <aside className="space-y-5 lg:sticky lg:top-20">
         <div className="space-y-3">
           <div className="relative grid aspect-square w-32 place-items-center overflow-hidden rounded-full border-2 border-border bg-muted lg:w-full lg:max-w-[16rem]">
@@ -1102,7 +1101,6 @@ export default function InstitutionDepartmentLearnerPage() {
         <CredentialsCard query={{ ...awardsQuery, data: scopedAwards }} />
       </aside>
 
-      {/* Main column */}
       <div className="min-w-0 space-y-6">
         {analyticsQuery.isLoading ? (
           <InstitutionLoadingSkeleton rows={4} />

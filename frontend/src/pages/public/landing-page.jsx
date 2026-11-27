@@ -808,7 +808,6 @@ function LandingNavbar() {
                 aria-modal="true"
                 aria-label="Navigation menu"
               >
-                {/* Backdrop: lightly darkens current homepage view without hiding it */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -819,7 +818,6 @@ function LandingNavbar() {
                   aria-hidden="true"
                 />
 
-                {/* Dropdown Menu Panel */}
                 <motion.div
                   key="landing-mobile-menu-panel"
                   id="landing-mobile-navigation"

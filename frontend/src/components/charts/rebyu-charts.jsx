@@ -483,7 +483,6 @@ export function BarBreakdownChart({
 
   return (
     <figure className="w-full min-w-0">
-      {/* Mobile stacked view: Full-width progress bars with full category labels */}
       {mobileStacked && horizontal ? (
         <div className="sm:hidden space-y-3 py-1">
           {data.map((row, index) => {

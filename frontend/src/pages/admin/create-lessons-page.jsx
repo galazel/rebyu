@@ -1706,7 +1706,6 @@ function CreateLessons() {
   return (
       <section className="relative flex h-full max-h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5">
-          {/* Same eyebrow + title header as the question bank workspace. */}
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Lesson editor
@@ -1799,7 +1798,6 @@ function CreateLessons() {
         />
 
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          {/* Canva-style side panel */}
           <aside id="lesson-elements-panel" className={`${preview ? "hidden" : mobilePanelOpen ? "flex" : "hidden md:flex"} max-h-[40dvh] w-full shrink-0 flex-col border-b bg-background md:max-h-none md:w-72 md:border-b-0 md:border-r`}>
             <div className="flex shrink-0 gap-1 border-b p-2">
               {[
@@ -1934,7 +1932,6 @@ function CreateLessons() {
             </div>
           </aside>
 
-          {/* Page canvas */}
           <main className="lesson-editor-scroll relative min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/60">
             {preview ? (
                 <div className="sticky top-0 z-10 flex items-center justify-center gap-2 border-b bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
@@ -2082,7 +2079,6 @@ function CreateLessons() {
           ) : null}
         </div>
 
-        {/* Word-style status bar */}
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
           <span>
             {sections.length > 0

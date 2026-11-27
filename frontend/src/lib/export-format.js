@@ -31,7 +31,6 @@ export function humanize(key) {
     .replace(/^./, (c) => c.toUpperCase())
 }
 
-/** One cell, in the shared format. */
 export function cellValue(value) {
   if (value == null) return ""
   if (typeof value === "boolean") return value ? "Yes" : "No"

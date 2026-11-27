@@ -227,7 +227,6 @@ export function usePeriodComparison({
   const prevData = prevStatsQuery.data
   const currData = currentStats
 
-  // Metric Deltas Calculation
   const deltas = useMemo(() => {
     const currSummary = currData?.summary ?? {}
     const prevSummary = prevData?.summary ?? {}
@@ -265,7 +264,6 @@ export function usePeriodComparison({
     }
   }, [currData, prevData])
 
-  // Certification breakdown comparison
   const certificationsComparison = useMemo(() => {
     const currCerts = Array.isArray(currData?.certifications) ? currData.certifications : []
     const prevCerts = Array.isArray(prevData?.certifications) ? prevData.certifications : []
@@ -321,7 +319,6 @@ export function usePeriodComparison({
     })
   }, [currData, prevData])
 
-  // Learner velocity & momentum
   const learnerMomentum = useMemo(() => {
     const currMembers = Array.isArray(currData?.members) ? currData.members : []
     const prevMembers = Array.isArray(prevData?.members) ? prevData.members : []
@@ -371,12 +368,10 @@ export function usePeriodComparison({
     }
   }, [currData, prevData])
 
-  // Synthesized executive insights bullets
   const insights = useMemo(() => {
     const list = []
     if (!prevData) return list
 
-    // 1. Pass Rate
     if (deltas.passRate.delta > 0) {
       list.push({
         type: "positive",
@@ -397,7 +392,6 @@ export function usePeriodComparison({
       })
     }
 
-    // 2. Graded Attempts & Engagement Volume
     if (deltas.gradedAttempts.delta > 0) {
       list.push({
         type: "positive",
@@ -412,7 +406,6 @@ export function usePeriodComparison({
       })
     }
 
-    // 3. Score Movement
     if (deltas.averageScore.delta !== 0) {
       const verb = deltas.averageScore.delta > 0 ? "rose by" : "dipped by"
       list.push({
@@ -422,7 +415,6 @@ export function usePeriodComparison({
       })
     }
 
-    // 4. Certification Champion
     if (certificationsComparison.length > 0) {
       const bestCert = [...certificationsComparison].sort((a, b) => b.deltaPassRate - a.deltaPassRate)[0]
       if (bestCert && bestCert.deltaPassRate > 0) {
@@ -521,7 +513,6 @@ export function PeriodComparisonTile({
       onToggleCollapse={onToggleCollapse}
     >
       <div className="flex min-h-0 flex-1 flex-col p-3.5 sm:p-5 space-y-4">
-        {/* Header */}
         <div
           className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3"
         >
@@ -547,7 +538,6 @@ export function PeriodComparisonTile({
             </div>
           </div>
 
-          {/* Mode Switcher, Date Tags & Collapse Action */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 text-xs font-semibold">
               <button
@@ -606,7 +596,6 @@ export function PeriodComparisonTile({
           </div>
         </div>
 
-        {/* 6 Metric Comparison Cards */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs hover:shadow-xs transition-shadow">
             <div className="flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-muted-foreground">
@@ -687,7 +676,6 @@ export function PeriodComparisonTile({
           </div>
         </div>
 
-        {/* Tab Controls with mobile horizontal scroll and right-fade affordance */}
         <div className="relative border-b border-border/40 pb-2">
           <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap scrollbar-none pr-6">
             <button
@@ -744,9 +732,7 @@ export function PeriodComparisonTile({
           />
         </div>
 
-        {/* Tab Contents */}
         <div className="min-h-0 flex-1">
-          {/* TAB 1: Programme Scorecard */}
           {activeTab === "scorecard" && (
             <div className="overflow-x-auto">
               {certificationsComparison.length === 0 ? (
@@ -811,7 +797,6 @@ export function PeriodComparisonTile({
             </div>
           )}
 
-          {/* TAB 2: Visual Trajectory Chart */}
           {activeTab === "trajectory" && (
             <div className="py-2 min-w-0">
               <div className="h-[210px] w-full min-w-0">
@@ -866,10 +851,8 @@ export function PeriodComparisonTile({
             </div>
           )}
 
-          {/* TAB 3: Learner Momentum */}
           {activeTab === "momentum" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-1">
-              {/* Top Gainers */}
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-foreground">
                   <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
@@ -904,7 +887,6 @@ export function PeriodComparisonTile({
                 )}
               </div>
 
-              {/* Stalled Learners */}
               <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-foreground">
                   <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
@@ -943,7 +925,6 @@ export function PeriodComparisonTile({
             </div>
           )}
 
-          {/* TAB 4: Executive Insights */}
           {activeTab === "insights" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-1">
               {insights.length === 0 ? (

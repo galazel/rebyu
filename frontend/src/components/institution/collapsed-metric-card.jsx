@@ -74,7 +74,6 @@ export function CollapsedMetricCard({
       }}
       className={`group relative flex w-full min-h-[58px] items-center justify-between gap-3 rounded-[inherit] bg-card p-3 sm:px-4 sm:py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer select-none transition-all duration-200 hover:bg-muted/30 overflow-hidden ${className}`}
     >
-      {/* Left side: Icon badge + Title & Live Metric */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/15 shadow-2xs transition-all duration-200 group-hover:bg-primary/15 group-hover:border-primary/25 group-hover:scale-105">
           {Icon && <Icon className="size-4.5" aria-hidden="true" />}
@@ -113,7 +112,6 @@ export function CollapsedMetricCard({
         </div>
       </div>
 
-      {/* Right side: Kicker pill + Expand Chevron button */}
       <div className="flex items-center gap-2 shrink-0">
         {kicker && (
           <span className={`hidden md:inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${kickerClass}`}>

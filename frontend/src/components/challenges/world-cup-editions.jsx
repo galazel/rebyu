@@ -321,7 +321,6 @@ export default function WorldCupEditions({ arena }) {
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
-            {/* 1. Week */}
             <section>
               <StepLabel step={1} title="Week" hint="Pick the week the bracket runs." />
               <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Week">
@@ -369,7 +368,6 @@ export default function WorldCupEditions({ arena }) {
               ) : null}
             </section>
 
-            {/* 2. Certification */}
             <section>
               <StepLabel step={2} title="Certification" hint="Every player in the bracket answers from this syllabus." />
               <Select
@@ -396,7 +394,6 @@ export default function WorldCupEditions({ arena }) {
               </Select>
             </section>
 
-            {/* 3. Lesson */}
             <section>
               <StepLabel
                 step={3}

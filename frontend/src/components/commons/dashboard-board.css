@@ -173,7 +173,6 @@
   border-radius: 3px 3px 6px 3px;
 }
 
-/* Lightweight, butter-smooth animation for card expansion & collapse */
 @keyframes bentoCardExpand {
   0% {
     opacity: 0.15;

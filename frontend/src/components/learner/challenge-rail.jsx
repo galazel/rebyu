@@ -71,7 +71,6 @@ export function ChallengeRail({ certificationId }) {
 
   return (
     <>
-      {/* Desktop: stays at the left of the path while scrolling */}
       <div className="pointer-events-none sticky top-24 z-30 hidden h-0 lg:block" aria-label="Challenges for this certification">
         <div className="pointer-events-auto absolute left-6 flex flex-col items-center gap-3 xl:left-8">
           <span className="rounded-full bg-rb-eel px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white dark:border dark:border-rb-swan dark:bg-[#1e2521] dark:text-[#ece6d8]">
@@ -80,7 +79,6 @@ export function ChallengeRail({ certificationId }) {
           {buttons}
         </div>
       </div>
-      {/* Phones and tablets: bottom-left, above the bottom navigation, mirroring the right dock */}
       <nav
         aria-label="Challenges for this certification"
         className={cn("fixed bottom-20 left-4 z-40 flex flex-col items-start gap-3 lg:hidden")}

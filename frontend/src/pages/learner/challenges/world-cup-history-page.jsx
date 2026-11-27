@@ -98,7 +98,6 @@ export default function WorldCupHistoryPage() {
           <div className="mt-3 h-[3px] w-24 rounded-full bg-rb-fox" />
         </div>
 
-        {/* Summary */}
         <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { label: "Played", value: visible.length },
@@ -113,7 +112,6 @@ export default function WorldCupHistoryPage() {
           ))}
         </dl>
 
-        {/* Certification filter */}
         {certIds.length > 1 ? (
           <div className="mt-6 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]" role="group" aria-label="Filter by certification">
             {[["all", "All"], ...certIds.map((id) => [id, certName(id)])].map(([id, label]) => (
@@ -135,7 +133,6 @@ export default function WorldCupHistoryPage() {
           </div>
         ) : null}
 
-        {/* Tournaments */}
         {historyQuery.isLoading ? (
           <p className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-rb-wolf">
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -197,7 +194,6 @@ export default function WorldCupHistoryPage() {
                         })}{" "}
                         · {h.rounds ?? 0} round{h.rounds === 1 ? "" : "s"} played
                       </span>
-                      {/* How far it went: quarterfinals, semifinals, final, cup */}
                       <span className="mt-2 flex gap-1" aria-label={`Reached ${["nothing", "quarterfinals", "semifinals", "final", "the cup"][steps]}`}>
                         {[1, 2, 3, 4].map((n) => (
                           <span

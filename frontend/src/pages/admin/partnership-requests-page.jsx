@@ -289,7 +289,6 @@ export default function PartnershipRequests() {
           </div>
         </TableToolbar>
 
-        {/* Mobile View: Compressed aesthetic request cards */}
         <div className="divide-y divide-border/60 md:hidden">
           {listQuery.isLoading ? (
             Array.from({ length: 4 }).map((_, index) => (
@@ -386,7 +385,6 @@ export default function PartnershipRequests() {
           )}
         </div>
 
-        {/* Desktop Table View */}
         <div className="hidden min-h-0 flex-1 overflow-auto md:block">
           <Table mobileLayout="scroll">
             <TableHeader>
@@ -540,7 +538,6 @@ export default function PartnershipRequests() {
             </div>
           ) : (
             <div className="space-y-4 py-1">
-              {/* Institution Profile */}
               <section className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
                 <div className="flex items-center justify-between border-b border-border/40 pb-2">
                   <div className="flex items-center gap-2">
@@ -583,7 +580,6 @@ export default function PartnershipRequests() {
                 </div>
               </section>
 
-              {/* Requested Certifications */}
               {!isCancellation && (
                 <section className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-4">
                   <div className="flex items-center justify-between border-b border-border/40 pb-2">
@@ -633,7 +629,6 @@ export default function PartnershipRequests() {
                     ))}
                   </div>
 
-                  {/* Summary Footer */}
                   <div className="rounded-lg border border-border/60 bg-muted/40 p-3 flex flex-wrap items-baseline justify-between gap-2">
                     <span className="text-xs text-muted-foreground">
                       {(detail.items ?? []).reduce((sum, item) => sum + Number(item.requestedSlots ?? 0), 0)} slot(s) total
@@ -669,7 +664,6 @@ export default function PartnershipRequests() {
                 </section>
               )}
 
-              {/* Action Area */}
               {canReview ? (
                 <section className="space-y-3 pt-1">
                   <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">

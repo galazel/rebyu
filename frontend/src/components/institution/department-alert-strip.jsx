@@ -50,7 +50,6 @@ export function useDepartmentAlerts({
   return useMemo(() => {
     const alerts = []
 
-    // 1. Access Window / Expiration Alert
     const expiryDate = allocation?.accessExpiryDate ?? allocation?.accessEndDate
     if (expiryDate) {
       const days = daysUntil(expiryDate)
@@ -81,7 +80,6 @@ export function useDepartmentAlerts({
       }
     }
 
-    // 2. Seat Budget / Capacity Alert
     const totalSlots = Number(summary?.seatsTotal ?? overviewGroup?.totalSlots ?? 0)
     const usedSlots = Number(summary?.seatsUsed ?? overviewGroup?.usedSlots ?? 0)
     if (totalSlots > 0) {
@@ -111,7 +109,6 @@ export function useDepartmentAlerts({
       }
     }
 
-    // 3. At-Risk Learners Alert (Progress & Score flags)
     if (flaggedCount > 0) {
       alerts.push({
         id: "learners-at-risk",
@@ -149,7 +146,6 @@ export function useDepartmentAlerts({
       })
     }
 
-    // 5. Unpaid Invoices Alert
     const unpaidList = (Array.isArray(invoices) ? invoices : []).filter((inv) => {
       const s = String(inv.status ?? "").toUpperCase()
       return s === "PENDING" || s === "UNPAID" || s === "OVERDUE"
@@ -175,7 +171,6 @@ export function useDepartmentAlerts({
       })
     }
 
-    // 6. Pending Co-Authority Invitations
     const pendingInvites = Array.isArray(pendingHeadInvitations) ? pendingHeadInvitations : []
     if (pendingInvites.length > 0) {
       alerts.push({
@@ -190,7 +185,6 @@ export function useDepartmentAlerts({
       })
     }
 
-    // Sort alerts: critical first, then warning, then info
     return alerts.sort(
       (a, b) => (SEVERITY_RANKS[b.severity] ?? 0) - (SEVERITY_RANKS[a.severity] ?? 0)
     )
@@ -301,7 +295,6 @@ export function DepartmentAlertStrip({
       className={`rounded-xl border border-border/40 bg-muted/20 shadow-sm transition-all duration-200 overflow-hidden ${getSeverityAccentBorder()} ${className}`}
       id="dept-alert-strip"
     >
-      {/* Summarized Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3.5 py-2.5 sm:px-4 sm:py-3">
         <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -341,7 +334,6 @@ export function DepartmentAlertStrip({
             ) : null}
           </div>
 
-          {/* Dismiss button on mobile pinned right in top bar */}
           <Button
             size="icon"
             variant="ghost"
@@ -389,7 +381,6 @@ export function DepartmentAlertStrip({
               )}
             </Button>
 
-            {/* Dismiss button on desktop */}
             <Button
               size="icon"
               variant="ghost"
@@ -403,7 +394,6 @@ export function DepartmentAlertStrip({
         </div>
       </div>
 
-      {/* Expanded Multi-Card View */}
       {expanded ? (
         <div id="dept-alert-strip-details" className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-card/60 border-t border-border/30">
           {alerts.map((alert) => {

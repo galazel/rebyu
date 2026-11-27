@@ -101,7 +101,6 @@ function TopicRow({ topic }) {
   );
 }
 
-/** The diagnostic result: where you stand before studying anything. */
 export function DiagnosticMock({ topics }) {
   return (
     <MockWindow title="Diagnostic result · IT Passport">
@@ -132,7 +131,6 @@ const QUIZ_CHOICES = [
   { letter: "C", text: "No column holds repeating groups" },
 ];
 
-/** An adaptive quiz question being marked, and today's plan built from the result. */
 export function StudyLoopMock() {
   return (
     <div className="space-y-4">
@@ -182,7 +180,6 @@ export function StudyLoopMock() {
   );
 }
 
-/** The Progress dashboard: readiness, mastery by topic, and what to study next. */
 export function ProgressMock({ topics, notAssessed = 0, readiness = 68 }) {
   return (
     <MockWindow title="Progress · IT Passport">

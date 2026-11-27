@@ -28,7 +28,6 @@ const ARENA = {
 const ROUND_NAMES = { QUARTERFINAL: "Quarterfinals", SEMIFINAL: "Semifinals", FINAL: "Final" }
 const NEXT_ROUND = { QUARTERFINAL: "semifinals", SEMIFINAL: "final" }
 
-/** Which arena a result belongs to: from the navigation state, else from its title. */
 export function arenaOfResult(result, state) {
   if (state?.isWorldCup) return "worldcup"
   if (state?.arenaId && ARENA[state.arenaId]) return state.arenaId
@@ -127,7 +126,6 @@ function StatChip({ icon: Icon, children }) {
   )
 }
 
-/* Champions Cup: the round's scoreboard against the opponent. */
 function WorldCupRound({ arena, matchId, percentage, correct, total, duration, reduceMotion }) {
   const meQuery = useQuery({ queryKey: ["learner-portal-data"], queryFn: getLearnerPortalData, staleTime: 5 * 60_000 })
   const myId = meQuery.data?.learnerId
@@ -244,7 +242,6 @@ function ScoreSeat({ label, score, highlight, winner, tone, waiting }) {
   )
 }
 
-/* CodeStrike / Blueprint: the stage's score and the stage it opened. */
 function StageRound({ arena, arenaId, result, state, percentage, correct, total, marking, reduceMotion }) {
   const index = Number.isFinite(Number(state?.questionIndex)) ? Number(state.questionIndex) : null
   const stageCount = Number.isFinite(Number(state?.totalProblems)) ? Number(state.totalProblems) : null

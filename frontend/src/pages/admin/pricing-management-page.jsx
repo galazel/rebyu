@@ -230,12 +230,10 @@ function PlanCard({ plan, type, onRefresh }) {
 
   const enabledCount = entitlements.filter((e) => entEdits[e.entitlementCode]?.enabled).length
 
-  // Key entitlement highlights for view mode
   const aiTutorEnt = entitlements.find((e) => e.entitlementCode === "AI_TUTOR_DAILY_GENERATIONS")
   const mockExamEnt = entitlements.find((e) => e.entitlementCode === "MOCK_EXAM_ACCESS")
   const analyticsEnt = entitlements.find((e) => e.entitlementCode === "DETAILED_PROGRESS")
 
-  // Filtered categories & items
   const filteredCategories = useMemo(() => {
     const term = searchEnt.trim().toLowerCase()
     const result = {}
@@ -256,7 +254,6 @@ function PlanCard({ plan, type, onRefresh }) {
       }
     }
 
-    // Handle "Other" category
     if (selectedCategory === "all" || selectedCategory === "Other") {
       const categorised = new Set(Object.values(categories).flat())
       const otherCodes = entitlements
@@ -286,12 +283,10 @@ function PlanCard({ plan, type, onRefresh }) {
           : "border-border/80 hover:border-border"
       )}
     >
-      {/* Top Banner Accent */}
       {isPro ? (
         <div className="h-1.5 w-full bg-gradient-to-r from-primary/80 via-primary to-primary/60" />
       ) : null}
 
-      {/* Main Card Header */}
       <div className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -338,7 +333,6 @@ function PlanCard({ plan, type, onRefresh }) {
               </p>
             ) : null}
 
-            {/* Quick feature highlights in view mode */}
             {!editing ? (
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                 {aiTutorEnt ? (
@@ -366,7 +360,6 @@ function PlanCard({ plan, type, onRefresh }) {
             ) : null}
           </div>
 
-          {/* Pricing display & edit action */}
           <div className="flex shrink-0 flex-row items-center justify-between gap-3 border-t border-border/60 pt-3 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
             {plan.isCustomPricing ? (
               <div className="text-left sm:text-right">
@@ -418,7 +411,6 @@ function PlanCard({ plan, type, onRefresh }) {
           </div>
         </div>
 
-        {/* Plan Configuration Edit Form */}
         {editing ? (
           <div className="mt-5 rounded-xl border border-border/70 bg-muted/20 p-4 sm:p-5">
             <div className="mb-4 flex items-center justify-between">
@@ -536,7 +528,6 @@ function PlanCard({ plan, type, onRefresh }) {
         ) : null}
       </div>
 
-      {/* Entitlements Collapsible Section */}
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button
@@ -563,7 +554,6 @@ function PlanCard({ plan, type, onRefresh }) {
 
         <CollapsibleContent>
           <div className="space-y-4 border-t border-border/70 bg-muted/10 p-5 sm:p-6">
-            {/* Search and Category Filters inside Drawer */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="relative min-w-0 flex-1 sm:max-w-xs">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -615,7 +605,6 @@ function PlanCard({ plan, type, onRefresh }) {
               </div>
             </div>
 
-            {/* Unsaved Changes Banner */}
             {entChanged ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-xs sm:text-sm">
                 <div className="flex items-center gap-2">
@@ -641,7 +630,6 @@ function PlanCard({ plan, type, onRefresh }) {
               </div>
             ) : null}
 
-            {/* Feature Entitlements Grouped by Category */}
             {Object.keys(filteredCategories).length === 0 ? (
               <div className="rounded-xl border border-dashed border-border/80 p-8 text-center text-xs text-muted-foreground sm:text-sm">
                 No features match that filter.
@@ -714,7 +702,6 @@ function PlanCard({ plan, type, onRefresh }) {
               </div>
             )}
 
-            {/* Bottom Save Action */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3">
               <span className="text-xs text-muted-foreground">
                 Configured {enabledCount} of {entitlements.length} entitlements active
@@ -787,7 +774,6 @@ function PartnershipPricingCard({ pricing, onRefresh }) {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Metric 1: Rate Per Slot */}
         <div className="rounded-xl border border-border/80 bg-muted/15 p-4 sm:p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Price Per Learner Slot
@@ -834,7 +820,6 @@ function PartnershipPricingCard({ pricing, onRefresh }) {
           </p>
         </div>
 
-        {/* Metric 2: Currency */}
         <div className="rounded-xl border border-border/80 bg-muted/15 p-4 sm:p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Invoicing Currency
@@ -847,7 +832,6 @@ function PartnershipPricingCard({ pricing, onRefresh }) {
           </p>
         </div>
 
-        {/* Metric 3: Volume Estimator Preview */}
         <div className="rounded-xl border border-border/80 bg-muted/15 p-4 sm:p-5 sm:col-span-2 lg:col-span-1">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Cohort Quotation Guide
@@ -1056,7 +1040,6 @@ export default function PricingManagementPage() {
         stats={headerStats}
       />
 
-      {/* Navigation Filter Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/70 pb-3">
         {[
           { id: "all", label: "All Pricing" },
@@ -1097,7 +1080,6 @@ export default function PricingManagementPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Individual Plans Section */}
           {activeTab === "all" || activeTab === "individual" ? (
             <section className="space-y-4">
               <SectionHeading
@@ -1125,7 +1107,6 @@ export default function PricingManagementPage() {
             </section>
           ) : null}
 
-          {/* Institutional Plans Section */}
           {activeTab === "all" || activeTab === "institutional" ? (
             <section className="space-y-4">
               <SectionHeading
@@ -1153,7 +1134,6 @@ export default function PricingManagementPage() {
             </section>
           ) : null}
 
-          {/* Partnership Pricing Section */}
           {activeTab === "all" || activeTab === "partnership" ? (
             <section className="space-y-4">
               <PartnershipPricingCard
@@ -1163,7 +1143,6 @@ export default function PricingManagementPage() {
             </section>
           ) : null}
 
-          {/* Learner Experience Usage Preview Section */}
           {activeTab === "all" || activeTab === "preview" ? (
             <section className="space-y-4">
               <UsagePreviewCard dailyLimit={dailyLimit} />

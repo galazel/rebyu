@@ -89,7 +89,6 @@ function UsageBar({ title, window, weekly, compact = false }) {
   )
 }
 
-/** Daily + weekly bars for one bucket, with its label as a heading. */
 export function AiUsageBars({ bucketKey, showLabel = true, compact = false, className = "" }) {
   const { bucket } = useAiUsage()
   const current = bucket(bucketKey)

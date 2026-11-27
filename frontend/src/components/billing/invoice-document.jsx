@@ -92,7 +92,6 @@ export default function InvoiceDocument({ invoice }) {
         </dl>
       </section>
 
-      {/* Desktop items table */}
       <div className="hidden sm:block min-w-0 max-w-full overflow-x-auto print:block" role="region" aria-label="Invoice items — scroll horizontally to see all columns" tabIndex={0}>
         <table className="w-full border-collapse text-[13px]">
           <caption className="pb-2 pt-4 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
@@ -137,7 +136,6 @@ export default function InvoiceDocument({ invoice }) {
         </table>
       </div>
 
-      {/* Mobile compressed items card list */}
       <div className="sm:hidden space-y-2 pt-3 print:hidden">
         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)] pb-1">
           {slots} learner slot{slots === 1 ? "" : "s"} across {items.length} certification{items.length === 1 ? "" : "s"}

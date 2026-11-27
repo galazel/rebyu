@@ -175,7 +175,6 @@ function SubscriptionsTable({ rows, tab }) {
         </p>
       ) : (
         <>
-          {/* Desktop Table View */}
           <div className="hidden overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--comic-shadow-sm)] md:block">
             <Table className="w-full min-w-[760px] text-sm">
               <TableHeader>
@@ -281,11 +280,9 @@ function SubscriptionsTable({ rows, tab }) {
             </Table>
           </div>
 
-          {/* Mobile Cards View: Compressed & Pleasing */}
           <div className="divide-y divide-border/60 rounded-xl border border-border bg-card shadow-[var(--comic-shadow-sm)] md:hidden">
             {visible.map((row) => (
               <article key={row.learnerSubscriptionId} className="space-y-2 p-3 transition-colors hover:bg-muted/20 sm:p-3.5">
-                {/* Top: Learner + Amount + Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-foreground">
@@ -306,7 +303,6 @@ function SubscriptionsTable({ rows, tab }) {
                   </div>
                 </div>
 
-                {/* Sub-line: Plan & Timeframe */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                   <span className="font-semibold text-foreground">
                     {row.planName ?? row.planCode}
@@ -329,7 +325,6 @@ function SubscriptionsTable({ rows, tab }) {
                   <p className="text-xs italic text-muted-foreground">Note: {row.reviewNote}</p>
                 ) : null}
 
-                {/* Actions */}
                 {row.awaitingApproval ? (
                   <div className="flex gap-2 pt-1">
                     <Button
@@ -378,7 +373,6 @@ function SubscriptionsTable({ rows, tab }) {
         </>
       )}
 
-      {/* Revoke Pro Confirmation Modal */}
       <AlertDialog open={revokeTarget != null} onOpenChange={(open) => !open && setRevokeTarget(null)}>
         <AlertDialogContent className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-border/80 bg-card p-5 sm:p-6 shadow-2xl text-card-foreground">
           <AlertDialogHeader className="gap-1.5">
@@ -456,7 +450,6 @@ function SubscriptionsTable({ rows, tab }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reject Awaiting Approval Dialog */}
       <Dialog open={rejectTarget != null} onOpenChange={(open) => {
         if (!open) {
           setRejectTarget(null)
@@ -576,7 +569,6 @@ function PaymentsTable({ rows, onlyKind }) {
         </p>
       ) : (
         <>
-          {/* Desktop Table View */}
           <div className="hidden overflow-x-auto rounded-xl border border-border bg-card shadow-[var(--comic-shadow-sm)] md:block">
             <Table mobileLayout="scroll" className="w-full min-w-[720px] text-sm">
               <TableHeader>
@@ -623,11 +615,9 @@ function PaymentsTable({ rows, onlyKind }) {
             </Table>
           </div>
 
-          {/* Mobile Cards View: Compressed & Pleasing */}
           <div className="divide-y divide-border/60 rounded-xl border border-border bg-card shadow-[var(--comic-shadow-sm)] md:hidden">
             {visible.map((row) => (
               <article key={row.key} className="space-y-1.5 p-3 transition-colors hover:bg-muted/20 sm:p-3.5">
-                {/* Line 1: Learner Name & Type on Left, Amount & Status on Right */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
@@ -659,7 +649,6 @@ function PaymentsTable({ rows, onlyKind }) {
                   </div>
                 </div>
 
-                {/* Line 2: Item Name on Left, Reference and Date on Right */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-0.5 text-xs">
                   <span className="truncate font-medium text-foreground max-w-[200px]" title={row.item ?? ""}>
                     {row.item ?? "—"}

@@ -154,11 +154,9 @@ export default function CommunityModeration() {
   const [pageSize, setPageSize] = useState(10)
   const { sort, setSort, toggle, sortRows } = useTableSort()
 
-  // Modal states
   const [actionTarget, setActionTarget] = useState(null) // { report, type: "RESOLVED" | "DISMISSED" | "hide" }
   const [viewTarget, setViewTarget] = useState(null) // report for inspection
 
-  // Fetch reports across all statuses
   const openQuery = useQuery({
     queryKey: ["community-reports", "OPEN"],
     queryFn: () => getCommunityReports("OPEN"),
@@ -227,16 +225,13 @@ export default function CommunityModeration() {
     return allReports
   }, [statusFilter, openReports, resolvedReports, dismissedReports, allReports])
 
-  // Filtering
   const filteredReports = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return scopedReports.filter((report) => {
-      // Reason filter
       if (reasonFilter !== ALL_FILTER && report.reason?.toUpperCase() !== reasonFilter) {
         return false
       }
 
-      // Search query
       if (needle) {
         const reasonText = formatReason(report.reason)
         const matches = [
@@ -256,7 +251,6 @@ export default function CommunityModeration() {
     })
   }, [scopedReports, search, reasonFilter])
 
-  // Sorting
   const sortedReports = useMemo(
     () =>
       sortRows(filteredReports, {
@@ -386,7 +380,6 @@ export default function CommunityModeration() {
             searchPlaceholder="Search post, author, reporter, or reason"
           >
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-40" aria-label="Filter by status">
                   <SelectValue placeholder="All statuses" />
@@ -399,7 +392,6 @@ export default function CommunityModeration() {
                 </SelectContent>
               </Select>
 
-              {/* Reason Filter */}
               <Select value={reasonFilter} onValueChange={setReasonFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-44" aria-label="Filter by reason">
                   <SelectValue placeholder="All reasons" />
@@ -415,7 +407,6 @@ export default function CommunityModeration() {
                 </SelectContent>
               </Select>
 
-              {/* Mobile Sort Dropdown */}
               <Select
                 value={sort?.key ? `${sort.key}-${sort.direction}` : "default"}
                 onValueChange={(val) => {
@@ -444,7 +435,6 @@ export default function CommunityModeration() {
             </div>
           </TableToolbar>
 
-          {/* Mobile Cards View: Compact & Aesthetic */}
           <div className="divide-y divide-border/60 md:hidden">
             {isAnyLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
@@ -476,7 +466,6 @@ export default function CommunityModeration() {
                       !isOpen && "opacity-85"
                     )}
                   >
-                    {/* Row 1: Post Title & Status Badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-foreground">
@@ -497,7 +486,6 @@ export default function CommunityModeration() {
                       </div>
                     </div>
 
-                    {/* Row 2: Reason Pill + Reporter + Timestamp */}
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                       <div className="flex items-center gap-1.5">
                         <Badge
@@ -516,14 +504,12 @@ export default function CommunityModeration() {
                       </span>
                     </div>
 
-                    {/* Row 3: Report details snippet */}
                     {report.details ? (
                       <blockquote className="truncate rounded border-l-2 border-border bg-muted/40 px-2 py-1 font-mono text-xs text-foreground/90">
                         "{report.details}"
                       </blockquote>
                     ) : null}
 
-                    {/* Row 4: Action Buttons for Open or View for Closed */}
                     <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5">
                       <span className="text-[11px] text-muted-foreground">
                         {isOpen ? "Action needed" : `Report ${report.status.toLowerCase()}`}
@@ -589,7 +575,6 @@ export default function CommunityModeration() {
             )}
           </div>
 
-          {/* Desktop Table View */}
           <div className="hidden min-h-0 flex-1 overflow-auto md:block">
             <Table mobileLayout="scroll">
               <TableHeader>
@@ -782,7 +767,6 @@ export default function CommunityModeration() {
         </TableCard>
       </div>
 
-      {/* Action Confirmation Modal (Resolve, Dismiss, Hide post) */}
       <AlertDialog
         open={actionTarget != null}
         onOpenChange={(open) => !open && setActionTarget(null)}
@@ -855,7 +839,6 @@ export default function CommunityModeration() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Details View Modal */}
       <Dialog open={viewTarget != null} onOpenChange={(open) => !open && setViewTarget(null)}>
         <DialogContent className="max-h-[calc(100dvh-4rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl p-5 sm:p-6">
           <DialogHeader>

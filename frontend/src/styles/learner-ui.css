@@ -28,7 +28,6 @@ body.learner-portal {
 }
 .dark body.learner-portal, body.learner-portal.dark { --tg: #6fd3a2; --tg-2: #2f8a5f; }
 
-/* ---- shared shape ---- */
 body.learner-portal [data-slot="button"]:not([data-variant="link"]) {
   min-height: 2.5rem;
   border-radius: 0.8rem;
@@ -44,7 +43,6 @@ body.learner-portal [data-slot="button"]:not([data-variant="link"]) {
 body.learner-portal [data-slot="button"]:not([data-variant="link"]):active:not(:disabled) { transform: translateY(1px); }
 body.learner-portal [data-slot="button"]:focus-visible { outline: 2px solid var(--tg); outline-offset: 2px; box-shadow: none; }
 
-/* ---- filled primary ---- */
 body.learner-portal [data-slot="button"][data-variant="default"] {
   color: #fff;
   border: 1px solid transparent;
@@ -59,7 +57,6 @@ body.learner-portal [data-slot="button"][data-variant="default"]:hover:not(:disa
 }
 .dark body.learner-portal [data-slot="button"][data-variant="default"] { color: #10151a; }
 
-/* ---- card button ---- */
 body.learner-portal [data-slot="button"][data-variant="outline"],
 body.learner-portal [data-slot="button"][data-variant="secondary"] {
   color: var(--foreground);
@@ -74,7 +71,6 @@ body.learner-portal [data-slot="button"][data-variant="secondary"]:hover:not(:di
   box-shadow: 0 3px 0 var(--tg-line);
 }
 
-/* ---- ghost ---- */
 body.learner-portal [data-slot="button"][data-variant="ghost"] {
   color: var(--foreground);
   border: 1px solid transparent;
@@ -83,7 +79,6 @@ body.learner-portal [data-slot="button"][data-variant="ghost"] {
 }
 body.learner-portal [data-slot="button"][data-variant="ghost"]:hover:not(:disabled) { background: var(--tg-softer); }
 
-/* ---- destructive ---- */
 body.learner-portal [data-slot="button"][data-variant="destructive"] {
   color: #fff;
   border: 1px solid transparent;
@@ -92,7 +87,6 @@ body.learner-portal [data-slot="button"][data-variant="destructive"] {
 }
 body.learner-portal [data-slot="button"][data-variant="destructive"]:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
 
-/* ---- sizes ---- */
 body.learner-portal [data-slot="button"][data-size="xs"] { min-height: 1.75rem; padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 0.6rem; }
 body.learner-portal [data-slot="button"][data-size="sm"] { min-height: 2.25rem; padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
 body.learner-portal [data-slot="button"][data-size="lg"] { min-height: 3rem; padding: 0.65rem 1.25rem; font-size: 1rem; }
@@ -116,7 +110,6 @@ body.learner-portal [data-slot="button"]:disabled { opacity: .45; cursor: not-al
    dialogs, menus and toasts rendered into <body>.
    ===================================================================================== */
 
-/* ---- dialogs, alert dialogs, sheets, drawers ---- */
 body.learner-portal :is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"], [data-slot="drawer-overlay"]) {
   background: color-mix(in oklab, var(--tg) 12%, rgb(10 20 16 / 0.45));
   backdrop-filter: blur(3px);
@@ -139,7 +132,6 @@ body.learner-portal :is([data-slot="dialog-title"], [data-slot="alert-dialog-tit
 body.learner-portal [data-slot="dialog-close"] { border-radius: 999px; }
 body.learner-portal [data-slot="dialog-close"]:hover { background: var(--tg-softer); }
 
-/* ---- toasts ---- */
 body.learner-portal [data-sonner-toast].netacad-toast {
   border: 1px solid var(--tg-line);
   border-radius: 1rem;
@@ -166,7 +158,6 @@ body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-cance
 }
 body.learner-portal [data-sonner-toast][data-styled="true"] .netacad-toast-close { border-radius: 999px; }
 
-/* ---- text fields and select triggers ---- */
 body.learner-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
   border: 1px solid var(--tg-line);
   border-radius: 0.8rem;
@@ -189,7 +180,6 @@ body.learner-portal :is([data-slot="input"], [data-slot="textarea"])[aria-invali
   box-shadow: 0 0 0 3px color-mix(in oklab, #d6436b 18%, transparent);
 }
 
-/* ---- pop-up lists: select, dropdown menu ---- */
 body.learner-portal :is([data-slot="select-content"], [data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"]) {
   border: 1px solid var(--tg-line);
   border-radius: 1rem;
@@ -211,10 +201,8 @@ body.learner-portal [data-slot="dropdown-menu-label"] {
   font-size: 0.6875rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tg-ink);
 }
 
-/* ---- tooltips ---- */
 body.learner-portal [data-slot="tooltip-content"] { border-radius: 0.65rem; font-weight: 600; }
 
-/* ---- tabs ---- */
 body.learner-portal [data-slot="tabs-list"] {
   border-radius: 0.9rem;
   background: var(--tg-softer);
@@ -228,7 +216,6 @@ body.learner-portal [data-slot="tabs-trigger"][data-state="active"] {
   box-shadow: 0 2px 0 var(--tg-line);
 }
 
-/* ---- checkboxes, radios, switches ---- */
 body.learner-portal [data-slot="checkbox"] { border-radius: 0.4rem; border-color: var(--tg-line); }
 body.learner-portal [data-slot="checkbox"][data-state="checked"] { border-color: var(--tg); background: var(--tg); color: #fff; }
 body.learner-portal [data-slot="radio-group-item"] { border-color: var(--tg-line); }
@@ -239,11 +226,9 @@ body.learner-portal :is([data-slot="checkbox"], [data-slot="radio-group-item"], 
   outline: 2px solid var(--tg); outline-offset: 2px;
 }
 
-/* ---- progress bars ---- */
 body.learner-portal [data-slot="progress"] { background: color-mix(in oklab, var(--tg) 14%, transparent); border-radius: 999px; }
 body.learner-portal [data-slot="progress-indicator"] { background: linear-gradient(90deg, var(--tg-2), var(--tg)); border-radius: 999px; }
 
-/* ---- cards and badges ---- */
 body.learner-portal [data-slot="card"] {
   border-color: var(--tg-line);
   border-radius: 1.1rem;

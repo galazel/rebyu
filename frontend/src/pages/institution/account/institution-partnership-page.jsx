@@ -234,7 +234,6 @@ function RequestPartnershipDialog({ open, onOpenChange, seed, intent = "new" }) 
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
-            {/* Certifications being renewed */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span>Renewing certifications</span>
@@ -266,7 +265,6 @@ function RequestPartnershipDialog({ open, onOpenChange, seed, intent = "new" }) 
                       </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
-                        {/* Slot counter */}
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] text-muted-foreground font-medium">Slots:</span>
                           <div className="flex items-center rounded-lg border border-input bg-background shadow-xs dark:border-border dark:bg-card">
@@ -296,7 +294,6 @@ function RequestPartnershipDialog({ open, onOpenChange, seed, intent = "new" }) 
                           </div>
                         </div>
 
-                        {/* School Year Range */}
                         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                           <span className="font-medium">Window:</span>
                           <span className="font-medium text-foreground">
@@ -310,7 +307,6 @@ function RequestPartnershipDialog({ open, onOpenChange, seed, intent = "new" }) 
               </div>
             </div>
 
-            {/* Summary box */}
             <div className="rounded-xl border border-border/80 bg-muted/30 p-3.5 space-y-2 text-xs dark:border-border/70 dark:bg-muted/20">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Total learner slots</span>
@@ -693,7 +689,6 @@ export default function InstitutionPartnershipPage() {
         />
       ) : (
         <div>
-          {/* Mobile compressed request cards */}
           <div className="md:hidden space-y-3">
             {requests.map((request) => {
               const invoice = invoiceByRequestId.get(request.requestId)
@@ -853,7 +848,6 @@ export default function InstitutionPartnershipPage() {
             })}
           </div>
 
-          {/* Desktop Table View */}
           <Card className="hidden md:block">
             <CardContent className="overflow-x-auto p-0">
               <Table>

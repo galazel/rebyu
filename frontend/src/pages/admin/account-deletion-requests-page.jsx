@@ -148,7 +148,6 @@ export default function AccountDeletionRequestsPage() {
   const [pageSize, setPageSize] = useState(10)
   const { sort, setSort, toggle, sortRows } = useTableSort()
 
-  // Action dialog states
   const [actionTarget, setActionTarget] = useState(null) // { request, type: "approve" | "decline" }
   const [viewTarget, setViewTarget] = useState(null) // request to view details
   const [note, setNote] = useState("")
@@ -181,7 +180,6 @@ export default function AccountDeletionRequestsPage() {
     },
   })
 
-  // Quick stats
   const pendingCount = useMemo(
     () => requests.filter((r) => r.status === "PENDING").length,
     [requests]
@@ -195,17 +193,13 @@ export default function AccountDeletionRequestsPage() {
     [requests]
   )
 
-  // Filtering
   const filteredRequests = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return requests.filter((req) => {
-      // Status filter
       if (statusFilter !== ALL_FILTER && req.status !== statusFilter) return false
 
-      // Kind filter
       if (kindFilter !== ALL_FILTER && req.kind !== kindFilter) return false
 
-      // Search query
       if (needle) {
         const displayName = getDisplayName(req)
         const kindLabel = KIND[req.kind]?.label ?? ""
@@ -227,7 +221,6 @@ export default function AccountDeletionRequestsPage() {
     })
   }, [requests, search, statusFilter, kindFilter])
 
-  // Sorting
   const sortedRequests = useMemo(
     () =>
       sortRows(filteredRequests, {
@@ -369,7 +362,6 @@ export default function AccountDeletionRequestsPage() {
             searchPlaceholder="Search requester, email, or reason"
           >
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-              {/* Status Filter */}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-44" aria-label="Filter by status">
                   <SelectValue placeholder="All statuses" />
@@ -383,7 +375,6 @@ export default function AccountDeletionRequestsPage() {
                 </SelectContent>
               </Select>
 
-              {/* Account Type Filter */}
               <Select value={kindFilter} onValueChange={setKindFilter}>
                 <SelectTrigger className="h-9 flex-1 sm:w-40" aria-label="Filter by account type">
                   <SelectValue placeholder="All account types" />
@@ -396,7 +387,6 @@ export default function AccountDeletionRequestsPage() {
                 </SelectContent>
               </Select>
 
-              {/* Mobile Sort Dropdown */}
               <Select
                 value={sort?.key ? `${sort.key}-${sort.direction}` : "default"}
                 onValueChange={(val) => {
@@ -425,7 +415,6 @@ export default function AccountDeletionRequestsPage() {
             </div>
           </TableToolbar>
 
-          {/* Mobile Cards View: Compact & Aesthetic */}
           <div className="divide-y divide-border/60 md:hidden">
             {query.isLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
@@ -462,7 +451,6 @@ export default function AccountDeletionRequestsPage() {
                       !isPending && "opacity-85"
                     )}
                   >
-                    {/* Row 1: Avatar + Requester Name & Email + Status Badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-xs font-bold text-primary shadow-2xs">
@@ -486,7 +474,6 @@ export default function AccountDeletionRequestsPage() {
                       </div>
                     </div>
 
-                    {/* Row 2: Type Badge + Institution (if any) & Requested Date */}
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs">
                       <div className="flex items-center gap-1.5">
                         <Badge
@@ -510,21 +497,18 @@ export default function AccountDeletionRequestsPage() {
                       </span>
                     </div>
 
-                    {/* Row 3: Reason Excerpt */}
                     {request.reason ? (
                       <blockquote className="truncate rounded border-l-2 border-border bg-muted/40 px-2 py-1 font-mono text-xs text-foreground/90">
                         "{request.reason}"
                       </blockquote>
                     ) : null}
 
-                    {/* Account already missing note */}
                     {isPending && !request.accountExists ? (
                       <p className="text-[11px] text-muted-foreground italic">
                         Account no longer exists in system.
                       </p>
                     ) : null}
 
-                    {/* Row 4: Action Buttons / Closed Info */}
                     <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5">
                       {!isPending && request.reviewedAt ? (
                         <p className="max-w-[200px] truncate text-[11px] text-muted-foreground italic">
@@ -597,7 +581,6 @@ export default function AccountDeletionRequestsPage() {
             )}
           </div>
 
-          {/* Desktop Table View */}
           <div className="hidden min-h-0 flex-1 overflow-auto md:block">
             <Table mobileLayout="scroll">
               <TableHeader>
@@ -792,7 +775,6 @@ export default function AccountDeletionRequestsPage() {
         </TableCard>
       </div>
 
-      {/* Approve / Decline Confirmation Dialog */}
       <AlertDialog
         open={actionTarget != null}
         onOpenChange={(open) => {
@@ -882,7 +864,6 @@ export default function AccountDeletionRequestsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View Details Dialog for processed requests */}
       <Dialog
         open={viewTarget != null}
         onOpenChange={(open) => {

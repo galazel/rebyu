@@ -599,7 +599,6 @@ export default function DepartmentHeadOverviewPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in-50 duration-200">
-      {/* Department */}
       <header className="flex flex-col justify-between gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border border-border/70 bg-card p-4 sm:p-6 lg:p-8 shadow-xs lg:flex-row lg:items-center">
         <div className="min-w-0 space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">{overview.departmentName}</h1>
