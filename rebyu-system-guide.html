@@ -274,7 +274,9 @@
   <tr><th>What</th><th>Path</th></tr>
   <tr><td>Java source</td><td><code>backend-java/src/main/java/com/capstone/rebyu/</code></td></tr>
   <tr><td>Java entry point</td><td><code>RebyuApplication.java</code></td></tr>
-  <tr><td>Security rules</td><td><code>auth/security/SecurityConfig.java</code></td></tr>
+  <tr><td>Security rules</td><td><code>config/SecurityConfig.java</code></td></tr>
+  <tr><td>Role checks</td><td><code>auth/security/RoleGuard.java</code></td></tr>
+  <tr><td>Cognito sign-in</td><td><code>auth/service/CognitoAuthService.java</code></td></tr>
   <tr><td>Python source</td><td><code>python-backend/app/</code></td></tr>
   <tr><td>Python entry point</td><td><code>python-backend/app/main.py</code></td></tr>
   <tr><td>Python endpoints</td><td><code>app/api/routes/</code> (18 modules)</td></tr>
@@ -375,7 +377,9 @@ certification.py  ← curriculum / lesson generation</code></pre>
 <pre><code>&lt;Route element={&lt;ProtectedRoute allowedRoles={["ADMIN"]} /&gt;}&gt;
     &lt;Route path="/admin" element={&lt;DashboardLayout /&gt;}&gt;</code></pre>
 
-<p><strong>On the backend</strong>, <code>SecurityConfig.java</code> declares which URL patterns require authentication, and <code>RoleGuard</code> checks the role inside the service layer.</p>
+<p><strong>On the backend</strong>, <code>config/SecurityConfig.java</code> declares which URL patterns require authentication, and <code>auth/security/RoleGuard.java</code> checks the role inside the service layer.</p>
+
+<p><strong>Identity comes from AWS Cognito.</strong> <code>auth/service/CognitoAuthService.java</code> and <code>CognitoAdminService.java</code> handle sign-in and account administration, and the <code>users</code> table carries a <code>cognito_sub</code> column linking each local row to its Cognito identity. Spring Boot is configured as an OAuth2 <em>resource server</em>, so it validates the bearer token on each request rather than issuing its own.</p>
 
 <div class="callout">
   <strong>The critical point to make</strong>
@@ -561,7 +565,7 @@ uncertainty = pKnown × (1 - pKnown)</code></pre>
 <div class="body"><p>Two. Bayesian Knowledge Tracing estimates the probability a learner has mastered each lesson, updating on every answer and accounting for guessing and slipping. Item Response Theory models learner ability as theta and picks the question most informative at that ability. Quizzes and unit exams adapt; diagnostics and mock exams are fixed papers on purpose.</p></div></details>
 
 <details class="qa"><summary>How do you secure the application?</summary>
-<div class="body"><p>Authentication is token-based; every request carries a JWT that <code>SecurityConfig</code> validates. There are four roles — ADMIN, LEARNER, INSTITUTION, DEPARTMENT_HEAD. The frontend uses <code>ProtectedRoute</code> to hide screens, but that is only convenience. The real enforcement is server-side in <code>SecurityConfig</code> and <code>RoleGuard</code>, because browser code can be modified by the user.</p></div></details>
+<div class="body"><p>Identity is handled by AWS Cognito. Spring Boot runs as an OAuth2 resource server, so every request carries a bearer token that <code>config/SecurityConfig.java</code> validates, and each row in <code>users</code> links to its Cognito identity through <code>cognito_sub</code>. There are four roles — ADMIN, LEARNER, INSTITUTION, DEPARTMENT_HEAD. The frontend uses <code>ProtectedRoute</code> to hide screens, but that is only convenience. The real enforcement is server-side in <code>SecurityConfig</code> and <code>RoleGuard</code>, because browser code can be modified by the user.</p></div></details>
 
 <details class="qa"><summary>What happens if the AI service goes down?</summary>
 <div class="body"><p>Core learning keeps working. Mastery events are written to an outbox table in the same transaction as the learner's answer, and a separate dispatcher forwards them. If Python is unavailable the events stay queued and are delivered when it recovers. Answers are never lost and the learner is never blocked.</p></div></details>

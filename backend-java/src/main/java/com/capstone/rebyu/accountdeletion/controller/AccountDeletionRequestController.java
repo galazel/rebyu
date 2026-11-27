@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** The signed-in user's own deletion request. Lives under /api/auth/** so it is authenticated. */
 @RestController
 @RequestMapping("/api/auth/me/deletion-request")
 @RequiredArgsConstructor
