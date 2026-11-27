@@ -417,10 +417,10 @@ public class AdaptiveAttemptService {
                 throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                         "That question is not on this paper.");
             }
+            Optional<AssessmentAttemptAnswer> existing = attemptAnswerRepository
+                    .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
+                            attemptId, item.getAttemptQuestionId());
             if (!Objects.equals(attempt.getCurrentQuestionId(), item.getAttemptQuestionId())) {
-                Optional<AssessmentAttemptAnswer> existing = attemptAnswerRepository
-                        .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
-                                attemptId, item.getAttemptQuestionId());
                 if (existing.isPresent() && state.getServedQuestionIds().contains(item.getSourceQuestionId())) {
                     if (AssessmentAttemptService.hasDefinitiveVerdict(existing.get())) {
                         verdicts.put(item.getAttemptQuestionId(), verdictOf(attempt, item, existing.get()));
@@ -437,12 +437,21 @@ public class AdaptiveAttemptService {
                         "Choose or type an answer first.");
             }
 
-            AssessmentAttemptAnswer answer = AssessmentAttemptAnswer.builder().attempt(attempt).attemptQuestion(item).build();
+            // Running code or saving a draft can already have created the answer row.
+            AssessmentAttemptAnswer answer = existing.orElseGet(() ->
+                    AssessmentAttemptAnswer.builder().attempt(attempt).attemptQuestion(item).build());
+            boolean codeChanged = !Objects.equals(answer.getSubmittedCode(), draft.submittedCode());
             answer.setLearnerAnswer(draft.learnerAnswer());
             answer.setSelectedChoiceId(draft.selectedChoiceId());
             answer.setSubmittedCode(draft.submittedCode());
             answer.setProgrammingLanguage(draft.programmingLanguage());
             answer.setDiagramSubmissionData(draft.diagramSubmissionData());
+            if (codeChanged && answer.getExecutionResult() != null) {
+                answer.setExecutionResult(null);
+                answer.setCredit(null);
+                answer.setIsCorrect(null);
+                answer.setPendingManualEvaluation(true);
+            }
             LocalDateTime savedAt = LocalDateTime.now();
             answer.setAnsweredAt(savedAt);
             answer.setLastSavedAt(savedAt);
