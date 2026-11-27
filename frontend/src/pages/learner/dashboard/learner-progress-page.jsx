@@ -575,7 +575,15 @@ export default function LearnerProgressPage() {
     },
   })
   const analytics = analyticsQuery.data
-  const behaviorQuery = useQuery({ queryKey: ["learner-study-behavior", selectedCertificationId], queryFn: () => getStudyBehavior(selectedCertificationId), enabled: Boolean(selectedCertificationId), staleTime: 30_000 })
+  const behaviorQueryOptions = {
+    queryKey: ["learner-study-behavior", selectedCertificationId],
+    queryFn: () => getStudyBehavior(selectedCertificationId),
+  }
+  const behaviorQuery = useQuery({
+    ...behaviorQueryOptions,
+    enabled: Boolean(selectedCertificationId),
+    staleTime: 30_000,
+  })
 
   const student = useMemo(() => {
     const learner = data?.learner ?? authUser ?? {}
@@ -1291,14 +1299,15 @@ export default function LearnerProgressPage() {
             report="Learner progress analytics"
             details={exportDetails}
             disabled={!analytics}
-            sections={() =>
-              learnerReportBlocks(analytics, {
+            sections={async () => {
+              const behavior = await queryClient.fetchQuery({ ...behaviorQueryOptions, staleTime: 0 })
+              return learnerReportBlocks(analytics, {
                 student,
                 certification: selectedCertification,
-                behavior: behaviorQuery.data,
+                behavior,
                 plan: existingPlan,
               })
-            }
+            }}
           />
 
           {analyticsQuery.isFetching && !analyticsQuery.isLoading ? (

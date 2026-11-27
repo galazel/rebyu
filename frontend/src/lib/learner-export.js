@@ -337,12 +337,12 @@ export function learnerReportBlocks(analytics, extraSummaryOrOptions = [], extra
         ["Focus consistency (%)", behavior.focusConsistency ?? 100],
         ["Reading pace", behavior.readingPace ?? NOT_YET],
         ["Focus checks completed", behavior.challengeCompletions ?? 0],
-        ["Sections skimmed too fast", behavior.rushEvents ?? 0],
+        ["Skimming events (fast scrolls)", behavior.rushEvents ?? 0],
       ],
     })
     blocks.push({
       title: "Study time by day",
-      columns: ["Date", "Minutes studied", "Sections skimmed too fast"],
+      columns: ["Date", "Minutes studied", "Skimming events (fast scrolls)"],
       rows: orEmpty((behavior.trend ?? []).map((d) => [d.date, d.studyMinutes ?? 0, d.rushes ?? 0]), "No study sessions recorded this week."),
     })
   }

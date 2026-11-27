@@ -134,7 +134,7 @@ const richReport = learnerReportBlocks(
 
 assert.ok(richReport.some((b) => b.title === "Summary"))
 assert.ok(richReport.some((b) => b.title === "Study plan & goals"))
-assert.ok(richReport.some((b) => b.title === "Study behavior & telemetry"))
+assert.ok(richReport.some((b) => b.title === "Study habits (last 7 days)"))
 assert.ok(richReport.some((b) => b.title === "Assessment attempt history (all attempts)"))
 assert.ok(richReport.some((b) => b.title === "Mastery history trend"))
 

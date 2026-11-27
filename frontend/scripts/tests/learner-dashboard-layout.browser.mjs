@@ -36,6 +36,7 @@ let saved = [
 let failSave = true
 let saveAttempts = 0
 let heldAnalytics = Promise.withResolvers()
+let heldBehavior = Promise.withResolvers()
 const scoreTrend = Array.from({ length: 12 }, (_, index) => {
   const examId = index + 1
   return Array.from({ length: 12 - index }, (_, attempt) => ({
@@ -79,6 +80,20 @@ try {
       }
       return sendAnalytics()
     }
+    if (pathname.endsWith("/study-behavior")) {
+      const sendBehavior = () => respond({
+        rushEvents: 3,
+        focusConsistency: 64,
+        readingPace: "Rushed",
+        challengeCompletions: 1,
+        trend: [{ date: "2026-11-26", studyMinutes: 3, rushes: 3 }],
+      })
+      if (heldBehavior) {
+        heldBehavior.resolve(sendBehavior)
+        return
+      }
+      return sendBehavior()
+    }
     return respond([])
   })
 
@@ -120,6 +135,27 @@ try {
   heldAnalytics = null
   await releaseSavedAnalytics()
   await page.waitForSelector(skeletonSelector, { hidden: true })
+  await page.evaluate(() => {
+    const createObjectURL = URL.createObjectURL
+    URL.createObjectURL = (blob) => {
+      if (blob.type.startsWith("text/csv")) window.progressCsv = blob.text()
+      return createObjectURL(blob)
+    }
+    document.addEventListener("click", (event) => {
+      if (event.target.matches('a[download$=".csv"]')) event.preventDefault()
+    })
+  })
+  await click("Export")
+  await page.locator('::-p-text(CSV File (.csv))').click()
+  await page.waitForFunction(() => [...document.querySelectorAll("button")]
+    .some((button) => button.textContent.trim() === "Export" && button.disabled))
+  const releaseBehavior = await heldBehavior.promise
+  heldBehavior = null
+  await releaseBehavior()
+  await page.waitForFunction(() => window.progressCsv)
+  const progressCsv = await page.evaluate(() => window.progressCsv)
+  assert.match(progressCsv, /Skimming events \(fast scrolls\),3\r\n/)
+  assert.match(progressCsv, /Date,Minutes studied,Skimming events \(fast scrolls\)\r\n2026-11-26,3,3/)
   const retakes = await page.$$eval('#score-over-time [aria-label="Assessments plotted"] li', (rows) =>
     rows.map((row) => row.querySelector(".truncate").textContent.trim()),
   )
