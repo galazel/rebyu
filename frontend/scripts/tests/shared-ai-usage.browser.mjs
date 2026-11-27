@@ -14,6 +14,8 @@ const server = await createServer({ root, define: { "import.meta.env.VITE_SHOW_L
 } }] })
 let browser
 let saved
+const initialTimers = { lessonQuizMinutes: 10, middleExamMinutes: 30, majorExamMinutes: 60 }
+let savedTimers
 try {
   await server.listen()
   browser = await puppeteer.launch({ executablePath, headless: true })
@@ -26,6 +28,10 @@ try {
     else if (request.url().endsWith("/ai/tutor/conduct")) data = { strikes: 0 }
     else if (request.url().endsWith("/ai/settings")) data = { tasks: [], models: [] }
     else if (request.url().endsWith("/ai/settings/reading-guard")) data = { skimCooldownSeconds: 120 }
+    else if (request.url().endsWith("/exams/timers")) {
+      if (request.method() === "PUT") savedTimers = JSON.parse(request.postData())
+      data = savedTimers ?? initialTimers
+    }
     else if (request.url().includes("/ai/settings/live-tutor")) {
       if (request.method() === "PUT") saved = JSON.parse(request.postData())
       data = { settings: { enabled: true, dailySessionLimit: 5, maxDurationSeconds: 1800, voiceId: "educationVoice" }, voices: [], credits: { available: false }, proLimits: { dailyMessages: 50, weeklyMessages: 250 } }
@@ -49,5 +55,16 @@ try {
   await page.click('#section-pro-ai-limits button[type="submit"]')
   for (let i = 0; i < 50 && !saved; i++) await new Promise((resolve) => setTimeout(resolve, 50))
   assert.deepEqual(saved, { enabled: true, maxDurationSeconds: 1800, voiceId: "educationVoice", proDailyMessages: 60, proWeeklyMessages: 250 })
-  console.log("PASS: Live Tutor is hidden from usage and Admin AI Settings, prior usage is accounted for, and Pro limits save.")
+  const timerField = '#section-assessment-timers input'
+  await page.waitForSelector(`${timerField}:enabled`)
+  await page.$eval(timerField, (field) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(field, "15")
+    field.dispatchEvent(new Event("input", { bubbles: true }))
+  })
+  await Promise.all([
+    page.waitForResponse((response) => response.url().endsWith("/exams/timers") && response.request().method() === "PUT"),
+    page.click('#section-assessment-timers button[type="submit"]'),
+  ])
+  assert.deepEqual(savedTimers, { ...initialTimers, lessonQuizMinutes: 15 })
+  console.log("PASS: Admin Others saves Pro AI limits and shared assessment timers.")
 } finally { await browser?.close(); await server.close() }

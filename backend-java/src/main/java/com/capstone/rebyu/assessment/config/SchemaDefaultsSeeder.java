@@ -61,6 +61,7 @@ public class SchemaDefaultsSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        jdbc.execute("ALTER TABLE assessment_timer_settings ENABLE ROW LEVEL SECURITY");
         for (String statement : STATEMENTS) {
             try {
                 jdbc.execute(statement);

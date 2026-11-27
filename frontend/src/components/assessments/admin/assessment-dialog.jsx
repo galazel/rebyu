@@ -276,7 +276,7 @@ export default function AssessmentDialog({
   const managedMinutes = hasCertificationTimer ? timers.data?.[TIMER_FIELDS[createTypeConfig.examTypeText]] : null
   const managedTimer = hasCertificationTimer && (usesSharedTimer || managedMinutes != null)
   const timerSettingsPath = usesSharedTimer
-    ? "/admin/assessment-timers"
+    ? "/admin/ai-settings#section-assessment-timers"
     : `/admin/certification/${certificationId}/assessments`
 
   useEffect(() => {

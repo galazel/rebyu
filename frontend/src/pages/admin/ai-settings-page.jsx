@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { showLiveTutor } from "@/lib/live-tutor-visibility.js"
 import { cn } from "@/lib/utils"
@@ -39,6 +40,7 @@ import { apiMessage } from "@/services/base.js"
 import { chooseAiModel, getAiSettings, resetAiModel } from "@/services/aiSettingsService.js"
 import { LiveTutorSettingsCard } from "@/components/admin/live-tutor-settings.jsx"
 import { ReadingGuardSettingsCard } from "@/components/admin/reading-guard-settings.jsx"
+import AssessmentTimerSettings from "@/components/assessments/admin/assessment-timer-settings.jsx"
 
 const money = (value) =>
   value === null || value === undefined ? "—" : `$${Number(value).toFixed(2)}`
@@ -52,6 +54,14 @@ const proAiLimitsSection = {
   badge: showLiveTutor ? "ElevenLabs" : null,
 }
 
+const assessmentTimersSection = {
+  id: "section-assessment-timers",
+  label: "Assessment timers",
+  shortLabel: "Assessment timers",
+  group: "Core Services",
+  icon: Clock,
+}
+
 function priceOf(model) {
   if (!model) return ""
   if (model.free) return "Free"
@@ -59,6 +69,7 @@ function priceOf(model) {
 }
 
 export default function AiSettingsPage() {
+  const { hash } = useLocation()
   const [activeSection, setActiveSection] = useState(proAiLimitsSection.id)
   const [sidebarFilter, setSidebarFilter] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -86,6 +97,7 @@ export default function AiSettingsPage() {
         icon: BookOpen,
         badge: "Cooldown",
       },
+      assessmentTimersSection,
       {
         id: "section-credits",
         label: "OpenRouter Credits",
@@ -141,15 +153,21 @@ export default function AiSettingsPage() {
     return map
   }, [filteredSections])
 
-  const scrollToSection = (id) => {
+  const scrollToSection = useCallback((id, behavior = "smooth") => {
     const el = document.getElementById(id)
     if (el) {
       clickScrollUntil.current = Date.now() + 900
-      el.scrollIntoView({ behavior: "smooth", block: "start" })
+      el.scrollIntoView({ behavior, block: "start" })
       setActiveSection(id)
       setMobileMenuOpen(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (hash === `#${assessmentTimersSection.id}`) {
+      scrollToSection(assessmentTimersSection.id, "instant")
+    }
+  }, [hash, scrollToSection])
 
   // Only the ids matter for tracking; the 15 s data refresh rebuilds `sections`
   // with new badges, which must not tear the scroll tracking down each time.
@@ -388,6 +406,10 @@ export default function AiSettingsPage() {
           {/* Section 2: Reading Guard */}
           <div id="section-reading-guard" className="scroll-mt-28 sm:scroll-mt-20">
             <ReadingGuardSettingsCard />
+          </div>
+
+          <div id={assessmentTimersSection.id} className="scroll-mt-28 sm:scroll-mt-20">
+            <AssessmentTimerSettings />
           </div>
 
           {query.isLoading ? (

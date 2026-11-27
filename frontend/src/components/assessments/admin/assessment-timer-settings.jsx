@@ -55,14 +55,14 @@ export default function AssessmentTimerSettings({ certificationId = null, curren
 
   return (
     <section className="shrink-0 rounded-xl border border-border/80 bg-background p-4">
-      <h2 className="text-sm font-semibold">{global ? "Shared time limits" : "Certification timers"}</h2>
+      <h2 className="text-sm font-semibold">{global ? "Assessment timers" : "Certification timers"}</h2>
       <p className="mt-1 text-xs text-muted-foreground">
         {global
           ? "Set the time in minutes for new attempts across all certifications. Existing attempts keep their deadline."
           : "Set the time in minutes for this certification. Leave a field empty to use the assessment’s duration or the standard default. Existing attempts keep their deadline."}
       </p>
       {!global && (
-        <Link to="/admin/assessment-timers" className="mt-2 inline-block text-xs font-medium underline underline-offset-4">
+        <Link to="/admin/ai-settings#section-assessment-timers" className="mt-2 inline-block text-xs font-medium underline underline-offset-4">
           Manage shared timers for quizzes, middle exams, and major exams
         </Link>
       )}
