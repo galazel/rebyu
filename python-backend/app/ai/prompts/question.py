@@ -15,12 +15,12 @@ def build_question_batch_prompt(scope: str, context: str, instructions: str) -> 
     # the instructions change. Ending the shared part with CACHE_BREAK lets the
     # provider cache it (see app.ai.prompt_cache).
     return f"""
-Scope:
-{scope}
+    Scope:
+    {scope}
 
-Reference context:
-{context}
-{CACHE_BREAK}
-Generation instructions:
-{instructions}
-""".strip()
+    Reference context:
+    {context}
+    {CACHE_BREAK}
+    Generation instructions:
+    {instructions}
+    """.strip()

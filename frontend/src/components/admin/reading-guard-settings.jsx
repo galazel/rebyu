@@ -13,6 +13,7 @@ export function ReadingGuardSettingsCard() {
   const query = useQuery({ queryKey: ["reading-guard-settings"], queryFn: getReadingGuardSettings, staleTime: 30_000 })
   const saved = query.data
   const value = minutes ?? (saved ? saved.skimCooldownSeconds / 60 : "")
+
   const save = useMutation({
     mutationFn: updateReadingGuardSettings,
     onSuccess: () => {

@@ -220,6 +220,7 @@
 <div class="toc">
   <strong style="font-family:var(--font-display)">Contents</strong>
   <ol>
+    <li><a href="#defense">Defense day: the two 5.0 risks</a></li>
     <li><a href="#arch">The three services</a></li>
     <li><a href="#where">Where the code lives</a></li>
     <li><a href="#java">Java backend anatomy</a></li>
@@ -231,6 +232,61 @@
     <li><a href="#flow">End-to-end data flow</a></li>
     <li><a href="#questions">Likely panel questions</a></li>
   </ol>
+</div>
+
+<h2 id="defense"><span class="num">00</span>Defense day: the two 5.0 risks</h2>
+<p class="sub">Your rubric awards a failing 5.0 in exactly two technical situations: the system is not deployed, and the system does not run during the defense. Everything in this section exists to stop those happening.</p>
+
+<div class="callout" style="border-left-color:#b4361a">
+  <strong>The single biggest risk is the venue's internet.</strong>
+  <p>Your database is PostgreSQL on <strong>Supabase</strong> and your sign-in is <strong>AWS Cognito</strong>. Both live in the cloud. If the venue has no working internet, the system cannot read data and nobody can log in — the containers will be running and the app will still be dead. Verify the connection the moment you arrive, and have a phone hotspot ready as a backup.</p>
+</div>
+
+<h3>Run the pre-flight check when you arrive</h3>
+<p>There is a script in the repository that tests all fifteen things that have to be true. Run it from the project folder:</p>
+<pre><code>powershell -ExecutionPolicy Bypass -File defense-preflight.ps1</code></pre>
+<p>It checks, in order: internet and DNS, that Supabase is reachable, that all five containers are up, that the frontend, backend and AI service each respond, that the AI service can reach its database, that a real query returns data, and that both cold and warm reads are fast enough. Every line prints PASS or FAIL, and a FAIL tells you the fix.</p>
+
+<h3>What "normal" looks like, so you don't panic</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Action</th><th>Expected</th><th>Worry if</th></tr>
+  <tr><td>Page already visited (cached)</td><td>under 0.2 s</td><td>over 1 s</td></tr>
+  <tr><td>Fresh data from the database</td><td>2 – 2.5 s</td><td>over 5 s</td></tr>
+  <tr><td>First query after an idle gap</td><td>can spike to ~9 s once</td><td>every query is slow</td></tr>
+</table>
+</div>
+<p>That one-off spike is the Supabase connection pooler opening a fresh connection after idling. It is normal and it settles immediately. <strong>Click through your demo path once before the panel arrives</strong> — that warms both the connection pool and the Redis cache, and everything you then show the panel will be fast.</p>
+
+<h3>If something fails</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Symptom</th><th>Do this</th></tr>
+  <tr><td>A container is down</td><td><code>docker compose up -d</code></td></tr>
+  <tr><td>Backend unhealthy</td><td><code>docker compose logs --tail=50 backend</code></td></tr>
+  <tr><td>Everything loads but no data</td><td>Internet is down — switch to the hotspot</td></tr>
+  <tr><td>Cannot log in</td><td>Cognito needs internet; check the same thing</td></tr>
+  <tr><td>You rebuilt the frontend and the backend restarted</td><td><code>docker compose up -d --build --no-deps frontend</code></td></tr>
+</table>
+</div>
+<p>That last one matters: <code>frontend</code> declares <code>depends_on: backend</code>, so rebuilding the frontend without <code>--no-deps</code> restarts your backend mid-demo.</p>
+
+<h3>Everyone must be able to answer this one</h3>
+<p>The rubric says all members must explain the system, not one or two. If each of you can say this much, you are past the first hurdle:</p>
+<div class="callout">
+  <p>"REBYU is three services in Docker. A React frontend on port 3000, a Spring Boot backend on 8080 that owns the PostgreSQL database and all the business rules, and a FastAPI service on 8000 that does the AI and the mastery calculations. The frontend only ever talks to Spring Boot. Spring Boot calls Python over HTTP when it needs AI generation or a mastery update. We also run Redis for caching and RabbitMQ for background jobs."</p>
+</div>
+<p>Then each member should own one area in depth — the curriculum and lessons, the assessment and grading flow, the adaptive algorithms, or the institution and billing side — so that whoever is asked can take the question.</p>
+
+<h3>Mapping your chapters to the system</h3>
+<div class="tablewrap">
+<table>
+  <tr><th>Chapter</th><th>Point at</th></tr>
+  <tr><td>1 — Problem and objectives</td><td>Why adaptive review beats a fixed question bank</td></tr>
+  <tr><td>2 — Review of literature</td><td>BKT (Corbett &amp; Anderson) and Item Response Theory are both published models; you implemented them, you did not invent them</td></tr>
+  <tr><td>3 — Methodology and design</td><td>The three-service architecture, the 122-table schema, the data dictionary</td></tr>
+  <tr><td>4 — Results</td><td>The running system, the 225 passing test files, the adaptive engine working end to end</td></tr>
+</table>
 </div>
 
 <h2 id="arch"><span class="num">01</span>The three services</h2>
@@ -525,6 +581,62 @@ uncertainty = pKnown × (1 - pKnown)</code></pre>
 <div class="callout">
   <strong>The nuance to volunteer unprompted</strong>
   <p>Not every assessment is adaptive. Quizzes and unit exams adapt; <strong>diagnostic and mock exams are fixed papers by design</strong>. A mock must mirror the real certification paper, and a diagnostic must touch every lesson once to establish a baseline — adapting it would defeat its purpose. <code>AdaptivePolicy.isAdaptive(exam)</code> is where that decision is made.</p>
+</div>
+
+<h3>Readiness — "am I ready for the real exam?"</h3>
+<p><code>python-backend/app/services/readiness_service.py</code>, 77 lines. A weighted average of eight signals:</p>
+<pre><code>mastery (average BKT across lessons)    diagnostic score
+lesson quiz score                        middle exam score
+major exam score                         mock exam score
+lesson progress                          streak
+
+normalized_weight = weight / total_weight
+readiness        += score × normalized_weight</code></pre>
+<p>Weights are normalized rather than assumed to sum to 1, so you can retune any single <code>READINESS_*</code> value in <code>.env</code> without rebalancing the rest. The result maps to a level: <strong>≥85 exam_ready</strong>, <strong>≥70 nearly_ready</strong>, <strong>≥50 developing</strong>, below that <strong>needs_review</strong>.</p>
+<p>The response returns every component with its own score, weight and contribution — so the UI can show <em>why</em> a learner is at 62, not just the number.</p>
+
+<div class="callout">
+  <strong>One behaviour to be ready to defend.</strong>
+  <p>A missing signal is scored <code>0.0</code>, not excluded: <code>effective = 0.0 if score is None else float(score)</code>. So a learner who has never sat a mock exam is pulled down by the mock component. That is arguably correct — you are not exam-ready if you have never taken a mock — but it is a choice, and the priority engine below makes the <em>opposite</em> choice. If a panelist spots that, the honest answer is that readiness treats absence as evidence and priority does not.</p>
+</div>
+
+<h3>Priority — "what should I study next?"</h3>
+<p><code>python-backend/app/services/priority_service.py</code>. Scored per lesson from up to five weighted components:</p>
+<div class="tablewrap">
+<table>
+  <tr><th>Component</th><th>Weight</th><th>Included when</th></tr>
+  <tr><td>Mastery weakness <code>(1 − mastery) × 100</code></td><td>0.45</td><td>always</td></tr>
+  <tr><td>Incorrect rate</td><td>0.20</td><td>there is any evidence</td></tr>
+  <tr><td>Mock-exam weakness</td><td>0.10</td><td>last assessment was a mock</td></tr>
+  <tr><td>Diagnostic weakness</td><td>0.10</td><td>last assessment was the diagnostic</td></tr>
+  <tr><td>Review urgency (time since update)</td><td>0.05</td><td>there is a timestamp</td></tr>
+</table>
+</div>
+<p><strong>Unlike readiness, this divides by the weight of the components actually present</strong> (<code>weight_total = sum(weight for _, weight in components)</code>), so a lesson is never penalized for lacking a mock-exam score. The score then classifies into CRITICAL / HIGH / MEDIUM / LOW / ON_TRACK / STRONG, and anything below <code>priority_min_evidence</code> is tagged NEEDS_REASSESSMENT instead of being guessed at.</p>
+
+<h3>The reported-mastery guard — your best engineering story</h3>
+<p><code>reportable_mastery()</code> in the same file. This is the most defensible piece of judgment in the codebase, and it comes with a real incident behind it.</p>
+<p>BKT's P(L) answers "what is the chance they know this <em>now</em>", and it is recency-weighted by design — a run of correct answers is <em>supposed</em> to move it sharply. With untrained fallback parameters, that produced a genuine absurdity: a learner who had answered <strong>19 right and 70 wrong</strong> on a lesson reached <strong>0.98 mastery</strong> after three correct answers.</p>
+<pre><code>if evidence &lt; 10:            # not enough to judge
+    return mastery           # leave the model alone
+
+accuracy = correct / evidence
+return min(mastery, accuracy + 0.35)   # cap what we *claim*</code></pre>
+<p>Three things make this a good answer rather than a hack, and all three are worth saying:</p>
+<ul>
+  <li><strong>It caps the reported value, never the stored one.</strong> The stored probability feeds the next update as <code>mastery_before</code>; capping it would push a doctored prior into the chain and compound at every step. The model stays the model.</li>
+  <li><strong>The 0.35 headroom is deliberate.</strong> A learner who has genuinely improved <em>should</em> read above their lifetime average, because that average still carries everything they have since learned. What they cannot do is read as mastered on the strength of three answers.</li>
+  <li><strong>It is temporary by design.</strong> It guards against untrained parameters; once per-lesson parameters are fitted from a real cohort it should rarely bind.</li>
+</ul>
+
+<h3>Cold start — why the parameters are hand-set</h3>
+<p><code>python-backend/app/ml/smart_defaults.py</code>. A BKT fit needs many learners per skill before its parameters mean anything. With a handful, expectation-maximization finds parameters that explain those few learners' streaks and nothing else.</p>
+<p>So every lesson starts from literature-range parameters — Corbett &amp; Anderson's prior and learn rates, and the <code>guess &lt; 0.30</code>, <code>slip &lt; 0.10</code> bounds from Baker et al. — varied only by what is known in advance: the item's difficulty sets guess and slip, the assessment type sets learn.</p>
+<p>pyBKT is still present as the reference implementation: <code>build_model</code> assembles its transition matrix and emissions from these numbers so <code>Model.predict</code> runs the standard forward pass, and <code>evaluate</code> scores those predictions against the real response log. But there is <strong>no <code>fit</code> call anywhere</strong>. The live per-answer update runs in plain Python so one event costs one row rather than loading a model.</p>
+
+<div class="callout">
+  <strong>If you are asked "why didn't you train the model?"</strong>
+  <p>Because training on too few learners is worse than not training. The parameters would overfit a handful of streaks and look rigorous while meaning nothing. The system instead uses published parameter ranges, keeps pyBKT as the reference implementation to validate against, and is built so that fitted per-lesson parameters can replace the defaults once there is a cohort to fit them from.</p>
 </div>
 
 <h2 id="flow"><span class="num">09</span>End-to-end data flow</h2>

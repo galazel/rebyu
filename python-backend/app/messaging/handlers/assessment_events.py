@@ -23,7 +23,7 @@ def _fetch_recipient(assessment_attempt_id: int):
         return repo.get_assessment_attempt_with_recipient(session, assessment_attempt_id)
 
 
-# Challenges (CodeStrike, Blueprint Arena, Champions Cup, skim checks) are played inside the
+# Challenges (CodeStrike, Blueprint Arena, skim checks) are played inside the
 # learning flow and show their own result screen; they never go to the notification inbox.
 _NO_INBOX_TYPES = {"CHALLENGE", "KNOWLEDGE_CHECK"}
 

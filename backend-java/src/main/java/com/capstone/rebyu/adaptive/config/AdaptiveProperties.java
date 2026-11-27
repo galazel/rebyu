@@ -32,7 +32,6 @@ public class AdaptiveProperties {
 
     private int finalRoundMax = 0;
 
-    // Off unless ADAPTIVE_REPLENISH_ENABLED=true: each top-up is a paid AI run that no admin starts.
     private boolean replenishEnabled = false;
     private double replenishSeenShare = 0.7;
     private int replenishCooldownHours = 24;

@@ -24,11 +24,8 @@ public class UserTypeSeeder implements ApplicationRunner {
     private static final List<String> REQUIRED_TYPES = List.of(
 
             "LEARNER",
-
             "INSTITUTION",
-
             "DEPARTMENT_HEAD",
-
             "ADMIN");
 
     private final UserTypeRepository userTypeRepository;

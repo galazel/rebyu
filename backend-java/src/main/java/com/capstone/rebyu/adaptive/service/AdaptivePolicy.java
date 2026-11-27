@@ -56,7 +56,6 @@ public class AdaptivePolicy {
     }
 
     public static boolean belongsInFinalRound(String examTypeText, String questionType) {
-        // The five-item lesson challenge mixes all formats in its main round.
         return !KNOWLEDGE_CHECK.equals(examTypeText) && isWorkspaceType(questionType);
     }
 
@@ -78,13 +77,6 @@ public class AdaptivePolicy {
         return questionType != null && WORKSPACE_TYPES.contains(questionType.trim().toUpperCase());
     }
 
-    /**
-     * How much a critical-thinking item -- descriptive, programming, diagram -- counts
-     * against one objective item. Producing a program or a model is several decisions,
-     * not one, so in an unweighted paper it is worth this many objective items in the
-     * percentage, and in the IRT update it discriminates this much more sharply.
-     * Institution papers with their own per-question points are unaffected.
-     */
     public static final double WORKSPACE_SCORE_WEIGHT = 3.0;
     public static final double WORKSPACE_DISCRIMINATION = 2.0;
 

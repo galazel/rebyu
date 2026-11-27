@@ -36,32 +36,32 @@ Reference Materials:
     if total_lessons and appending:
         prompt += f"""
 
-HOW MANY LESSONS
-You are ADDING to an existing certification. Return EXACTLY {total_lessons} NEW
-lessons -- on top of the lessons already listed as covered, which do not count
-toward this number and must not be repeated. Distribute the new lessons across
-the major and middle categories you return by how much new material each area
-holds, rather than dividing them evenly.
+    HOW MANY LESSONS
+    You are ADDING to an existing certification. Return EXACTLY {total_lessons} NEW
+    lessons -- on top of the lessons already listed as covered, which do not count
+    toward this number and must not be repeated. Distribute the new lessons across
+    the major and middle categories you return by how much new material each area
+    holds, rather than dividing them evenly.
 
-This number governs: where it conflicts with any per-category count in your
-instructions, this total wins. It is a target, not a ceiling: {total_lessons}
-new lessons is what the admin asked for, and no later stage adds lessons."""
+    This number governs: where it conflicts with any per-category count in your
+    instructions, this total wins. It is a target, not a ceiling: {total_lessons}
+    new lessons is what the admin asked for, and no later stage adds lessons."""
     elif total_lessons:
         prompt += f"""
 
-HOW MANY LESSONS
-This curriculum must contain EXACTLY {total_lessons} lessons in total across
-the whole certification -- not per category, per certification. Distribute
-them across the major and middle categories by how much material each area
-actually holds, rather than dividing them evenly.
+    HOW MANY LESSONS
+    This curriculum must contain EXACTLY {total_lessons} lessons in total across
+    the whole certification -- not per category, per certification. Distribute
+    them across the major and middle categories by how much material each area
+    actually holds, rather than dividing them evenly.
 
-This number governs. Where it conflicts with any per-category count given in
-your instructions, this total wins: produce however many categories it takes
-to hold exactly {total_lessons} lessons.
+    This number governs. Where it conflicts with any per-category count given in
+    your instructions, this total wins: produce however many categories it takes
+    to hold exactly {total_lessons} lessons.
 
-It is a target, not a ceiling to shelter under: {total_lessons} lessons is
-what the admin asked to be taught, and a plan that stops at half of it leaves
-the rest of the syllabus untaught, because no later stage adds lessons."""
+    It is a target, not a ceiling to shelter under: {total_lessons} lessons is
+    what the admin asked to be taught, and a plan that stops at half of it leaves
+    the rest of the syllabus untaught, because no later stage adds lessons."""
 
     return prompt + "\n\nGenerate the curriculum now."
 

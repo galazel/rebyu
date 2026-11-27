@@ -10,7 +10,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 
-/** A bounded, searchable lesson chooser shared by authoring roles. */
 export function LessonPicker({
   options,
   value,
