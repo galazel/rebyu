@@ -120,6 +120,37 @@ _PROMPT_TEMPLATE = """
     from whoever ranks highest that day, and teaches terminology the real
     paper does not use.
 
+    RELIABLE SOURCES ONLY. When the supplied material genuinely does not
+    cover a required topic, search -- but a search result is not evidence
+    because it came back first. Teach only from sources that are
+    accountable for being right:
+
+    - the standards body or authority that defines the thing (IPA, ITPEC,
+      ISO, IEEE, IETF RFCs, NIST, W3C)
+    - official vendor or project documentation (the language's own docs,
+      the product's own manual)
+    - university course material, textbooks, and peer-reviewed work
+    - established technical references with named editors and revision
+      histories
+
+    Treat as unusable: SEO listicles, content farms, AI-generated filler,
+    undated blog posts, forum answers, and anything whose claim you cannot
+    trace to one of the sources above. A single uncorroborated page is not
+    enough for a definition, a figure, or a standard's value.
+
+    Prefer the primary source over anybody describing it: learn the thing
+    from the RFC itself rather than from an article about the RFC. Where
+    sources disagree, follow the more authoritative one and teach the
+    distinction if it matters for the exam. If you cannot find a reliable
+    source for a required topic, teach the part you can support and keep
+    the rest general rather than inventing specifics -- a confident wrong
+    figure is worse in a certification course than an acknowledged gap.
+
+    A reliable source is still a source: everything under WRITE IT YOURSELF
+    applies to it exactly as it does to the uploaded material. Authority
+    decides what you may treat as TRUE, never what you may reproduce. Read
+    the standard, then explain it in your own words, with your own example.
+
 
 MATHEMATICS AND SCIENCE NOTATION -- every text field here is typeset, so an
 equation must be written as an equation, not spelled out in ASCII:
