@@ -204,8 +204,10 @@
 .tg-flip.is-flipped .tg-flip-inner { transform: rotateY(180deg); }
 .tg-face {
   grid-area: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem;
-  padding: 1.75rem 1.5rem; border-radius: 1.4rem; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: auto;
+  padding: 1.75rem 1.5rem; border-radius: 1.4rem; overflow: auto;
 }
+.tg-flip-inner > .tg-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.tg-flip-inner > .tg-face-back { transform: rotateY(180deg); }
 .tg-face-front {
   color: var(--foreground); border: 2px solid var(--tg-line);
   background: radial-gradient(circle at 88% 12%, color-mix(in oklab, var(--tg-2) 35%, transparent) 0 46px, transparent 47px),
@@ -214,7 +216,7 @@
   box-shadow: 0 6px 0 var(--tg-line);
 }
 .tg-face-back {
-  transform: rotateY(180deg); color: #fff;
+  color: #fff;
   background: radial-gradient(circle at 90% 10%, rgb(255 255 255 / .18) 0 50px, transparent 51px), linear-gradient(150deg, var(--tg-2), var(--tg));
   box-shadow: 0 6px 0 color-mix(in oklab, var(--tg) 55%, #000);
 }

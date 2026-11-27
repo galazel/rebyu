@@ -139,6 +139,16 @@ try {
   const due = calls.find((call) => call.pathname.endsWith("/review-sessions/due"))
   assert.equal(due.body.lessonId, 77, "the review is scoped to the task's lesson")
   assert.equal(await where(), route, "opening a review does not navigate to the lesson")
+  await clickTask("Show answer")
+  const answer = await page.waitForSelector("[role=dialog] .tg-face-back")
+  const answerIsVisible = await answer.evaluate(async (panel) => {
+    await Promise.all(panel.getAnimations().map((animation) => animation.finished))
+    const { left, top, width, height } = panel.getBoundingClientRect()
+    return panel.contains(document.elementFromPoint(left + width / 2, top + height / 2))
+  })
+  assert.equal(await answer.evaluate((panel) => panel.querySelector("p:last-child").textContent.trim()), "First in, first out")
+  assert.ok(answerIsVisible, "the revealed answer faces the learner")
+  assert.equal(await page.$eval('[role=dialog] .tg-conf-good', (button) => button.disabled), false)
   await page.keyboard.press("Escape")
   await page.waitForFunction(() => !document.body.innerText.includes("FIFO"))
 
