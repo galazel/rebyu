@@ -3,6 +3,7 @@ package com.capstone.rebyu.assessment.service;
 import com.capstone.rebyu.assessment.dto.AddExamQuestionsRequest;
 import com.capstone.rebyu.assessment.dto.AssessmentDurationsRequest;
 import com.capstone.rebyu.assessment.dto.ExamDto;
+import com.capstone.rebyu.assessment.dto.GlobalAssessmentTimers;
 import com.capstone.rebyu.assessment.mapper.ExamMapper;
 import com.capstone.rebyu.assessment.entity.Exam;
 import com.capstone.rebyu.assessment.entity.ExamQuestion;
@@ -58,6 +59,7 @@ public class ExamService {
     private final MajorCategoryService majorCategoryService;
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
+    private final AssessmentTimerService assessmentTimers;
 
     public List<ExamDto> getAll(Long includeDepartmentId, Long certificationId, Long viewerLearnerId) {
         log.debug("Fetching exams (includeDepartmentId={}, certificationId={})", includeDepartmentId, certificationId);
@@ -71,9 +73,11 @@ public class ExamService {
                         || exam.getLearner().getLearnerId().equals(viewerLearnerId))
                 .toList();
         Map<Long, List<Long>> questionIdsByExamId = questionIdsByExamId(exams);
+        GlobalAssessmentTimers globalTimers = exams.isEmpty() ? null : assessmentTimers.getGlobal();
         return exams.stream()
                 .map(exam -> {
                     ExamDto dto = examMapper.toDto(exam);
+                    dto.setDurationMinutes(AssessmentTimerService.durationMinutes(exam, globalTimers));
                     dto.setQuestionIds(
                             questionIdsByExamId.getOrDefault(exam.getExamId(), List.of()));
                     return dto;
@@ -138,6 +142,9 @@ public class ExamService {
         Exam entity = examMapper.toEntity(dto);
         entity.setExamId(id);
         entity.setOwnerDepartment(existing.getOwnerDepartment());
+        if (AssessmentTimerService.controlsDuration(existing)) {
+            entity.setDurationMinutes(existing.storedDurationMinutes());
+        }
         normalizeForSave(entity, dto);
         if (entity.getStatus() == null) {
             entity.setStatus(existing.getStatus());
@@ -369,6 +376,7 @@ public class ExamService {
 
     private ExamDto toDtoWithQuestions(Exam exam) {
         ExamDto dto = examMapper.toDto(exam);
+        dto.setDurationMinutes(assessmentTimers.durationMinutes(exam));
         List<Long> questionIds = examQuestionRepository
                 .findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId())
                 .stream()
@@ -379,6 +387,8 @@ public class ExamService {
     }
 
     private void normalizeForSave(Exam entity, ExamDto dto) {
+        certificationRepository.findById(dto.getCertificationId()).ifPresent(entity::setCertification);
+        examTypeRepository.findById(dto.getExamTypeId()).ifPresent(entity::setExamType);
         if (dto.getQuestions() != null) {
             entity.setTotalQuestions(dto.getQuestions().size());
         } else if (dto.getQuestionIds() != null) {

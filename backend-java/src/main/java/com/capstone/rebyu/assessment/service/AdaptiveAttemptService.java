@@ -76,6 +76,7 @@ public class AdaptiveAttemptService {
     private final AssessmentAttemptQuestionRepository attemptQuestionRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final ObjectMapper objectMapper;
+    private final AssessmentTimerService assessmentTimers;
 
     private record CachedPool(List<QuestionSelectionView> views, Map<Long, Candidate> candidates,
                               java.time.Instant at) {
@@ -213,6 +214,7 @@ public class AdaptiveAttemptService {
         int target = session.target();
         int finalRound = session.finalRound();
 
+        Integer minutes = assessmentTimers.durationMinutes(exam);
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttempt attempt = AssessmentAttempt.builder()
                 .exam(exam)
@@ -221,7 +223,7 @@ public class AdaptiveAttemptService {
                 .attemptNumber(attemptNumber)
                 .status(AssessmentAttempt.Status.IN_PROGRESS)
                 .startedAt(now)
-                .expiresAt(exam.getDurationMinutes() != null ? now.plusMinutes(exam.getDurationMinutes()) : null)
+                .expiresAt(minutes == null ? null : now.plusMinutes(minutes))
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey : UUID.randomUUID().toString())
                 .adaptive(true)
@@ -254,6 +256,7 @@ public class AdaptiveAttemptService {
         Session session = prepareSession(exam, learnerId);
         AdaptiveSessionState state = session.state();
 
+        Integer minutes = assessmentTimers.durationMinutes(exam);
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttempt attempt = AssessmentAttempt.builder()
                 .exam(exam)
@@ -262,7 +265,7 @@ public class AdaptiveAttemptService {
                 .attemptNumber(attemptNumber)
                 .status(AssessmentAttempt.Status.IN_PROGRESS)
                 .startedAt(now)
-                .expiresAt(exam.getDurationMinutes() != null ? now.plusMinutes(exam.getDurationMinutes()) : null)
+                .expiresAt(minutes == null ? null : now.plusMinutes(minutes))
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey : UUID.randomUUID().toString())
                 .adaptive(false)

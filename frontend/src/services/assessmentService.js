@@ -48,11 +48,16 @@ export function updateExam(examId, exam) {
   return base(`exams/${examId}`, { method: "PUT", data: exam })
 }
 
-export function updateAssessmentDurations(certificationId, durations) {
-  return base(`exams/certification/${certificationId}/durations`, {
-    method: "PUT",
-    data: durations,
-  })
+function assessmentTimersPath(certificationId) {
+  return certificationId == null ? "exams/timers" : `exams/certification/${certificationId}/timers`
+}
+
+export function getAssessmentTimers(certificationId) {
+  return base(assessmentTimersPath(certificationId))
+}
+
+export function saveAssessmentTimers(certificationId, timers) {
+  return base(assessmentTimersPath(certificationId), { method: "PUT", data: timers })
 }
 
 export function deleteExam(examId) {

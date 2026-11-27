@@ -55,6 +55,10 @@ public class Exam {
     public static final int MIDDLE_EXAM_MINUTES = 20;
     public static final int MAJOR_EXAM_MINUTES = 30;
 
+    public Integer storedDurationMinutes() {
+        return durationMinutes;
+    }
+
     public Integer getDurationMinutes() {
         if (durationMinutes != null) return durationMinutes;
         String type = examType == null ? null : examType.getExamTypeText();

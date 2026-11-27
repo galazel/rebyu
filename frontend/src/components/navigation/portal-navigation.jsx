@@ -80,6 +80,7 @@ export const adminGroups = [
     icon: BookOpenCheck,
     items: [
       { label: "Certifications", href: "/admin", icon: Award },
+      { label: "Assessment timers", href: "/admin/assessment-timers", icon: Settings },
       { label: "Challenges", href: "/admin/challenges", icon: Swords },
     ],
   },

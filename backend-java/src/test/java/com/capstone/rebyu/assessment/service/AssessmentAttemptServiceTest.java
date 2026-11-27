@@ -114,7 +114,8 @@ class AssessmentAttemptServiceTest {
                 mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
                 assessmentEventProducer, rewardService, streakService, achievementAwardService,
                 mock(com.capstone.rebyu.challenge.repository.WorldCupMatchRepository.class),
-                mock(com.capstone.rebyu.reflection.service.ReflectionService.class));
+                mock(com.capstone.rebyu.reflection.service.ReflectionService.class),
+                new AssessmentTimerService(mock(org.springframework.jdbc.core.JdbcTemplate.class), null));
 
         Certification certification = new Certification();
         certification.setCertificationId(1L);
@@ -204,6 +205,7 @@ class AssessmentAttemptServiceTest {
 
         AssessmentAttemptStartResponseDto response =
                 service.startAttempt(5L, 2L, "start-key", null, null);
+        assertEquals(response.startedAt().plusMinutes(150), response.expiresAt());
 
         assertEquals(1, response.questions().size());
         assertEquals(2, response.questions().get(0).choices().size());

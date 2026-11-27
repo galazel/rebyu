@@ -135,6 +135,8 @@ public class AssessmentAttemptService {
     private static int checkPassedTopupXp()  { return RewardAmounts.getCheckPassedTopupXp(); }
     private static int checkPerfectTopupXp() { return RewardAmounts.getCheckPerfectTopupXp(); }
 
+    private final AssessmentTimerService assessmentTimers;
+
     private static final String KNOWLEDGE_CHECK_EXAM_TYPE = "KNOWLEDGE_CHECK";
 
     private static final BigDecimal PERFECT_PERCENTAGE = new BigDecimal("100");
@@ -163,7 +165,7 @@ public class AssessmentAttemptService {
                 exam.getExamType().getExamTypeText(),
                 exam.getDescription(),
                 exam.getInstructions(),
-                exam.getDurationMinutes(),
+                assessmentTimers.durationMinutes(exam),
                 (int) questionCount,
                 adaptivePolicy.isAdaptive(exam) && AdaptivePolicy.ADAPTIVE_TYPES.contains(examType)
                         ? null : exam.getPassingScore(),
@@ -413,6 +415,7 @@ public class AssessmentAttemptService {
             }
         }
 
+        Integer minutes = timeLimitMinutes(exam, questionsToUse);
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttempt attempt = AssessmentAttempt.builder()
                 .exam(exam)
@@ -421,9 +424,7 @@ public class AssessmentAttemptService {
                 .attemptNumber(nextAttemptNumber)
                 .status(AssessmentAttempt.Status.IN_PROGRESS)
                 .startedAt(now)
-                .expiresAt(timeLimitMinutes(exam, questionsToUse) != null
-                        ? now.plusMinutes(timeLimitMinutes(exam, questionsToUse))
-                        : null)
+                .expiresAt(minutes == null ? null : now.plusMinutes(minutes))
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey
                         : UUID.randomUUID().toString())
@@ -2188,7 +2189,7 @@ public class AssessmentAttemptService {
 
     /** The clock for a stage holding these questions (a single stage per arena attempt). */
     private Integer timeLimitMinutes(Exam exam, List<Question> stageQuestions) {
-        if (!isStagedArena(exam)) return exam == null ? null : exam.getDurationMinutes();
+        if (!isStagedArena(exam)) return assessmentTimers.durationMinutes(exam);
         Long questionId = stageQuestions == null || stageQuestions.size() != 1
                 ? null : stageQuestions.get(0).getQuestionId();
         return stageMinutesFor(exam, questionId);

@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -16,6 +17,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "certifications")
+@DynamicUpdate
 @Getter
 @Setter
 @NoArgsConstructor
@@ -59,6 +61,12 @@ public class Certification {
 
     @Column(name = "badge_image_key", length = 500)
     private String badgeImageKey;
+
+    @Column(name = "diagnostic_minutes")
+    private Integer diagnosticMinutes;
+
+    @Column(name = "mock_exam_minutes")
+    private Integer mockExamMinutes;
 
     public enum CertificationStatus{
         PUBLISHED, DRAFT, COMING_SOON

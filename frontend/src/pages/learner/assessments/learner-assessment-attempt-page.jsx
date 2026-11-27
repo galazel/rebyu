@@ -779,7 +779,7 @@ export default function LearnerAssessmentAttemptPage() {
     const crossed = (left, mark) =>
       previous != null && previous > mark && left <= mark && started - mark >= 60
     const tick = () => {
-      const left = Math.max(0, Math.round((endAt - Date.now()) / 1000))
+      const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
       setRemainingSeconds(left)
       if (started == null) started = left
       if (crossed(left, 600) && !warnedRef.current.ten) {

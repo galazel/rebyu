@@ -65,7 +65,8 @@ class ExamServiceTest {
                 examRepository, org.mockito.Mockito.mock(com.capstone.rebyu.common.CascadeDeleteService.class), examQuestionRepository, questionRepository,
                 examTypeRepository, certificationRepository, majorCategoryRepository,
                 middleCategoryRepository, lessonRepository, examMapper, majorCategoryService,
-                adaptivePolicy, questionBankSize);
+                adaptivePolicy, questionBankSize,
+                new AssessmentTimerService(org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class), certificationRepository));
     }
 
     @Test

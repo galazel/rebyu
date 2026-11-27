@@ -62,7 +62,8 @@ class AdaptiveAttemptServiceTest {
         var policy = new AdaptivePolicy(properties);
         var bank = new QuestionBankSizeService(eligibleQuestions, policy, properties);
         var service = new AdaptiveAttemptService(attempts, properties, policy, null, bank, abilities, null, bankCycles,
-                questionRepository, null, attemptRepository, attemptQuestions, attemptAnswers, new ObjectMapper());
+                questionRepository, null, attemptRepository, attemptQuestions, attemptAnswers, new ObjectMapper(),
+                new AssessmentTimerService(mock(org.springframework.jdbc.core.JdbcTemplate.class), null));
         var certification = new Certification();
         certification.setCertificationId(2L);
         var exam = Exam.builder().examId(1L)
@@ -115,6 +116,7 @@ class AdaptiveAttemptServiceTest {
         when(attempts.scoreOf(any(), any())).thenReturn(correct ? 1.0 : 0.0);
 
         AssessmentAttempt attempt = service.start(exam, 1L, 1, "key");
+        assertEquals(attempt.getStartedAt().plusMinutes(30), attempt.getExpiresAt());
         when(attempts.requireOwnedAttempt(1L, 1L)).thenReturn(attempt);
         assertEquals(20, service.progressOf(attempt).total());
         assertEquals(1L, served.get(1L).getSourceQuestionId().longValue());

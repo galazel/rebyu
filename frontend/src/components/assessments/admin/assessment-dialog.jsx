@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
 
@@ -26,6 +27,7 @@ import {
 import {
   createExam,
   ensureExamType,
+  getAssessmentTimers,
   updateExam,
 } from "@/services/assessmentService.js"
 import AssessmentQuestionPickerDialog from "./assessment-question-picker-dialog.jsx"
@@ -34,6 +36,14 @@ import ExamFormatPanel from "./exam-format-panel.jsx"
 // Mirrors AdaptivePolicy.ADAPTIVE_TYPES. The diagnostic and mock are fixed papers:
 // the questions picked here are exactly what every learner sits.
 const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM"])
+
+const TIMER_FIELDS = {
+  LESSON_QUIZ: "lessonQuizMinutes",
+  MIDDLE_EXAM: "middleExamMinutes",
+  MAJOR_EXAM: "majorExamMinutes",
+  DIAGNOSTIC: "diagnosticMinutes",
+  MOCK_EXAM: "mockExamMinutes",
+}
 
 const ASSESSMENT_CREATE_TYPES = [
   {
@@ -254,6 +264,20 @@ export default function AssessmentDialog({
   }, [targetOptions, targetId])
 
   const typeLabel = createTypeConfig.label
+  const usesSharedTimer = ADAPTIVE_TYPES.has(createTypeConfig.examTypeText)
+  const certificationId = certification?.certificationId
+  const timerScope = usesSharedTimer ? null : certificationId
+  const hasCertificationTimer = ownerDepartmentId == null && exam?.ownerDepartmentId == null && certificationId != null
+  const timers = useQuery({
+    queryKey: ["assessment-timers", timerScope == null ? null : String(timerScope)],
+    queryFn: () => getAssessmentTimers(timerScope),
+    enabled: open && hasCertificationTimer,
+  })
+  const managedMinutes = hasCertificationTimer ? timers.data?.[TIMER_FIELDS[createTypeConfig.examTypeText]] : null
+  const managedTimer = hasCertificationTimer && (usesSharedTimer || managedMinutes != null)
+  const timerSettingsPath = usesSharedTimer
+    ? "/admin/assessment-timers"
+    : `/admin/certification/${certificationId}/assessments`
 
   useEffect(() => {
     if (!open) return
@@ -359,7 +383,7 @@ export default function AssessmentDialog({
         examTypeId: examType.examTypeId,
         title: title.trim(),
         isGenerated: exam?.isGenerated ?? false,
-        durationMinutes: durationMinutes ? Number(durationMinutes) : null,
+        durationMinutes: !managedTimer && durationMinutes ? Number(durationMinutes) : null,
         totalQuestions: questionIds.length,
         passingScore: isAdaptiveType ? (exam?.passingScore ?? null) : passingScore ? Number(passingScore) : null,
         releaseAnswersAfterSubmit,
@@ -751,6 +775,17 @@ export default function AssessmentDialog({
                         </div>
                     ) : null}
 
+                    {managedTimer ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Duration</p>
+                        <p className="text-sm text-muted-foreground">
+                          {managedMinutes != null ? `${managedMinutes} min · ` : null}
+                          <Link to={timerSettingsPath} className="underline underline-offset-4">
+                            {usesSharedTimer ? "Shared assessment timers" : "Certification timers"}
+                          </Link>
+                        </p>
+                      </div>
+                    ) : (
                     <div className="space-y-2">
                       <Label htmlFor="assessment-duration">
                         Duration (minutes)
@@ -770,6 +805,7 @@ export default function AssessmentDialog({
                           placeholder="60"
                       />
                     </div>
+                    )}
 
                     {!isAdaptiveType ? <div className="space-y-2">
                       <Label htmlFor="assessment-passing">
@@ -844,7 +880,7 @@ export default function AssessmentDialog({
                           certificationId={certification?.certificationId}
                           selectedCount={selectedQuestions.length}
                           onUseTiming={({ durationMinutes: minutes, passingScore: passing }) => {
-                            if (minutes) setDurationMinutes(String(minutes))
+                            if (minutes && !managedTimer) setDurationMinutes(String(minutes))
                             if (passing) setPassingScore(String(passing))
                           }}
                       />
@@ -1020,7 +1056,13 @@ export default function AssessmentDialog({
                       <dt className="text-muted-foreground">Duration</dt>
 
                       <dd className="font-medium">
-                        {durationMinutes ? `${durationMinutes} min` : "No limit"}
+                        {managedTimer
+                          ? managedMinutes != null ? `${managedMinutes} min` : "Shared timer"
+                          : durationMinutes
+                            ? `${durationMinutes} min`
+                            : hasCertificationTimer
+                              ? "Certification default"
+                              : "No limit"}
                       </dd>
                     </div>
 

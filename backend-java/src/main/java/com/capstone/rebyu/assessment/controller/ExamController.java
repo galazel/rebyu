@@ -2,7 +2,10 @@ package com.capstone.rebyu.assessment.controller;
 
 import com.capstone.rebyu.assessment.dto.AddExamQuestionsRequest;
 import com.capstone.rebyu.assessment.dto.AssessmentDurationsRequest;
+import com.capstone.rebyu.assessment.dto.CertificationAssessmentTimers;
+import com.capstone.rebyu.assessment.dto.GlobalAssessmentTimers;
 import com.capstone.rebyu.assessment.dto.ExamDto;
+import com.capstone.rebyu.assessment.service.AssessmentTimerService;
 import com.capstone.rebyu.assessment.service.ExamService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
@@ -10,6 +13,7 @@ import com.capstone.rebyu.department.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +27,7 @@ public class ExamController {
     private final ExamService examService;
     private final DepartmentService departmentService;
     private final CognitoAuthService auth;
+    private final AssessmentTimerService assessmentTimers;
 
     @GetMapping
     public List<ExamDto> getAll(
@@ -59,6 +64,40 @@ public class ExamController {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         return examService.update(id, dto, isAdmin, user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    @GetMapping("/timers")
+    public GlobalAssessmentTimers getGlobalTimers(@AuthenticationPrincipal Jwt jwt) {
+        requireAdmin(jwt);
+        return assessmentTimers.getGlobal();
+    }
+
+    @PutMapping("/timers")
+    public GlobalAssessmentTimers saveGlobalTimers(
+            @AuthenticationPrincipal Jwt jwt, @Valid @RequestBody GlobalAssessmentTimers timers) {
+        requireAdmin(jwt);
+        return assessmentTimers.saveGlobal(timers);
+    }
+
+    @GetMapping("/certification/{certificationId}/timers")
+    public CertificationAssessmentTimers getCertificationTimers(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long certificationId) {
+        requireAdmin(jwt);
+        return assessmentTimers.getCertification(certificationId);
+    }
+
+    @PutMapping("/certification/{certificationId}/timers")
+    public CertificationAssessmentTimers saveCertificationTimers(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long certificationId,
+            @Valid @RequestBody CertificationAssessmentTimers timers) {
+        requireAdmin(jwt);
+        return assessmentTimers.saveCertification(certificationId, timers);
+    }
+
+    private void requireAdmin(Jwt jwt) {
+        if (!isAdmin(requireAdminOrInstitution(jwt))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access is required");
+        }
     }
 
     @PutMapping("/certification/{certificationId}/durations")

@@ -48,110 +48,15 @@ import {
   getExamQuestions,
   getExamTypes,
   getExams,
-  updateAssessmentDurations,
   usesIrtProficiency,
 } from "@/services/assessmentService.js"
 import { getQuestions } from "@/services/questionService.js"
 import AssessmentDialog from "./assessment-dialog.jsx"
+import AssessmentTimerSettings from "./assessment-timer-settings.jsx"
 import AssessmentPreviewDialog from "./assessment-preview-dialog.jsx"
 import ExamFormatPanel from "./exam-format-panel.jsx"
 
 const PAGE_SIZE = 10
-
-const BULK_DURATION_TYPES = [
-  { type: "DIAGNOSTIC", field: "diagnosticMinutes", label: "Diagnostic exams" },
-  { type: "LESSON_QUIZ", field: "lessonQuizMinutes", label: "Lesson quizzes" },
-  { type: "MIDDLE_EXAM", field: "middleExamMinutes", label: "Middle exams" },
-  { type: "MAJOR_EXAM", field: "majorExamMinutes", label: "Major exams" },
-]
-
-function AssessmentDurationPanel({ certificationId, exams, examTypeByIdText }) {
-  const queryClient = useQueryClient()
-  const [minutes, setMinutes] = useState({})
-  const [sharedMinutes, setSharedMinutes] = useState("")
-  const groups = useMemo(() => BULK_DURATION_TYPES.map((config) => {
-    const matches = exams.filter((exam) =>
-      exam.ownerDepartmentId == null &&
-      normalizeAssessmentType(examTypeByIdText.get(exam.examTypeId)) === config.type,
-    )
-    const values = new Set(matches.map((exam) => exam.durationMinutes).filter((value) => value != null))
-    return { ...config, count: matches.length, current: values.size === 1 ? String([...values][0]) : "" }
-  }), [exams, examTypeByIdText])
-
-  useEffect(() => {
-    setMinutes(Object.fromEntries(groups.map(({ field, current }) => [field, current])))
-  }, [groups])
-
-  const mutation = useMutation({
-    mutationFn: (durations) => updateAssessmentDurations(certificationId, durations),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["exams"] })
-      toast.success("Assessment timers updated. New attempts will use these limits.")
-    },
-    onError: (error) => toast.error(error?.response?.data?.message ?? "Could not update assessment timers."),
-  })
-
-  const changes = Object.fromEntries(groups
-    .filter(({ field, current, count }) => count > 0 && minutes[field] && minutes[field] !== current)
-    .map(({ field }) => [field, Number(minutes[field])]))
-  const invalid = Object.values(changes).some((value) => !Number.isInteger(value) || value < 1)
-
-  return (
-    <section className="shrink-0 rounded-xl border border-border/80 bg-background p-4">
-      <h3 className="text-sm font-semibold">Assessment timers</h3>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Set one time per type for this certification. Saving applies it to every existing assessment of that type; active attempts keep their original deadline.
-      </p>
-      <div className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="w-44 text-xs font-medium">
-          Same time for all four
-          <Input
-            className="mt-1"
-            type="number"
-            min="1"
-            step="1"
-            value={sharedMinutes}
-            onChange={(event) => setSharedMinutes(event.target.value)}
-            placeholder="Minutes"
-            disabled={mutation.isPending}
-          />
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!Number.isInteger(Number(sharedMinutes)) || Number(sharedMinutes) < 1 || mutation.isPending}
-          onClick={() => setMinutes(Object.fromEntries(groups.map(({ field }) => [field, sharedMinutes])))}
-        >
-          Use for all four
-        </Button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        {groups.map(({ type, field, label, count }) => (
-          <label key={type} className="min-w-36 flex-1 text-xs font-medium">
-            {label} <span className="text-muted-foreground">({count})</span>
-            <Input
-              className="mt-1"
-              type="number"
-              min="1"
-              step="1"
-              value={minutes[field] ?? ""}
-              placeholder={count ? "Mixed times" : "No assessments"}
-              disabled={!count || mutation.isPending}
-              onChange={(event) => setMinutes((current) => ({ ...current, [field]: event.target.value }))}
-            />
-          </label>
-        ))}
-        <Button
-          type="button"
-          disabled={mutation.isPending || invalid || Object.keys(changes).length === 0}
-          onClick={() => mutation.mutate(changes)}
-        >
-          {mutation.isPending ? "Saving…" : "Apply timers to all"}
-        </Button>
-      </div>
-    </section>
-  )
-}
 
 const ASSESSMENT_FILTER_TYPES = [
   { value: "DIAGNOSTIC", label: "Diagnostic Exam" },
@@ -435,12 +340,23 @@ export default function AssessmentsTab({
           (examQuestion) => examQuestion.examId === exam.examId
       )
 
+  const currentDurations = {}
+  for (const [type, field] of [["DIAGNOSTIC", "diagnosticMinutes"], ["MOCK_EXAM", "mockExamMinutes"]]) {
+    const durations = new Set(data.exams
+      .filter((exam) => exam.ownerDepartmentId == null && exam.status !== "ARCHIVED"
+        && normalizeAssessmentType(data.examTypeByIdText.get(exam.examTypeId)) === type)
+      .map((exam) => exam.durationMinutes))
+    const [duration] = durations
+    if (durations.size === 1 && duration != null) currentDurations[field] = `${duration} min`
+    else if (durations.size > 1) currentDurations[field] = "Mixed assessment durations"
+  }
+
   return (
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <AssessmentDurationPanel
+        <AssessmentTimerSettings
+          key={certification.certificationId}
           certificationId={certification.certificationId}
-          exams={data.exams}
-          examTypeByIdText={data.examTypeByIdText}
+          currentDurations={currentDurations}
         />
         <div className="shrink-0">
           <ExamFormatPanel certificationId={certification.certificationId} editable />
