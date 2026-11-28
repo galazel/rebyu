@@ -18,6 +18,7 @@ public class AccountDeletionService {
     private final com.capstone.rebyu.common.CascadeDeleteService cascade;
     private final com.capstone.rebyu.common.DeletionCleanupService cleanup;
     private final org.springframework.context.ApplicationEventPublisher events;
+    private final com.capstone.rebyu.institution.service.InstitutionService institutions;
 
     @Transactional
     public void deleteLearner(Long learnerId) {
@@ -41,6 +42,16 @@ public class AccountDeletionService {
         String cognitoSub = userId == null ? null : jdbc.query(
                 "SELECT cognito_sub FROM users WHERE user_id = ?",
                 rs -> rs.next() ? rs.getString(1) : null, userId);
+
+        // Nothing points from institutions back to users -- the contact is a plain text
+        // column -- so a cascade from the user alone leaves an institution they founded
+        // standing, with its departments, certificates and invoices, and still claimed on
+        // the public request-access form. An institution this person solely owns goes with
+        // them; one that has another owner stays, and they are simply removed from it.
+        for (Long institutionId : solelyOwnedInstitutions(userId)) {
+            log.info("Deleting institution {} with its only owner, user {}", institutionId, userId);
+            institutions.delete(institutionId);
+        }
 
         // The shared walker also follows id columns with no foreign key -- a learner's quiz and
         // exam attempts among them, which the old walk silently left behind.
@@ -66,6 +77,21 @@ public class AccountDeletionService {
         }
         log.info("Deleted user {} (learner ids {}, {} stored files queued for cleanup, sign-in cleanup {})",
                 userId, learnerIds, fileKeys.size(), cognitoSub == null ? "not needed" : "queued");
+    }
+
+    /** Institutions where this user is an owner and no other owner remains. */
+    private List<Long> solelyOwnedInstitutions(Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
+        return jdbc.queryForList(
+                "SELECT DISTINCT mine.institution_id FROM department_heads mine "
+                        + "WHERE mine.user_id = ? AND lower(mine.head_role) = 'owner' "
+                        + "AND NOT EXISTS (SELECT 1 FROM department_heads other "
+                        + "WHERE other.institution_id = mine.institution_id "
+                        + "AND other.user_id <> mine.user_id "
+                        + "AND lower(other.head_role) = 'owner')",
+                Long.class, userId);
     }
 
     /**
