@@ -105,10 +105,19 @@ public class ChallengeArenaController {
     }
     CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
     List<Long> ids = arenas.completedProblemIds(arenaId, user.learnerId());
-    return new MyProgress(ids, arenas.completedStageIndexes(arenaId, ids));
+    List<Long> tried = arenas.attemptedProblemIds(arenaId, user.learnerId());
+    return new MyProgress(
+        ids, arenas.completedStageIndexes(arenaId, ids),
+        tried, arenas.completedStageIndexes(arenaId, tried));
   }
 
-  public record MyProgress(List<Long> completedQuestionIds, List<Integer> completedStageIndexes) {}
+  /**
+   * `completed` is the passed set, which unlocks the next stage; `attempted` is every
+   * problem handed in, so a stage the learner failed reads as tried rather than untouched.
+   */
+  public record MyProgress(
+      List<Long> completedQuestionIds, List<Integer> completedStageIndexes,
+      List<Long> attemptedQuestionIds, List<Integer> attemptedStageIndexes) {}
 
   /** The weekly exam learners can play now; `edition` is null when none is published. */
   @GetMapping("/worldcup/active-edition")

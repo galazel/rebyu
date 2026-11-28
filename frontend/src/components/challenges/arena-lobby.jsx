@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { motion, useReducedMotion } from "framer-motion"
 
-import { ArrowLeft, Check, ChevronRight, Clock, Code2, Info, Loader2, Lock, Network, Trophy, Zap } from "@/components/icons"
+import { ArrowLeft, Check, ChevronRight, Clock, Code2, Info, Loader2, Lock, Network, RotateCcw, Trophy, Zap } from "@/components/icons"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
@@ -109,6 +109,10 @@ export function ArenaLobby({ arenaId, name, blurb }) {
   const completed = {
     ids: new Set((progressQuery.data?.questionIds ?? []).map(Number)),
     indexes: new Set((progressQuery.data?.stageIndexes ?? []).map(Number)),
+  }
+  const attempted = {
+    ids: new Set((progressQuery.data?.attemptedQuestionIds ?? []).map(Number)),
+    indexes: new Set((progressQuery.data?.attemptedStageIndexes ?? []).map(Number)),
   }
 
   const problems = problemsQuery.data ?? []
@@ -239,6 +243,7 @@ export function ArenaLobby({ arenaId, name, blurb }) {
           <StageTrail
             stages={stages}
             completed={completed}
+            attempted={attempted}
             tone={tone}
             arenaId={arenaId}
             examId={arena.examId}
@@ -279,26 +284,31 @@ function trailLayout(count, wide) {
   return { nodes, width, height }
 }
 
-function stageStates(stages, completed) {
+function stageStates(stages, completed, attempted) {
   // Learners never get the problem list (it is admin-only: it carries answers), so their
   // stages are placeholders and are matched by position; admins match by question id.
-  const done = stages.map((p, i) =>
-    p != null ? completed.ids.has(Number(p.questionId)) : completed.indexes.has(i)
-  )
+  const has = (set, p, i) => (p != null ? set.ids.has(Number(p.questionId)) : set.indexes.has(i))
+  const done = stages.map((p, i) => has(completed, p, i))
+  // Handed in but not passed. Only `done` unlocks the next stage, so a learner who keeps
+  // missing the pass mark stays where they are -- but the stage no longer reads as untouched.
+  const tried = stages.map((p, i) => !done[i] && has(attempted, p, i))
   const unlocked = stages.map((_, i) => i === 0 || done[i - 1])
   const currentIndex = stages.findIndex((_, i) => unlocked[i] && !done[i])
-  return stages.map((_, i) => (done[i] ? "done" : i === currentIndex ? "current" : unlocked[i] ? "open" : "locked"))
+  return stages.map((_, i) =>
+    done[i] ? "done" : tried[i] ? "tried" : i === currentIndex ? "current" : unlocked[i] ? "open" : "locked"
+  )
 }
 
-function StageTrail({ stages, completed, tone, arenaId, examId, minutesAt, pointsAt, totalPoints }) {
+function StageTrail({ stages, completed, attempted, tone, arenaId, examId, minutesAt, pointsAt, totalPoints }) {
   const wide = useWideScreen()
   const reduceMotion = useReducedMotion()
   const scrollerRef = useRef(null)
   const [edges, setEdges] = useState({ start: true, end: false })
   const count = stages.length
   const { nodes, width, height } = trailLayout(count, wide)
-  const states = stageStates(stages, completed)
+  const states = stageStates(stages, completed, attempted)
   const doneCount = states.filter((s) => s === "done").length
+  const triedCount = states.filter((s) => s === "tried").length
 
   const points = nodes.map(({ cx, top }) => [cx, top + LIFT + PLINTH_H / 2])
   const d = points
@@ -368,7 +378,8 @@ function StageTrail({ stages, completed, tone, arenaId, examId, minutesAt, point
           <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-rb-wolf">stages</p>
           <h2 className="font-rb-display text-2xl font-extrabold text-rb-eel">Clear them in order</h2>
           <p className="mt-0.5 text-xs font-bold text-rb-wolf">
-            {doneCount} of {count} done · each stage unlocks the next
+            {doneCount} of {count} done
+            {triedCount ? ` · ${triedCount} attempted, not passed` : null} · each stage unlocks the next
           </p>
         </div>
         {wide ? (
@@ -452,8 +463,11 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
   // Same faces as the learning path: filled when done or current, open when
   // playable, grey when locked.
   const current = state === "current"
+  // Handed in but short of the pass mark: still the stage the learner is on, so it keeps
+  // the filled "you are here" face and only the caption and badge say it was not passed.
+  const tried = state === "tried"
   const locked = state === "locked"
-  const filled = state === "done" || current
+  const filled = state === "done" || current || tried
   const faces = locked
     ? {
         top: "var(--color-rb-swan)",
@@ -485,7 +499,7 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
           ? { role: "img", title: `Pass stage ${index} to unlock this one` }
           : { to })}
         aria-label={`Stage ${index + 1}, ${difficulty.label}, ${points} points${
-          locked ? " (locked)" : state === "done" ? " (done)" : ""
+          locked ? " (locked)" : state === "done" ? " (done)" : tried ? " (attempted, not passed)" : ""
         }`}
         className={cn(
           "group absolute inset-0 block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw",
@@ -511,6 +525,14 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
           >
             <Check className="size-4" aria-hidden="true" />
           </span>
+        ) : tried ? (
+          <span
+            className="absolute right-3 grid size-8 place-items-center rounded-full bg-rb-snow text-rb-cardinal shadow-[0_2px_4px_rgb(0_0_0/0.18)]"
+            style={{ top: LIFT - 10 }}
+            title="Attempted, not passed yet"
+          >
+            <RotateCcw className="size-4" aria-hidden="true" />
+          </span>
         ) : null}
       </NodeTag>
 
@@ -531,6 +553,8 @@ function StageNode({ index, cx, top, labelBelow, state, tone, problem, arenaId, 
           <p className="mt-1 text-[11px] font-bold text-rb-wolf">Pass stage {index} to unlock</p>
         ) : state === "done" ? (
           <p className="mt-1 text-[11px] font-bold text-rb-leaf">Done · play again any time</p>
+        ) : tried ? (
+          <p className="mt-1 text-[11px] font-bold text-rb-cardinal">Attempted · try again to pass</p>
         ) : null}
       </NodeLabel>
     </div>

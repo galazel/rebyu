@@ -227,6 +227,22 @@ public class ChallengeArenaService {
   }
 
   /**
+   * Which of an arena's problems this learner has handed in at all, passed or not.
+   * A stage the learner tried and failed must not look untouched in the lobby, so the
+   * trail marks it separately; only the passed set in `completedProblemIds` unlocks the
+   * next stage.
+   */
+  @Transactional(readOnly = true)
+  public List<Long> attemptedProblemIds(String arenaId, Long learnerId) {
+    requireKnownArena(arenaId);
+    Exam exam = findArenaExam(arenaId);
+    if (exam == null || learnerId == null) {
+      return List.of();
+    }
+    return attemptQuestions.findSubmittedSourceQuestionIds(learnerId, exam.getExamId());
+  }
+
+  /**
    * Which stage positions (0-based, in arena order) this learner has handed in. Learners
    * cannot read the problem list itself (it carries answers), so the lobby matches by
    * position.

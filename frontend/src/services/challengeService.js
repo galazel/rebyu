@@ -26,13 +26,16 @@ export async function saveArenaProblems(arenaId, { certificationId, timeLimitMin
 /**
  * The arena problems the signed-in learner has handed in: their question ids and
  * their stage positions (0-based). Learners cannot read the problem list itself,
- * so the lobby matches stages by position.
+ * so the lobby matches stages by position. `attempted*` is every problem handed in,
+ * passed or not; the plain fields are the passed ones, which unlock the next stage.
  */
 export async function getArenaProgress(arenaId) {
   const response = await base(`challenge-arenas/${arenaId}/my-progress`)
   return {
     questionIds: Array.isArray(response?.completedQuestionIds) ? response.completedQuestionIds : [],
     stageIndexes: Array.isArray(response?.completedStageIndexes) ? response.completedStageIndexes : [],
+    attemptedQuestionIds: Array.isArray(response?.attemptedQuestionIds) ? response.attemptedQuestionIds : [],
+    attemptedStageIndexes: Array.isArray(response?.attemptedStageIndexes) ? response.attemptedStageIndexes : [],
   }
 }
 
