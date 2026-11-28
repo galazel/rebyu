@@ -15,7 +15,14 @@ function ProtectedRoute({ allowedRoles }) {
     return <Navigate to="/login" replace />
   }
 
-  const role = (user?.role ?? "LEARNER").toUpperCase()
+  // No role yet means the identity is still resolving, not that this is a learner.
+  // Guessing LEARNER here sent a brand-new institution owner or department head to
+  // /learner/analytics (roleHomePath's fallback) seconds after finishing setup.
+  const role = String(user?.role ?? "").toUpperCase()
+  if (!role) {
+    return <LoadingSignal />
+  }
+
   if (!allowedRoles.includes(role)) {
     // A signed-in person outside their role's area goes to their own home, not /403.
     // This matters when the role changes mid-session (a new sign-up redeeming a

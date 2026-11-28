@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -63,8 +64,19 @@ function clearAuthUserSnapshot() {
 // is never treated as an authority here.
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient()
-  const [user, setUser] = useState(null)
+  const [user, setUserState] = useState(null)
   const [status, setStatus] = useState("loading")
+
+  // The cached snapshot is a first-paint shortcut, never an authority. It must not
+  // replace a user we have already resolved: a role that changed this session (a
+  // learner finishing institution setup, or redeeming a department head code) would
+  // be undone for a render, and ProtectedRoute would send them to the learner home
+  // before the fresh identity arrived.
+  const userRef = useRef(null)
+  const setUser = useCallback((next) => {
+    userRef.current = next
+    setUserState(next)
+  }, [])
 
   const refresh = useCallback(async () => {
     const token = await getAccessToken()
@@ -76,7 +88,7 @@ export function AuthProvider({ children }) {
     const subject = subjectOf(token)
     try {
       const cachedUser = readAuthUserSnapshot(subject)
-      if (cachedUser) {
+      if (cachedUser && userRef.current == null) {
         setUser(cachedUser)
         setStatus("authenticated")
       }
@@ -119,7 +131,7 @@ export function AuthProvider({ children }) {
       clearAuthUserSnapshot()
       return null
     }
-  }, [queryClient])
+  }, [queryClient, setUser])
 
   useEffect(() => {
     refresh()
@@ -178,7 +190,7 @@ export function AuthProvider({ children }) {
     setUser(null)
     setStatus("anonymous")
     toast.success("Successfully logged out.")
-  }, [queryClient])
+  }, [queryClient, setUser])
 
   usePresenceHeartbeat(status === "authenticated")
 
