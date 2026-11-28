@@ -52,7 +52,6 @@ import {
   seriesColor,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
-import InstitutionDrilldownStatsCard from "@/components/institution/institution-drilldown-stats-card.jsx"
 import { getDepartmentColor, getDepartmentAbbreviation } from "@/constants/departments.js"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 
@@ -303,23 +302,6 @@ export default function InstitutionDashboardPage() {
 
     return [
       {
-        id: "ent-members",
-        col: 3,
-        row: 3,
-        x: 0,
-        y: 0,
-        element: (
-          <BentoTile tone="plain" col={3} row={3}>
-            <InstitutionDrilldownStatsCard
-              certifications={certifications}
-              departments={departments}
-              enrollments={enrollments}
-              summary={summary}
-            />
-          </BentoTile>
-        ),
-      },
-      {
         id: "ent-seats",
         col: 3,
         row: 1,
@@ -381,8 +363,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-progress",
         col: 3,
         row: 2,
-        x: 3,
-        y: 1,
+        x: 0,
+        y: 0,
         element: (
           <BentoTile tone="plain" col={3} row={2}>
             <div className="flex h-full flex-col justify-between gap-3">
@@ -471,7 +453,7 @@ export default function InstitutionDashboardPage() {
         col: 6,
         row: 1,
         x: 0,
-        y: 3,
+        y: 2,
         element: (
           <BentoTile col={6} row={1}>
             <DashboardCardHeader
@@ -518,8 +500,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-group-completion",
         col: 3,
         row: 2,
-        x: 3,
-        y: 4,
+        x: 0,
+        y: 3,
         element: (
           <BentoTile col={3} row={2}>
             <DashboardCardHeader
@@ -548,7 +530,7 @@ export default function InstitutionDashboardPage() {
         col: 6,
         row: 2,
         x: 0,
-        y: 6,
+        y: 5,
         element: (
           <BentoTile col={6} row={2}>
             <DashboardCardHeader
@@ -592,7 +574,7 @@ export default function InstitutionDashboardPage() {
         col: 6,
         row: 3,
         x: 0,
-        y: 8,
+        y: 7,
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -737,8 +719,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-invitations",
         col: 3,
         row: 2,
-        x: 0,
-        y: 11,
+        x: 3,
+        y: 3,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -797,9 +779,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-allocations",
         col: 3,
-        row: 2,
+        row: 1,
         x: 3,
-        y: 11,
+        y: 1,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
