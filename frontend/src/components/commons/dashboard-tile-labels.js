@@ -32,30 +32,29 @@ export const ADMIN_DEFAULT = {
 
 export const INSTITUTION_DEFAULT = {
   order: [
-    "ent-progress",
-    "ent-seats",
-    "ent-allocations",
+    "ent-members", "ent-seats", "ent-progress",
     "ent-key-figures",
-    "ent-group-completion",
-    "ent-invitations",
     "ent-activity-trend",
+    "ent-group-completion", "ent-invitations",
+    "ent-allocations",
     "ent-member-table",
   ],
-  cols: { "ent-invitations": 3 },
+  cols: {},
 }
 
 // A complete desktop grid used whenever an institution board is new or needs
 // migrating after a tile is retired. Heights are intentionally generous so the
 // edit board never crops charts or leaves mismatched holes beside a taller card.
 export const INSTITUTION_PRESET = [
-  { id: "ent-progress", x: 0, y: 0, w: 3, h: 4 },
+  { id: "ent-members", x: 0, y: 0, w: 3, h: 6 },
   { id: "ent-seats", x: 3, y: 0, w: 3, h: 2 },
-  { id: "ent-allocations", x: 3, y: 2, w: 3, h: 2 },
-  { id: "ent-key-figures", x: 0, y: 4, w: 6, h: 2 },
-  { id: "ent-group-completion", x: 0, y: 6, w: 3, h: 4 },
-  { id: "ent-invitations", x: 3, y: 6, w: 3, h: 4 },
-  { id: "ent-activity-trend", x: 0, y: 10, w: 6, h: 4 },
-  { id: "ent-member-table", x: 0, y: 14, w: 6, h: 3 },
+  { id: "ent-progress", x: 3, y: 2, w: 3, h: 4 },
+  { id: "ent-key-figures", x: 0, y: 6, w: 6, h: 2 },
+  { id: "ent-activity-trend", x: 0, y: 8, w: 6, h: 4 },
+  { id: "ent-group-completion", x: 0, y: 12, w: 3, h: 4 },
+  { id: "ent-invitations", x: 3, y: 12, w: 3, h: 4 },
+  { id: "ent-allocations", x: 0, y: 16, w: 6, h: 3 },
+  { id: "ent-member-table", x: 0, y: 19, w: 6, h: 3 },
 ]
 
 export const INSTITUTION_TILE_LABELS = {

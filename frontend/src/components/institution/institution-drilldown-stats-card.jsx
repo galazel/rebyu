@@ -1163,7 +1163,7 @@ export default function InstitutionDrilldownStatsCard({
               <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
                 <div className="relative flex h-[285px] w-full shrink-0 items-center justify-center sm:h-[305px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
+                    <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                       <Tooltip content={() => null} cursor={false} />
 
                       {level1OuterData.length > 0 && (
@@ -1172,7 +1172,7 @@ export default function InstitutionDrilldownStatsCard({
                           dataKey="value"
                           startAngle={90}
                           endAngle={-270}
-                          cx="63%"
+                          cx="50%"
                           cy="50%"
                           innerRadius="85%"
                           outerRadius="91%"
@@ -1196,7 +1196,7 @@ export default function InstitutionDrilldownStatsCard({
                         nameKey="name"
                         startAngle={90}
                         endAngle={-270}
-                        cx="63%"
+                        cx="50%"
                         cy="50%"
                         innerRadius="54%"
                         outerRadius="80%"
@@ -1233,7 +1233,7 @@ export default function InstitutionDrilldownStatsCard({
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
-                      left: "63%",
+                      left: "50%",
                       top: "50%",
                       transform: "translate(-50%, -50%)",
                     }}
@@ -1474,7 +1474,7 @@ export default function InstitutionDrilldownStatsCard({
               <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
                 <div className="relative flex h-[285px] w-full shrink-0 items-center justify-center sm:h-[305px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
+                    <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                       <Tooltip content={() => null} cursor={false} />
 
                       {level2OuterData.length > 0 && (
@@ -1483,7 +1483,7 @@ export default function InstitutionDrilldownStatsCard({
                           dataKey="value"
                           startAngle={90}
                           endAngle={-270}
-                          cx="63%"
+                          cx="50%"
                           cy="50%"
                           innerRadius="85%"
                           outerRadius="91%"
@@ -1507,7 +1507,7 @@ export default function InstitutionDrilldownStatsCard({
                         nameKey="name"
                         startAngle={90}
                         endAngle={-270}
-                        cx="63%"
+                        cx="50%"
                         cy="50%"
                         innerRadius="54%"
                         outerRadius="80%"
@@ -1546,7 +1546,7 @@ export default function InstitutionDrilldownStatsCard({
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
-                      left: "63%",
+                      left: "50%",
                       top: "50%",
                       transform: "translate(-50%, -50%)",
                     }}
