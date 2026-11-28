@@ -72,7 +72,7 @@ const EMPTY_DASHBOARD = {
   invitations: { pending: 0, recent: [] },
 }
 
-const RETIRED_TILES = new Set(["ent-completion-distribution"])
+const RETIRED_TILES = new Set(["ent-completion-distribution", "ent-members"])
 
 // This was the automatic grid used before the board had a purpose-built
 // institution preset. Treat it as a migration target, not a user customisation:
@@ -304,7 +304,7 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-seats",
         col: 3,
-        row: 1,
+        row: 2,
         x: 3,
         y: 0,
         element: (
@@ -362,7 +362,7 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-progress",
         col: 3,
-        row: 2,
+        row: 4,
         x: 0,
         y: 0,
         element: (
@@ -451,9 +451,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-key-figures",
         col: 6,
-        row: 1,
+        row: 2,
         x: 0,
-        y: 2,
+        y: 4,
         element: (
           <BentoTile col={6} row={1}>
             <DashboardCardHeader
@@ -499,9 +499,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-group-completion",
         col: 3,
-        row: 2,
+        row: 4,
         x: 0,
-        y: 3,
+        y: 6,
         element: (
           <BentoTile col={3} row={2}>
             <DashboardCardHeader
@@ -528,9 +528,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-activity-trend",
         col: 6,
-        row: 2,
+        row: 4,
         x: 0,
-        y: 5,
+        y: 10,
         element: (
           <BentoTile col={6} row={2}>
             <DashboardCardHeader
@@ -572,9 +572,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-member-table",
         col: 6,
-        row: 2,
+        row: 3,
         x: 0,
-        y: 7,
+        y: 14,
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -718,9 +718,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-invitations",
         col: 3,
-        row: 2,
+        row: 4,
         x: 3,
-        y: 3,
+        y: 6,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -779,9 +779,9 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-allocations",
         col: 3,
-        row: 1,
+        row: 2,
         x: 3,
-        y: 1,
+        y: 2,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
