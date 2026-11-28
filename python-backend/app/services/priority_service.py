@@ -68,7 +68,6 @@ ACTION = {
 def _clamp(value: float, low: float = 0.0, high: float = 100.0) -> float:
     return max(low, min(high, value))
 
-
 def classify_tag(
     score: float,
     mastery: float | None,

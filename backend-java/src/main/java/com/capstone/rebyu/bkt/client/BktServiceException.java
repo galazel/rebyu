@@ -6,7 +6,4 @@ public class BktServiceException extends RuntimeException {
         super(message, cause);
     }
 
-    public BktServiceException(String message) {
-        super(message);
-    }
 }

@@ -1,0 +1,383 @@
+================================================================================
+REBYU - BKT AND IRT
+Every formula, parameter and worked example
+================================================================================
+
+                        BKT                        IRT
+  Answers        Do you know THIS LESSON?   How able are you OVERALL?
+  Output         probability 0 to 1         theta, -3 to +3
+  Updated        per answer, per lesson     per answer, per attempt
+  Used for       study plan order,          picking the next question,
+                 weak topics, priorities    proficiency rating
+  File           python-backend/app/        backend-java/.../adaptive/
+                 services/bkt_math.py       engine/IrtModel.java
+
+
+================================================================================
+PART 1 - BKT (BAYESIAN KNOWLEDGE TRACING)
+================================================================================
+
+Corbett & Anderson (1995). Tracks the probability a learner knows one lesson.
+
+File: python-backend/app/services/bkt_math.py   ->  update_mastery()
+
+
+--------------------------------------------------------------------------------
+THE FOUR PARAMETERS
+--------------------------------------------------------------------------------
+
+  prior   0.30    assumed chance of knowing it before any evidence
+  guess   0.25    chance of answering RIGHT without knowing (4-option MCQ)
+  slip    0.10    chance of answering WRONG while knowing (misread, typo)
+  learn   0.08    chance of picking it up by attempting the question
+  forget  0.0     chance of losing it (unused)
+
+Defined in  python-backend/app/core/config.py:186  as fallback_*
+Mirrored in backend-java/.../adaptive/config/AdaptiveProperties.java
+
+guess and slip are the whole point. A right answer might be luck. A wrong
+answer might be carelessness. Without them the update would just be
+"right = up, wrong = down".
+
+
+--------------------------------------------------------------------------------
+STEP 1 - BAYES
+--------------------------------------------------------------------------------
+
+ANSWERED CORRECTLY
+
+                        p * (1 - slip)
+    posterior = -------------------------------------
+                 p * (1 - slip) + (1 - p) * guess
+
+    "Of all the ways you could have answered correctly,
+     what share involved actually knowing it?"
+
+
+ANSWERED WRONGLY
+
+                          p * slip
+    posterior = -------------------------------------
+                 p * slip + (1 - p) * (1 - guess)
+
+    "Of all the ways you could have got it wrong,
+     what share involved knowing it anyway?"
+
+
+--------------------------------------------------------------------------------
+STEP 2 - LEARNING
+--------------------------------------------------------------------------------
+
+    mastery_after = posterior * (1 - forget) + (1 - posterior) * learn
+
+Even a wrong answer nudges mastery up slightly, because attempting a question
+teaches you something.
+
+
+--------------------------------------------------------------------------------
+PARTIAL CREDIT
+--------------------------------------------------------------------------------
+
+    weight    = score, if given, else (1 if correct else 0)
+    posterior = weight * posterior_right + (1 - weight) * posterior_wrong
+
+A half-marked diagram is half the evidence of a right answer, instead of being
+rounded to one or the other. This matters for diagrams and code, which rarely
+score 0 or 100.
+
+
+--------------------------------------------------------------------------------
+ALSO COMPUTED
+--------------------------------------------------------------------------------
+
+    predicted_correct = p * (1 - slip) + (1 - p) * guess
+
+The model's prediction before it sees the answer.
+
+
+--------------------------------------------------------------------------------
+WORKED EXAMPLES - starting at p = 0.30
+--------------------------------------------------------------------------------
+
+CORRECT ANSWER
+
+    top       = 0.30 * 0.90 = 0.27
+    bottom    = 0.27 + (0.70 * 0.25) = 0.445
+    posterior = 0.27 / 0.445 = 0.61
+    mastery   = 0.61 + (0.39 * 0.08) = 0.64
+
+    0.30  ->  0.64
+
+
+WRONG ANSWER
+
+    top       = 0.30 * 0.10 = 0.03
+    bottom    = 0.03 + (0.70 * 0.75) = 0.555
+    posterior = 0.03 / 0.555 = 0.054
+    mastery   = 0.054 + (0.946 * 0.08) = 0.13
+
+    0.30  ->  0.13
+
+
+HALF MARKS (score = 0.5)
+
+    posterior = 0.5 * 0.61 + 0.5 * 0.054 = 0.33
+    mastery   = 0.33 + (0.67 * 0.08) = 0.38
+
+    0.30  ->  0.38
+
+
+A wrong answer moves mastery FURTHER than a right one. That is correct, not a
+bug: with a 25% guess rate one right answer is weak evidence, while with only a
+10% slip rate a wrong answer is strong evidence.
+
+
+--------------------------------------------------------------------------------
+MASTERY BANDS       python-backend/app/core/config.py:206
+--------------------------------------------------------------------------------
+
+    0.85 and above    mastered
+    0.70 and above    good
+    0.40 and above    developing
+    below 0.40        weak
+
+
+--------------------------------------------------------------------------------
+WHERE IT IS STORED
+--------------------------------------------------------------------------------
+
+python-backend/app/services/mastery_service.py
+
+One row per (learner, lesson) in bkt.learner_lesson_mastery, read with
+with_for_update() so two answers arriving at once cannot overwrite each other.
+
+
+================================================================================
+PART 2 - IRT (ITEM RESPONSE THEORY, 3PL)
+================================================================================
+
+Three-parameter logistic model with a Bayesian ability update.
+
+File: backend-java/src/main/java/com/capstone/rebyu/adaptive/engine/IrtModel.java
+
+
+--------------------------------------------------------------------------------
+THE ITEM PARAMETERS        record ItemParams(double a, double b, double c)
+--------------------------------------------------------------------------------
+
+  a    discrimination - how sharply the item separates strong from weak
+       range 0.2 to 4.0, default 1.0 (higher for critical-thinking items)
+
+  b    difficulty, on the same scale as theta
+       range -4.0 to 4.0
+            EASY     -1.5
+            AVERAGE   0.0
+            HARD     +1.5
+
+  c    guessing floor
+       range 0.0 to 0.5, default 0.0
+
+
+--------------------------------------------------------------------------------
+THE ABILITY SCALE
+--------------------------------------------------------------------------------
+
+    THETA_MIN       = -3.0
+    THETA_MAX       =  3.0
+    THETA_BASELINE  =  0.0     every learner starts here
+    PRIOR_SIGMA     =  1.7     starting uncertainty
+    MIN_SIGMA       =  0.75    uncertainty never drops below this
+
+
+--------------------------------------------------------------------------------
+FORMULA 1 - PROBABILITY OF A CORRECT ANSWER
+--------------------------------------------------------------------------------
+
+                                1
+    p = c + (1 - c) * ----------------------
+                       1 + e^(-a(theta - b))
+
+A logistic S-curve. Only theta - b matters: ability minus difficulty.
+
+    theta - b = -1.5   ->   p = 0.18
+    theta - b =  0.0   ->   p = 0.50
+    theta - b = +1.5   ->   p = 0.82
+
+
+--------------------------------------------------------------------------------
+FORMULA 2 - FISHER INFORMATION
+--------------------------------------------------------------------------------
+
+                      q     ( p - c )^2
+    information = a^2 * - * ( ------- )           where q = 1 - p
+                      p     ( 1 - c )
+
+INFORMATION PEAKS AT p = 0.5.
+
+A question the learner would get right half the time is maximally informative,
+because the outcome is genuinely uncertain. A question they would certainly
+pass, or certainly fail, tells us nothing.
+
+This is why the exam adapts: AdaptiveItemSelector serves the unseen item with
+the highest information at the learner's current theta.
+
+
+--------------------------------------------------------------------------------
+FORMULA 3 - THE ABILITY UPDATE
+--------------------------------------------------------------------------------
+
+    gradient = a * (u - p) * (p - c) / (p * (1 - c))
+
+               with c = 0 this is simply   a * (u - p)
+
+
+                      variance
+    gain     = --------------------------         variance = sigma^2
+                1 + variance * information
+
+
+    theta_new = clamp(theta + gain * gradient, -3, +3)
+
+
+                                1
+    sigma_new = max(0.75, sqrt( ------------------------- ))
+                                 1/variance + information
+
+
+THREE IDEAS
+
+    u - p      surprise. The learner scored u, the model expected p.
+               The bigger the gap, the bigger the move.
+
+    gain       how far to move. High while uncertainty is high,
+               shrinking as sigma falls.
+
+    sigma      uncertainty. Only ever decreases, floored at 0.75 so the
+               model never stops responding to new evidence.
+
+
+--------------------------------------------------------------------------------
+FORMULA 4 - STANDARD ERROR ACROSS A WHOLE ATTEMPT
+--------------------------------------------------------------------------------
+
+              1
+    total = ------- + sum of information(theta, item) for every item
+             1.7^2
+
+                             1
+    SE    = max(0.75, ---------------- )
+                       sqrt(total)
+
+
+--------------------------------------------------------------------------------
+PROFICIENCY RATING - what the learner sees
+--------------------------------------------------------------------------------
+
+    rating = ((theta - THETA_MIN) / (THETA_MAX - THETA_MIN)) * 100
+           = ((theta + 3) / 6) * 100
+
+    theta -3.0   ->   rating 0     Novice
+    theta -1.5   ->   rating 25    Developing
+    theta  0.0   ->   rating 50    Proficient   <- the pass line
+    theta +1.5   ->   rating 75    Advanced
+    theta +3.0   ->   rating 100   Advanced
+
+    rating 75 and above   Advanced
+    rating 50 and above   Proficient
+    rating 25 and above   Developing
+    below 25              Novice
+
+A FORFEITED attempt returns 0, whatever theta said while it was running.
+A NON-ADAPTIVE attempt (diagnostic, mock) has no proficiency rating at all,
+only a percentage.
+
+
+--------------------------------------------------------------------------------
+WORKED EXAMPLE - one question from theta = 0
+--------------------------------------------------------------------------------
+
+    QUESTION             p        information    theta becomes
+    ----------------------------------------------------------
+    Average, correct     0.500      0.250           +0.839
+    Hard, correct        0.182      0.149           +1.651
+    Easy, wrong          0.818      0.149           -1.651
+
+A SURPRISING answer moves theta roughly twice as far as an expected one.
+
+
+--------------------------------------------------------------------------------
+WORKED EXAMPLE - five correct average answers in a row
+--------------------------------------------------------------------------------
+
+    answer 1:    theta +0.839    sigma 1.295    rating 64
+    answer 2:    theta +1.213    sigma 1.113    rating 70
+    answer 3:    theta +1.446    sigma 1.008    rating 74
+    answer 4:    theta +1.614    sigma 0.938    rating 77
+    answer 5:    theta +1.744    sigma 0.885    rating 79
+
+The steps shrink:  +0.84,  +0.37,  +0.23,  +0.17,  +0.13
+
+As sigma falls, gain falls with it, so the estimate converges instead of
+running away.
+
+
+================================================================================
+PART 3 - HOW THE TWO MEET
+================================================================================
+
+    learner answers a question
+            |
+            +---> IRT    updates theta for this attempt      (Java, instant)
+            |            -> picks the next question
+            |            -> proficiency rating at the end
+            |
+            +---> BKT    outbox event -> Python service      (background)
+                         -> updates mastery for that lesson
+                         -> feeds study plan order, priorities, readiness
+
+
+IRT is synchronous because the next question depends on it.
+
+BKT travels through a transactional outbox (bkt_event_outbox) so a slow or
+unavailable Python service never blocks a learner's submit, and no mastery
+update is ever lost.
+
+Both sides use the same parameter defaults: Java's AdaptiveProperties and
+Python's fallback_* settings hold identical values.
+
+
+================================================================================
+LIKELY PANEL QUESTIONS
+================================================================================
+
+Q: Why two models?
+A: They answer different questions. BKT is per-lesson and durable - it tells
+   the study plan which topics are weak. IRT is per-attempt and momentary - it
+   tells the engine which question to serve next and produces the proficiency
+   rating.
+
+Q: Why not a simple percentage score?
+A: Because the quiz adapts. Scoring 50% on hard items and 50% on easy items are
+   not the same achievement, and a raw percentage cannot tell them apart. Theta
+   accounts for the difficulty of the items actually served.
+
+Q: Why does a wrong answer hurt more than a right answer helps in BKT?
+A: Because guess (0.25) is larger than slip (0.10). A right answer could be a
+   lucky guess; a wrong answer is much less likely to be a slip, so it is
+   stronger evidence.
+
+Q: What stops theta running away?
+A: Gain falls as sigma falls, so each answer moves theta less than the last,
+   and theta is clamped to plus or minus 3. Sigma is floored at 0.75 so the
+   model never becomes so confident that it stops responding.
+
+Q: What about partially correct answers?
+A: BKT blends the two posteriors by the score. IRT takes u as a 0-to-1 score
+   rather than a boolean. Both handle a diagram marked 7 out of 10 without
+   rounding it.
+
+Q: Are the parameters fitted per lesson?
+A: Not currently. BktParameterProvider always returns the defaults. Per-lesson
+   parameter fitting is built but switched off.
+
+================================================================================

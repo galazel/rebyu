@@ -230,6 +230,7 @@
     <li><a href="#db">Database &amp; schema</a></li>
     <li><a href="#algo">The algorithms</a></li>
     <li><a href="#flow">End-to-end data flow</a></li>
+    <li><a href="#deepdive">How each feature works</a></li>
     <li><a href="#questions">Likely panel questions</a></li>
   </ol>
 </div>
@@ -661,7 +662,88 @@ return min(mastery, accuracy + 0.35)   # cap what we *claim*</code></pre>
 <p>If Spring called Python directly while saving the answer and Python were down, the learner's answer could be lost or the request would hang. Instead the event is written to a database table <em>in the same transaction</em> as the answer. A separate dispatcher reads that table and forwards it.</p>
 <p>So the learner's answer is never at risk from an AI-service outage; the mastery update simply catches up afterwards. That is the <strong>transactional outbox pattern</strong>.</p>
 
-<h2 id="questions"><span class="num">10</span>Likely panel questions</h2>
+<h2 id="deepdive"><span class="num">10</span>How each feature works</h2>
+<p class="sub">The learner-facing features, with the file to open for each and the rule that decides the number on screen. Java paths are shortened from <code>backend-java/src/main/java/com/capstone/rebyu/</code>.</p>
+
+<h3>Study plan and calendar</h3>
+<p>The one worth understanding properly, because the obvious answer is wrong: <strong>the AI does not build the calendar.</strong></p>
+<div class="tablewrap"><table>
+  <tr><th>Job</th><th>Who</th><th>File</th></tr>
+  <tr><td>Read the learner's free-text note into rules</td><td>AI, Python</td><td><code>app/services/ai/study_plan_note.py</code></td></tr>
+  <tr><td>Discard rules the plan can't honour</td><td>Python</td><td><code>app/schemas/learning/study_plan_note_schema.py</code> → <code>constrain()</code></td></tr>
+  <tr><td><strong>Build the calendar</strong></td><td><strong>Deterministic JS</strong></td><td><code>frontend/src/lib/study-plan-events.js</code> → <code>planStudy()</code></td></tr>
+  <tr><td>Store the result</td><td>Java</td><td><code>gamification/service/StudyPlanService.java</code></td></tr>
+</table></div>
+<p>The AI returns only <code>days</code>, <code>time</code>, <code>shortSessions</code>, <code>noCatchUp</code>, <code>maxLessonsPerDay</code>, <code>skipDates</code> and <code>priorityTopics</code> — settings the planner already accepts. Its system prompt says <em>"You never invent a rule the note does not ask for."</em></p>
+<p>Then <code>constrain()</code> checks it: a skip date before today or after the exam is dropped, and a priority topic that isn't in the real curriculum is discarded. <strong>The prompt asks the model to behave; the schema makes sure it did.</strong></p>
+<pre><code>lessonsPerDay = min(maxLessonsPerDay, max(1, ceil(lessonsLeft / paceDays)))
+
+FINAL_MOCK_DAYS_OUT = 5                  // final mock, 5 days before the exam
+queueIndex >= ceil(toStudy.length / 2)   // midpoint mock, halfway through
+dayIndex - lastMockDay >= 7              // then weekly during consolidation</code></pre>
+<p>If the AI is unavailable the route returns 503, the note simply isn't parsed, and the plan still builds from the form. The learner loses a convenience, not their schedule.</p>
+
+<h3>Chance of passing</h3>
+<p><code>python-backend/app/services/readiness_service.py</code>. A weighted average of eight signals, each 0–100:</p>
+<pre><code>readiness = Σ(score × weight) / Σ(weight)</code></pre>
+<div class="tablewrap"><table>
+  <tr><th>Signal</th><th>Weight</th><th>Signal</th><th>Weight</th></tr>
+  <tr><td><strong>Mock exam</strong></td><td><strong>0.60</strong></td><td>Major exam</td><td>0.05</td></tr>
+  <tr><td>Mastery (avg BKT)</td><td>0.13</td><td>Middle exam</td><td>0.05</td></tr>
+  <tr><td>Lesson progress</td><td>0.07</td><td>Diagnostic</td><td>0.02</td></tr>
+  <tr><td>Lesson quiz</td><td>0.07</td><td>Streak</td><td>0.01</td></tr>
+</table></div>
+<p>Bands: <strong>≥85</strong> exam_ready, <strong>≥70</strong> nearly_ready, <strong>≥50</strong> developing, else needs_review.</p>
+<div class="callout"><strong>Why a working learner can still read 5%.</strong>
+<p><code>effective = 0.0 if score is None else float(score)</code> — a missing signal scores zero rather than being excluded. Mock exam is 60% of the total, so a learner who has never sat one cannot exceed 40%. That is defensible (you are not exam-ready without a mock) but it is a choice, and the priority engine below makes the opposite one. Know both.</p></div>
+<p>It is dividing by the sum of the weights, currently 1.00, so you can retune one <code>READINESS_*</code> value in <code>.env</code> without rebalancing the other seven. Nothing is stored: the number is recomputed on every page load.</p>
+
+<h3>Study this first</h3>
+<p><code>python-backend/app/services/priority_service.py</code>. Per lesson, from up to five weighted parts:</p>
+<div class="tablewrap"><table>
+  <tr><th>Component</th><th>Weight</th><th>Counted when</th></tr>
+  <tr><td>Mastery weakness <code>(1 − mastery) × 100</code></td><td>0.45</td><td>always</td></tr>
+  <tr><td>Incorrect rate</td><td>0.20</td><td>there is evidence</td></tr>
+  <tr><td>Mock-exam weakness</td><td>0.10</td><td>last assessment was a mock</td></tr>
+  <tr><td>Diagnostic weakness</td><td>0.10</td><td>last was the diagnostic</td></tr>
+  <tr><td>Review urgency</td><td>0.05</td><td>there is a timestamp</td></tr>
+</table></div>
+<p><strong>Unlike readiness, this divides by the weights actually present</strong>, so a lesson is never punished for having no mock score. Below <code>priority_min_evidence</code> it is tagged NEEDS_REASSESSMENT instead of guessed at.</p>
+
+<h3>Mistake bank</h3>
+<p><code>learningtools/service/LearnerToolsService.java</code> → <code>mistakes()</code>. <strong>Mistakes are not a table.</strong> They are a raw-SQL query over <code>assessment_attempt_answers</code> where the answer was wrong, joined to questions, choices, lessons and certifications, grouped per question.</p>
+<p><code>learner_mistake_reviews</code> stores exactly one thing: which questions the learner marked as learned. That is what separates the tabs — <em>To review</em> is "not in that table", <em>Learned</em> is "in it", and <em>Missed twice+</em> is <code>mistakeCount >= 2</code>.</p>
+
+<h3>AI usage</h3>
+<p><code>billing/entity/AiGenerationUsage.java</code>, limits in <code>billing/service/LearnerEntitlementService.java</code>.</p>
+<p>One row per AI call, carrying <code>learner_id</code>, <code>kind</code> and <code>usage_date</code>. Counting today's rows gives "0 of 50"; counting the week gives "0 of 250". The <code>provider_conversation_id</code> and <code>provider_verified</code> columns tie a live-tutor row back to the real provider conversation, so a charge can be verified rather than trusted.</p>
+<p>The limits are <strong>not hardcoded</strong>: <code>dailyGenerationLimit()</code> reads <code>plan_entitlements</code>, so an admin can change them per plan, or override one learner.</p>
+
+<h3>Challenges — CodeStrike and Blueprint Arena</h3>
+<p>Correctness is judged differently for each, then both run through the same scorer.</p>
+<div class="tablewrap"><table>
+  <tr><th>Arena</th><th>How correctness is decided</th><th>File</th></tr>
+  <tr><td>CodeStrike</td><td>one run, no stdin, output compared to the stored <code>expected_output</code></td><td><code>execution/service/CodeExecutionService.java</code> (Judge0)</td></tr>
+  <tr><td>Blueprint</td><td>the learner's graph compared with the question's reference diagram</td><td><code>diagram/service/DiagramGradingService.java</code></td></tr>
+</table></div>
+<p>Diagram grading is per element, against named checks — <code>drawn</code>, <code>name</code>, <code>shape</code>, <code>kind</code>, <code>direction</code>, <code>label</code>, <code>multiplicity</code>, <code>order</code>, <code>placement</code>, <code>provider</code>, <code>key</code> — and each returns a <em>reason</em>, which is how the result page explains why a part lost marks. An element only counts in the right kind of shape: a class drawn as plain lines is not correct.</p>
+<p>Then <code>challenge/service/ArenaScoring.java</code>:</p>
+<pre><code>fraction = (wCorrect × correctness
+          + (wSpeed × speed + wEfficiency × efficiency) × correctness) / wTotal
+
+speed:      finish within half the allowed time → 1, then falls linearly
+efficiency: run under 250 ms → 1, scaling to 0 at 5000 ms   (CodeStrike only)</code></pre>
+<div class="callout"><strong>The detail to point at.</strong>
+<p>Speed and efficiency are both <em>multiplied by correctness</em>. A wrong answer earns nothing however fast it was, and a brute-force solution that passes still scores below an efficient one. The weights come from <code>challenge_arena_configs</code>, so they are tunable per arena without a code change.</p></div>
+
+<h3>Streak and level</h3>
+<p>Streak: <code>gamification/service/StreakService.java</code>, tables <code>streak</code> and <code>user_activity_days</code>. Activity is recorded with <code>insert ... on conflict do nothing</code> against a unique <code>(user_id, activity_date)</code>, so every request can fire it and only the first each day writes.</p>
+<p>Level: <code>gamification/service/CertificationReviewLevelService.java</code>. Twenty ranks from Newcomer to Legendary Scholar, 0 to 22,000 XP. <strong>The level is never stored</strong> — it is derived by walking the ladder against <code>learner_reward_balances</code>, so editing a threshold re-levels everyone instantly with nothing to migrate.</p>
+
+<h3>Exam countdown</h3>
+<p>No backend call at all: <code>exam_date − today</code>, computed in the browser from the saved plan.</p>
+
+<h2 id="questions"><span class="num">11</span>Likely panel questions</h2>
 <p class="sub">Open each one and say the answer out loud. Speaking it is what makes it stick.</p>
 
 <details class="qa"><summary>Walk us through your system architecture.</summary>
