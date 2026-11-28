@@ -54,7 +54,7 @@ export const INSTITUTION_PRESET = [
   { id: "ent-group-completion", x: 0, y: 3, w: 3, h: 2 },
   { id: "ent-invitations", x: 3, y: 3, w: 3, h: 2 },
   { id: "ent-activity-trend", x: 0, y: 5, w: 6, h: 2 },
-  { id: "ent-member-table", x: 0, y: 7, w: 6, h: 3 },
+  { id: "ent-member-table", x: 0, y: 7, w: 6, h: 2 },
 ]
 
 export const INSTITUTION_TILE_LABELS = {

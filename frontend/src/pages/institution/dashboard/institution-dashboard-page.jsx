@@ -572,7 +572,7 @@ export default function InstitutionDashboardPage() {
       {
         id: "ent-member-table",
         col: 6,
-        row: 3,
+        row: 2,
         x: 0,
         y: 7,
         element: (
