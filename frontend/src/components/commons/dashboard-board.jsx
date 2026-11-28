@@ -261,9 +261,21 @@ export function DashboardBoard({
   // and feeding that back in snapped cards back mid-edit. Remounting the grid after
   // every drop papered over it but redrew every card -- the flicker. Cleared on exit.
   const [draft, setDraft] = useState(null)
+  const lastEmittedKeyRef = useRef(null)
   useEffect(() => {
-    if (!editing) setDraft(null)
+    if (!editing) {
+      setDraft(null)
+      lastEmittedKeyRef.current = null
+    }
   }, [editing])
+  useEffect(() => {
+    if (!editing) return
+    // Clear stale draft when the parent resets or replaces the layout externally.
+    if (lastEmittedKeyRef.current !== null && layoutKey !== lastEmittedKeyRef.current) {
+      setDraft(null)
+      lastEmittedKeyRef.current = null
+    }
+  }, [editing, layoutKey])
   useLayoutEffect(() => {
     if (editing) return
     const grid = viewGridRef.current
@@ -450,20 +462,21 @@ export function DashboardBoard({
       .sort((a, b) => b[1] - a[1])
       .find(([, min]) => width >= min)?.[0]
     const next = gridUtils.compact(dropped, "vertical", COLS[cols] ?? COLS.lg)
-    setDraft(next.map((item) => ({ i: item.i, id: item.i, x: item.x, y: item.y, w: item.w, h: item.h })))
-    onLayoutChange?.(
-      next.map((item) => {
-        const isCollapsed = Boolean(collapsedTiles[item.i])
-        const tile = byId.get(item.i)
-        return {
-          id: item.i,
-          x: item.x,
-          y: item.y,
-          w: item.w,
-          h: isCollapsed ? (tile?.row ?? 4) : item.h,
-        }
-      })
-    )
+    const nextDraft = next.map((item) => ({ i: item.i, id: item.i, x: item.x, y: item.y, w: item.w, h: item.h }))
+    const emitted = next.map((item) => {
+      const isCollapsed = Boolean(collapsedTiles[item.i])
+      const tile = byId.get(item.i)
+      return {
+        id: item.i,
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: isCollapsed ? (tile?.row ?? 4) : item.h,
+      }
+    })
+    lastEmittedKeyRef.current = JSON.stringify(emitted)
+    setDraft(nextDraft)
+    onLayoutChange?.(emitted)
   }
 
   // In normal view mode: render a clean CSS grid so collapsed tiles are naturally compact
@@ -571,10 +584,8 @@ export function DashboardBoard({
         // Bottom edge (taller), right edge (wider) and the corner (both): one 20px
         // corner alone was too small to find.
         resizeHandles={["s", "e", "se"]}
-        // No auto-packing: a card stays exactly where it is dropped and the cards it
-        // lands on move down. Vertical packing sent a card dropped beside a card of
-        // the same row back below it, so the top row could never be rearranged.
-        compactType={null}
+        useCSSTransforms={true}
+        compactType="vertical"
         preventCollision={false}
         allowOverlap={false}
         onDragStop={handleLayoutChange}

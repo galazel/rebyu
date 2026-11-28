@@ -887,98 +887,100 @@ export default function InstitutionDashboardPage() {
     )
   }
 
+  const dashboardActions = (
+    <>
+      <InstitutionVerifiedBadge verified={institution.isVerified} />
+      <ExportButton
+        filename="rebyu-institution-dashboard"
+        report="Institution dashboard"
+        details={[["Institution", institution.institutionName], ["Period", from || to ? `${from ?? "start"} to ${to ?? "today"}` : "All time"]]}
+        disabled={dashboardQuery.isLoading || dashboardQuery.isError}
+        sections={() => [
+          {
+            title: "Institution summary",
+            columns: ["Measure", "Value", "Definition"],
+            rows: [
+              ["People with access", summary.learners, "Distinct learners with an active or completed certification enrollment"],
+              ["Active learners in this period", summary.activeLearners, "Distinct learners who completed a lesson or graded assessment in the selected period"],
+              ["Active certification enrollments", summary.enrollments, "A learner appears once for every active or completed certification enrollment"],
+              ["Average completion (%)", summary.averageProgress, "Average progress across certification enrollments"],
+              ["Completed enrollments", summary.completed, "Certification enrollments marked complete"],
+              ["In-progress enrollments", summary.inProgress, "Active certification enrollments with progress"],
+              ["Not-started enrollments", summary.notStarted, "Active certification enrollments with no progress"],
+              ["Learners needing a check-in", summary.needingSupport, "Distinct learners at risk, inactive, or not started"],
+              ["Graded attempts", summary.gradedAttempts, "Submitted assessments in the selected period"],
+              ["Attempt pass rate (%)", summary.passRate, "Passed submitted assessments divided by all submitted assessments"],
+              ["Attempt average score (%)", summary.averageScore, "Average score across submitted assessments"],
+              ["Lessons completed", summary.lessonsCompleted, "Lessons completed in the selected period"],
+              ["Licensed seats used", summary.seatsUsed, "Seats taken on active certifications: enrolled learners plus seats held by pending invitations"],
+              ["Seats held by pending invitations", pendingCertificationInvitations, "Certification invitations sent but not yet accepted; each holds one seat until accepted or expired"],
+              ["Licensed seats available", summary.seatsTotal, "Active certification seats available to the institution"],
+            ],
+          },
+          {
+            title: "Certification capacity",
+            columns: ["Certification", "Status", "Seats used (incl. pending invitations)", "Seats available", "Access starts", "Access ends", "Department seats assigned"],
+            rows: certifications.map((cert) => [
+              cert.title, cert.status, cert.seatsUsed, cert.totalSlots, cert.accessStartDate, cert.accessExpiryDate, cert.departmentSlots,
+            ]),
+          },
+          {
+            title: "Department performance",
+            columns: ["Department", "Certification enrollments", "Average completion (%)", "Completed", "In progress", "Not started", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)"],
+            rows: departmentRows.map((department) => [
+              department.name, department.enrolled, department.averageProgress, department.completed, department.inProgress,
+              department.notStarted, department.lessonsCompleted, department.gradedAttempts, department.passRate, department.averageScore,
+            ]),
+          },
+          {
+            title: "Learner certification enrollments",
+            columns: ["Learner", "Certification", "Department", "Enrollment status", "Completion (%)", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)", "Last activity"],
+            rows: enrollments.map((enrollment) => [
+              enrollment.name, enrollment.certificationTitle, enrollment.departmentName ?? "Not in a department", enrollment.status,
+              enrollment.progress, enrollment.lessonsCompleted, enrollment.gradedAttempts, enrollment.passRate, enrollment.averageScore,
+              enrollment.lastActivityAt ?? "Never",
+            ]),
+          },
+          {
+            title: "Activity over time",
+            columns: ["Period", "Active learners", "Graded attempts", "Lessons completed"],
+            rows: (dashboard.trend ?? []).map((point) => [point.bucket, point.activeLearners, point.gradedAttempts, point.lessonsCompleted]),
+          },
+          {
+            title: "Recent learner invitations (grouped by learner)",
+            columns: ["Email", "Certification invitations", "Latest invitation status", "Latest invitation sent"],
+            rows: recentInvitations.map((invitation) => [
+              invitation.email, invitation.certificationCount, invitation.status, invitation.sentAt,
+            ]),
+          },
+        ]}
+      />
+    </>
+  )
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 -mt-6 sm:-mt-8 pt-2">
       <InstitutionPageHeader
         title={institution.institutionName}
         subtitle="How your members are progressing across their assigned certifications."
-        actions={
-          <div className="flex items-center gap-2">
-            <InstitutionVerifiedBadge verified={institution.isVerified} />
-            <ExportButton
-              filename="rebyu-institution-dashboard"
-              report="Institution dashboard"
-              details={[["Institution", institution.institutionName], ["Period", from || to ? `${from ?? "start"} to ${to ?? "today"}` : "All time"]]}
-              disabled={dashboardQuery.isLoading || dashboardQuery.isError}
-              sections={() => [
-                {
-                  title: "Institution summary",
-                  columns: ["Measure", "Value", "Definition"],
-                  rows: [
-                    ["People with access", summary.learners, "Distinct learners with an active or completed certification enrollment"],
-                    ["Active learners in this period", summary.activeLearners, "Distinct learners who completed a lesson or graded assessment in the selected period"],
-                    ["Active certification enrollments", summary.enrollments, "A learner appears once for every active or completed certification enrollment"],
-                    ["Average completion (%)", summary.averageProgress, "Average progress across certification enrollments"],
-                    ["Completed enrollments", summary.completed, "Certification enrollments marked complete"],
-                    ["In-progress enrollments", summary.inProgress, "Active certification enrollments with progress"],
-                    ["Not-started enrollments", summary.notStarted, "Active certification enrollments with no progress"],
-                    ["Learners needing a check-in", summary.needingSupport, "Distinct learners at risk, inactive, or not started"],
-                    ["Graded attempts", summary.gradedAttempts, "Submitted assessments in the selected period"],
-                    ["Attempt pass rate (%)", summary.passRate, "Passed submitted assessments divided by all submitted assessments"],
-                    ["Attempt average score (%)", summary.averageScore, "Average score across submitted assessments"],
-                    ["Lessons completed", summary.lessonsCompleted, "Lessons completed in the selected period"],
-                    ["Licensed seats used", summary.seatsUsed, "Seats taken on active certifications: enrolled learners plus seats held by pending invitations"],
-                    ["Seats held by pending invitations", pendingCertificationInvitations, "Certification invitations sent but not yet accepted; each holds one seat until accepted or expired"],
-                    ["Licensed seats available", summary.seatsTotal, "Active certification seats available to the institution"],
-                  ],
-                },
-                {
-                  title: "Certification capacity",
-                  columns: ["Certification", "Status", "Seats used (incl. pending invitations)", "Seats available", "Access starts", "Access ends", "Department seats assigned"],
-                  rows: certifications.map((cert) => [
-                    cert.title, cert.status, cert.seatsUsed, cert.totalSlots, cert.accessStartDate, cert.accessExpiryDate, cert.departmentSlots,
-                  ]),
-                },
-                {
-                  title: "Department performance",
-                  columns: ["Department", "Certification enrollments", "Average completion (%)", "Completed", "In progress", "Not started", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)"],
-                  rows: departmentRows.map((department) => [
-                    department.name, department.enrolled, department.averageProgress, department.completed, department.inProgress,
-                    department.notStarted, department.lessonsCompleted, department.gradedAttempts, department.passRate, department.averageScore,
-                  ]),
-                },
-                {
-                  title: "Learner certification enrollments",
-                  columns: ["Learner", "Certification", "Department", "Enrollment status", "Completion (%)", "Lessons completed", "Graded attempts", "Attempt pass rate (%)", "Attempt average score (%)", "Last activity"],
-                  rows: enrollments.map((enrollment) => [
-                    enrollment.name, enrollment.certificationTitle, enrollment.departmentName ?? "Not in a department", enrollment.status,
-                    enrollment.progress, enrollment.lessonsCompleted, enrollment.gradedAttempts, enrollment.passRate, enrollment.averageScore,
-                    enrollment.lastActivityAt ?? "Never",
-                  ]),
-                },
-                {
-                  title: "Activity over time",
-                  columns: ["Period", "Active learners", "Graded attempts", "Lessons completed"],
-                  rows: (dashboard.trend ?? []).map((point) => [point.bucket, point.activeLearners, point.gradedAttempts, point.lessonsCompleted]),
-                },
-                {
-                  title: "Recent learner invitations (grouped by learner)",
-                  columns: ["Email", "Certification invitations", "Latest invitation status", "Latest invitation sent"],
-                  rows: recentInvitations.map((invitation) => [
-                    invitation.email, invitation.certificationCount, invitation.status, invitation.sentAt,
-                  ]),
-                },
-              ]}
-            />
-          </div>
-        }
       />
 
       {dashboardQuery.isError ? (
         <InstitutionErrorState onRetry={dashboardQuery.refetch} />
       ) : (
         <>
-          <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
+          <div className="relative z-30 !mt-0 flex flex-wrap items-center justify-between gap-4 mb-2.5">
             <div className="w-full md:w-[calc(50%-10px)]">
               <DateRangeNavigator className="w-full" onRangeChange={handleRangeChange} />
             </div>
 
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex flex-wrap items-center gap-2 sm:gap-3">
               {dashboardQuery.isFetching ? (
                 <span className="text-xs font-semibold text-muted-foreground" role="status">
                   Updating…
                 </span>
               ) : null}
+              {dashboardActions}
               <DashboardRearrangeControls
                 rearranging={layout.rearranging}
                 onStart={layout.startRearranging}
